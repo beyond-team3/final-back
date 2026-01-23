@@ -1,1 +1,23 @@
 # final-back
+## Commit Convention
+[리니어ID] type(scope): subject
+
+### type
+- feat     : 새로운 기능 추가
+- fix      : 버그 수정
+- refactor : 기능 변화 없는 코드 구조 개선
+- docs     : 문서 수정
+- test     : 테스트 코드 추가/수정
+- chore    : 빌드, 설정, 기타 작업
+
+### scope
+- 변경된 기능 및 분야
+- 예: login, transaction, cashflow, readme
+
+### subject
+- 변경 내용을 간결하게 작성
+- 예: controller 초안 작성
+
+### example
+> BAC-13 feat(user): AuthController 메소드 추가
+
