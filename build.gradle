@@ -9,10 +9,8 @@ version = '0.0.1-SNAPSHOT'
 description = 'monsoon-backend'
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+    sourceCompatibility = '21'
     }
-}
 
 configurations {
     compileOnly {

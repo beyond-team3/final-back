@@ -1,10 +1,10 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL # MySQL ??? ???? ??
+    url: jdbc:h2:mem:testdb;MODE=MySQL # MySQL 모드로 동작하게 설정
     driver-class-name: org.h2.Driver
     username: sa
     password:
   jpa:
     hibernate:
-      ddl-auto: create-drop # ??? ?? ? ??, ?? ? ??
-    show-sql: true # ??? ???? ?? ???
+      ddl-auto: create-drop # 테스트 시작 시 생성, 종료 시 삭제
+    show-sql: true # 젠킨스 로그에서 쿼리 확인용
