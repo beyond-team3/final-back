@@ -7,7 +7,7 @@ pipeline {
 
 	environment {
 		DOCKER_CREDENTIAL_ID = 'docker-hub-id'
-		DISCORD_WEBHOOK = credentials('DISCORD_WEBHOOK')
+		DISCORD_WEBHOOK = credentials('discord-webhook-url')
 		IMAGE_NAME = '21monsoon/monsoon-backend'
 
 		//version
