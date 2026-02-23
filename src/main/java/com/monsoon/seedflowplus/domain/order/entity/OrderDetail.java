@@ -1,40 +1,29 @@
 package com.monsoon.seedflowplus.domain.order.entity;
 
-import jakarta.persistence.*;
+
+import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
 
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "tbl_order_header")
-public class OrderDetail {
+@Table(name = "tbl_order_detail")
+public class OrderDetail extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_id", nullable = false)
     private Long orderId;
 
-    //@ManyToOne(fetch = FetchType.LAZY)
-    //@JoinColumn(name = "contract_id")
+    @Column(name = "contract_detail_pk", nullable = false)
+    private Long contractDetailPk;
+
     @Column(name = "contract_id", nullable = false)
-    private Long contractId;        //private Contract contract;
+    private Long contractId;
 
-    //@ManyToOne(fetch = FetchType.LAZY)
-    //@JoinColumn(name = "client_id")
-    @Column(name = "client_id", nullable = false)
-    private Long clientId;      //private Client client;
-
-    //@ManyToOne(fetch = FetchType.LAZY)
-    //@JoinColumn(name = "employee_id")
-    @Column
-    private Long employeeId;    //private Employee employee;
-
-    @Column
-    private BigDecimal totalAmount;
-
-    @Column
-    private OrderStatus status;
-
-    /*public static OrderHeader create(Long)*/
+    @Column(name = "quantity", nullable = false)
+    private Long quantity;
 }
