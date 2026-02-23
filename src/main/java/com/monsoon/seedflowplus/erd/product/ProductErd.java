@@ -1,51 +1,60 @@
 package com.monsoon.seedflowplus.erd.product;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import java.time.LocalDateTime;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
+import jakarta.persistence.*;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+
+import lombok.*;
+
 @Entity
-@Table(name = "tbl_product")
-public class ProductErd {
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "tbl_product") // 명세서의 테이블명 반영
+public class ProductErd extends BaseModifyEntity {
 
     @Id
-    @Column(name = "product_id")
-    private Long productId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long productId; // 상품pk
 
-    @Column(name = "product_name", nullable = false)
-    private String productName;
+    @Column(nullable = false, length = 50)
+    private String productCode; // 상품코드
 
-    @Column(name = "crop")
-    private String crop;
+    @Column(nullable = false, length = 100)
+    private String productName; // 상품명
 
-    @Column(name = "character", length = 10)
-    private String character;
+    @Column(nullable = false, length = 50)
+    private String productCategory; // 상품 카테고리 (명세서 기준)
 
-    @Column(name = "product_image_url")
-    private String productImageUrl;
+    @Column(columnDefinition = "TEXT")
+    private String productDescription; // 상품 설명
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private String productImageUrl; // 상품이미지url
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(nullable = false)
+    private Integer amount; // 수량
 
-    @Column(name = "status")
-    private String status;
+    @Column(nullable = false, length = 20)
+    private String unit; // 단위 (예: kg, 박스 등)
 
-    @Column(name = "stock")
-    private Integer stock;
+    @Column(nullable = false)
+    private Integer price; // 단가
 
-    @Column(name = "money")
-    private Long money;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ProductStatus status; // 상태 (판매중, 중단 등)
+
+    @Builder
+    public ProductErd(String productCode, String productName, String productCategory,
+                   String productDescription, String productImageUrl, Integer amount,
+                   String unit, Integer price, ProductStatus status) {
+        this.productCode = productCode;
+        this.productName = productName;
+        this.productCategory = productCategory;
+        this.productDescription = productDescription;
+        this.productImageUrl = productImageUrl;
+        this.amount = amount;
+        this.unit = unit;
+        this.price = price;
+        this.status = status;
+    }
 }
