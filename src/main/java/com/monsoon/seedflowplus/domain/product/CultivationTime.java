@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.product;
 
+import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -17,7 +18,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "tbl_cultivation_time")
-public class CultivationTime {
+public class CultivationTime extends BaseModifyEntity {
 
     @Id
     @Column(name = "cultivation_time_id")
@@ -43,13 +44,4 @@ public class CultivationTime {
 
     @Column(name = "harvesting_end")
     private Integer harvestingEnd;
-
-    @CreatedDate
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "modified_at")
-    private LocalDateTime modifiedAt;
-
 }
