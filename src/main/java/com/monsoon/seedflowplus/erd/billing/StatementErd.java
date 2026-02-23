@@ -1,5 +1,6 @@
-package com.monsoon.seedflowplus.erd;
+package com.monsoon.seedflowplus.erd.billing;
 
+import com.monsoon.seedflowplus.erd.order.OrderHeaderErd;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd;
+package com.monsoon.seedflowplus.erd.account;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,5 +1,7 @@
-package com.monsoon.seedflowplus.erd;
+package com.monsoon.seedflowplus.erd.request;
 
+import com.monsoon.seedflowplus.erd.account.EmployeeErd;
+import com.monsoon.seedflowplus.erd.client.ClientErd;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
