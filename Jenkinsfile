@@ -21,6 +21,14 @@ pipeline {
 			}
 		}
 
+		stage('Setup Config') {
+            steps {
+                configFileProvider([configFile(fileId: 'monsoon-prod-yml', targetLocation: 'src/main/resources/application-prod.yml')]) {
+                    echo 'Successfully injected application-prod.yml'
+                }
+            }
+        }
+
 		stage('Unit Test & Build') {
 			steps {
 				script {
