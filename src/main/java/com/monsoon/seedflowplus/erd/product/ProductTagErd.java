@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.erd.product;
 
+import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
