@@ -34,8 +34,8 @@ pipeline {
 				script {
 					echo 'Building and Testing with H2...'
 					sh 'chmod +x ./gradlew'
-					// Gradel 캐시 활용(첫번쨰 이후 빌드 및 테스트 빠른수행)
-					sh './gradlew clean build'
+					// prod 설정을 포함하여 빌드하도록 설정
+                    sh './gradlew clean build -Pprofile=prod'
 				}
 			}
 		}
