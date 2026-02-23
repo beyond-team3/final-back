@@ -1,10 +1,7 @@
 package com.monsoon.seedflowplus.domain.product;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,27 +18,21 @@ import java.time.LocalDateTime;
 public class CultivationTime extends BaseModifyEntity {
 
     @Id
-    @Column(name = "cultivation_time_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long cultivationTimeId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(nullable = false)
     private Long productId;
 
-    @Column(name = "sowing_start")
     private Integer sowingStart;
 
-    @Column(name = "sowing_end")
     private Integer sowingEnd;
 
-    @Column(name = "planting_start")
     private Integer plantingStart;
 
-    @Column(name = "planting_end")
     private Integer plantingEnd;
 
-    @Column(name = "harvesting_start")
     private Integer harvestingStart;
 
-    @Column(name = "harvesting_end")
     private Integer harvestingEnd;
 }
