@@ -28,7 +28,7 @@ public class Employee extends BaseModifyEntity {
     @Column(name = "address", nullable = false)
     private String address;
 
-    @Column(name = "account_id")
-    private Long accountId;
+    @OneToOne(mappedBy = "employee")
+    private User account;
 
 }
