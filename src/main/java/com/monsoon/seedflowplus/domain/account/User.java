@@ -35,7 +35,4 @@ public class User extends BaseModifyEntity {
     @JoinColumn(name = "client_code", referencedColumnName = "client_code")
     private Client client;
 
-    @Column(name = "account_id")
-    private Long accountId;
-
 }
