@@ -11,11 +11,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "tbl_tag")
+@AttributeOverride(name = "id", column = @Column(name = "tag_id"))
 public class Tag extends BaseCreateEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long tagId;
 
     @Column(nullable = false, length = 30)
     private String categoryCode; // 태그 분류(상품 카테고리 X)
