@@ -40,4 +40,18 @@ public class SalesBriefing extends BaseModifyEntity {
         this.strategySuggestion = strategySuggestion;
         this.version = version;
     }
+
+    /**
+     * [비즈니스 로직] 기존 브리핑 데이터 업데이트
+     * AI 재분석 결과가 나왔을 때 기존 엔티티의 상태를 변경합니다.
+     */
+    public void updateAnalysis(List<String> statusChange, List<String> longTermPattern, String strategySuggestion, String version) {
+        this.statusChange = statusChange;
+        this.longTermPattern = longTermPattern;
+        this.strategySuggestion = strategySuggestion;
+        this.version = version;
+
+        // 참고: BaseModifyEntity를 상속받았으므로,
+        // 영속성 컨텍스트에 의해 Dirty Checking이 발생하면 updatedAt은 자동으로 갱신됩니다.
+    }
 }
