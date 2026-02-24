@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.document.quotation;
+package com.monsoon.seedflowplus.domain.document.quotation.entity;
 
 public enum QuotationStatus {
     WAITING_ADMIN, // 관리자 승인 대기

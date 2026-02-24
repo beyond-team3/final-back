@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.document.contract;
+package com.monsoon.seedflowplus.domain.document.contract.entity;
 
 public enum BillingCycle {
     MONTHLY, // 매달

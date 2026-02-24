@@ -1,8 +1,8 @@
 package com.monsoon.seedflowplus.domain.sales.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
-import com.monsoon.seedflowplus.domain.account.Client;
-import com.monsoon.seedflowplus.domain.account.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.pipeline.enums.ActionType;
 import com.monsoon.seedflowplus.domain.pipeline.enums.PipelineStage;
 import com.monsoon.seedflowplus.domain.pipeline.enums.PipelineType;

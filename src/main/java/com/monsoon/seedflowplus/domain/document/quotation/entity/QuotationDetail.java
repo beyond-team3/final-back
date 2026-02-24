@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.document.quotation;
+package com.monsoon.seedflowplus.domain.document.quotation.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
