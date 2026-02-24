@@ -1,7 +1,7 @@
 package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import com.monsoon.seedflowplus.domain.account.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

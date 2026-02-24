@@ -1,7 +1,7 @@
-package com.monsoon.seedflowplus.domain.document.request;
+package com.monsoon.seedflowplus.domain.document.request.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import com.monsoon.seedflowplus.domain.account.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

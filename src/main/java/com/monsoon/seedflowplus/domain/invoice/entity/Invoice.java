@@ -1,8 +1,8 @@
 package com.monsoon.seedflowplus.domain.invoice.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
-import com.monsoon.seedflowplus.domain.account.Client;
-import com.monsoon.seedflowplus.domain.account.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

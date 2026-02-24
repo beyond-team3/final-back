@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.account;
+package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
@@ -34,8 +34,5 @@ public class User extends BaseModifyEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_code", referencedColumnName = "client_code")
     private Client client;
-
-    @Column(name = "account_id")
-    private Long accountId;
 
 }

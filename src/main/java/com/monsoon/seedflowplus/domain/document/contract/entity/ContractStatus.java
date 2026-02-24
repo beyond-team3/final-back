@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.document.contract;
+package com.monsoon.seedflowplus.domain.document.contract.entity;
 
 public enum ContractStatus {
     WAITING_ADMIN, // 관리자 승인 대기

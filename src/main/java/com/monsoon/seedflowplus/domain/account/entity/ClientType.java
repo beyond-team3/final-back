@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.account;
+package com.monsoon.seedflowplus.domain.account.entity;
 
 public enum ClientType {
     NURSERY, // 육묘장

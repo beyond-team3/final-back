@@ -1,9 +1,9 @@
-package com.monsoon.seedflowplus.domain.document.contract;
+package com.monsoon.seedflowplus.domain.document.contract.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import com.monsoon.seedflowplus.domain.account.Client;
-import com.monsoon.seedflowplus.domain.account.Employee;
-import com.monsoon.seedflowplus.domain.document.quotation.QuotationHeader;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.document.quotation.entity.QuotationHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
