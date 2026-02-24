@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd.product;
+package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import jakarta.persistence.*;
@@ -11,20 +11,20 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "tbl_tag")
-public class TagErd extends BaseCreateEntity {
+public class Tag extends BaseCreateEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long tagId; // 태그pk
+    private Long tagId;
 
     @Column(nullable = false, length = 30)
-    private String categoryCode; // 태그 분류
+    private String categoryCode; // 태그 분류(상품 카테고리 X)
 
     @Column(nullable = false, length = 50)
-    private String tagName; // 태그 명
+    private String tagName;
 
     @Builder
-    public TagErd(String categoryCode, String tagName) {
+    public Tag(String categoryCode, String tagName) {
         this.categoryCode = categoryCode;
         this.tagName = tagName;
     }
