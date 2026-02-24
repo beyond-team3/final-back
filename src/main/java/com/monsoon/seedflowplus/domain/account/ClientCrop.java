@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "client_crops")
+@Table(name = "tbl_client_crops")
 public class ClientCrop extends BaseEntity {
 
     @Column(nullable = false)
@@ -20,5 +20,5 @@ public class ClientCrop extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
-    private Client clientId;
+    private Client client;
 }
