@@ -17,6 +17,8 @@ public enum ErrorType {
     ACCESS_DENIED(HttpStatus.FORBIDDEN, ErrorCode.A002, "접근이 거부되었습니다.", LogLevel.WARN),
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.A003, "세션이 만료되었습니다.", LogLevel.WARN),
 
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.U001, "존재하지 않는 사용자입니다.", LogLevel.WARN),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P001, "존재하지 않는 상품입니다.", LogLevel.WARN)
     ;
 
     private final HttpStatus status;
