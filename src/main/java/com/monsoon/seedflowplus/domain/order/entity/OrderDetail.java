@@ -2,9 +2,7 @@ package com.monsoon.seedflowplus.domain.order.entity;
 
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,18 +10,26 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
+@AttributeOverride(name = "id", column = @Column(name = "order_detail_id"))
 @Table(name = "tbl_order_detail")
 public class OrderDetail extends BaseEntity {
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private OrderHeader orderHeader;
 
     @Column(name = "contract_detail_pk", nullable = false)
-    private Long contractDetailPk;
-
-    @Column(name = "contract_id", nullable = false)
-    private Long contractId;
+    private Long contractDetailPk;   // 타 파트라 ID만 저장
 
     @Column(name = "quantity", nullable = false)
     private Long quantity;
+
+    // 생성
+    public static OrderDetail create(OrderHeader orderHeader, Long contractDetailPk, Long quantity) {
+        OrderDetail detail = new OrderDetail();
+        detail.orderHeader = orderHeader;
+        detail.contractDetailPk = contractDetailPk;
+        detail.quantity = quantity;
+        return detail;
+    }
 }
