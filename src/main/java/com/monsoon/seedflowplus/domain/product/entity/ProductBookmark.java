@@ -22,7 +22,7 @@ import lombok.*;
 public class ProductBookmark extends BaseCreateEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_key", nullable = false)
+    @JoinColumn(name = "account_key", referencedColumnName = "user_id", nullable = false)
     private User account;
 
     @ManyToOne(fetch = FetchType.LAZY)
