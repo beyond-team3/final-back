@@ -7,13 +7,9 @@ import com.monsoon.seedflowplus.domain.product.dto.request.ProductUpdateParam;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.entity.ProductStatus;
-import com.monsoon.seedflowplus.domain.product.entity.ProductTag;
 import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,13 +47,13 @@ public class ProductWriteService {
 
         ProductUpdateParam param = new ProductUpdateParam(
                 request.getProductName(),
-                ProductCategory.valueOf(request.getProductCategory()),
+                request.getProductCategory(),
                 request.getProductDescription(),
                 request.getProductImageUrl(),
                 request.getAmount(),
                 request.getUnit(),
                 request.getPrice(),
-                ProductStatus.valueOf(request.getStatus()),
+                request.getStatus(),
                 request.getTags()
         );
     }

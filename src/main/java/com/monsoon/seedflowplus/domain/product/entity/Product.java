@@ -74,13 +74,13 @@ public class Product extends BaseModifyEntity {
 
     public void updateProduct(ProductUpdateParam param, Map<String, List<String>> tags) {
         this.productName = param.productName();
-        this.productCategory = param.productCategory();
+        this.productCategory = ProductCategory.valueOf(param.productCategory()); // String -> Enum
         this.productDescription = param.productDescription();
         this.productImageUrl = param.productImageUrl();
         this.amount = param.amount();
         this.unit = param.unit();
         this.price = param.price();
-        this.status = param.status();
-        this.tags = param.tags();
+        this.status = ProductStatus.valueOf(param.status());                     // String -> Enum
+        this.tags = tags;
     }
 }
