@@ -3,7 +3,7 @@ package com.monsoon.seedflowplus.domain.document.quotation;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.Client;
 import com.monsoon.seedflowplus.domain.account.Employee;
-import com.monsoon.seedflowplus.domain.document.contract.BillingCycle;
+import com.monsoon.seedflowplus.domain.document.request.QuotationRequestHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,6 +20,10 @@ import java.util.List;
 @AttributeOverride(name = "id", column = @Column(name = "quo_id"))
 @Table(name = "tbl_quotation_header")
 public class QuotationHeader extends BaseModifyEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rfq_id")
+    private QuotationRequestHeader quotationRequest; // 참조 견적 요청서
 
     @Column(name = "quotation_code", unique = true)
     private  String quotationCode;
