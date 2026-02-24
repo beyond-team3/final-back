@@ -23,7 +23,8 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "tbl_pers_sked",
         indexes = {
-                @Index(name = "idx_owner_start_at", columnList = "owner_id, start_at")
+                @Index(name = "idx_owner_start_at", columnList = "owner_id, start_at"),
+                @Index(name = "idx_owner_end_at", columnList = "owner_id, end_at")
         }
 )
 public class PersSked extends BaseModifyEntity {
@@ -46,7 +47,7 @@ public class PersSked extends BaseModifyEntity {
 
     @Builder
     public PersSked(String title, String description, User owner, LocalDateTime startAt, LocalDateTime endAt) {
-        validate(title, startAt, endAt);
+        validate(title, owner, startAt, endAt);
         this.title = title.trim();
         this.description = description;
         this.owner = owner;
@@ -55,16 +56,19 @@ public class PersSked extends BaseModifyEntity {
     }
 
     public void update(String title, String description, LocalDateTime startAt, LocalDateTime endAt) {
-        validate(title, startAt, endAt);
+        validate(title, this.owner, startAt, endAt);
         this.title = title.trim();
         this.description = description;
         this.startAt = startAt;
         this.endAt = endAt;
     }
 
-    private void validate(String title, LocalDateTime startAt, LocalDateTime endAt) {
+    private void validate(String title, User owner, LocalDateTime startAt, LocalDateTime endAt) {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("title must not be blank");
+        }
+        if (owner == null) {
+            throw new IllegalArgumentException("owner must not be null");
         }
         if (startAt == null || endAt == null) {
             throw new IllegalArgumentException("startAt/endAt must not be null");
