@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.statement;
+package com.monsoon.seedflowplus.domain.statement.entity;
 
 public enum StatementStatus {
     ISSUED,    // 발급
