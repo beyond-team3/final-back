@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,8 +57,14 @@ public class Client extends BaseModifyEntity {
     @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
     private Employee managerEmployee;
 
-    @Column(name = "account_id")
-    private Long accountId;
+    @Column(name = "total_credit", precision = 15, scale = 2)
+    private BigDecimal totalCredit; // 전체 여신
+
+    @Column(name = "used_credit", precision = 15, scale = 2)
+    private BigDecimal usedCredit; // 사용 여신
+
+    @OneToOne(mappedBy = "client")
+    private User account;
 
     @Builder.Default
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
