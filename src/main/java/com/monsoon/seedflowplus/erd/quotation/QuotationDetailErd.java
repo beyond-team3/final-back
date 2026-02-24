@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.erd.quotation;
 
-import com.monsoon.seedflowplus.erd.product.ProductErd;
+import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.erd.request.RequestDetailErd;
 import com.monsoon.seedflowplus.erd.request.RequestHeaderErd;
 import jakarta.persistence.Column;
@@ -41,7 +41,7 @@ public class QuotationDetailErd {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    private ProductErd product;
+    private Product product;
 
     @Column(name = "product_name", nullable = false)
     private String productName;

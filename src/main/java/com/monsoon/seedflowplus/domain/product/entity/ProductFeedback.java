@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd.product;
+package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.erd.account.UserErd;
@@ -12,16 +12,15 @@ import lombok.NoArgsConstructor;
 @Table(name = "tbl_feedback")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class FeedbackErd extends BaseModifyEntity {
+public class ProductFeedback extends BaseModifyEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "feedback_id")
-    private Long id;
+    private Long feedbackId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    private ProductErd product;
+    private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_key", nullable = false)
@@ -31,7 +30,7 @@ public class FeedbackErd extends BaseModifyEntity {
     private String content;
 
     @Builder
-    public FeedbackErd(ProductErd product, UserErd account, String content) {
+    public ProductFeedback(Product product, UserErd account, String content) {
         this.product = product;
         this.account = account;
         this.content = content;

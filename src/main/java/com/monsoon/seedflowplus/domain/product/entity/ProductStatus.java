@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd.product;
+package com.monsoon.seedflowplus.domain.product.entity;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
