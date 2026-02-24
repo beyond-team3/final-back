@@ -13,22 +13,22 @@ import lombok.NoArgsConstructor;
 @Table(name = "tbl_employee")
 public class Employee extends BaseModifyEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "employee_code", nullable = false, unique = true)
     private String employeeCode;
 
-    @Column(nullable = false)
+    @Column(name = "employee_name", nullable = false)
     private String employeeName;
 
-    @Column(nullable = false)
+    @Column(name = "employee_email", nullable = false)
     private String employeeEmail;
 
-    @Column(nullable = false)
+    @Column(name = "employee_phone", nullable = false)
     private String employeePhone;
 
-    @Column(nullable = false)
+    @Column(name = "address", nullable = false)
     private String address;
 
-    @Column(name = "account_key")
+    @Column(name = "account_id")
     private Long accountId;
 
 }
