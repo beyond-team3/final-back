@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@AttributeOverride(name = "id", column = @Column(name = "client_crop_id"))
 @Table(name = "tbl_client_crops")
 public class ClientCrop extends BaseEntity {
 

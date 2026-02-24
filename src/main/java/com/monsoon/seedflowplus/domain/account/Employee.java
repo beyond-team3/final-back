@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@AttributeOverride(name = "id", column = @Column(name = "employee_id"))
 @Table(name = "tbl_employee")
 public class Employee extends BaseModifyEntity {
 
