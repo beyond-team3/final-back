@@ -1,43 +1,46 @@
 package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "tbl_cultivation_time")
 public class CultivationTime extends BaseModifyEntity {
 
     @Id
-    @Column(name = "cultivation_time_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long cultivationTimeId;
 
-    @Column(name = "product_id", nullable = false)
-    private Long productId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", referencedColumnName = "product_id", nullable = false, unique = true)
+    private Product product;
 
-    @Column(name = "sowing_start")
     private Integer sowingStart;
 
-    @Column(name = "sowing_end")
     private Integer sowingEnd;
 
-    @Column(name = "planting_start")
     private Integer plantingStart;
 
-    @Column(name = "planting_end")
     private Integer plantingEnd;
 
-    @Column(name = "harvesting_start")
     private Integer harvestingStart;
 
-    @Column(name = "harvesting_end")
     private Integer harvestingEnd;
+
+    @Builder
+    public CultivationTime(Product product, Integer sowingStart, Integer sowingEnd, Integer plantingStart,
+                           Integer plantingEnd, Integer harvestingStart, Integer harvestingEnd) {
+        this.product = product;
+        this.sowingStart = sowingStart;
+        this.sowingEnd = sowingEnd;
+        this.plantingStart = plantingStart;
+        this.plantingEnd = plantingEnd;
+        this.harvestingStart = harvestingStart;
+        this.harvestingEnd = harvestingEnd;
+    }
 }
