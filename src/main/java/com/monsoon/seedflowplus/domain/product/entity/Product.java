@@ -12,11 +12,8 @@ import java.math.BigDecimal;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "tbl_product")
+@AttributeOverride(name = "id", column = @Column(name = "product_id"))
 public class Product extends BaseModifyEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long productId;
 
     @Column(nullable = false, length = 50)
     private String productCode;
@@ -24,6 +21,7 @@ public class Product extends BaseModifyEntity {
     @Column(nullable = false, length = 100)
     private String productName;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private ProductCategory productCategory;
 
