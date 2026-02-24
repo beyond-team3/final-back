@@ -9,12 +9,9 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @Entity
+@AttributeOverride(name = "id", column = @Column(name = "cultivation_time_id"))
 @Table(name = "tbl_cultivation_time")
 public class CultivationTime extends BaseModifyEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long cultivationTimeId;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", referencedColumnName = "product_id", nullable = false, unique = true)
