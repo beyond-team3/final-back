@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.note;
+package com.monsoon.seedflowplus.domain.note.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
@@ -8,7 +8,6 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
