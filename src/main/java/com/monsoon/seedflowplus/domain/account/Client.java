@@ -18,31 +18,44 @@ import java.util.List;
 @Table(name = "tbl_client")
 public class Client extends BaseModifyEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "client_code", nullable = false, unique = true)
     private String clientCode;
 
+    @Column(name = "client_name", nullable = false)
     private String clientName;
 
+    @Column(name = "client_brn", nullable = false, unique = true)
     private String clientBrn;
 
+    @Column(name = "ceo_name", nullable = false)
     private String ceoName;
 
+    @Column(name = "company_phone", nullable = false)
     private String companyPhone;
 
+    @Column(name = "address", nullable = false)
     private String address;
+    @Column(name = "latitude")
+    private Double latitude; // 위도
+    @Column(name = "longitude")
+    private Double longitude; // 경도
 
-    private Double latitude;   // 위도
-    private Double longitude;  // 경도
-
+    @Enumerated(EnumType.STRING)
+    @Column(name = "client_type", nullable = false)
     private ClientType clientType;
 
+    @Column(name = "manager_name", nullable = false)
     private String managerName;
+    @Column(name = "manager_phone", nullable = false)
     private String managerPhone;
+    @Column(name = "manager_email", nullable = false)
     private String managerEmail;
 
-    private Long employeeCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_code", referencedColumnName = "employeeCode")
+    private Employee managerEmployee;
 
-    @Column(name = "account_key")
+    @Column(name = "account_id")
     private Long accountId;
 
     @Builder.Default
