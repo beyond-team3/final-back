@@ -6,8 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,18 +13,29 @@ import java.time.LocalDateTime;
 @Table(name = "tbl_user")
 public class User extends BaseModifyEntity {
 
-    @Column(nullable = false)
+    @Column(name = "login_id", nullable = false)
     private String loginId;
 
-    @Column(nullable = false)
+    @Column(name = "login_pw", nullable = false)
     private String loginPw;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private Status status;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
     private Role role;
 
-    private String code;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_code", referencedColumnName = "employeeCode")
+    private Employee employee;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_code", referencedColumnName = "clientCode")
+    private Client client;
+
+    @Column(name = "account_id")
+    private Long accountId;
 
 }
