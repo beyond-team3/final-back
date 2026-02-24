@@ -1,12 +1,19 @@
 package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
+import com.monsoon.seedflowplus.domain.product.dto.request.ProductUpdateParam;
 import jakarta.persistence.*;
 
 
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Entity
 @Getter
@@ -43,10 +50,16 @@ public class Product extends BaseModifyEntity {
     @Column(length = 20)
     private ProductStatus status; // 상태 (판매중, 중단 등)
 
+    // JSON 타입으로 태그 저장
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "json")
+    private Map<String, List<String>> tags = new HashMap<>();
+
     @Builder
     public Product(String productCode, String productName, ProductCategory productCategory,
                    String productDescription, String productImageUrl, Integer amount,
-                   String unit, BigDecimal price, ProductStatus status) {
+                   String unit, BigDecimal price, ProductStatus status,
+                   Map<String, List<String>> tags) {
         this.productCode = productCode;
         this.productName = productName;
         this.productCategory = productCategory;
@@ -56,5 +69,18 @@ public class Product extends BaseModifyEntity {
         this.unit = unit;
         this.price = price;
         this.status = status;
+        this.tags = tags;
+    }
+
+    public void updateProduct(ProductUpdateParam param, Map<String, List<String>> tags) {
+        this.productName = param.productName();
+        this.productCategory = param.productCategory();
+        this.productDescription = param.productDescription();
+        this.productImageUrl = param.productImageUrl();
+        this.amount = param.amount();
+        this.unit = param.unit();
+        this.price = param.price();
+        this.status = param.status();
+        this.tags = param.tags();
     }
 }
