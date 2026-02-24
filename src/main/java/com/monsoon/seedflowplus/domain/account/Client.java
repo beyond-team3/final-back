@@ -15,6 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 @Entity
 @Builder
+@AttributeOverride(name = "id", column = @Column(name = "client_id"))
 @Table(name = "tbl_client")
 public class Client extends BaseModifyEntity {
 
