@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.statement;
+package com.monsoon.seedflowplus.domain.statement.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.order.entity.OrderHeader;
@@ -13,6 +13,7 @@ import java.math.RoundingMode;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
+@AttributeOverride(name = "id", column = @Column(name = "statement_id"))
 @Table(name = "tbl_statement")
 public class Statement extends BaseCreateEntity {
     // id (Long) → BaseEntity에서 상속

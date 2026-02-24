@@ -10,8 +10,8 @@ import java.util.List;
 
 public interface ProductFeedbackRepository extends JpaRepository<ProductFeedback, Long> {
 
-    List<ProductFeedback> findByEmployee_EmployeeId(Long employeeId);
+    List<ProductFeedback> findByEmployee_Id(Long employeeId);
 
-    @Query("SELECT f FROM ProductFeedback f JOIN FETCH f.employee WHERE f.product.productId = :productId")
+    @Query("SELECT f FROM ProductFeedback f JOIN FETCH f.employee WHERE f.product.id = :productId")
     List<ProductFeedback> findByProductIdWithEmployee(@Param("productId") Long productId);
 }
