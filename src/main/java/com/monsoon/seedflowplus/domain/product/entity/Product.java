@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd.product;
+package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
@@ -6,29 +6,31 @@ import jakarta.persistence.*;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "tbl_product") // 명세서의 테이블명 반영
-public class ProductErd extends BaseModifyEntity {
+@Table(name = "tbl_product")
+public class Product extends BaseModifyEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long productId; // 상품pk
+    private Long productId;
 
     @Column(nullable = false, length = 50)
-    private String productCode; // 상품코드
+    private String productCode;
 
     @Column(nullable = false, length = 100)
-    private String productName; // 상품명
+    private String productName;
 
     @Column(nullable = false, length = 50)
-    private String productCategory; // 상품 카테고리 (명세서 기준)
+    private ProductCategory productCategory;
 
     @Column(columnDefinition = "TEXT")
-    private String productDescription; // 상품 설명
+    private String productDescription;
 
-    private String productImageUrl; // 상품이미지url
+    private String productImageUrl;
 
     @Column(nullable = false)
     private Integer amount; // 수량
@@ -37,16 +39,16 @@ public class ProductErd extends BaseModifyEntity {
     private String unit; // 단위 (예: kg, 박스 등)
 
     @Column(nullable = false)
-    private Integer price; // 단가
+    private BigDecimal price; // 단가
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private ProductStatus status; // 상태 (판매중, 중단 등)
 
     @Builder
-    public ProductErd(String productCode, String productName, String productCategory,
+    public Product(String productCode, String productName, ProductCategory productCategory,
                    String productDescription, String productImageUrl, Integer amount,
-                   String unit, Integer price, ProductStatus status) {
+                   String unit, BigDecimal price, ProductStatus status) {
         this.productCode = productCode;
         this.productName = productName;
         this.productCategory = productCategory;

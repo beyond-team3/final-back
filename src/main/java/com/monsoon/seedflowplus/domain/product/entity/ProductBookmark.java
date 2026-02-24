@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.erd.product;
+package com.monsoon.seedflowplus.domain.product.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.erd.account.UserErd;
@@ -18,12 +18,11 @@ import lombok.*;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BookmarkErd extends BaseCreateEntity {
+public class ProductBookmark extends BaseCreateEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "bookmark_id")
-    private Long id;
+    private Long bookmarkId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_key", nullable = false)
@@ -31,10 +30,10 @@ public class BookmarkErd extends BaseCreateEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    private ProductErd product;
+    private Product product;
 
     @Builder
-    public BookmarkErd(UserErd account, ProductErd product) {
+    public ProductBookmark(UserErd account, Product product) {
         this.account = account;
         this.product = product;
     }
