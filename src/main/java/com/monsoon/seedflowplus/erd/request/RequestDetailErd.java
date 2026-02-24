@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.erd.request;
 
-import com.monsoon.seedflowplus.erd.product.ProductErd;
+import com.monsoon.seedflowplus.domain.product.entity.Product;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -32,7 +32,7 @@ public class RequestDetailErd {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id2", nullable = false)
-    private ProductErd product;
+    private Product product;
 
     @Column(name = "product_name", nullable = false)
     private String productName;
