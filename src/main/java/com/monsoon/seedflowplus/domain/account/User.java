@@ -28,11 +28,11 @@ public class User extends BaseModifyEntity {
     private Role role;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employeeCode")
+    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
     private Employee employee;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_code", referencedColumnName = "clientCode")
+    @JoinColumn(name = "client_code", referencedColumnName = "client_code")
     private Client client;
 
     @Column(name = "account_id")
