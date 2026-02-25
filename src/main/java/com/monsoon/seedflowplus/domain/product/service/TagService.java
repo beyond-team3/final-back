@@ -27,6 +27,7 @@ public class TagService {
     // 단건 태그 생성 (관리자 화면용 - 에러 발생시킴)
     @Transactional
     public void createNewTag(String categoryCode, String inputTagName) {
+
         if (categoryCode == null || inputTagName == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
@@ -36,23 +37,29 @@ public class TagService {
         if (normalized.isEmpty()) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
-        if (tagRepository.existsByCategoryCodeAndTagName(categoryCode, normalized)) {
+        try {
+             tagRepository.saveAndFlush(Tag.builder()
+                            .categoryCode(categoryCode)
+                            .tagName(normalized)
+                            .build());
+        } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.DUPLICATE_TAG);
         }
-
-        tagRepository.save(Tag.builder()
-                .categoryCode(categoryCode)
-                .tagName(normalized)
-                .build());
     }
 
     // 태그 조회 또는 생성 (상품 등록/수정 시 사용)
+    // REQUIRES_NEW 사용으로 인한 고아(Orphan) 태그 발생 허용 (토글 버튼형식 재사용 의도)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Tag getOrCreateTag(String categoryCode, String inputTagName) {
+
+        if (categoryCode ==null) {
+            return null;
+        }
+
         String normalized = normalizeTagName(inputTagName);
 
         if (normalized.isEmpty()) {
-            return null; // 빈 값이면 그냥 null 반환 (무시)
+            return null; // 빈 값이면 생성 X
         }
 
         // 중복 여부 확인

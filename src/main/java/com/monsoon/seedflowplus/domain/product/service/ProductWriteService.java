@@ -83,7 +83,15 @@ public class ProductWriteService {
     private void updateProductTags(Product product, Map<String, List<String>> tagMap) {
         productTagRepository.deleteByProduct_Id(product.getId());
 
-        if (tagMap == null || tagMap.isEmpty()) return;
+        if (tagMap == null ) {
+            return;
+        }
+
+        productTagRepository.deleteByProduct_Id(product.getId());
+
+        if (tagMap.isEmpty()) {
+            return;
+        }
 
         for (Map.Entry<String, List<String>> entry : tagMap.entrySet()) {
             String categoryCode = entry.getKey();
