@@ -5,8 +5,12 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.product.entity.Tag;
 import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +47,7 @@ public class TagService {
     }
 
     // 태그 조회 또는 생성 (상품 등록/수정 시 사용)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Tag getOrCreateTag(String categoryCode, String inputTagName) {
         String normalized = normalizeTagName(inputTagName);
 
@@ -51,13 +55,27 @@ public class TagService {
             return null; // 빈 값이면 그냥 null 반환 (무시)
         }
 
-        // 있으면 가져오고, 없으면 새로 만들어서 저장 후 반환
-        return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
-                .orElseGet(() -> tagRepository.save(
-                        Tag.builder()
-                                .categoryCode(categoryCode)
-                                .tagName(normalized)
-                                .build()
-                ));
+        // 중복 여부 확인
+        Optional<Tag> existingTag = tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized);
+        if (existingTag.isPresent()) {
+            return existingTag.get();
+        }
+
+        // 없으면 새로 저장 시도
+        try {
+            Tag newTag = Tag.builder()
+                    .categoryCode(categoryCode)
+                    .tagName(normalized)
+                    .build();
+
+            // 강제 중복 검사
+            return tagRepository.saveAndFlush(newTag);
+
+        } catch (DataIntegrityViolationException e) {
+            /* 동시에 다른 사람이 먼저 똑같은 태그를 만들어서 유니크 에러발생시
+            다른 사람이 방금 만든 그 태그를 조회해서 반환 */
+            return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
+                    .orElseThrow(() -> new CoreException(ErrorType.DEFAULT_ERROR));
+        }
     }
 }
