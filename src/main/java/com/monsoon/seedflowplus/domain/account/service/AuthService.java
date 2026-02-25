@@ -29,11 +29,6 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
 
-        if (request.loginId() == null || request.loginId().isEmpty() ||
-                request.loginPw() == null || request.loginPw().isEmpty()) {
-            throw new BadCredentialsException("아이디 또는 비밀번호가 null값입니다.");
-        }
-
         User user = userRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BadCredentialsException("아이디 또는 비밀번호가 잘못 되었습니다."));
 
