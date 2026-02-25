@@ -10,6 +10,7 @@ public enum ErrorCode {
     A001,
     A002,
     A003,
+    A004,
     U001,
     P001,
     P002,
@@ -29,4 +30,4 @@ public enum ErrorCode {
 
     // 계정 (주문 서비스에서 조회 시 필요)
     A101, A102
-    }
+}
