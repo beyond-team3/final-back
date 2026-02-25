@@ -23,7 +23,7 @@ public class ProductWriteService {
 
     private final ProductRepository productRepository;
     private final ProductBookmarkRepository productBookmarkRepository;
-    private final TagRepository tagRepository;
+    private final TagService tagService;
     private final ProductTagRepository productTagRepository;
 
     @Transactional
@@ -81,40 +81,23 @@ public class ProductWriteService {
     }
 
     private void updateProductTags(Product product, Map<String, List<String>> tagMap) {
-
-        // 기존 태그 매핑 제거
         productTagRepository.deleteByProduct_Id(product.getId());
 
-        if (tagMap == null || tagMap.isEmpty()) {
-            return;
-        }
+        if (tagMap == null || tagMap.isEmpty()) return;
 
         for (Map.Entry<String, List<String>> entry : tagMap.entrySet()) {
             String categoryCode = entry.getKey();
-            List<String> tagNames = entry.getValue();
 
-            for (String tagName : tagNames) {
-                // 공백제거 로직(예: '고랭지'태그가 있는데 '고 랭지' 같은 실수 방지)
-                String normalizedTagName = tagName.replaceAll("\\s+", "");
-                if(normalizedTagName.isEmpty()) continue; // 빈 태그는 무시
+            for (String tagName : entry.getValue()) {
+                // 태그 생성/조회 책임 TagService로 위임
+                Tag tag = tagService.getOrCreateTag(categoryCode, tagName);
 
-                // 태그 찾거나 새로 만들기
-                Tag tag = tagRepository.findByCategoryCodeAndTagName(categoryCode, normalizedTagName)
-                        .orElseGet(() -> {
-                            Tag newTag = Tag.builder()
-                                    .categoryCode(categoryCode)
-                                    .tagName(normalizedTagName)
-                                    .build();
-                            return tagRepository.save(newTag);
-                        });
-
-                // 상품과 태그 연결
-                ProductTag productTag = ProductTag.builder()
-                        .product(product)
-                        .tag(tag)
-                        .build();
-
-                productTagRepository.save(productTag);
+                if (tag != null) { // 유효한 태그인 경우에만 매핑
+                    productTagRepository.save(ProductTag.builder()
+                            .product(product)
+                            .tag(tag)
+                            .build());
+                }
             }
         }
     }

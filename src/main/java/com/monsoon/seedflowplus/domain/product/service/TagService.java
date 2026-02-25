@@ -14,30 +14,50 @@ public class TagService {
 
     private final TagRepository tagRepository;
 
+    // 공백 제거
+    private String normalizeTagName(String tagName) {
+        return tagName == null ? "" : tagName.replaceAll("\\s+", "");
+    }
+
+
+    // 단건 태그 생성 (관리자 화면용 - 에러 발생시킴)
     @Transactional
     public void createNewTag(String categoryCode, String inputTagName) {
-
-        String normalizedTagName = inputTagName.replaceAll("\\s+", "");
-
-        // 빈값
-        if (normalizedTagName.isEmpty()) {
+        if (categoryCode == null || inputTagName == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
-        // 태그 중복여부 확인
-        boolean isExist = tagRepository.existsByCategoryCodeAndTagName(categoryCode, normalizedTagName);
+        String normalized = normalizeTagName(inputTagName);
 
-        // 중복 예외
-        if (isExist) {
+        if (normalized.isEmpty()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        if (tagRepository.existsByCategoryCodeAndTagName(categoryCode, normalized)) {
             throw new CoreException(ErrorType.DUPLICATE_TAG);
         }
 
-        // 존재 여부 확인후 저장
-        Tag newTag = Tag.builder()
+        tagRepository.save(Tag.builder()
                 .categoryCode(categoryCode)
-                .tagName(normalizedTagName)
-                .build();
+                .tagName(normalized)
+                .build());
+    }
 
-        tagRepository.save(newTag);
+    // 태그 조회 또는 생성 (상품 등록/수정 시 사용)
+    @Transactional
+    public Tag getOrCreateTag(String categoryCode, String inputTagName) {
+        String normalized = normalizeTagName(inputTagName);
+
+        if (normalized.isEmpty()) {
+            return null; // 빈 값이면 그냥 null 반환 (무시)
+        }
+
+        // 있으면 가져오고, 없으면 새로 만들어서 저장 후 반환
+        return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
+                .orElseGet(() -> tagRepository.save(
+                        Tag.builder()
+                                .categoryCode(categoryCode)
+                                .tagName(normalized)
+                                .build()
+                ));
     }
 }
