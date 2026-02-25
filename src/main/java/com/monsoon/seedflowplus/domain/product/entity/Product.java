@@ -22,7 +22,7 @@ import java.util.Map;
 @AttributeOverride(name = "id", column = @Column(name = "product_id"))
 public class Product extends BaseModifyEntity {
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 50, unique = true)
     private String productCode;
 
     @Column(nullable = false, length = 100)

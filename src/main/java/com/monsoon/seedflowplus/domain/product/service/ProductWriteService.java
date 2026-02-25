@@ -10,6 +10,7 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,12 +47,17 @@ public class ProductWriteService {
                 .tags(request.getTags())
                 .build();
 
-        Product savedProduct = productRepository.save(newProduct);
+        try {
+            // saveAndFlush를 사용하여 유니크 검사
+            Product savedProduct = productRepository.saveAndFlush(newProduct);
 
-        updateProductTags(savedProduct, request.getTags());
+            updateProductTags(savedProduct, request.getTags());
+            return savedProduct.getId();
 
-        // 저장 후 생성된 상품의 ID 반환
-        return savedProduct.getId();
+        } catch (DataIntegrityViolationException e) {
+            // 동시에 다른 사람이 똑같은 코드를 등록해서 DB 유니크 에러가 터지면 중복 에러 고지
+            throw new CoreException(ErrorType.DUPLICATE_PRODUCT_CODE);
+        }
     }
 
     @Transactional
@@ -92,7 +98,7 @@ public class ProductWriteService {
     private void updateProductTags(Product product, Map<String, List<String>> tagMap) {
 
 
-        if (tagMap == null ) {
+        if (tagMap == null) {
             return;
         }
 
@@ -139,8 +145,13 @@ public class ProductWriteService {
             String[] parts = lastCode.split("-");
 
             if (parts.length == 3) {
-                int lastSequence = Integer.parseInt(parts[2]);
-                nextSequence = lastSequence + 1;
+                try {
+                    int lastSequence = Integer.parseInt(parts[2]);
+                    nextSequence = lastSequence + 1;
+                } catch (NumberFormatException e) {
+                    // 코드 형식이 예상과 다를 경우 시퀀스 1로 시작 (시스템 마비 방지)
+                    nextSequence = 1;
+                }
             }
         }
         return String.format("%s-%s-%02d", categoryStr, yearStr, nextSequence);

@@ -12,6 +12,7 @@ public enum ErrorCode {
     A003,
     U001,
     P001,
+    P002,
     T001,
 
     // 주문

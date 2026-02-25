@@ -17,7 +17,7 @@ public class TagReadService {
 
     private final TagRepository tagRepository;
 
-    /* 포론트엔드 태그 토글 버튼을 위한 조회 */
+    /* 프론트엔드 태그 토글 버튼을 위한 조회 */
     public Map<String, List<String>> getAllTagsGroupedByCategory() {
 
         List<Tag> allTags = tagRepository.findAll();
