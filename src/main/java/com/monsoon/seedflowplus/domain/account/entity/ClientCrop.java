@@ -2,16 +2,11 @@ package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AttributeOverride(name = "id", column = @Column(name = "client_crop_id"))
 @Table(name = "tbl_client_crops")
 public class ClientCrop extends BaseEntity {
@@ -22,4 +17,10 @@ public class ClientCrop extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;
+
+    @Builder
+    public ClientCrop(String cropName, Client client) {
+        this.cropName = cropName;
+        this.client = client;
+    }
 }
