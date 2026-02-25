@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.sales.rfq.entity;
+package com.monsoon.seedflowplus.domain.sales.request.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -29,7 +29,7 @@ public class QuotationRequestHeader extends BaseModifyEntity {
 
     @Column(name = "request_status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private RfqStatus status; // 상태 (대기, 검토, 완료)
+    private QuotationRequestStatus status; // 상태 (대기, 검토, 완료)
 
     @OneToMany(mappedBy = "quotationRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuotationRequestDetail> items = new ArrayList<>();

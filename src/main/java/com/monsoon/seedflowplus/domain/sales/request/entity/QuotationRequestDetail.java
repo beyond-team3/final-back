@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.sales.rfq.entity;
+package com.monsoon.seedflowplus.domain.sales.request.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import com.monsoon.seedflowplus.domain.product.entity.Product;

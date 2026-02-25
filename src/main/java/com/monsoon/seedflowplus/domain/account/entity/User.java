@@ -2,11 +2,11 @@ package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Getter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "user_id"))
@@ -28,11 +28,11 @@ public class User extends BaseModifyEntity {
     private Role role;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
+    @JoinColumn(name = "employee_id")
     private Employee employee;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_code", referencedColumnName = "client_code")
+    @JoinColumn(name = "client_id")
     private Client client;
 
 }
