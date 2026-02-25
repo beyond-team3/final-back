@@ -28,7 +28,7 @@ public class TagService {
     @Transactional
     public void createNewTag(String categoryCode, String inputTagName) {
 
-        if (categoryCode == null || inputTagName == null) {
+        if (categoryCode == null || categoryCode.isBlank() || inputTagName == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
@@ -52,7 +52,7 @@ public class TagService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Tag getOrCreateTag(String categoryCode, String inputTagName) {
 
-        if (categoryCode ==null) {
+        if (categoryCode == null || categoryCode.isBlank()) {
             return null;
         }
 

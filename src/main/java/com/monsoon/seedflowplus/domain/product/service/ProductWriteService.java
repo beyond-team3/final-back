@@ -81,7 +81,7 @@ public class ProductWriteService {
     }
 
     private void updateProductTags(Product product, Map<String, List<String>> tagMap) {
-        productTagRepository.deleteByProduct_Id(product.getId());
+
 
         if (tagMap == null ) {
             return;
