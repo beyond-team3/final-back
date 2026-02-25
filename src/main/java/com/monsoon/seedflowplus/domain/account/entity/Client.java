@@ -54,7 +54,7 @@ public class Client extends BaseModifyEntity {
     private String managerEmail;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
+    @JoinColumn(name = "employee_id")
     private Employee managerEmployee;
 
     @Column(name = "total_credit", precision = 15, scale = 2)

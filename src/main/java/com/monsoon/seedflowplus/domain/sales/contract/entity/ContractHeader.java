@@ -1,9 +1,9 @@
-package com.monsoon.seedflowplus.domain.document.contract.entity;
+package com.monsoon.seedflowplus.domain.sales.contract.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
-import com.monsoon.seedflowplus.domain.document.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -36,7 +36,7 @@ public class ContractHeader extends BaseModifyEntity {
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
+    @JoinColumn(name = "author_id")
     private Employee author; // 작성자
 
     @Column(name = "status", nullable = false)

@@ -1,9 +1,9 @@
-package com.monsoon.seedflowplus.domain.document.quotation.entity;
+package com.monsoon.seedflowplus.domain.sales.quotation.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
-import com.monsoon.seedflowplus.domain.document.request.entity.QuotationRequestHeader;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -26,14 +26,14 @@ public class QuotationHeader extends BaseModifyEntity {
     private QuotationRequestHeader quotationRequest; // 참조 견적 요청서
 
     @Column(name = "quotation_code", unique = true)
-    private  String quotationCode;
+    private String quotationCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
+    @JoinColumn(name = "author_id")
     private Employee author; // 작성자
 
     @Column(name = "status", nullable = false)
