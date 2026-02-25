@@ -1,7 +1,6 @@
 package com.monsoon.seedflowplus.domain.account.service;
 
-import com.monsoon.seedflowplus.core.common.support.error.CoreException;
-import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +23,15 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 
         return new org.springframework.security.core.userdetails.User(
                 user.getLoginId(),
                 user.getLoginPw(),
+                user.getStatus() == Status.ACTIVATE, // enabled
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                true, // accountNonLocked
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
     }
 }
