@@ -4,9 +4,9 @@ import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Getter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "user_id"))
@@ -34,5 +34,23 @@ public class User extends BaseModifyEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    @Builder
+    public User(String loginId, String loginPw, Status status, Role role, Employee employee, Client client) {
+        this.loginId = loginId;
+        this.loginPw = loginPw;
+        this.status = status;
+        this.role = role;
+        this.employee = employee;
+        this.client = client;
+    }
+
+    public void updateLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
 
 }
