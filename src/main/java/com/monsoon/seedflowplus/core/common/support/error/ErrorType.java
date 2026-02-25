@@ -45,6 +45,7 @@ public enum ErrorType {
     // 계정
     CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A101, "거래처를 찾을 수 없습니다.", LogLevel.WARN),
     EMPLOYEE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A102, "영업사원을 찾을 수 없습니다.", LogLevel.WARN),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, ErrorCode.A004, "비활성화된 계정입니다. 관리자에게 문의하세요.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
