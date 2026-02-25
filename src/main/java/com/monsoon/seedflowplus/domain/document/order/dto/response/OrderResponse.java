@@ -1,5 +1,6 @@
-package com.monsoon.seedflowplus.domain.order.dto.response;
+package com.monsoon.seedflowplus.domain.document.order.dto.response;
 
+import com.monsoon.seedflowplus.domain.document.order.entity.OrderStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -18,7 +19,7 @@ public class OrderResponse {
     private Long employeeId;
 
     private BigDecimal totalAmount;
-    private String status;
+    private OrderStatus status;
     private LocalDateTime createdAt;
 
     // 배송 정보

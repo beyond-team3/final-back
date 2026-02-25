@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.order.dto.response;
+package com.monsoon.seedflowplus.domain.document.order.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -8,6 +8,6 @@ import lombok.Getter;
 public class OrderDetailResponse {
 
     private Long orderDetailId;
-    private Long contractDetailPk;
+    private Long contractDetailId;
     private Long quantity;
 }

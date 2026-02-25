@@ -1,7 +1,8 @@
-package com.monsoon.seedflowplus.domain.order.entity;
+package com.monsoon.seedflowplus.domain.document.order.entity;
 
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
+import com.monsoon.seedflowplus.domain.document.contract.entity.ContractDetail;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,8 +19,9 @@ public class OrderDetail extends BaseEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderHeader orderHeader;
 
-    @Column(name = "contract_detail_pk", nullable = false)
-    private Long contractDetailPk;   // 타 파트라 ID만 저장
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_detail_id", nullable = false)
+    private ContractDetail contractDetail;
 
     @Column(name = "quantity", nullable = false)
     private Long quantity;
@@ -42,11 +44,19 @@ public class OrderDetail extends BaseEntity {
 
 
     // 생성
-    public static OrderDetail create(OrderHeader orderHeader, Long contractDetailPk, Long quantity) {
+    public static OrderDetail create(OrderHeader orderHeader, ContractDetail contractDetail, Long quantity,
+                                     String shippingName, String shippingPhone,
+                                     String shippingAddress, String shippingAddressDetail,
+                                     String deliveryRequest) {
         OrderDetail detail = new OrderDetail();
         detail.orderHeader = orderHeader;
-        detail.contractDetailPk = contractDetailPk;
+        detail.contractDetail = contractDetail;   // ← contractDetailPk 대신 contractDetail로
         detail.quantity = quantity;
+        detail.shippingName = shippingName;
+        detail.shippingPhone = shippingPhone;
+        detail.shippingAddress = shippingAddress;
+        detail.shippingAddressDetail = shippingAddressDetail;
+        detail.deliveryRequest = deliveryRequest;
         return detail;
     }
 }

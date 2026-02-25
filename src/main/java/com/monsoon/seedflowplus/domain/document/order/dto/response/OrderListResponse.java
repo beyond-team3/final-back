@@ -1,5 +1,6 @@
-package com.monsoon.seedflowplus.domain.order.dto.response;
+package com.monsoon.seedflowplus.domain.document.order.dto.response;
 
+import com.monsoon.seedflowplus.domain.document.order.entity.OrderStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,6 +14,6 @@ public class OrderListResponse {
     private Long orderId;
     private String orderCode;
     private BigDecimal totalAmount;
-    private String status;
+    private OrderStatus status;
     private LocalDateTime createdAt;
 }

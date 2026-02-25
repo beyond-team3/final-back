@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.order.dto.request;
+package com.monsoon.seedflowplus.domain.document.order.dto.request;
 
 import lombok.Getter;
 
