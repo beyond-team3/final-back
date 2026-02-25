@@ -1,11 +1,13 @@
-package com.monsoon.seedflowplus.domain.order.entity;
+package com.monsoon.seedflowplus.domain.document.order.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.document.contract.entity.ContractHeader;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 
 @Getter
@@ -18,8 +20,10 @@ public class OrderHeader extends BaseCreateEntity {
     @Column(name = "order_code", nullable = false, unique = true, length = 20)
     private String orderCode;   // ORD-20260223-001
 
-    @Column(name = "contract_id", nullable = false)
-    private Long contractId;    // 타 파트라 ID만 저장
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id", nullable = false)
+    private ContractHeader contract;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", referencedColumnName = "id")
@@ -37,10 +41,10 @@ public class OrderHeader extends BaseCreateEntity {
     private OrderStatus status;
 
     // 생성
-    public static OrderHeader create(Long contractId, Client client, Employee employee, String orderCode) {
+    public static OrderHeader create(ContractHeader contract, Client client, Employee employee, String orderCode) {
         OrderHeader order = new OrderHeader();
         order.orderCode = orderCode;
-        order.contractId = contractId;
+        order.contract = contract;   // ← contractId 대신 contract로
         order.client = client;
         order.employee = employee;
         order.totalAmount = BigDecimal.ZERO;
