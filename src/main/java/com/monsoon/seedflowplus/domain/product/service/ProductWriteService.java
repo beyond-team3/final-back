@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,10 +29,14 @@ public class ProductWriteService {
 
     @Transactional
     public Long createProduct(ProductRequest request) {
+
+        ProductCategory category = ProductCategory.valueOf(request.getProductCategory());
+        String generatedCode = generateProductCode(category);
+
         Product newProduct = Product.builder()
-                .productCode(request.getProductCode())
+                .productCode(generatedCode)
                 .productName(request.getProductName())
-                .productCategory(ProductCategory.valueOf(request.getProductCategory())) // String -> Enum
+                .productCategory(category)  // 위에서 변환한 category 객체 재사용
                 .productDescription(request.getProductDescription())
                 .productImageUrl(request.getProductImageUrl())
                 .amount(request.getAmount())
@@ -41,8 +46,12 @@ public class ProductWriteService {
                 .tags(request.getTags())
                 .build();
 
+        Product savedProduct = productRepository.save(newProduct);
+
+        updateProductTags(savedProduct, request.getTags());
+
         // 저장 후 생성된 상품의 ID 반환
-        return productRepository.save(newProduct).getId();
+        return savedProduct.getId();
     }
 
     @Transactional
@@ -108,5 +117,32 @@ public class ProductWriteService {
                 }
             }
         }
+    }
+
+    // 상품 코드 생성
+    private String generateProductCode(ProductCategory category) {
+
+        // 카테고리 약자
+        String categoryStr = category.getCode();
+
+        // 생성 연도 뒤 2자리
+        String yearStr = String.valueOf(java.time.Year.now().getValue()).substring(2); // 2026 -> 26
+
+        int nextSequence = 1;
+
+        Optional<Product> lastProduct = productRepository.findTopByProductCategoryOrderByIdDesc(category);
+
+        if (lastProduct.isPresent()) {
+
+            String lastCode = lastProduct.get().getProductCode();
+
+            String[] parts = lastCode.split("-");
+
+            if (parts.length == 3) {
+                int lastSequence = Integer.parseInt(parts[2]);
+                nextSequence = lastSequence + 1;
+            }
+        }
+        return String.format("%s-%s-%02d", categoryStr, yearStr, nextSequence);
     }
 }
