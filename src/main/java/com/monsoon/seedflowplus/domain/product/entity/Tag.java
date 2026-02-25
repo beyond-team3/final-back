@@ -10,7 +10,15 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "tbl_tag")
+@Table(name = "tbl_tag",
+        // 카테고리 코드와 태그 이름의 조합은 무조건 유일해야 함
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_tag_category_name",
+                        columnNames = {"category_code", "tag_name"}
+                )
+        }
+       )
 @AttributeOverride(name = "id", column = @Column(name = "tag_id"))
 public class Tag extends BaseCreateEntity {
 
