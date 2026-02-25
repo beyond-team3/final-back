@@ -32,10 +32,10 @@ pipeline {
 		stage('Unit Test & Build') {
             steps {
                 script {
-                    echo 'Building and Testing with H2 (Test Profile)...' [cite: 2]
-                    sh 'chmod +x ./gradlew' [cite: 2]
+                    echo 'Building and Testing with H2 (Test Profile)...'
+                    sh 'chmod +x ./gradlew'
                     // 2. 테스트는 H2로 빠르게, 빌드는 전체 파일을 포함하여 수행
-                    sh './gradlew clean build' [cite: 2]
+                    sh './gradlew clean build'
                 }
             }
         }
