@@ -1,22 +1,22 @@
 /*
-package com.monsoon.seedflowplus.domain.document.order.service;
+package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
-import com.monsoon.seedflowplus.domain.document.contract.entity.ContractDetail;
-import com.monsoon.seedflowplus.domain.document.contract.entity.ContractHeader;
-import com.monsoon.seedflowplus.domain.document.order.dto.request.OrderCreateRequest;
-import com.monsoon.seedflowplus.domain.document.order.dto.request.OrderDetailRequest;
-import com.monsoon.seedflowplus.domain.document.order.dto.response.OrderCancelResponse;
-import com.monsoon.seedflowplus.domain.document.order.dto.response.OrderDetailResponse;
-import com.monsoon.seedflowplus.domain.document.order.dto.response.OrderListResponse;
-import com.monsoon.seedflowplus.domain.document.order.dto.response.OrderResponse;
-import com.monsoon.seedflowplus.domain.document.order.entity.OrderDetail;
-import com.monsoon.seedflowplus.domain.document.order.entity.OrderHeader;
-import com.monsoon.seedflowplus.domain.document.order.repository.OrderDetailRepository;
-import com.monsoon.seedflowplus.domain.document.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderDetailRequest;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderDetailResponse;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListResponse;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderDetail;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
