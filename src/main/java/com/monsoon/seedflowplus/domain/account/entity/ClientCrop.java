@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.account;
+package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import jakarta.persistence.*;
