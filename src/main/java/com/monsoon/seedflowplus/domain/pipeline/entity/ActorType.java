@@ -1,7 +1,7 @@
 package com.monsoon.seedflowplus.domain.pipeline.entity;
 
 public enum ActorType {
-    EMP,
+    SALES_REP,
     ADMIN,
     CLIENT,
     SYSTEM

@@ -1,7 +1,8 @@
 /*
 package com.monsoon.seedflowplus.domain.sales.order.service;
 
-import com.monsoon.seedflowplus.core.common.support.error.ErrorCode;
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
@@ -31,32 +32,30 @@ import java.util.List;
 public class OrderService {
     private final OrderHeaderRepository orderHeaderRepository;
     private final OrderDetailRepository orderDetailRepository;
-*/
-/*    private final ContractHeaderRepository contractHeaderRepository;
+    private final ContractHeaderRepository contractHeaderRepository;
     private final ContractDetailRepository contractDetailRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
-    private final StatementService statementService;*//*
+    private final StatementService statementService;
 
 
     @Transactional
-    public OrderResponse createOrder(OrderCreateRequest request, Long clientId, Long employeeId) {
+    public OrderResponse createOrder(OrderCreateRequest request, Long clientId) {
 
         // 1. 계약 조회
         ContractHeader contract = contractHeaderRepository.findById(request.getContractId())
-                .orElseThrow(() -> new CustomException(ErrorCode.CONTRACT_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
         // 2. 계약 기간 검증
         LocalDate today = LocalDate.now();
         if (today.isBefore(contract.getStartDate()) || today.isAfter(contract.getEndDate())) {
-            throw new CustomException(ErrorCode.CONTRACT_EXPIRED);
+            throw new CoreException(ErrorType.CONTRACT_EXPIRED);
         }
 
         // 3. 거래처 / 영업사원 조회
         Client client = clientRepository.findById(clientId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CLIENT_NOT_FOUND));
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.EMPLOYEE_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        Employee employee = contract.getAuthor();
 
         // 4. 주문 코드 생성
         String orderCode = generateCode("ORD");
@@ -72,14 +71,15 @@ public class OrderService {
 
             // 계약 디테일 조회
             ContractDetail contractDetail = contractDetailRepository.findById(item.getContractDetailId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.CONTRACT_DETAIL_NOT_FOUND));
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_DETAIL_NOT_FOUND));
 
             // 잔여 수량 검증
             Long orderedQuantity = orderDetailRepository.sumQuantityByContractDetailId(item.getContractDetailId());
-            Long remainQuantity = contractDetail.getQuantity() - orderedQuantity;
+            if (orderedQuantity == null) orderedQuantity = 0L;
+            long remainQuantity = contractDetail.getTotalQuantity() - orderedQuantity;
 
             if (item.getQuantity() > remainQuantity) {
-                throw new CustomException(ErrorCode.ORDER_QUANTITY_EXCEEDED);
+                throw new CoreException(ErrorType.ORDER_QUANTITY_EXCEEDED);
             }
 
             // OrderDetail 생성
@@ -120,15 +120,19 @@ public class OrderService {
     // 주문 단건 조회
     public OrderResponse getOrder(Long orderId) {
         OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         return toOrderResponse(orderHeader);
     }
 
     // 주문 취소
     @Transactional
-    public OrderCancelResponse cancelOrder(Long orderId) {
+    public OrderCancelResponse cancelOrder(Long orderId, Long clientId) {
         OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+
+        if (!orderHeader.getClient().getId().equals(clientId)) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
 
         orderHeader.cancel();
 
@@ -150,7 +154,8 @@ public class OrderService {
                         .build())
                 .toList();
 
-        OrderDetail firstDetail = details.get(0); // 배송 정보는 첫 번째 꺼 재사용
+        OrderDetail firstDetail = details.stream().findFirst()
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_DETAIL_NOT_FOUND));
 
         return OrderResponse.builder()
                 .orderId(orderHeader.getId())
