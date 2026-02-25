@@ -21,5 +21,5 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
         WHERE od.contractDetail.id = :contractDetailId
           AND oh.status <> 'CANCELED'
     """)
-    Long sumQuantityByContractDetailPk(@Param("contractDetailId") Long contractDetailId);
+    Long sumQuantityByContractDetailId(@Param("contractDetailId") Long contractDetailId);
 }
