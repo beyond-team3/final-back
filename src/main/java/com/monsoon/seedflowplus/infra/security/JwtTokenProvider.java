@@ -1,9 +1,6 @@
 package com.monsoon.seedflowplus.infra.security;
 
-import com.monsoon.seedflowplus.core.common.support.error.CoreException;
-import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -21,10 +18,10 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.refresh-token-expiration-ms}")
     private long jwtExpiration;
 
-    @Value("${jwt.refresh-expiration}")
+    @Value("${jwt.refresh-token-expiration-ms}")
     private long jwtRefreshExpiration;
 
     private SecretKey secretKey;
@@ -35,12 +32,13 @@ public class JwtTokenProvider {
         secretKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String createToken(Long userId, String loginId) {
+    public String createToken(Long userId, String loginId, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpiration);
         return Jwts.builder()
                 .subject(loginId)
-                .claim("userId", userId)
+                .claim("id", userId)
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -52,7 +50,7 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + jwtRefreshExpiration);
         return Jwts.builder()
                 .subject(loginId)
-                .claim("userId", userId)
+                .claim("id", userId)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -67,10 +65,8 @@ public class JwtTokenProvider {
         try {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
             return true;
-        } catch (ExpiredJwtException e) {
-            throw new CoreException(ErrorType.SESSION_EXPIRED);
         } catch (JwtException | IllegalArgumentException e) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
+            return false;
         }
     }
 
@@ -89,6 +85,6 @@ public class JwtTokenProvider {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return claims.get("userId", Long.class);
+        return claims.get("id", Long.class);
     }
 }
