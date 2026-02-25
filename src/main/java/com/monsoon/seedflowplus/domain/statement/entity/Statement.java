@@ -1,7 +1,7 @@
 package com.monsoon.seedflowplus.domain.statement.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
-import com.monsoon.seedflowplus.domain.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.document.order.entity.OrderHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

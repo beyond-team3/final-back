@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.order.entity;
+package com.monsoon.seedflowplus.domain.document.order.entity;
 
 import com.monsoon.seedflowplus.domain.pipeline.enums.DocumentStatus;
 
