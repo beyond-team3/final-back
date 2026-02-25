@@ -1,7 +1,7 @@
 package com.monsoon.seedflowplus.domain.schedule.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
-import com.monsoon.seedflowplus.domain.account.User;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

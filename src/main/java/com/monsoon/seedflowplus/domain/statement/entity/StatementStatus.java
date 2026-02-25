@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.statement.entity;
 
-public enum StatementStatus {
+import com.monsoon.seedflowplus.domain.pipeline.enums.DocumentStatus;
+
+public enum StatementStatus implements DocumentStatus {
     ISSUED,    // 발급
     CANCELED   // 취소
 }
