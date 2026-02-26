@@ -78,7 +78,7 @@ dependencies {
     }
 }
 
-// QueryDSL Q클래스 생성 경로 설정
+// QueryDSL Q클래스 생성 경로 설정 (IntelliJ가 소스셋으로 인식)
 def querydslDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
 
 sourceSets {
