@@ -29,7 +29,6 @@ public class StatementResponse {
                 .statementCode(statement.getStatementCode())
                 .orderId(statement.getOrderHeader().getId())
                 .orderCode(statement.getOrderHeader().getOrderCode())
-                .invoiceId(statement.getInvoiceId())
                 .supplyAmount(statement.getSupplyAmount())
                 .vatAmount(statement.getVatAmount())
                 .totalAmount(statement.getTotalAmount())
