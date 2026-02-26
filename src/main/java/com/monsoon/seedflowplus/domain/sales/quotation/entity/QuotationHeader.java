@@ -33,7 +33,7 @@ public class QuotationHeader extends BaseModifyEntity {
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_code", referencedColumnName = "employee_code")
+    @JoinColumn(name = "author_id")
     private Employee author; // 작성자
 
     @Column(name = "status", nullable = false)
