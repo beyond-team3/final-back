@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.infra.security;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
@@ -25,7 +26,7 @@ public class CustomUserDetails implements UserDetails {
         this.loginId = user.getLoginId();
         this.password = user.getLoginPw();
         this.role = user.getRole();
-        this.enabled = user.getStatus() == com.monsoon.seedflowplus.domain.account.entity.Status.ACTIVATE;
+        this.enabled = user.getStatus() == Status.ACTIVATE;
         this.user = user;
     }
 
