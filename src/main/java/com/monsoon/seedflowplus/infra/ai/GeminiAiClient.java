@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.infra.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
+import com.monsoon.seedflowplus.infra.ai.dto.GeminiApiResponse;
 import com.monsoon.seedflowplus.infra.ai.dto.GeminiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -18,67 +21,92 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GeminiAiClient implements AiClient {
 
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
     @Value("${google.gemini.api.key}")
     private String apiKey;
 
     @Value("${google.gemini.api.url}")
     private String apiUrl;
 
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
-
     @Override
     public SalesBriefing analyzeSalesStrategy(Long clientId, String text) {
-        // 1. 프롬프트 구성 (회의록 기반 전략 수립 가이드라인 적용)
-        String prompt = String.format("""
-            당신은 B2B 전략 영업 컨설턴트입니다. 다음 영업 노트들을 분석하여 JSON 형식으로 응답하세요.
-
-            분석 대상 노트:
-            %s
-
-            반드시 아래 JSON 구조로만 응답하세요:
-            {
-              "status_change": ["최근 변화 1", "최근 변화 2"],
-              "long_term_pattern": ["장기 패턴 1", "장기 패턴 2"],
-              "strategy_suggestion": "구체적인 영업 전략 제안",
-              "version": "v1.0"
-            }
-            """, text);
-
+        System.out.println("주입된 API Key 확인: " + apiKey);
         try {
-            // 2. API 요청 설정
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            // 1. 근거 추출을 위한 가이드가 포함된 프롬프트 생성
+            String prompt = buildPromptWithCitation(text);
 
-            Map<String, Object> body = Map.of(
+            // 2. API 요청 바디 구성 (JSON 모드 활성화)
+            Map<String, Object> requestBody = Map.of(
                     "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)
-                            ))
+                            Map.of("parts", List.of(Map.of("text", prompt)))
+                    ),
+                    "generationConfig", Map.of(
+                            "temperature", 0.1, // 일관된 분석을 위해 온도를 낮춤
+                            "responseMimeType", "application/json"
                     )
             );
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            String fullUrl = apiUrl + "?key=" + apiKey;
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // 3. API 호출 및 결과 파싱
-            ResponseEntity<String> response = restTemplate.postForEntity(fullUrl, entity, String.class);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            // 실제 응답 구조에 맞게 JSON 추출 (예시를 단순화함)
-            GeminiResponse result = objectMapper.readValue(response.getBody(), GeminiResponse.class);
+            // 3. Gemini API 호출
+            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl)
+                    .queryParam("key", apiKey)
+                    .build(true) // 인코딩된 상태로 유지
+                    .toUri();
 
-            // 4. 엔티티로 변환하여 반환
+            ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.POST,
+                    entity,
+                    GeminiApiResponse.class
+            );
+
+            // 4. 응답 데이터 추출 (JSON 텍스트 추출)
+            String jsonText = response.getBody()
+                    .getCandidates().get(0)
+                    .getContent().getParts().get(0)
+                    .getText();
+
+            // 5. 비즈니스 DTO로 변환 (근거 ID 포함)
+            GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
+
+            // 6. 엔티티 생성 시 근거 ID(evidenceNoteIds) 반영
             return SalesBriefing.builder()
                     .clientId(clientId)
-                    .statusChange(result.getStatus_change())
-                    .longTermPattern(result.getLong_term_pattern())
-                    .strategySuggestion(result.getStrategy_suggestion())
-                    .version(result.getVersion())
+                    .statusChange(aiResult.getStatus_change())
+                    .longTermPattern(aiResult.getLong_term_pattern())
+                    .strategySuggestion(aiResult.getStrategy_suggestion())
+                    .evidenceNoteIds(aiResult.getEvidence_note_ids()) // 근거 필드 추가
+                    .version(aiResult.getVersion())
                     .build();
 
         } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류 발생: {}", e.getMessage());
-            throw new RuntimeException("AI 분석 실패", e);
+            log.error("Gemini 분석 중 오류 발생: {}", e.getMessage());
+            throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
         }
+    }
+
+    private String buildPromptWithCitation(String text) {
+        return """
+        당신은 종자 회사 전략 영업 컨설턴트입니다. 
+        제공된 [회의록]을 분석하여 전략을 수립하세요. 
+        각 전략의 근거가 된 회의록의 [ID]를 'evidence_note_ids'에 리스트 형태로 포함해야 합니다.
+
+        반드시 아래 JSON 구조로만 응답하세요:
+        {
+          "status_change": ["최근 변화 내용"],
+          "long_term_pattern": ["포착된 장기 패턴"],
+          "strategy_suggestion": "실행 가능한 구체적 영업 전략",
+          "evidence_note_ids": [101, 102],
+          "version": "v1.1"
+        }
+
+        [회의록 데이터]
+        """ + text;
     }
 }

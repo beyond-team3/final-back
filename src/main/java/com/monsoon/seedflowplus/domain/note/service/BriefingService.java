@@ -22,7 +22,7 @@ public class BriefingService {
 
     private final SalesNoteRepository noteRepository;
     private final SalesBriefingRepository briefingRepository;
-    private final AiClient aiClient; // 인프라 계층의 AI 연동 클라이언트
+    private final AiClient aiClient;
 
     /**
      * 고객별 최신 브리핑 조회
@@ -33,11 +33,10 @@ public class BriefingService {
 
     /**
      * 누적 노트를 기반으로 AI 브리핑 생성 및 갱신
-     * NoteService의 생성/수정/삭제 시점에 호출됩니다.
      */
     @Transactional
     public void refreshBriefing(Long clientId) {
-        // 1. 분석을 위한 최근 노트 3개 추출 (비즈니스 로직 필수 조건)
+        // 1. 분석을 위한 최근 노트 3개 추출 (비즈니스 로직 조건 유지)
         List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDesc(clientId);
 
         if (recentNotes.size() < 3) {
@@ -45,22 +44,25 @@ public class BriefingService {
             return;
         }
 
-        // 2. AI 분석용 텍스트 조립
+        // 2. AI 분석용 텍스트 조립 (근거 추출을 위해 ID를 명시적으로 포함)
         String combinedNotes = recentNotes.stream()
-                .map(note -> String.format("[%s] %s", note.getActivityDate(), note.getContent()))
+                .map(note -> String.format("[ID: %d] (%s) %s",
+                        note.getId(), note.getActivityDate(), note.getContent()))
                 .collect(Collectors.joining("\n---\n"));
 
         try {
-            // 3. AI 엔진(Gemini 등)을 통한 전략 리포트 생성 요청
-            // AiClient는 인프라 계층에서 상세 구현 (요약, 패턴, 전략 포함)
+            // 3. AI 엔진을 통한 전략 분석 호출
+            // 이제 analyzedResult에는 evidenceNoteIds가 포함되어 반환됩니다.
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combinedNotes);
 
-            // 4. 기존 브리핑이 있으면 업데이트, 없으면 신규 저장
+            // 4. 기존 데이터 업데이트 또는 신규 저장
             SalesBriefing briefing = briefingRepository.findByClientId(clientId)
                     .map(existing -> {
+                        // 엔티티의 수정된 updateAnalysis 메서드 호출 (evidenceNoteIds 파라미터 추가)
                         existing.updateAnalysis(
                                 analyzedResult.getStatusChange(),
                                 analyzedResult.getLongTermPattern(),
+                                analyzedResult.getEvidenceNoteIds(), // 근거 ID 리스트 반영
                                 analyzedResult.getStrategySuggestion(),
                                 analyzedResult.getVersion()
                         );
@@ -69,10 +71,10 @@ public class BriefingService {
                     .orElse(analyzedResult);
 
             briefingRepository.save(briefing);
-            log.info("AI 브리핑 갱신 완료: clientId={}", clientId);
+            log.info("AI 브리핑 갱신 완료 (근거 포함): clientId={}", clientId);
 
         } catch (Exception e) {
-            log.error("AI 분석 중 오류 발생: clientId={}", clientId, e);
+            log.error("AI 브리핑 갱신 중 오류 발생: clientId={}", clientId, e);
         }
     }
 }

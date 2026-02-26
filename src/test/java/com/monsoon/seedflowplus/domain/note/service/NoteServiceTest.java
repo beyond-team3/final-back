@@ -33,16 +33,20 @@ class NoteServiceTest {
     @DisplayName("새로운 노트를 저장하면 브리핑 갱신 로직이 트리거되어야 한다")
     void createNote_TriggersBriefingUpdate() {
         // Given
+        Long mockUserId = 100L; // 작성자 ID 가정
         NoteRequestDto dto = NoteRequestDto.builder()
                 .clientId(1L)
                 .content("미팅 내용")
                 .build();
-        SalesNote note = dto.toEntity();
+
+        // toEntity 호출 시 필요한 인자(mockUserId)를 전달하도록 수정
+        SalesNote note = dto.toEntity(mockUserId);
 
         given(noteRepository.save(any(SalesNote.class))).willReturn(note);
         given(noteRepository.countByClientId(1L)).willReturn(3L);
 
         // When
+        // 실제 서비스 로직에서도 내부적으로 세션이나 SecurityContext에서 ID를 꺼내어 toEntity에 넘길 것입니다.
         noteService.createNote(dto);
 
         // Then
