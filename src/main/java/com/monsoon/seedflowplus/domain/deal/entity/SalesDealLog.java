@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -98,8 +99,14 @@ public class SalesDealLog extends BaseCreateEntity {
             Long actorId,
             String memo
     ) {
-        this.deal = deal;
-        this.client = client;
+        SalesDeal requiredDeal = Objects.requireNonNull(deal, "deal은 null값이 될 수 없습니다.");
+        Client dealClient = Objects.requireNonNull(requiredDeal.getClient(), "deal.client은 null값이 될 수 없습니다.");
+        if (client != null && !Objects.equals(client, dealClient)) {
+            throw new IllegalArgumentException("client는 deal.getClient()과 같아야 합니다.");
+        }
+
+        this.deal = requiredDeal;
+        this.client = dealClient;
         this.docType = docType;
         this.refId = refId;
         this.targetCode = targetCode;
