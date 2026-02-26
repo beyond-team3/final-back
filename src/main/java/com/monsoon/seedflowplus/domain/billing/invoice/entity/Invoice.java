@@ -25,11 +25,11 @@ public class Invoice extends BaseCreateEntity {
     private Long contractId;      // 타 파트라 ID만 저장
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", referencedColumnName = "id")
+    @JoinColumn(name = "client_id")
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id", referencedColumnName = "id")
+    @JoinColumn(name = "employee_id")
     private Employee employee;
 
     @Column(name = "invoice_date", nullable = false)
