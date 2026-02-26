@@ -25,8 +25,6 @@ public class Statement extends BaseCreateEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderHeader orderHeader;
 
-    @Column(name = "invoice_id")
-    private Long invoiceId;   // 청구서 발행 시 업데이트, 초기엔 null
 
     @Column(name = "supply_amount")
     private BigDecimal supplyAmount;
@@ -46,7 +44,6 @@ public class Statement extends BaseCreateEntity {
         Statement statement = new Statement();
         statement.statementCode = statementCode;
         statement.orderHeader = orderHeader;
-        statement.invoiceId = null;
         statement.totalAmount = totalAmount;
         statement.supplyAmount = totalAmount.divide(BigDecimal.valueOf(1.1), 2, RoundingMode.HALF_UP);
         statement.vatAmount = totalAmount.subtract(statement.supplyAmount);
@@ -54,10 +51,6 @@ public class Statement extends BaseCreateEntity {
         return statement;
     }
 
-    // 청구서 연결
-    public void linkInvoice(Long invoiceId) {
-        this.invoiceId = invoiceId;
-    }
 
     // 취소
     public void cancel() {
