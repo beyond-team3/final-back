@@ -10,6 +10,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -169,6 +170,8 @@ public class AccountService {
 
     @Transactional
     public void addClientCrop(Long clientId, ClientCropRequest request) {
+        validateClientOwnership(clientId);
+
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
@@ -182,6 +185,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientCropResponse> getClientCrops(Long clientId) {
+        validateClientOwnership(clientId);
+
         return clientCropRepository.findAllByClientId(clientId).stream()
                 .map(ClientCropResponse::from)
                 .toList();
@@ -192,13 +197,53 @@ public class AccountService {
         ClientCrop clientCrop = clientCropRepository.findById(cropId)
                 .orElseThrow(() -> new CoreException(ErrorType.CROP_NOT_FOUND));
 
+        validateClientOwnership(clientCrop.getClient().getId());
+
         clientCropRepository.delete(clientCrop);
+    }
+
+    private void validateClientOwnership(Long clientId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        String loginId = authentication.getName();
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        // ADMIN은 모든 접근 허용
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (user.getRole() == Role.SALES_REP) {
+            // 해당 거래처의 담당자인지 확인
+            Client client = clientRepository.findById(clientId)
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(user.getEmployee().getId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        } else if (user.getRole() == Role.CLIENT) {
+            // 본인 거래처인지 확인
+            if (user.getClient() == null || !user.getClient().getId().equals(clientId)) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        } else {
+            // 그 외 역할은 접근 불가
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
     }
 
     @Transactional
     public void changePassword(PasswordChangeRequest request) {
-        String loginId = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        String loginId = authentication.getName();
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
