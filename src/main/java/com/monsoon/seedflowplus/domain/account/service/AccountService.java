@@ -175,4 +175,19 @@ public class AccountService {
         clientCropRepository.delete(clientCrop);
     }
 
+    @Transactional
+    public void changePassword(PasswordChangeRequest request) {
+        String loginId = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.oldPassword(), user.getLoginPw())) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.newPassword()));
+    }
+
 }
