@@ -2,20 +2,15 @@ package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Builder
 @AttributeOverride(name = "id", column = @Column(name = "client_id"))
 @Table(name = "tbl_client")
 public class Client extends BaseModifyEntity {
@@ -66,8 +61,38 @@ public class Client extends BaseModifyEntity {
     @OneToOne(mappedBy = "client")
     private User account;
 
-    @Builder.Default
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ClientCrop> crops = new ArrayList<>();
+
+    @Builder
+    public Client(String clientCode, String clientName, String clientBrn, String ceoName,
+                  String companyPhone, String address, Double latitude, Double longitude,
+                  ClientType clientType, String managerName, String managerPhone,
+                  String managerEmail, Employee managerEmployee, BigDecimal totalCredit,
+                  BigDecimal usedCredit) {
+        this.clientCode = clientCode;
+        this.clientName = clientName;
+        this.clientBrn = clientBrn;
+        this.ceoName = ceoName;
+        this.companyPhone = companyPhone;
+        this.address = address;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.clientType = clientType;
+        this.managerName = managerName;
+        this.managerPhone = managerPhone;
+        this.managerEmail = managerEmail;
+        this.managerEmployee = managerEmployee;
+        this.totalCredit = totalCredit != null ? totalCredit : BigDecimal.ZERO;
+        this.usedCredit = usedCredit != null ? usedCredit : BigDecimal.ZERO;
+    }
+
+    public void updateClientCode(String clientCode) {
+        this.clientCode = clientCode;
+    }
+
+    public void updateManagerEmployee(Employee employee) {
+        this.managerEmployee = employee;
+    }
 
 }
