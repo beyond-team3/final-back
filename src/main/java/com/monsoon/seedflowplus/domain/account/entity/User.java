@@ -56,4 +56,7 @@ public class User extends BaseModifyEntity {
         this.status = status;
     }
 
+    public void updatePassword(String newPassword) {
+        this.loginPw = newPassword;
+    }
 }
