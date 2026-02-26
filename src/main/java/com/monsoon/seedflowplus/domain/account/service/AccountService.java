@@ -29,6 +29,7 @@ public class AccountService {
     private final EmployeeRepository employeeRepository;
     private final ClientCropRepository clientCropRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RedisTokenStore tokenStore;
 
     @Transactional
     public void registerClient(ClientRegisterRequest request) {
@@ -40,7 +41,7 @@ public class AccountService {
 
         // 2. 거래처 정보 등록 및 저장
         // clientCode는 cli-유형-pk 형식이므로, 먼저 임시값으로 저장 후 PK를 획득하여 업데이트함
-        String tempCode = "TEMP-" + UUID.randomUUID();
+        String tempCode = "TCLNT-" + UUID.randomUUID();
 
         Client client = Client.builder()
                 .clientCode(tempCode)
@@ -220,18 +221,19 @@ public class AccountService {
             Client client = clientRepository.findById(clientId)
                     .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-            if (client.getManagerEmployee() == null || userDetails.getUser().getEmployee() == null
-                    || !client.getManagerEmployee().getId().equals(userDetails.getUser().getEmployee().getId())) {
+            if (client.getManagerEmployee() == null || userDetails.getEmployeeId() == null
+                    || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return client;
         } else if (userDetails.getRole() == Role.CLIENT) {
             // 본인 거래처인지 확인
-            if (userDetails.getUser().getClient() == null
-                    || !userDetails.getUser().getClient().getId().equals(clientId)) {
+            if (userDetails.getClientId() == null || !userDetails.getClientId().equals(clientId)) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return userDetails.getUser().getClient();
+            // 세션에서 엔티티를 제거했으므로 DB에서 조회
+            return clientRepository.findById(clientId)
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
         } else {
             // 그 외 역할은 접근 불가
             throw new CoreException(ErrorType.ACCESS_DENIED);
@@ -247,7 +249,10 @@ public class AccountService {
         }
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        User user = userDetails.getUser();
+
+        // 보안을 위해 세션의 정보 대신 DB에서 최신 유저 정보를 조회
+        User user = userRepository.findById(userDetails.getUserId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.oldPassword(), user.getLoginPw())) {
             throw new CoreException(ErrorType.INVALID_PASSWORD);
@@ -258,7 +263,8 @@ public class AccountService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
-        userRepository.save(user);
+        userRepository.save(user); // Persistence Context에 의해 자동으로 반영되지만 명시적으로 호출할 수도 있음
+        tokenStore.deleteRefreshToken(user.getLoginId());
     }
 
 }
