@@ -16,9 +16,11 @@ public enum ErrorType {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, ErrorCode.A001, "인증이 필요합니다.", LogLevel.WARN),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, ErrorCode.A002, "접근이 거부되었습니다.", LogLevel.WARN),
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.A003, "세션이 만료되었습니다.", LogLevel.WARN),
-
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.U001, "존재하지 않는 사용자입니다.", LogLevel.WARN),
-    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P001, "존재하지 않는 상품입니다.", LogLevel.WARN),
+
+    DUPLICATE_PRODUCT_CODE(HttpStatus.BAD_REQUEST, ErrorCode.P001, "이미 존재하는 상풉입니다.", LogLevel.WARN),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P002, "존재하지 않는 상품입니다.", LogLevel.WARN),
+    DUPLICATE_TAG(HttpStatus.BAD_REQUEST, ErrorCode.T001, "이미 존재하는 태그입니다.", LogLevel.WARN),
 
     // 주문
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.O001, "주문을 찾을 수 없습니다.", LogLevel.WARN),
