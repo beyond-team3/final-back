@@ -4,6 +4,7 @@
 //import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 //import com.monsoon.seedflowplus.domain.account.entity.Client;
 //import com.monsoon.seedflowplus.domain.account.entity.Employee;
+//import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 //import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 //import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 //import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
@@ -19,6 +20,8 @@
 //import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 //import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractHeaderRepository;
 //import lombok.RequiredArgsConstructor;
+//import org.springframework.data.jpa.repository.JpaRepository;
+//import org.springframework.dao.DataIntegrityViolationException;
 //import org.springframework.stereotype.Service;
 //import org.springframework.transaction.annotation.Transactional;
 //
@@ -36,6 +39,7 @@
 //    private final InvoiceRepository invoiceRepository;
 //    private final InvoiceStatementRepository invoiceStatementRepository;
 //    private final ContractHeaderRepository contractHeaderRepository;
+//    private final ClientRepository clientRepository;
 //    private final EmployeeRepository employeeRepository;
 //
 //    /**
@@ -81,8 +85,25 @@
 //            totalAmount = totalAmount.add(statement.getTotalAmount());
 //        }
 //
-//        // 6. 청구서 금액 업데이트
+//        // 6. 청구서 금액 업데이트 후 저장 (invoiceCode unique 충돌 시 최대 3회 재시도)
 //        invoice.updateAmount(totalAmount);
+//
+//        int maxRetries = 3;
+//        for (int i = 0; i < maxRetries; i++) {
+//            try {
+//                invoiceRepository.saveAndFlush(invoice);
+//                break;
+//            } catch (DataIntegrityViolationException e) {
+//                if (!isInvoiceCodeViolation(e) || i == maxRetries - 1) throw e;
+//                // invoiceCode 충돌 시 새 코드로 재시도
+//                invoice = Invoice.create(
+//                        contract.getId(), client, employee,
+//                        LocalDate.now(), request.getStartDate(), request.getEndDate(),
+//                        generateCode("INV"), request.getMemo()
+//                );
+//                invoiceRepository.save(invoice);
+//            }
+//        }
 //
 //        // 7. 연결된 InvoiceStatement 목록 조회 후 반환
 //        List<InvoiceStatement> invoiceStatements =
@@ -91,9 +112,9 @@
 //        return InvoiceDetailResponse.of(invoice, invoiceStatements);
 //    }
 //
-//
-//    //청구서 발행 확정 (DRAFT → PUBLISHED)
-//
+//    /**
+//     * 청구서 발행 확정 (DRAFT → PUBLISHED)
+//     */
 //    @Transactional
 //    public InvoicePublishResponse publishInvoice(Long invoiceId) {
 //        Invoice invoice = invoiceRepository.findById(invoiceId)
@@ -168,18 +189,18 @@
 //        return InvoiceDetailResponse.of(invoice, invoiceStatements);
 //    }
 //
-//
-//    //청구서 목록 조회 (전체)
-//
+//    /**
+//     * 청구서 목록 조회 (전체)
+//     */
 //    public List<InvoiceListResponse> getInvoices() {
 //        return invoiceRepository.findAll().stream()
 //                .map(InvoiceListResponse::from)
 //                .toList();
 //    }
 //
-//
-//    // 청구서 목록 조회 (거래처별)
-//
+//    /**
+//     * 청구서 목록 조회 (거래처별)
+//     */
 //    public List<InvoiceListResponse> getInvoicesByClient(Long clientId) {
 //        return invoiceRepository.findAllByClientId(clientId).stream()
 //                .map(InvoiceListResponse::from)
@@ -224,6 +245,28 @@
 //        }
 //
 //        invoice.updateAmount(totalAmount);
+//
+//        int maxRetries = 3;
+//        for (int i = 0; i < maxRetries; i++) {
+//            try {
+//                invoiceRepository.saveAndFlush(invoice);
+//                break;
+//            } catch (DataIntegrityViolationException e) {
+//                if (!isInvoiceCodeViolation(e) || i == maxRetries - 1) throw e;
+//                String newCode = generateCode("INV");
+//                invoice = Invoice.create(
+//                        contract.getId(), contract.getClient(), null,
+//                        today, startDate, endDate, newCode, null
+//                );
+//                invoiceRepository.save(invoice);
+//            }
+//        }
+//    }
+//
+//    // invoice_code 유니크 제약 위반 여부 판별
+//    private boolean isInvoiceCodeViolation(DataIntegrityViolationException e) {
+//        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+//        return msg.contains("invoice_code") || msg.contains("uk_") || msg.contains("unique");
 //    }
 //
 //    // INV-20260223-001 형식으로 코드 생성
