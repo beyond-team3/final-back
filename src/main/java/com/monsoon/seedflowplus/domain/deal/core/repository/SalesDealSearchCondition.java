@@ -1,7 +1,7 @@
-package com.monsoon.seedflowplus.domain.deal.repository;
+package com.monsoon.seedflowplus.domain.deal.core.repository;
 
-import com.monsoon.seedflowplus.domain.deal.entity.DealStage;
-import com.monsoon.seedflowplus.domain.deal.entity.DealType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;

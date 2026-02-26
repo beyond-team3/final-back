@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.common;
 
 /**
  * 문서별 상태 Enum의 마커 인터페이스.

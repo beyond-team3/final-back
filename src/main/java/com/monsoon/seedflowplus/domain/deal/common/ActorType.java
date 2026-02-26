@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.common;
 
 public enum ActorType {
     SALES_REP,

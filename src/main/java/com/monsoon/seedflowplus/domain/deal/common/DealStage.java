@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.common;
 
 /**
  * 문서별 status를 "공통 흐름 단계"로 추상화한 값.

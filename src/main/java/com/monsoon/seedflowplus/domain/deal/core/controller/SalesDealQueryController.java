@@ -1,12 +1,12 @@
-package com.monsoon.seedflowplus.domain.deal.controller;
+package com.monsoon.seedflowplus.domain.deal.core.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
-import com.monsoon.seedflowplus.domain.deal.dto.response.SalesDealListItemDto;
-import com.monsoon.seedflowplus.domain.deal.entity.DealStage;
-import com.monsoon.seedflowplus.domain.deal.entity.DealType;
-import com.monsoon.seedflowplus.domain.deal.repository.SalesDealSearchCondition;
-import com.monsoon.seedflowplus.domain.deal.service.SalesDealQueryService;
-import com.monsoon.seedflowplus.domain.deal.service.TempUser;
+import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemDto;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondition;
+import com.monsoon.seedflowplus.domain.deal.core.service.SalesDealQueryService;
+import com.monsoon.seedflowplus.domain.deal.core.service.TempUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

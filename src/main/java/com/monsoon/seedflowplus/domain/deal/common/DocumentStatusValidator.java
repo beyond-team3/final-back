@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.common;
 
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus;

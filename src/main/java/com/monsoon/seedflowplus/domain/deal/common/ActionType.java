@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.common;
 
 /**
  * 딜 로그 행동(이벤트) 분류.

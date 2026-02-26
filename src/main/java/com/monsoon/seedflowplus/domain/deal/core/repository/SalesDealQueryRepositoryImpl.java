@@ -1,11 +1,11 @@
-package com.monsoon.seedflowplus.domain.deal.repository;
+package com.monsoon.seedflowplus.domain.deal.core.repository;
 
 import com.monsoon.seedflowplus.domain.account.entity.QClient;
 import com.monsoon.seedflowplus.domain.account.entity.QEmployee;
-import com.monsoon.seedflowplus.domain.deal.entity.DealStage;
-import com.monsoon.seedflowplus.domain.deal.entity.DealType;
-import com.monsoon.seedflowplus.domain.deal.entity.QSalesDeal;
-import com.monsoon.seedflowplus.domain.deal.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.entity.QSalesDeal;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;

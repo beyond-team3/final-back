@@ -1,10 +1,10 @@
-package com.monsoon.seedflowplus.domain.deal.service;
+package com.monsoon.seedflowplus.domain.deal.core.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
-import com.monsoon.seedflowplus.domain.deal.dto.response.SalesDealListItemDto;
-import com.monsoon.seedflowplus.domain.deal.entity.SalesDeal;
-import com.monsoon.seedflowplus.domain.deal.repository.SalesDealRepository;
-import com.monsoon.seedflowplus.domain.deal.repository.SalesDealSearchCondition;
+import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemDto;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondition;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

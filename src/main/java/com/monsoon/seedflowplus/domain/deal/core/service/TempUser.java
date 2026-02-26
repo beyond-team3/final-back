@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.deal.service;
+package com.monsoon.seedflowplus.domain.deal.core.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 
