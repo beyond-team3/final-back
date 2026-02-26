@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.domain.account.entity.ClientType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 
@@ -18,6 +19,6 @@ public record ClientRegisterRequest(
         @NotBlank(message = "담당자명은 필수 입력 값입니다.") String managerName,
         @NotBlank(message = "담당자 전화번호는 필수 입력 값입니다.") String managerPhone,
         @Email(message = "이메일 형식이 올바르지 않습니다.") @NotBlank(message = "담당자 이메일은 필수 입력 값입니다.") String managerEmail,
-        BigDecimal totalCredit // 전체 여신
+        @PositiveOrZero(message = "여신 금액은 0 이상이어야 합니다.") BigDecimal totalCredit // 전체 여신
 ) {
 }
