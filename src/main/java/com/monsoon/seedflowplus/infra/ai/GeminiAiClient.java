@@ -15,7 +15,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -32,33 +31,33 @@ public class GeminiAiClient implements AiClient {
 
     @Override
     public SalesBriefing analyzeSalesStrategy(Long clientId, String text) {
-        System.out.println("주입된 API Key 확인: " + apiKey);
         try {
-            // 1. 근거 추출을 위한 가이드가 포함된 프롬프트 생성
             String prompt = buildPromptWithCitation(text);
 
-            // 2. API 요청 바디 구성 (JSON 모드 활성화)
+            // 1. API 요청 바디 구성 (snake_case 규격 준수)
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(
                             Map.of("parts", List.of(Map.of("text", prompt)))
                     ),
                     "generationConfig", Map.of(
-                            "temperature", 0.1, // 일관된 분석을 위해 온도를 낮춤
-                            "responseMimeType", "application/json"
+                            "temperature", 0.1,
+                            "response_mime_type", "application/json" // 필드명 수정
                     )
             );
 
+            // 2. HTTP 헤더 설정 (보안 강화: x-goog-api-key 사용)
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("x-goog-api-key", apiKey); // API 키를 헤더로 이동
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            // 3. Gemini API 호출
+            // 3. URI 생성 (쿼리 파라미터에서 키 제거)
             URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl)
-                    .queryParam("key", apiKey)
-                    .build(true) // 인코딩된 상태로 유지
+                    .build()
                     .toUri();
 
+            // 4. Gemini API 호출
             ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
                     uri,
                     HttpMethod.POST,
@@ -66,22 +65,21 @@ public class GeminiAiClient implements AiClient {
                     GeminiApiResponse.class
             );
 
-            // 4. 응답 데이터 추출 (JSON 텍스트 추출)
+            // 5. 응답 데이터 추출 및 DTO 변환
             String jsonText = response.getBody()
                     .getCandidates().get(0)
                     .getContent().getParts().get(0)
                     .getText();
 
-            // 5. 비즈니스 DTO로 변환 (근거 ID 포함)
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
-            // 6. 엔티티 생성 시 근거 ID(evidenceNoteIds) 반영
+            // 6. 엔티티 생성 (camelCase 필드 및 JsonProperty 매핑 결과 반영)
             return SalesBriefing.builder()
                     .clientId(clientId)
                     .statusChange(aiResult.getStatusChange())
                     .longTermPattern(aiResult.getLongTermPattern())
                     .strategySuggestion(aiResult.getStrategySuggestion())
-                    .evidenceNoteIds(aiResult.getEvidenceNoteIds()) // 근거 필드 추가
+                    .evidenceNoteIds(aiResult.getEvidenceNoteIds())
                     .version(aiResult.getVersion())
                     .build();
 

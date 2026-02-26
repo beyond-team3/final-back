@@ -70,9 +70,8 @@ public class NoteController {
      */
     @GetMapping("/briefing/{clientId}")
     public ResponseEntity<SalesBriefing> getBriefing(@PathVariable Long clientId) {
-        //에서 정의된 고객별 브리핑 조회 로직 호출
         return briefingService.getBriefingByClient(clientId)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.noContent().build());
+                .orElse(ResponseEntity.notFound().build());
     }
 }
