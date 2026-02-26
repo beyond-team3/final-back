@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -204,31 +205,31 @@ public class AccountService {
 
     private void validateClientOwnership(Long clientId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
 
-        String loginId = authentication.getName();
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
         // ADMIN은 모든 접근 허용
-        if (user.getRole() == Role.ADMIN) {
+        if (userDetails.getRole() == Role.ADMIN) {
             return;
         }
 
-        if (user.getRole() == Role.SALES_REP) {
+        if (userDetails.getRole() == Role.SALES_REP) {
             // 해당 거래처의 담당자인지 확인
             Client client = clientRepository.findById(clientId)
                     .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-            if (client.getManagerEmployee() == null
-                    || !client.getManagerEmployee().getId().equals(user.getEmployee().getId())) {
+            if (client.getManagerEmployee() == null || userDetails.getUser().getEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(userDetails.getUser().getEmployee().getId())) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-        } else if (user.getRole() == Role.CLIENT) {
+        } else if (userDetails.getRole() == Role.CLIENT) {
             // 본인 거래처인지 확인
-            if (user.getClient() == null || !user.getClient().getId().equals(clientId)) {
+            if (userDetails.getUser().getClient() == null
+                    || !userDetails.getUser().getClient().getId().equals(clientId)) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
         } else {
@@ -240,13 +241,13 @@ public class AccountService {
     @Transactional
     public void changePassword(PasswordChangeRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
-        String loginId = authentication.getName();
 
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        User user = userDetails.getUser();
 
         if (!passwordEncoder.matches(request.oldPassword(), user.getLoginPw())) {
             throw new CoreException(ErrorType.INVALID_PASSWORD);
@@ -257,6 +258,7 @@ public class AccountService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user); // Persistence Context에 의해 자동으로 반영되지만 명시적으로 호출할 수도 있음
     }
 
 }
