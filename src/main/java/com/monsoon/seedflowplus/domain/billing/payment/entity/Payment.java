@@ -18,11 +18,11 @@ import java.math.BigDecimal;
 public class Payment extends BaseCreateEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "invoice_id", referencedColumnName = "id")
+    @JoinColumn(name = "invoice_id")
     private Invoice invoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", referencedColumnName = "id")
+    @JoinColumn(name = "client_id")
     private Client client;
 
     @Column(name = "payment_amount")
