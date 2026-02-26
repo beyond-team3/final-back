@@ -167,4 +167,12 @@ public class AccountService {
                 .toList();
     }
 
+    @Transactional
+    public void deleteClientCrop(Long cropId) {
+        ClientCrop clientCrop = clientCropRepository.findById(cropId)
+                .orElseThrow(() -> new CoreException(ErrorType.INVALID_INPUT_VALUE));
+
+        clientCropRepository.delete(clientCrop);
+    }
+
 }
