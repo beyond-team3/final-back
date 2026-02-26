@@ -18,5 +18,5 @@ public interface StatementRepository extends JpaRepository<Statement, Long> {
     // 코드 채번용
     boolean existsByStatementCode(String statementCode);
 
-    long countByStatementCodeStartingWith(String prefix);
+    Optional<Statement> findTopByStatementCodeStartingWithOrderByStatementCodeDesc(String prefix);
 }

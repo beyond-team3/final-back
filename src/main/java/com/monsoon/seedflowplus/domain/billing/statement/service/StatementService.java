@@ -35,7 +35,7 @@ public class StatementService {
                     throw new CoreException(ErrorType.STATEMENT_ALREADY_ISSUED);
                 });
 
-        // statementCode unique 제약조건 충돌 시 최대 3회 재시도
+        // statementCode unique 충돌 시에만 최대 3회 재시도
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
@@ -44,7 +44,8 @@ public class StatementService {
                 statementRepository.save(statement);
                 return;
             } catch (DataIntegrityViolationException e) {
-                if (i == maxRetries - 1) throw e;
+                // statement_code 유니크 충돌만 재시도, 그 외(FK 등)는 즉시 전파
+                if (!isStatementCodeViolation(e) || i == maxRetries - 1) throw e;
             }
         }
     }
@@ -67,15 +68,25 @@ public class StatementService {
                 .toList();
     }
 
-    // STMT-20260223-001 형식으로 코드 생성 (OrderService와 동일한 패턴)
+    // STMT-20260223-001 형식으로 코드 생성 (MAX suffix 방식)
     private String generateCode(String prefix) {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String todayPrefix = prefix + "-" + date + "-";
 
-        boolean exists = statementRepository.existsByStatementCode(todayPrefix + "001");
-        if (!exists) return todayPrefix + "001";
+        return statementRepository
+                .findTopByStatementCodeStartingWithOrderByStatementCodeDesc(todayPrefix)
+                .map(s -> {
+                    // 마지막 3자리 숫자 파싱 후 +1
+                    String lastCode = s.getStatementCode();
+                    int lastSeq = Integer.parseInt(lastCode.substring(lastCode.lastIndexOf("-") + 1));
+                    return todayPrefix + String.format("%03d", lastSeq + 1);
+                })
+                .orElse(todayPrefix + "001");
+    }
 
-        long count = statementRepository.countByStatementCodeStartingWith(todayPrefix);
-        return todayPrefix + String.format("%03d", count + 1);
+    // statement_code 유니크 제약 위반 여부 판별
+    private boolean isStatementCodeViolation(DataIntegrityViolationException e) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return msg.contains("statement_code") || msg.contains("uk_") || msg.contains("unique");
     }
 }
