@@ -1,11 +1,12 @@
-# SalesHistory Enum 가이드
+# SalesDeal / SalesDealLog Enum 가이드
 
-`SalesHistory`는 영업 파이프라인(RFQ→QUO→CNT→ORD→STMT→INV)의 모든 상태 변경을
-하나의 테이블에 기록하는 이력 엔티티입니다.
+`SalesDeal`은 거래 1건의 최신 상태 스냅샷을 보관하고,
+`SalesDealLog`는 영업 Deal(RFQ→QUO→CNT→ORD→STMT→INV)의 상태 변경 이벤트를
+append-only로 기록합니다.
 
 ---
 
-## PipelineType — 어떤 문서인가
+## DealType — 어떤 문서인가 (docType / latestDocType)
 
 | 값 | 문서 |
 |---|---|
@@ -15,11 +16,11 @@
 | `ORD`  | 주문서 |
 | `STMT` | 명세서 |
 | `INV`  | 청구서 |
-| `PAY`  | 결제 (결제를 독립 파이프라인으로 추적할 때만 사용) |
+| `PAY`  | 결제 (결제를 독립 Deal으로 추적할 때만 사용) |
 
 ---
 
-## ActionType — 무슨 행위가 발생했는가
+## ActionType — 무슨 행위가 발생했는가 (actionType)
 
 | 값 | 설명 |
 |---|---|
@@ -41,10 +42,11 @@
 
 ---
 
-## PipelineStage — 현재 어느 단계인가
+## DealStage — 현재 어느 단계인가 (currentStage / fromStage / toStage)
 
 문서마다 상태값 이름이 달라도 공통 단계로 통일해 대시보드·집계에 사용합니다.
-`fromStage`(변경 전) → `toStage`(변경 후) 형태로 기록됩니다.
+`SalesDeal`에는 `currentStage`로 최신값이,
+`SalesDealLog`에는 `fromStage`(변경 전) → `toStage`(변경 후) 형태로 기록됩니다.
 
 | 값 | 설명 |
 |---|---|
@@ -66,23 +68,23 @@
 
 ---
 
-## ActorType — 누가 수행했는가
+## ActorType — 누가 수행했는가 (actorType)
 
 | 값 | 설명 |
 |---|---|
-| `EMP`    | 일반 직원 |
+| `SALES_REP` | 일반 영업사원 |
 | `ADMIN`  | 관리자 |
 | `CLIENT` | 거래처 |
 | `SYSTEM` | 시스템 자동 처리 |
 
 ---
 
-## fromStatus / toStatus — 문서별 세부 상태
+## currentStatus / fromStatus / toStatus — 문서별 세부 상태
 
 `String` 타입으로 저장되며, 각 문서의 상태 Enum `name()` 값을 담습니다.
-`pipelineType`에 따라 허용되는 값이 결정됩니다.
+`docType`(또는 `latestDocType`)에 따라 허용되는 값이 결정됩니다.
 
-| pipelineType | 사용 Enum | 허용값 |
+| dealType | 사용 Enum | 허용값 |
 |---|---|---|
 | `RFQ`  | `RequestStatus`   | `PENDING` `REVIEWING` `CANCELED` |
 | `QUO`  | `QuotationStatus` | `DRAFT` `ADMIN_PENDING` `ADMIN_REJECTED` `CLIENT_PENDING` `CLIENT_REJECTED` `APPROVED` `EXPIRED` |
@@ -93,28 +95,28 @@
 | `PAY`  | `PaymentStatus`   | `PENDING` `COMPLETED` `FAILED` |
 
 `fromStatus`는 문서 최초 생성 시 `null`이 허용됩니다.
-pipelineType별 허용값 검증은 서비스 레이어에서 수행합니다.
+문서 타입별 허용값 검증은 서비스 레이어에서 수행합니다.
 
 ---
 
 ## 기록 예시
 
-**견적서(QUO) 관리자 승인 시**
+**견적서(QUO) 관리자 승인 시 (`SalesDealLog`)**
 ```
-pipelineType : QUO
+docType      : QUO
 actionType   : APPROVE
 actorType    : ADMIN
 fromStage    : PENDING_ADMIN   /  fromStatus : ADMIN_PENDING
 toStage      : PENDING_CLIENT  /  toStatus   : CLIENT_PENDING
 ```
 
-**견적요청서(RFQ) → 견적서(QUO) 전환 시** (히스토리 레코드 2개 생성)
+**견적요청서(RFQ) → 견적서(QUO) 전환 시** (로그 레코드 2개 생성)
 ```
 # 1. RFQ 종결
-pipelineType : RFQ  /  actionType : CONVERT
+docType      : RFQ  /  actionType : CONVERT
 toStage      : APPROVED  /  toStatus : (전환 전 마지막 상태)
 
 # 2. QUO 생성
-pipelineType : QUO  /  actionType : CREATE
+docType      : QUO  /  actionType : CREATE
 toStage      : CREATED  /  toStatus : DRAFT
 ```
