@@ -2,10 +2,7 @@ package com.monsoon.seedflowplus.domain.account.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
-import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.UserStatusUpdateRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
@@ -22,7 +19,7 @@ import java.util.UUID;
 public class AccountService {
 
     private final UserRepository userRepository;
-    private  final ClientRepository clientRepository;
+    private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -30,7 +27,7 @@ public class AccountService {
     public void registerClient(ClientRegisterRequest request) {
 
         // 1. 중복 검사
-        if(clientRepository.existsByClientBrn(request.clientBrn())) {
+        if (clientRepository.existsByClientBrn(request.clientBrn())) {
             throw new CoreException(ErrorType.DUPLICATE_CLIENT_BRN);
         }
 
@@ -126,6 +123,24 @@ public class AccountService {
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
         user.updateStatus(request.status());
+    }
+
+    @Transactional
+    public void updateClientInfo(Long clientId, ClientUpdateRequest request) {
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        client.updateClientInfo(
+                request.clientName(),
+                request.clientBrn(),
+                request.ceoName(),
+                request.companyPhone(),
+                request.address(),
+                request.clientType(),
+                request.managerName(),
+                request.managerPhone(),
+                request.managerEmail(),
+                request.totalCredit());
     }
 
 }
