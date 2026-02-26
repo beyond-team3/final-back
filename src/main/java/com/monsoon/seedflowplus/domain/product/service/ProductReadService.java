@@ -4,6 +4,8 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +22,7 @@ public class ProductReadService {
 
     private final ProductRepository productRepository;
 
-    // 상품 전체목록
+    // 상품 전체목록 (추후 성능 비교 후 Pageable/QueryDSL로 변경 예정)
     public List<ProductResponse> getAllProducts(Role role) {
         List<Product> products = productRepository.findAll();
 
@@ -29,6 +31,31 @@ public class ProductReadService {
 
         return products.stream()
                 .map(product -> convertToDto(product, canViewPrice))
+                .collect(Collectors.toList());
+    }
+
+    // 견적서/계약서용 상품 목록 조회
+    public List<ProductContractResponse> getProductsForContract(Role role) {
+        return productRepository.findAll().stream()
+                .map(product -> ProductContractResponse.builder()
+                        .productId(product.getId())
+                        .productCategory(product.getProductCategory().name())
+                        .productName(product.getProductName())
+                        .unit(product.getUnit())
+                        .price(product.getPrice())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // 견적 요청서용 상품 목록 조회
+    public List<ProductEstimateReqResponse> getProductsForEstimateReq(Role role) {
+        return productRepository.findAll().stream()
+                .map(product -> ProductEstimateReqResponse.builder()
+                        .productId(product.getId())
+                        .productCategory(product.getProductCategory().name())
+                        .productName(product.getProductName())
+                        .unit(product.getUnit())
+                        .build())
                 .collect(Collectors.toList());
     }
 

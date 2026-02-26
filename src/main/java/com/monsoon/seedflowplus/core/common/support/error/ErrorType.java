@@ -51,6 +51,7 @@ public enum ErrorType {
     EMPLOYEE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A102, "영업사원을 찾을 수 없습니다.", LogLevel.WARN),
     DUPLICATE_CLIENT_BRN(HttpStatus.BAD_REQUEST, ErrorCode.U003, "이미 등록된 사업자번호입니다.", LogLevel.WARN),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, ErrorCode.A004, "비활성화된 계정입니다. 관리자에게 문의하세요.", LogLevel.WARN),
+    EMPLOYEE_NOT_LINKED(HttpStatus.FORBIDDEN, ErrorCode.A005, "계정에 연결된 직원 정보가 없습니다. 관리자에게 문의하세요.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
