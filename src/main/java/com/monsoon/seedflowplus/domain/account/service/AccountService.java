@@ -3,7 +3,9 @@ package com.monsoon.seedflowplus.domain.account.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
+import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
@@ -12,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -21,6 +24,7 @@ public class AccountService {
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final ClientCropRepository clientCropRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -141,6 +145,13 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientCropResponse> getClientCrops(Long clientId) {
+        return clientCropRepository.findAllByClientId(clientId).stream()
+                .map(ClientCropResponse::from)
+                .toList();
     }
 
 }
