@@ -52,5 +52,8 @@ public class User extends BaseModifyEntity {
         this.lastLoginAt = lastLoginAt;
     }
 
+    public void updateStatus(Status status) {
+        this.status = status;
+    }
 
 }
