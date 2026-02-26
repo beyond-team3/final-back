@@ -28,3 +28,17 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
     display-request-duration: true
+
+# --- 모니터링 (Actuator & Prometheus) 설정 ---
+management:
+  endpoints:
+    web:
+      exposure:
+        # health와 prometheus 엔드포인트만 외부에 노출
+        include: health, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: monsoon-backend
