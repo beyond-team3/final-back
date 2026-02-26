@@ -1,16 +1,24 @@
-package com.monsoon.seedflowplus.domain.deal.entity;
+package com.monsoon.seedflowplus.domain.deal.log.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.common.DocumentStatusValidator;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -79,6 +87,9 @@ public class SalesDealLog extends BaseCreateEntity {
     @Column(name = "actor_id")
     private Long actorId;
 
+    @OneToOne(mappedBy = "dealLog", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private DealLogDetail detail;
+
     @Builder
     public SalesDealLog(
             SalesDeal deal,
@@ -116,5 +127,12 @@ public class SalesDealLog extends BaseCreateEntity {
         this.actionAt = actionAt;
         this.actorType = actorType;
         this.actorId = actorId;
+    }
+
+    public void setDetail(DealLogDetail detail) {
+        this.detail = detail;
+        if (detail != null && detail.getDealLog() != this) {
+            detail.setDealLog(this);
+        }
     }
 }
