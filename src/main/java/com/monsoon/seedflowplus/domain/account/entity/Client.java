@@ -66,10 +66,10 @@ public class Client extends BaseModifyEntity {
 
     @Builder
     public Client(String clientCode, String clientName, String clientBrn, String ceoName,
-                  String companyPhone, String address, Double latitude, Double longitude,
-                  ClientType clientType, String managerName, String managerPhone,
-                  String managerEmail, Employee managerEmployee, BigDecimal totalCredit,
-                  BigDecimal usedCredit) {
+                    String companyPhone, String address, Double latitude, Double longitude,
+                    ClientType clientType, String managerName, String managerPhone,
+                    String managerEmail, Employee managerEmployee, BigDecimal totalCredit,
+                    BigDecimal usedCredit) {
         this.clientCode = clientCode;
         this.clientName = clientName;
         this.clientBrn = clientBrn;
@@ -93,6 +93,32 @@ public class Client extends BaseModifyEntity {
 
     public void updateManagerEmployee(Employee employee) {
         this.managerEmployee = employee;
+    }
+
+    public void updateClientInfo(String clientName, String clientBrn, String ceoName,
+                                String companyPhone, String address, ClientType clientType,
+                                String managerName, String managerPhone, String managerEmail,
+                                BigDecimal totalCredit) {
+        if (clientName != null)
+            this.clientName = clientName;
+        if (clientBrn != null)
+            this.clientBrn = clientBrn;
+        if (ceoName != null)
+            this.ceoName = ceoName;
+        if (companyPhone != null)
+            this.companyPhone = companyPhone;
+        if (address != null)
+            this.address = address;
+        if (clientType != null)
+            this.clientType = clientType;
+        if (managerName != null)
+            this.managerName = managerName;
+        if (managerPhone != null)
+            this.managerPhone = managerPhone;
+        if (managerEmail != null)
+            this.managerEmail = managerEmail;
+        if (totalCredit != null)
+            this.totalCredit = totalCredit;
     }
 
 }
