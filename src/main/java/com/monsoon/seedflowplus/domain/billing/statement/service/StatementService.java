@@ -41,7 +41,7 @@ public class StatementService {
             try {
                 String code = generateCode("STMT");
                 Statement statement = Statement.create(orderHeader, orderHeader.getTotalAmount(), code);
-                statementRepository.save(statement);
+                statementRepository.saveAndFlush(statement);  // flush로 즉시 제약 검사
                 return;
             } catch (DataIntegrityViolationException e) {
                 // statement_code 유니크 충돌만 재시도, 그 외(FK 등)는 즉시 전파
@@ -68,20 +68,16 @@ public class StatementService {
                 .toList();
     }
 
-    // STMT-20260223-001 형식으로 코드 생성 (MAX suffix 방식)
+    // STMT-20260223-001 형식으로 코드 생성 (DB MAX suffix 방식)
     private String generateCode(String prefix) {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String todayPrefix = prefix + "-" + date + "-";
 
-        return statementRepository
-                .findTopByStatementCodeStartingWithOrderByStatementCodeDesc(todayPrefix)
-                .map(s -> {
-                    // 마지막 3자리 숫자 파싱 후 +1
-                    String lastCode = s.getStatementCode();
-                    int lastSeq = Integer.parseInt(lastCode.substring(lastCode.lastIndexOf("-") + 1));
-                    return todayPrefix + String.format("%03d", lastSeq + 1);
-                })
-                .orElse(todayPrefix + "001");
+        int nextSeq = statementRepository.findMaxSuffixByPrefix(todayPrefix)
+                .map(max -> max + 1)
+                .orElse(1);
+
+        return todayPrefix + String.format("%03d", nextSeq);
     }
 
     // statement_code 유니크 제약 위반 여부 판별

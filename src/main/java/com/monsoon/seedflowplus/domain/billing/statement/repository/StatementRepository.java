@@ -18,5 +18,8 @@ public interface StatementRepository extends JpaRepository<Statement, Long> {
     // 코드 채번용
     boolean existsByStatementCode(String statementCode);
 
-    Optional<Statement> findTopByStatementCodeStartingWithOrderByStatementCodeDesc(String prefix);
+    // 오늘 날짜 prefix 기준 suffix 최대값 조회 (숫자 기준 MAX → 999 초과 문제 없음)
+    @Query("SELECT MAX(CAST(SUBSTRING(s.statementCode, LENGTH(:prefix) + 1) AS integer)) " +
+            "FROM Statement s WHERE s.statementCode LIKE CONCAT(:prefix, '%')")
+    Optional<Integer> findMaxSuffixByPrefix(@Param("prefix") String prefix);
 }
