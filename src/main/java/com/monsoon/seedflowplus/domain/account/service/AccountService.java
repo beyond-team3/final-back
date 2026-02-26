@@ -10,6 +10,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -196,7 +197,7 @@ public class AccountService {
 
     @Transactional
     public void changePassword(PasswordChangeRequest request) {
-        String loginId = org.springframework.security.core.context.SecurityContextHolder.getContext()
+        String loginId = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
 
         User user = userRepository.findByLoginId(loginId)
@@ -204,6 +205,10 @@ public class AccountService {
 
         if (!passwordEncoder.matches(request.oldPassword(), user.getLoginPw())) {
             throw new CoreException(ErrorType.INVALID_PASSWORD);
+        }
+
+        if (passwordEncoder.matches(request.newPassword(), user.getLoginPw())) {
+            throw new CoreException(ErrorType.SAME_PASSWORD);
         }
 
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
