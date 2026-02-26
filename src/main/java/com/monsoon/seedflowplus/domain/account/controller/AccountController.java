@@ -1,16 +1,13 @@
 package com.monsoon.seedflowplus.domain.account.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
-import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.*;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -31,9 +28,50 @@ public class AccountController {
         return ApiResult.success();
     }
 
+    @PatchMapping("/employees/{employeeId}")
+    public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId, @RequestBody @Valid EmployeeUpdateRequest request) {
+        accountService.updateEmployeeInfo(employeeId, request);
+        return ApiResult.success();
+    }
+
     @PostMapping("/users/create")
     public ApiResult<?> createAccount(@RequestBody @Valid UserCreateRequest request) {
         accountService.createAccount(request);
+        return ApiResult.success();
+    }
+
+    @PatchMapping("/users/status")
+    public ApiResult<?> updateStatus(@RequestBody @Valid UserStatusUpdateRequest request) {
+        accountService.updateUserStatus(request);
+        return ApiResult.success();
+    }
+
+    @PatchMapping("/clients/{clientId}")
+    public ApiResult<?> updateClientInfo(@PathVariable Long clientId, @RequestBody @Valid ClientUpdateRequest request) {
+        accountService.updateClientInfo(clientId, request);
+        return ApiResult.success();
+    }
+
+    @GetMapping("/clients/{clientId}/crops")
+    public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientCrops(clientId));
+    }
+
+    @PostMapping("/clients/{clientId}/crops")
+    public ApiResult<?> addClientCrop(@PathVariable Long clientId, @RequestBody @Valid ClientCropRequest request) {
+        accountService.addClientCrop(clientId, request);
+        return ApiResult.success();
+    }
+
+    @DeleteMapping("/clients/crops/{cropId}")
+    public ApiResult<?> deleteClientCrop(@PathVariable Long cropId) {
+        accountService.deleteClientCrop(cropId);
+        return ApiResult.success();
+    }
+
+    @PatchMapping("/password")
+    public ApiResult<?> changePassword(@RequestBody @Valid PasswordChangeRequest request) {
+        accountService.changePassword(request);
         return ApiResult.success();
     }
 }
