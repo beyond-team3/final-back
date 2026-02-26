@@ -4,13 +4,11 @@ import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.UserStatusUpdateRequest;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -34,6 +32,12 @@ public class AccountController {
     @PostMapping("/users/create")
     public ApiResult<?> createAccount(@RequestBody @Valid UserCreateRequest request) {
         accountService.createAccount(request);
+        return ApiResult.success();
+    }
+
+    @PatchMapping("/users/status")
+    public ApiResult<?> updateStatus(@RequestBody @Valid UserStatusUpdateRequest request) {
+        accountService.updateUserStatus(request);
         return ApiResult.success();
     }
 }
