@@ -63,4 +63,10 @@ public class AccountController {
         accountService.deleteClientCrop(cropId);
         return ApiResult.success();
     }
+
+    @PatchMapping("/password")
+    public ApiResult<?> changePassword(@RequestBody @Valid PasswordChangeRequest request) {
+        accountService.changePassword(request);
+        return ApiResult.success();
+    }
 }
