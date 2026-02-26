@@ -42,6 +42,7 @@ public enum ErrorType {
     INVOICE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.I001, "청구서를 찾을 수 없습니다.", LogLevel.WARN),
     INVOICE_ALREADY_PUBLISHED(HttpStatus.BAD_REQUEST, ErrorCode.I002, "이미 발행된 청구서입니다.", LogLevel.WARN),
     INVOICE_NOT_PUBLISHED(HttpStatus.BAD_REQUEST, ErrorCode.I003, "발행되지 않은 청구서는 결제할 수 없습니다.", LogLevel.WARN),
+    INVOICE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, ErrorCode.I004, "이미 발행 대기 중인 청구서가 있습니다.", LogLevel.WARN),
 
     // 결제
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P101, "결제를 찾을 수 없습니다.", LogLevel.WARN),
