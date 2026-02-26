@@ -22,6 +22,7 @@ public enum ErrorCode {
     P002,
     T001,
 
+    // 품종
     C101,
 
     // 주문
