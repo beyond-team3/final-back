@@ -1,10 +1,7 @@
 package com.monsoon.seedflowplus.domain.account.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
-import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
-import com.monsoon.seedflowplus.domain.account.dto.request.UserStatusUpdateRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +35,12 @@ public class AccountController {
     @PatchMapping("/users/status")
     public ApiResult<?> updateStatus(@RequestBody @Valid UserStatusUpdateRequest request) {
         accountService.updateUserStatus(request);
+        return ApiResult.success();
+    }
+
+    @PatchMapping("/clients/{clientId}")
+    public ApiResult<?> updateClientInfo(@PathVariable Long clientId, @RequestBody @Valid ClientUpdateRequest request) {
+        accountService.updateClientInfo(clientId, request);
         return ApiResult.success();
     }
 }
