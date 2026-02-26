@@ -148,6 +148,18 @@ public class AccountService {
     }
 
     @Transactional
+    public void updateEmployeeInfo(Long employeeId, EmployeeUpdateRequest request) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+
+        employee.updateEmployeeInfo(
+                request.employeeName(),
+                request.employeeEmail(),
+                request.employeePhone(),
+                request.address());
+    }
+
+    @Transactional
     public void addClientCrop(Long clientId, ClientCropRequest request) {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
