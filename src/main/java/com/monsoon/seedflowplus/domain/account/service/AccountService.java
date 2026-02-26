@@ -147,6 +147,19 @@ public class AccountService {
                 request.totalCredit());
     }
 
+    @Transactional
+    public void addClientCrop(Long clientId, ClientCropRequest request) {
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        ClientCrop clientCrop = ClientCrop.builder()
+                .cropName(request.cropName())
+                .client(client)
+                .build();
+
+        clientCropRepository.save(clientCrop);
+    }
+
     @Transactional(readOnly = true)
     public List<ClientCropResponse> getClientCrops(Long clientId) {
         return clientCropRepository.findAllByClientId(clientId).stream()
