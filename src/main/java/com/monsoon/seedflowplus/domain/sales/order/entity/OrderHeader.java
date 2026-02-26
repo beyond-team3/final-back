@@ -26,11 +26,11 @@ public class OrderHeader extends BaseCreateEntity {
 
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", referencedColumnName = "id")
+    @JoinColumn(name = "client_id")
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id", referencedColumnName = "id")
+    @JoinColumn(name = "employee_id")
     private Employee employee;
 
     @Column(name = "total_amount", nullable = false)
