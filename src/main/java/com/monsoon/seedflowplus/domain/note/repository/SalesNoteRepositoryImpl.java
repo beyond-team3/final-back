@@ -28,37 +28,37 @@ public class SalesNoteRepositoryImpl implements SalesNoteRepositoryCustom {
             String sort
     ) {
 
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("from 날짜는 to 날짜보다 이후일 수 없습니다.");
+        }
+
         QSalesNote n = QSalesNote.salesNote;
         BooleanBuilder condition = new BooleanBuilder();
 
-        // client 필터
         if (clientId != null) {
             condition.and(n.clientId.eq(clientId));
         }
 
-        // contract 필터
         if (contractId != null && !contractId.isBlank()) {
             condition.and(n.contractId.eq(contractId));
         }
 
-        // 키워드 검색
         if (keyword != null && !keyword.isBlank()) {
             condition.and(n.content.contains(keyword));
         }
 
-        // 기간 필터
-        if (from != null) {
+        if (from != null && to != null) {
+            condition.and(n.activityDate.between(from, to));
+        } else if (from != null) {
             condition.and(n.activityDate.goe(from));
-        }
-
-        if (to != null) {
+        } else if (to != null) {
             condition.and(n.activityDate.loe(to));
         }
 
-        // 정렬 처리
-        OrderSpecifier<?> orderBy = isAsc(sort)
-                ? n.activityDate.asc()
-                : n.activityDate.desc();
+        OrderSpecifier<?> orderBy =
+                "ASC".equalsIgnoreCase(sort)
+                        ? n.activityDate.asc()
+                        : n.activityDate.desc();
 
         return queryFactory
                 .selectFrom(n)
