@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.domain.billing.payment.entity;
 
-import com.monsoon.seedflowplus.domain.pipeline.entity.DocumentStatus;
+import com.monsoon.seedflowplus.domain.deal.entity.DocumentStatus;
 
 public enum PaymentStatus implements DocumentStatus {
     PENDING,     // 결제 대기
