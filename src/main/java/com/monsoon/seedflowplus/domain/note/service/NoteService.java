@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -71,24 +73,21 @@ public class NoteService {
      * 메서드명을 의도에 맞게 'trigger'로 변경하고 실제 비동기 메서드를 호출함
      */
     private void triggerBriefingUpdate(Long clientId) {
-        try {
-            // 외부 서비스의 @Async 메서드를 호출하여 실제 비동기 동작 보장
+        // 현재 실행 중인 스레드가 트랜잭션 상태인지 확인
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            // 트랜잭션 동기화 매니저에 '커밋 후 실행' 콜백 등록
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    // 실제 DB 커밋이 완료된 직후에만 비동기 호출 실행
+                    log.info("트랜잭션 커밋 완료 확인 - 비동기 분석 트리거: clientId={}", clientId);
+                    briefingService.refreshBriefingAsync(clientId);
+                }
+            });
+        } else {
+            // 트랜잭션이 없는 환경(예: 테스트 코드 등)에서는 즉시 호출
             briefingService.refreshBriefingAsync(clientId);
-        } catch (Exception e) {
-            // 비동기 호출 요청 자체 실패 시 로깅 (clientId 포함)
-            log.error("AI 브리핑 업데이트 요청 실패: clientId={}", clientId, e);
         }
-    }
-
-    public List<SalesNote> searchNotes(NoteSearchCondition condition) {
-        return noteRepository.searchNotes(
-                condition.getClientId(),
-                condition.getContractId(),
-                condition.getKeyword(),
-                condition.getDateFrom(),
-                condition.getDateTo(),
-                condition.getSort()
-        );
     }
 
     private Long getCurrentUserId() {
