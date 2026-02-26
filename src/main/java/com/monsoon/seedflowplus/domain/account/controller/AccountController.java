@@ -2,10 +2,13 @@ package com.monsoon.seedflowplus.domain.account.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -42,5 +45,10 @@ public class AccountController {
     public ApiResult<?> updateClientInfo(@PathVariable Long clientId, @RequestBody @Valid ClientUpdateRequest request) {
         accountService.updateClientInfo(clientId, request);
         return ApiResult.success();
+    }
+
+    @GetMapping("/clients/{clientId}/crops")
+    public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientCrops(clientId));
     }
 }
