@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.domain.sales.request.entity;
 
-import com.monsoon.seedflowplus.domain.deal.entity.DocumentStatus;
+import com.monsoon.seedflowplus.domain.deal.common.DocumentStatus;
 
 public enum QuotationRequestStatus implements DocumentStatus {
     PENDING, // 대기

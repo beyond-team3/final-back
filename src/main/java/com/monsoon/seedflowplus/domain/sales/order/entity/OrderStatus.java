@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.domain.sales.order.entity;
 
-import com.monsoon.seedflowplus.domain.deal.entity.DocumentStatus;
+import com.monsoon.seedflowplus.domain.deal.common.DocumentStatus;
 
 public enum OrderStatus implements DocumentStatus {
     PENDING,    // 주문 대기
