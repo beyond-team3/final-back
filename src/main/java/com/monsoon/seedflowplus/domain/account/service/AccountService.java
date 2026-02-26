@@ -4,12 +4,13 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
-import com.monsoon.seedflowplus.domain.account.entity.Client;
-import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
+import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class AccountService {
     private final UserRepository userRepository;
     private  final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public void registerClient(ClientRegisterRequest request) {
@@ -78,6 +80,43 @@ public class AccountService {
         String finalEmployeeCode = String.format("EMP-%04d", employee.getId());
         employee.updateEmployeeCode(finalEmployeeCode);
 
+    }
+
+    @Transactional
+    public void createAccount(UserCreateRequest request) {
+        // 1. 중복 ID 체크
+        if (userRepository.existsByLoginId(request.loginId())) {
+            throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);
+        }
+
+        // 2. User 객체 빌더 준비
+        User.UserBuilder userBuilder = User.builder()
+                .loginId(request.loginId())
+                .loginPw(passwordEncoder.encode(request.loginPw()))
+                .status(Status.DEACTIVATE) // 기본 비활성화
+                .role(request.role());
+
+        // 3. 권한별 연동 처리
+        if (request.role() == Role.CLIENT) {
+            Client client = clientRepository.findById(request.targetId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+            // 담당 영업사원 업데이트 (요청에 포함된 경우)
+            if (request.managerEmployeeId() != null) {
+                Employee manager = employeeRepository.findById(request.managerEmployeeId())
+                        .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+                client.updateManagerEmployee(manager);
+            }
+
+            userBuilder.client(client);
+        } else {
+            // ADMIN, SALES_REP 등은 Employee와 연동
+            Employee employee = employeeRepository.findById(request.targetId())
+                    .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+            userBuilder.employee(employee);
+        }
+
+        userRepository.save(userBuilder.build());
     }
 
 }
