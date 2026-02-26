@@ -68,7 +68,10 @@ public class AuthService {
         }
 
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+                .orElseGet(() -> {
+                    tokenStore.deleteRefreshToken(loginId);
+                    throw new CoreException(ErrorType.INVALID_LOGIN);
+                });
 
         String newAccessToken = jwtTokenProvider.createToken(user.getId(), user.getLoginId(), user.getRole().name());
         // 리프레시 토큰도 새로 발급하여 Rotation 적용 (선택 사항이나 보안상 추천)
