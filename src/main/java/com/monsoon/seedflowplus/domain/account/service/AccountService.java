@@ -134,6 +134,13 @@ public class AccountService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
+        // 사업자번호(BRN) 변경 시 중복 체크
+        if (request.clientBrn() != null && !request.clientBrn().equals(client.getClientBrn())) {
+            if (clientRepository.existsByClientBrnAndIdNot(request.clientBrn(), clientId)) {
+                throw new CoreException(ErrorType.DUPLICATE_CLIENT_BRN);
+            }
+        }
+
         client.updateClientInfo(
                 request.clientName(),
                 request.clientBrn(),
@@ -182,7 +189,7 @@ public class AccountService {
     @Transactional
     public void deleteClientCrop(Long cropId) {
         ClientCrop clientCrop = clientCropRepository.findById(cropId)
-                .orElseThrow(() -> new CoreException(ErrorType.INVALID_INPUT_VALUE));
+                .orElseThrow(() -> new CoreException(ErrorType.CROP_NOT_FOUND));
 
         clientCropRepository.delete(clientCrop);
     }
@@ -196,7 +203,7 @@ public class AccountService {
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.oldPassword(), user.getLoginPw())) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new CoreException(ErrorType.INVALID_PASSWORD);
         }
 
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
