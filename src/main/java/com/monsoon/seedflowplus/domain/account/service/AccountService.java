@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.UserStatusUpdateRequest;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
@@ -117,6 +118,14 @@ public class AccountService {
         }
 
         userRepository.save(userBuilder.build());
+    }
+
+    @Transactional
+    public void updateUserStatus(UserStatusUpdateRequest request) {
+        User user = userRepository.findById(request.userId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        user.updateStatus(request.status());
     }
 
 }
