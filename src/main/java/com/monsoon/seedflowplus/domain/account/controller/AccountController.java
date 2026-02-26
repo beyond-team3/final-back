@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.UserCreateRequest;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,12 @@ public class AccountController {
     @PostMapping("/employees/register")
     public ApiResult<?> registerEmployee(@RequestBody @Valid EmployeeRegisterRequest request) {
         accountService.registerEmployee(request);
+        return ApiResult.success();
+    }
+
+    @PostMapping("/users/create")
+    public ApiResult<?> createAccount(@RequestBody @Valid UserCreateRequest request) {
+        accountService.createAccount(request);
         return ApiResult.success();
     }
 }
