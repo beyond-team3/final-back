@@ -46,12 +46,12 @@ public class SalesBriefing extends BaseModifyEntity {
      * AI 재분석 결과가 나왔을 때 기존 엔티티의 상태를 변경합니다.
      */
     public void updateAnalysis(List<String> statusChange, List<String> longTermPattern, String strategySuggestion, String version) {
-        this.statusChange = statusChange;
-        this.longTermPattern = longTermPattern;
-        this.strategySuggestion = strategySuggestion;
+        // List.copyOf는 null을 허용하지 않으므로 null 체크 후 불변 리스트로 복사
+        // 외부에서 원본 리스트를 변경해도 엔티티 내부 값은 보호됩니다.
+        this.statusChange = (statusChange == null) ? List.of() : List.copyOf(statusChange);
+        this.longTermPattern = (longTermPattern == null) ? List.of() : List.copyOf(longTermPattern);
+        // 문자열 필드 null 방어 및 버전 업데이트
+        this.strategySuggestion = (strategySuggestion == null) ? "" : strategySuggestion;
         this.version = version;
-
-        // 참고: BaseModifyEntity를 상속받았으므로,
-        // 영속성 컨텍스트에 의해 Dirty Checking이 발생하면 updatedAt은 자동으로 갱신됩니다.
     }
 }
