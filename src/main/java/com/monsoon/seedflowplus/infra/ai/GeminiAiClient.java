@@ -78,10 +78,10 @@ public class GeminiAiClient implements AiClient {
             // 6. 엔티티 생성 시 근거 ID(evidenceNoteIds) 반영
             return SalesBriefing.builder()
                     .clientId(clientId)
-                    .statusChange(aiResult.getStatus_change())
-                    .longTermPattern(aiResult.getLong_term_pattern())
-                    .strategySuggestion(aiResult.getStrategy_suggestion())
-                    .evidenceNoteIds(aiResult.getEvidence_note_ids()) // 근거 필드 추가
+                    .statusChange(aiResult.getStatusChange())
+                    .longTermPattern(aiResult.getLongTermPattern())
+                    .strategySuggestion(aiResult.getStrategySuggestion())
+                    .evidenceNoteIds(aiResult.getEvidenceNoteIds()) // 근거 필드 추가
                     .version(aiResult.getVersion())
                     .build();
 
