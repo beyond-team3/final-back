@@ -67,11 +67,11 @@ public class AuthService {
             throw new IllegalStateException("유효하지 않거나 만료된 리프레시 토큰입니다.");
         }
 
-        User user = userRepository.findByLoginId(loginId)
-                .orElseGet(() -> {
-                    tokenStore.deleteRefreshToken(loginId);
-                    throw new CoreException(ErrorType.INVALID_LOGIN);
-                });
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null) {
+            tokenStore.deleteRefreshToken(loginId);
+            throw new CoreException(ErrorType.INVALID_LOGIN);
+        }
 
         String newAccessToken = jwtTokenProvider.createToken(user.getId(), user.getLoginId(), user.getRole().name());
         // 리프레시 토큰도 새로 발급하여 Rotation 적용 (선택 사항이나 보안상 추천)
