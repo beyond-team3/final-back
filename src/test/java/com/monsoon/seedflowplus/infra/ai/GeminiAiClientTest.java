@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.infra.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +23,9 @@ class GeminiAiClientTest {
     private GeminiAiClient geminiAiClient;
 
     @Test
-    @DisplayName("실제 Gemini API를 호출하여 분석 결과와 근거 ID가 포함된 브리핑을 생성한다")
-    void analyzeSalesStrategy_RealApiCall() {
+    @Disabled("실제 API 호출이 필요하므로 로컬 환경에서만 실행")
+    @DisplayName("실제 Gemini API를 호출하여 분석 결과와 근거 ID가 포함된 브리핑을 생성한다 (외부 API 의존성으로 인해 CI에서는 제외 권장)")
+    void disabled_analyzeSalesStrategy_RealApiCall() {
         // Given: ID가 포함된 테스트용 회의록 데이터
         Long clientId = 100L;
         String mockNotes = """
