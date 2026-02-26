@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.billing.invoice.dto.request;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
@@ -18,4 +19,9 @@ public class InvoiceCreateRequest {
     private LocalDate endDate;
 
     private String memo;
+
+    @AssertTrue(message = "청구 시작일은 종료일보다 늦을 수 없습니다.")
+    private boolean isDateRangeValid() {
+        return startDate == null || endDate == null || !startDate.isAfter(endDate);
+    }
 }

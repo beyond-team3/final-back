@@ -29,7 +29,7 @@ public class InvoiceListResponse {
                 .invoiceId(invoice.getId())
                 .invoiceCode(invoice.getInvoiceCode())
                 .contractId(invoice.getContractId())
-                .clientId(invoice.getClient().getId())
+                .clientId(invoice.getClient() != null ? invoice.getClient().getId() : null)
                 .invoiceDate(invoice.getInvoiceDate())
                 .startDate(invoice.getStartDate())
                 .endDate(invoice.getEndDate())

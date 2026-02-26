@@ -4,7 +4,6 @@
 //import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 //import com.monsoon.seedflowplus.domain.account.entity.Client;
 //import com.monsoon.seedflowplus.domain.account.entity.Employee;
-//import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 //import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 //import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 //import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
@@ -20,7 +19,6 @@
 //import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 //import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractHeaderRepository;
 //import lombok.RequiredArgsConstructor;
-//import org.springframework.data.jpa.repository.JpaRepository;
 //import org.springframework.stereotype.Service;
 //import org.springframework.transaction.annotation.Transactional;
 //
@@ -38,7 +36,6 @@
 //    private final InvoiceRepository invoiceRepository;
 //    private final InvoiceStatementRepository invoiceStatementRepository;
 //    private final ContractHeaderRepository contractHeaderRepository;
-//    private final ClientRepository clientRepository;
 //    private final EmployeeRepository employeeRepository;
 //
 //    /**
