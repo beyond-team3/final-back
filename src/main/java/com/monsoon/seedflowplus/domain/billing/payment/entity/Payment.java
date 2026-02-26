@@ -17,6 +17,9 @@ import java.math.BigDecimal;
 @Table(name = "tbl_payment")
 public class Payment extends BaseCreateEntity {
 
+    @Column(name = "payment_code", nullable = false, unique = true, length = 20)
+    private String paymentCode;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id")
     private Invoice invoice;
@@ -35,4 +38,15 @@ public class Payment extends BaseCreateEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private PaymentStatus status;
+
+    public static Payment create(Invoice invoice, Client client, PaymentMethod paymentMethod, String paymentCode) {
+        Payment payment = new Payment();
+        payment.paymentCode = paymentCode;
+        payment.invoice = invoice;
+        payment.client = client;
+        payment.paymentAmount = invoice.getTotalAmount();
+        payment.paymentMethod = paymentMethod;
+        payment.status = PaymentStatus.COMPLETED;
+        return payment;
+    }
 }
