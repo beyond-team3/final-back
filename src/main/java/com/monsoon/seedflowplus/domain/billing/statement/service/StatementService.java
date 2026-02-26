@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.billing.statement.repository.StatementRepository;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +35,18 @@ public class StatementService {
                     throw new CoreException(ErrorType.STATEMENT_ALREADY_ISSUED);
                 });
 
-        String code = generateCode("STMT");
-        Statement statement = Statement.create(orderHeader, orderHeader.getTotalAmount(), code);
-        statementRepository.save(statement);
+        // statementCode unique 제약조건 충돌 시 최대 3회 재시도
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                String code = generateCode("STMT");
+                Statement statement = Statement.create(orderHeader, orderHeader.getTotalAmount(), code);
+                statementRepository.save(statement);
+                return;
+            } catch (DataIntegrityViolationException e) {
+                if (i == maxRetries - 1) throw e;
+            }
+        }
     }
 
     /**
