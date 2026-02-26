@@ -28,7 +28,7 @@ public class NoteController {
      */
     @GetMapping
     public ResponseEntity<List<SalesNote>> getNotes(NoteSearchCondition condition) {
-        List<SalesNote> notes = noteService.searchNotes(condition); //
+        List<SalesNote> notes = noteService.searchNotes(condition);
         return ResponseEntity.ok(notes);
     }
 
@@ -38,7 +38,7 @@ public class NoteController {
      */
     @PostMapping
     public ResponseEntity<SalesNote> createNote(@Valid @RequestBody NoteRequestDto dto) {
-        SalesNote createdNote = noteService.createNote(dto); //
+        SalesNote createdNote = noteService.createNote(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdNote);
     }
 
@@ -50,7 +50,7 @@ public class NoteController {
     public ResponseEntity<SalesNote> updateNote(
             @PathVariable Long id,
             @Valid @RequestBody NoteRequestDto dto) {
-        SalesNote updatedNote = noteService.updateNote(id, dto); //
+        SalesNote updatedNote = noteService.updateNote(id, dto);
         return ResponseEntity.ok(updatedNote);
     }
 
@@ -60,7 +60,7 @@ public class NoteController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteNote(@PathVariable Long id) {
-        noteService.deleteNote(id); //
+        noteService.deleteNote(id);
         return ResponseEntity.noContent().build();
     }
 

@@ -23,7 +23,21 @@ public class NoteService {
     private final BriefingService briefingService;
 
     /**
-     * 1. 영업 활동 기록 저장 및 AI 요약 분석 트리거
+     * 1. 영업 활동 기록 목록 조회 및 검색
+     */
+    public List<SalesNote> searchNotes(NoteSearchCondition condition) {
+        return noteRepository.searchNotes(
+                condition.getClientId(),
+                condition.getContractId(),
+                condition.getKeyword(),
+                condition.getDateFrom(),
+                condition.getDateTo(),
+                condition.getSort()
+        );
+    }
+
+    /**
+     * 2. 영업 활동 기록 저장 및 AI 요약 분석 트리거
      */
     @Transactional
     public SalesNote createNote(NoteRequestDto dto) {
@@ -38,7 +52,7 @@ public class NoteService {
     }
 
     /**
-     * 2. 영업 활동 기록 수정 및 AI 재분석 트리거
+     * 3. 영업 활동 기록 수정 및 AI 재분석 트리거
      */
     @Transactional
     public SalesNote updateNote(Long id, NoteRequestDto dto) {
@@ -54,7 +68,7 @@ public class NoteService {
     }
 
     /**
-     * 3. 영업 활동 기록 삭제 및 AI 재분석 트리거
+     * 4. 영업 활동 기록 삭제 및 AI 재분석 트리거
      */
     @Transactional
     public void deleteNote(Long id) {
