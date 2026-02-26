@@ -35,8 +35,7 @@ pipeline {
                     echo 'Building and Testing with H2 (Test Profile)...'
                     sh 'chmod +x ./gradlew'
                     // 2. 테스트는 H2로 빠르게, 빌드는 전체 파일을 포함하여 수행
-                    //sh './gradlew clean build' // 테이블명 중복으로 DuplicateMappingException 발생 임시주석
-                    sh './gradlew clean build -x test'
+                    sh './gradlew clean build'
                 }
             }
         }
