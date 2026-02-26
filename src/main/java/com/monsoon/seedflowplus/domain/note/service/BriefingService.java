@@ -54,11 +54,8 @@ public class BriefingService {
             // 3. AI 엔진을 통한 전략 분석 호출
             // 이제 analyzedResult에는 evidenceNoteIds가 포함되어 반환됩니다.
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combinedNotes);
-            if (analyzedResult == null) {
-                log.warn("AI 분석 결과가 null입니다: clientId={}", clientId);
-                return;
 
-                // 4. 기존 데이터 업데이트 또는 신규 저장
+            // 4. 기존 데이터 업데이트 또는 신규 저장
             SalesBriefing briefing = briefingRepository.findByClientId(clientId)
                     .map(existing -> {
                         // 엔티티의 수정된 updateAnalysis 메서드 호출 (evidenceNoteIds 파라미터 추가)

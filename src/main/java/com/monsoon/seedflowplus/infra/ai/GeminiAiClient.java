@@ -83,8 +83,12 @@ public class GeminiAiClient implements AiClient {
                     .version(aiResult.getVersion())
                     .build();
 
+            // GeminiAiClient.java의 catch 블록 수정 예시
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("Gemini API 호출 타임아웃 발생: {}", e.getMessage());
+            throw new RuntimeException("AI 분석 서버 응답 시간이 초과되었습니다.", e);
         } catch (Exception e) {
-            log.error("Gemini 분석 중 오류 발생: {}", e.getMessage());
+            log.error("Gemini 분석 중 알 수 없는 오류 발생: {}", e.getMessage());
             throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
         }
     }
