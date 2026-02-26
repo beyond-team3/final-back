@@ -57,4 +57,10 @@ public class AccountController {
     public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
         return ApiResult.success(accountService.getClientCrops(clientId));
     }
+
+    @DeleteMapping("/clients/crops/{cropId}")
+    public ApiResult<?> deleteClientCrop(@PathVariable Long cropId) {
+        accountService.deleteClientCrop(cropId);
+        return ApiResult.success();
+    }
 }
