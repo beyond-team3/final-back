@@ -10,6 +10,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -31,10 +32,10 @@ public class GeminiAiClient implements AiClient {
         // 1. 프롬프트 구성 (회의록 기반 전략 수립 가이드라인 적용)
         String prompt = String.format("""
             당신은 B2B 전략 영업 컨설턴트입니다. 다음 영업 노트들을 분석하여 JSON 형식으로 응답하세요.
-            
+
             분석 대상 노트:
             %s
-            
+
             반드시 아래 JSON 구조로만 응답하세요:
             {
               "status_change": ["최근 변화 1", "최근 변화 2"],
@@ -47,10 +48,14 @@ public class GeminiAiClient implements AiClient {
         try {
             // 2. API 요청 설정
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_BITSTREAM.APPLICATION_JSON);
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
             Map<String, Object> body = Map.of(
-                    "contents", Map.of("parts", Map.of("text", prompt))
+                    "contents", List.of(
+                            Map.of("parts", List.of(
+                                    Map.of("text", prompt)
+                            ))
+                    )
             );
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
