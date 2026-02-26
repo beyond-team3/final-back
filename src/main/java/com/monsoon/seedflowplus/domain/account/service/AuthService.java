@@ -34,10 +34,10 @@ public class AuthService {
     public TokenResponse login(LoginRequest request) {
 
         User user = userRepository.findByLoginId(request.loginId())
-                .orElseThrow(() -> new BadCredentialsException("아이디 또는 비밀번호가 잘못 되었습니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.INVALID_LOGIN));
 
         if (!passwordEncoder.matches(request.loginPw(), user.getLoginPw())) {
-            throw new BadCredentialsException("아이디 또는 비밀번호가 잘못 되었습니다.");
+            throw new CoreException(ErrorType.INVALID_LOGIN);
         }
 
         if (user.getStatus() == Status.DEACTIVATE) {
