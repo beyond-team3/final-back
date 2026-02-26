@@ -75,7 +75,7 @@ public class ProductWriteService {
 
         Employee employee = user.getEmployee();
         if (employee == null) {
-            throw new CoreException(ErrorType.USER_NOT_FOUND);
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
 
         // 가격 변동 검사 및 이력 저장
