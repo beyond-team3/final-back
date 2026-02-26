@@ -171,10 +171,7 @@ public class AccountService {
 
     @Transactional
     public void addClientCrop(Long clientId, ClientCropRequest request) {
-        validateClientOwnership(clientId);
-
-        Client client = clientRepository.findById(clientId)
-                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        Client client = validateAndGetClient(clientId);
 
         ClientCrop clientCrop = ClientCrop.builder()
                 .cropName(request.cropName())
@@ -186,7 +183,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientCropResponse> getClientCrops(Long clientId) {
-        validateClientOwnership(clientId);
+        validateAndGetClient(clientId);
 
         return clientCropRepository.findAllByClientId(clientId).stream()
                 .map(ClientCropResponse::from)
@@ -198,12 +195,12 @@ public class AccountService {
         ClientCrop clientCrop = clientCropRepository.findById(cropId)
                 .orElseThrow(() -> new CoreException(ErrorType.CROP_NOT_FOUND));
 
-        validateClientOwnership(clientCrop.getClient().getId());
+        validateAndGetClient(clientCrop.getClient().getId());
 
         clientCropRepository.delete(clientCrop);
     }
 
-    private void validateClientOwnership(Long clientId) {
+    private Client validateAndGetClient(Long clientId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
@@ -212,9 +209,10 @@ public class AccountService {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        // ADMIN은 모든 접근 허용
+        // 관리자는 클라이언트 정보 반환
         if (userDetails.getRole() == Role.ADMIN) {
-            return;
+            return clientRepository.findById(clientId)
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
         }
 
         if (userDetails.getRole() == Role.SALES_REP) {
@@ -226,12 +224,14 @@ public class AccountService {
                     || !client.getManagerEmployee().getId().equals(userDetails.getUser().getEmployee().getId())) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
+            return client;
         } else if (userDetails.getRole() == Role.CLIENT) {
             // 본인 거래처인지 확인
             if (userDetails.getUser().getClient() == null
                     || !userDetails.getUser().getClient().getId().equals(clientId)) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
+            return userDetails.getUser().getClient();
         } else {
             // 그 외 역할은 접근 불가
             throw new CoreException(ErrorType.ACCESS_DENIED);
@@ -258,7 +258,7 @@ public class AccountService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
-        userRepository.save(user); // Persistence Context에 의해 자동으로 반영되지만 명시적으로 호출할 수도 있음
+        userRepository.save(user);
     }
 
 }
