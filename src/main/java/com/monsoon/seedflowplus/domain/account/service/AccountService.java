@@ -3,8 +3,11 @@ package com.monsoon.seedflowplus.domain.account.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.ClientRegisterRequest;
+import com.monsoon.seedflowplus.domain.account.dto.request.EmployeeRegisterRequest;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ public class AccountService {
 
     private final UserRepository userRepository;
     private  final ClientRepository clientRepository;
+    private final EmployeeRepository employeeRepository;
 
     @Transactional
     public void registerClient(ClientRegisterRequest request) {
@@ -50,6 +54,29 @@ public class AccountService {
         // PK(client_id)를 포함한 최종 clientCode 생성 및 업데이트 (4자리 제로 패딩)
         String finalClientCode = String.format("CLNT-%04d", client.getId());
         client.updateClientCode(finalClientCode);
+
+    }
+
+    @Transactional
+    public void registerEmployee(EmployeeRegisterRequest request) {
+
+        // 1. Employee 생성 및 저장
+        // employeeCode는 EMP-000x 형식이므로, 먼저 임시값으로 저장 후 PK를 획득하여 업데이트함
+        String tempCode = "TEMP-" + UUID.randomUUID();
+
+        Employee employee = Employee.builder()
+                .employeeCode(tempCode)
+                .employeeName(request.employeeName())
+                .employeeEmail(request.employeeEmail())
+                .employeePhone(request.employeePhone())
+                .address(request.address())
+                .build();
+
+        employeeRepository.save(employee);
+
+        // PK(employee_id)를 포함한 최종 employeeCode 생성 및 업데이트 (4자리 제로 패딩)
+        String finalEmployeeCode = String.format("EMP-%04d", employee.getId());
+        employee.updateEmployeeCode(finalEmployeeCode);
 
     }
 
