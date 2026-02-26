@@ -7,7 +7,9 @@ import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 import com.monsoon.seedflowplus.infra.ai.AiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -32,37 +34,40 @@ public class BriefingService {
     }
 
     /**
-     * 누적 노트를 기반으로 AI 브리핑 생성 및 갱신
+     * [리팩토링] 누적 노트를 기반으로 AI 브리핑 비동기 갱신
+     * @Async: 별도의 TaskExecutor 스레드에서 실행되어 NoteService의 응답을 방해하지 않음
+     * REQUIRES_NEW: 부모 트랜잭션(노트 저장)과 별개로 새로운 트랜잭션에서 분석 결과를 커밋함
      */
-    @Transactional
-    public void refreshBriefing(Long clientId) {
-        // 1. 분석을 위한 최근 노트 3개 추출 (비즈니스 로직 조건 유지)
+    @Async("briefingTaskExecutor")
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void refreshBriefingAsync(Long clientId) {
+        log.info("비동기 AI 분석 프로세스 시작: clientId={}", clientId);
+
+        // 1. 분석 데이터 유효성 검사 (최근 노트 3개 추출)
         List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDescIdDesc(clientId);
 
         if (recentNotes.size() < 3) {
-            log.info("분석 데이터 부족으로 브리핑 갱신을 건너뜁니다. clientId: {}", clientId);
+            log.info("분석 데이터 부족(3개 미만)으로 브리핑 갱신을 취소합니다. clientId: {}", clientId);
             return;
         }
 
-        // 2. AI 분석용 텍스트 조립 (근거 추출을 위해 ID를 명시적으로 포함)
+        // 2. AI 분석용 텍스트 조립
         String combinedNotes = recentNotes.stream()
                 .map(note -> String.format("[ID: %d] (%s) %s",
                         note.getId(), note.getActivityDate(), note.getContent()))
                 .collect(Collectors.joining("\n---\n"));
 
         try {
-            // 3. AI 엔진을 통한 전략 분석 호출
-            // 이제 analyzedResult에는 evidenceNoteIds가 포함되어 반환됩니다.
+            // 3. AI 엔진 호출 (네트워크 I/O 발생 - 타임아웃 설정 적용됨)
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combinedNotes);
 
-            // 4. 기존 데이터 업데이트 또는 신규 저장
+            // 4. 결과 업데이트 또는 신규 저장
             SalesBriefing briefing = briefingRepository.findByClientId(clientId)
                     .map(existing -> {
-                        // 엔티티의 수정된 updateAnalysis 메서드 호출 (evidenceNoteIds 파라미터 추가)
                         existing.updateAnalysis(
                                 analyzedResult.getStatusChange(),
                                 analyzedResult.getLongTermPattern(),
-                                analyzedResult.getEvidenceNoteIds(), // 근거 ID 리스트 반영
+                                analyzedResult.getEvidenceNoteIds(),
                                 analyzedResult.getStrategySuggestion(),
                                 analyzedResult.getVersion()
                         );
@@ -71,10 +76,11 @@ public class BriefingService {
                     .orElse(analyzedResult);
 
             briefingRepository.save(briefing);
-            log.info("AI 브리핑 갱신 완료 (근거 포함): clientId={}", clientId);
+            log.info("비동기 AI 브리핑 갱신 성공: clientId={}", clientId);
 
         } catch (Exception e) {
-            log.error("AI 브리핑 갱신 중 오류 발생: clientId={}", clientId, e);
+            // 비동기 스레드 내에서도 clientId를 포함한 정확한 로깅 유지
+            log.error("AI 브리핑 비동기 분석 중 오류 발생: clientId={}", clientId, e);
         }
     }
 }
