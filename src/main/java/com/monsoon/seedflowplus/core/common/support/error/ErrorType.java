@@ -12,10 +12,12 @@ public enum ErrorType {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, ErrorCode.C003, "지원하지 않는 HTTP 메서드입니다.", LogLevel.WARN),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, ErrorCode.C004, "잘못된 타입입니다.", LogLevel.WARN),
     MISSING_REQUEST_PARAMETER(HttpStatus.BAD_REQUEST, ErrorCode.C005, "필수 요청 파라미터가 누락되었습니다.", LogLevel.WARN),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ErrorCode.C006, "지원하지 않는 미디어 타입입니다. Content-Type을 확인하세요.", LogLevel.WARN),
 
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, ErrorCode.A001, "인증이 필요합니다.", LogLevel.WARN),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, ErrorCode.A002, "접근이 거부되었습니다.", LogLevel.WARN),
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.A003, "세션이 만료되었습니다.", LogLevel.WARN),
+    INVALID_LOGIN(HttpStatus.UNAUTHORIZED, ErrorCode.A005, "아이디 또는 비밀번호가 일치하지 않습니다.", LogLevel.WARN),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.U001, "존재하지 않는 사용자입니다.", LogLevel.WARN),
     DUPLICATE_LOGIN_ID(HttpStatus.BAD_REQUEST, ErrorCode.U002, "이미 존재하는 아이디입니다.", LogLevel.WARN),
 
