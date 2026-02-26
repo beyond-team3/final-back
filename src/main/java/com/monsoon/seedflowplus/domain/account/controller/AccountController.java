@@ -7,7 +7,6 @@ import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
@@ -29,6 +28,12 @@ public class AccountController {
         return ApiResult.success();
     }
 
+    @PatchMapping("/employees/{employeeId}")
+    public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId, @RequestBody @Valid EmployeeUpdateRequest request) {
+        accountService.updateEmployeeInfo(employeeId, request);
+        return ApiResult.success();
+    }
+
     @PostMapping("/users/create")
     public ApiResult<?> createAccount(@RequestBody @Valid UserCreateRequest request) {
         accountService.createAccount(request);
@@ -47,15 +52,15 @@ public class AccountController {
         return ApiResult.success();
     }
 
+    @GetMapping("/clients/{clientId}/crops")
+    public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientCrops(clientId));
+    }
+
     @PostMapping("/clients/{clientId}/crops")
     public ApiResult<?> addClientCrop(@PathVariable Long clientId, @RequestBody @Valid ClientCropRequest request) {
         accountService.addClientCrop(clientId, request);
         return ApiResult.success();
-    }
-
-    @GetMapping("/clients/{clientId}/crops")
-    public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
-        return ApiResult.success(accountService.getClientCrops(clientId));
     }
 
     @DeleteMapping("/clients/crops/{cropId}")
