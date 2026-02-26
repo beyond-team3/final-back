@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.account.dto.request;
 
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 
@@ -13,6 +15,6 @@ public record ClientUpdateRequest(
         ClientType clientType,
         String managerName,
         String managerPhone,
-        String managerEmail,
-        BigDecimal totalCredit) {
+        @Email String managerEmail,
+        @PositiveOrZero BigDecimal totalCredit) {
 }
