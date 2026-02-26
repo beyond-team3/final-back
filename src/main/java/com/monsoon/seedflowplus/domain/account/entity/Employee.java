@@ -2,9 +2,7 @@ package com.monsoon.seedflowplus.domain.account.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,5 +28,18 @@ public class Employee extends BaseModifyEntity {
 
     @OneToOne(mappedBy = "employee")
     private User account;
+
+    @Builder
+    public Employee(String employeeCode, String employeeName, String employeeEmail, String employeePhone, String address) {
+        this.employeeCode = employeeCode;
+        this.employeeName = employeeName;
+        this.employeeEmail = employeeEmail;
+        this.employeePhone = employeePhone;
+        this.address = address;
+    }
+
+    public void updateEmployeeCode(String employeeCode) {
+        this.employeeCode = employeeCode;
+    }
 
 }
