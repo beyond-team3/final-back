@@ -13,7 +13,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,6 +29,9 @@ public class BriefingService {
     private final SalesNoteRepository noteRepository;
     private final SalesBriefingRepository briefingRepository;
     private final AiClient aiClient;
+
+    // 고객별 동시성 제어를 위한 락 맵
+    private final Map<Long, Lock> clientLocks = new ConcurrentHashMap<>();
 
     /**
      * 고객별 최신 브리핑 조회
@@ -41,23 +48,31 @@ public class BriefingService {
     @Async("briefingTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void refreshBriefingAsync(Long clientId) {
-        log.info("비동기 AI 분석 프로세스 시작: clientId={}", clientId);
+        Lock lock = clientLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
 
-        // 1. 분석 데이터 유효성 검사 (최근 노트 3개 추출)
-        List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDescIdDesc(clientId);
-
-        if (recentNotes.size() < 3) {
-            log.info("분석 데이터 부족(3개 미만)으로 브리핑 갱신을 취소합니다. clientId: {}", clientId);
+        // 동일 고객에 대해 이미 분석이 진행 중이면 이번 요청은 스킵 (최신 요청이 처리 중임을 가정)
+        if (!lock.tryLock()) {
+            log.info("이미 동일 고객에 대한 분석이 진행 중입니다. 스킵: clientId={}", clientId);
             return;
         }
 
-        // 2. AI 분석용 텍스트 조립
-        String combinedNotes = recentNotes.stream()
-                .map(note -> String.format("[ID: %d] (%s) %s",
-                        note.getId(), note.getActivityDate(), note.getContent()))
-                .collect(Collectors.joining("\n---\n"));
-
         try {
+            log.info("비동기 AI 분석 프로세스 시작: clientId={}", clientId);
+
+            // 1. 분석 데이터 유효성 검사 (최근 노트 3개 추출)
+            List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDescIdDesc(clientId);
+
+            if (recentNotes.size() < 3) {
+                log.info("분석 데이터 부족(3개 미만)으로 브리핑 갱신을 취소합니다. clientId: {}", clientId);
+                return;
+            }
+
+            // 2. AI 분석용 텍스트 조립
+            String combinedNotes = recentNotes.stream()
+                    .map(note -> String.format("[ID: %d] (%s) %s",
+                            note.getId(), note.getActivityDate(), note.getContent()))
+                    .collect(Collectors.joining("\n---\n"));
+
             // 3. AI 엔진 호출 (네트워크 I/O 발생 - 타임아웃 설정 적용됨)
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combinedNotes);
 
@@ -81,6 +96,8 @@ public class BriefingService {
         } catch (Exception e) {
             // 비동기 스레드 내에서도 clientId를 포함한 정확한 로깅 유지
             log.error("AI 브리핑 비동기 분석 중 오류 발생: clientId={}", clientId, e);
+        } finally {
+            lock.unlock();
         }
     }
 }
