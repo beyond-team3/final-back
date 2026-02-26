@@ -6,6 +6,7 @@ import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
 import com.monsoon.seedflowplus.domain.note.service.NoteService;
 import com.monsoon.seedflowplus.domain.note.service.BriefingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +37,7 @@ public class NoteController {
      * NoteView.vue에서 '저장' 버튼 클릭 시 호출됩니다.
      */
     @PostMapping
-    public ResponseEntity<SalesNote> createNote(@RequestBody NoteRequestDto dto) {
+    public ResponseEntity<SalesNote> createNote(@Valid @RequestBody NoteRequestDto dto) {
         SalesNote createdNote = noteService.createNote(dto); //
         return ResponseEntity.status(HttpStatus.CREATED).body(createdNote);
     }
@@ -48,7 +49,7 @@ public class NoteController {
     @PutMapping("/{id}")
     public ResponseEntity<SalesNote> updateNote(
             @PathVariable Long id,
-            @RequestBody NoteRequestDto dto) {
+            @Valid @RequestBody NoteRequestDto dto) {
         SalesNote updatedNote = noteService.updateNote(id, dto); //
         return ResponseEntity.ok(updatedNote);
     }
