@@ -37,7 +37,7 @@ public class BriefingService {
     @Transactional
     public void refreshBriefing(Long clientId) {
         // 1. 분석을 위한 최근 노트 3개 추출 (비즈니스 로직 조건 유지)
-        List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDesc(clientId);
+        List<SalesNote> recentNotes = noteRepository.findTop3ByClientIdOrderByActivityDateDescIdDesc(clientId);
 
         if (recentNotes.size() < 3) {
             log.info("분석 데이터 부족으로 브리핑 갱신을 건너뜁니다. clientId: {}", clientId);
