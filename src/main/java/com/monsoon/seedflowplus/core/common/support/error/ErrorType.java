@@ -32,9 +32,11 @@ public enum ErrorType {
     CONTRACT_EXPIRED(HttpStatus.BAD_REQUEST, ErrorCode.O004, "계약 기간이 아닙니다.", LogLevel.WARN),
     CONTRACT_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.O005, "계약 상세를 찾을 수 없습니다.", LogLevel.WARN),
     ORDER_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.O006, "주문 상세를 찾을 수 없습니다.", LogLevel.WARN),
+    ORDER_ALREADY_CONFIRMED(HttpStatus.BAD_REQUEST, ErrorCode.O007, "이미 확정된 주문입니다.", LogLevel.WARN),
 
     // 명세서
     STATEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.S001, "명세서를 찾을 수 없습니다.", LogLevel.WARN),
+    STATEMENT_ALREADY_ISSUED(HttpStatus.BAD_REQUEST, ErrorCode.S002, "이미 발급된 명세서가 존재합니다.", LogLevel.WARN),
 
     // 청구서
     INVOICE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.I001, "청구서를 찾을 수 없습니다.", LogLevel.WARN),

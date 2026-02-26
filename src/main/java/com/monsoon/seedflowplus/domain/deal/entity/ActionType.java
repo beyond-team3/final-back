@@ -1,9 +1,9 @@
-package com.monsoon.seedflowplus.domain.pipeline.entity;
+package com.monsoon.seedflowplus.domain.deal.entity;
 
 /**
- * 히스토리 행동(이벤트) 분류.
+ * 딜 로그 행동(이벤트) 분류.
  * "무슨 행위로 인해" 상태가 변경되었는지를 표현한다.
- * 승인/반려의 행위자(관리자 vs 거래처) 구분은 SalesHistory.actorType 으로 판별한다.
+ * 승인/반려의 행위자(관리자 vs 거래처) 구분은 SalesDealLog.actorType 으로 판별한다.
  *
  * <pre>
  * 예시:
@@ -13,7 +13,7 @@ package com.monsoon.seedflowplus.domain.pipeline.entity;
  *   REJECT  + actorType=CLIENT  → 거래처 반려
  * </pre>
  *
- * CONVERT 발생 시 히스토리 기록 규칙:
+ * CONVERT 발생 시 로그 기록 규칙:
  *   1. 원본 문서에 actionType=CONVERT, toStage=APPROVED 기록
  *   2. 신규 문서에 actionType=CREATE, toStage=CREATED 별도 기록
  */

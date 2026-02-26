@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.domain.billing.invoice.entity;
 
-import com.monsoon.seedflowplus.domain.pipeline.entity.DocumentStatus;
+import com.monsoon.seedflowplus.domain.deal.entity.DocumentStatus;
 
 public enum InvoiceStatus implements DocumentStatus {
     DRAFT,       // 자동 생성된 초안

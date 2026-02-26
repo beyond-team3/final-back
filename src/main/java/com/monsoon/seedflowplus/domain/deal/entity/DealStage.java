@@ -1,9 +1,9 @@
-package com.monsoon.seedflowplus.domain.pipeline.entity;
+package com.monsoon.seedflowplus.domain.deal.entity;
 
 /**
  * 문서별 status를 "공통 흐름 단계"로 추상화한 값.
- * SalesHistory.fromStage / toStage 필드에 사용된다.
- * 대시보드 필터·집계 시 pipelineType과 무관하게 공통 조건으로 사용할 수 있다.
+ * SalesDeal.currentStage, SalesDealLog.fromStage / toStage 필드에 사용된다.
+ * 대시보드 필터·집계 시 dealType과 무관하게 공통 조건으로 사용할 수 있다.
  *
  * <pre>
  * 집계 시 유의사항:
@@ -12,7 +12,7 @@ package com.monsoon.seedflowplus.domain.pipeline.entity;
  *     - APPROVED : 견적 최종 승인 (QUO) 또는 CONVERT 전 원본 문서 종결
  * </pre>
  *
- * 문서별 status → PipelineStage 매핑 예시:
+ * 문서별 status → DealStage 매핑 예시:
  * <pre>
  * RFQ  RfqStatus.PENDING    → IN_PROGRESS
  *      RfqStatus.REVIEWING  → IN_PROGRESS
@@ -43,7 +43,7 @@ package com.monsoon.seedflowplus.domain.pipeline.entity;
  *      PaymentStatus.FAILED    → CANCELED
  * </pre>
  */
-public enum PipelineStage {
+public enum DealStage {
     CREATED,          // 생성됨 (초안)
     IN_PROGRESS,      // 작성·검토 진행
     PENDING_ADMIN,    // 관리자 승인 대기
