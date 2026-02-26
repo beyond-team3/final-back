@@ -8,7 +8,6 @@ import com.monsoon.seedflowplus.domain.product.entity.*;
 import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
-import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
