@@ -52,6 +52,8 @@ public enum ErrorType {
     EMPLOYEE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A102, "영업사원을 찾을 수 없습니다.", LogLevel.WARN),
     DUPLICATE_CLIENT_BRN(HttpStatus.BAD_REQUEST, ErrorCode.U003, "이미 등록된 사업자번호입니다.", LogLevel.WARN),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, ErrorCode.A004, "비활성화된 계정입니다. 관리자에게 문의하세요.", LogLevel.WARN),
+    INVALID_PASSWORD(HttpStatus.BAD_REQUEST, ErrorCode.A006, "비밀번호가 일치하지 않습니다.", LogLevel.WARN),
+    CROP_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.C101, "품종을 찾을 수 없습니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
