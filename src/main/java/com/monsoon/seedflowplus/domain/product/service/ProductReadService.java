@@ -35,7 +35,7 @@ public class ProductReadService {
     }
 
     // 견적서/계약서용 상품 목록 조회
-    public List<ProductContractResponse> getProductsForContract() {
+    public List<ProductContractResponse> getProductsForContract(Role role) {
         return productRepository.findAll().stream()
                 .map(product -> ProductContractResponse.builder()
                         .productId(product.getId())

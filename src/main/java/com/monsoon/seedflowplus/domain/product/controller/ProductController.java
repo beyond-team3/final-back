@@ -69,8 +69,10 @@ public class ProductController {
 
     // 견적서, 계약서용 상품 목록 조회
     @GetMapping("/for-contract")
-    public ResponseEntity<List<ProductContractResponse>> getProductsForContract() {
-        List<ProductContractResponse> responses = productReadService.getProductsForContract();
+    public ResponseEntity<List<ProductContractResponse>> getProductsForContract(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Role role = extractRoleFromUserDetails(userDetails);
+        List<ProductContractResponse> responses = productReadService.getProductsForContract(role);
         return ResponseEntity.ok(responses);
     }
 
