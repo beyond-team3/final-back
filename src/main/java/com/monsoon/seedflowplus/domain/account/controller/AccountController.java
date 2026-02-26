@@ -47,6 +47,12 @@ public class AccountController {
         return ApiResult.success();
     }
 
+    @PostMapping("/clients/{clientId}/crops")
+    public ApiResult<?> addClientCrop(@PathVariable Long clientId, @RequestBody @Valid ClientCropRequest request) {
+        accountService.addClientCrop(clientId, request);
+        return ApiResult.success();
+    }
+
     @GetMapping("/clients/{clientId}/crops")
     public ApiResult<List<ClientCropResponse>> getClientCrops(@PathVariable Long clientId) {
         return ApiResult.success(accountService.getClientCrops(clientId));
