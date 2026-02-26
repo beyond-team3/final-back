@@ -48,7 +48,7 @@ public class ProductReadService {
     }
 
     // 견적 요청서용 상품 목록 조회
-    public List<ProductEstimateReqResponse> getProductsForEstimateReq() {
+    public List<ProductEstimateReqResponse> getProductsForEstimateReq(Role role) {
         return productRepository.findAll().stream()
                 .map(product -> ProductEstimateReqResponse.builder()
                         .productId(product.getId())

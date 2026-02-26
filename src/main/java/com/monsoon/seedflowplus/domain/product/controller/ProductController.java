@@ -76,10 +76,12 @@ public class ProductController {
         return ResponseEntity.ok(responses);
     }
 
-    // 견적 요청서용 상품 목록 조회
+    // 견적요청서 용 상품 목록 조회
     @GetMapping("/for-estimate")
-    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq() {
-        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq();
+    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Role role = extractRoleFromUserDetails(userDetails);
+        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq(role);
         return ResponseEntity.ok(responses);
     }
 
