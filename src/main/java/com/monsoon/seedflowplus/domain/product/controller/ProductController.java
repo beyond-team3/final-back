@@ -7,6 +7,9 @@ import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
 import com.monsoon.seedflowplus.domain.product.service.ProductReadService;
 import com.monsoon.seedflowplus.domain.product.service.ProductWriteService;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +28,7 @@ public class ProductController {
     private final ProductWriteService productWriteService;
     private final ProductReadService productReadService;
     private final ProductBookmarkService productBookmarkService;
+    private final UserRepository userRepository;
 
     // 상품 등록
     @PostMapping
@@ -94,10 +98,10 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    // Role 추출 헬퍼 메서드 (현재 임시)
+    // Role 추출 헬퍼 메서드
     private Role extractRoleFromUserDetails(UserDetails userDetails) {
-        if (userDetails instanceof User) {
-            return ((User) userDetails).getRole();
+        if (userDetails instanceof User user) {
+            return user.getRole();
         }
 
         // 권한 문자열을 기반으로 Role Enum 검색
@@ -115,12 +119,13 @@ public class ProductController {
 
     // UserId 추출 헬퍼 메서드
     private Long extractUserIdFromUserDetails(UserDetails userDetails) {
-        if (userDetails instanceof User) {
-            return ((User) userDetails).getId();
+        if (userDetails instanceof User user) {
+            return user.getId();
         }
 
-        // UserDetails 구현체에 따라 ID 추출 방식 변경 필요 (현재 임시)
-
-        return 0L;
+        // 로그인 ID (Username)로 DB에서 유저 조회 후 ID 반환
+        return userRepository.findByLoginId(userDetails.getUsername())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
+                .getId();
     }
 }

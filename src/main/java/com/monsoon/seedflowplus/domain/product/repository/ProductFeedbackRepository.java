@@ -1,6 +1,5 @@
 package com.monsoon.seedflowplus.domain.product.repository;
 
-import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.entity.ProductFeedback;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
