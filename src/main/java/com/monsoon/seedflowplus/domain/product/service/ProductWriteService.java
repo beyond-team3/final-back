@@ -8,6 +8,10 @@ import com.monsoon.seedflowplus.domain.product.entity.*;
 import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductPriceHistoryRepository;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -26,6 +30,8 @@ public class ProductWriteService {
     private final ProductBookmarkRepository productBookmarkRepository;
     private final TagService tagService;
     private final ProductTagRepository productTagRepository;
+    private final ProductPriceHistoryRepository productPriceHistoryRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public Long createProduct(ProductRequest request) {
@@ -36,7 +42,7 @@ public class ProductWriteService {
         Product newProduct = Product.builder()
                 .productCode(generatedCode)
                 .productName(request.getProductName())
-                .productCategory(category)  // 위에서 변환한 category 객체 재사용
+                .productCategory(category) // 위에서 변환한 category 객체 재사용
                 .productDescription(request.getProductDescription())
                 .productImageUrl(request.getProductImageUrl())
                 .amount(request.getAmount())
@@ -60,9 +66,28 @@ public class ProductWriteService {
     }
 
     @Transactional
-    public void updateProduct(Long productId, ProductRequest request) {
+    public void updateProduct(Long productId, ProductRequest request, Long userId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        Employee employee = user.getEmployee();
+        if (employee == null) {
+            throw new CoreException(ErrorType.USER_NOT_FOUND);
+        }
+
+        // 가격 변동 검사 및 이력 저장
+        if (product.getPrice().compareTo(request.getPrice()) != 0) {
+            ProductPriceHistory history = ProductPriceHistory.builder()
+                    .product(product)
+                    .oldPrice(product.getPrice())
+                    .newPrice(request.getPrice())
+                    .modifiedBy(employee)
+                    .build();
+            productPriceHistoryRepository.save(history);
+        }
 
         ProductUpdateParam param = new ProductUpdateParam(
                 request.getProductName(),
@@ -95,7 +120,6 @@ public class ProductWriteService {
     }
 
     private void updateProductTags(Product product, Map<String, List<String>> tagMap) {
-
 
         if (tagMap == null) {
             return;

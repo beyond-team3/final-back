@@ -4,7 +4,6 @@ import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductUpdateParam;
 import jakarta.persistence.*;
 
-
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -14,11 +13,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "tbl_product")
 @AttributeOverride(name = "id", column = @Column(name = "product_id"))
+@SQLDelete(sql = "UPDATE tbl_product SET is_deleted = true WHERE product_id = ?")
+@SQLRestriction("is_deleted = false")
 public class Product extends BaseModifyEntity {
 
     @Column(nullable = false, length = 50, unique = true)
@@ -49,6 +53,9 @@ public class Product extends BaseModifyEntity {
     @Column(length = 20)
     private ProductStatus status; // 상태 (판매중, 중단 등)
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     // JSON 타입으로 태그 저장
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json")
@@ -56,9 +63,9 @@ public class Product extends BaseModifyEntity {
 
     @Builder
     public Product(String productCode, String productName, ProductCategory productCategory,
-                   String productDescription, String productImageUrl, Integer amount,
-                   String unit, BigDecimal price, ProductStatus status,
-                   Map<String, List<String>> tags) {
+            String productDescription, String productImageUrl, Integer amount,
+            String unit, BigDecimal price, ProductStatus status,
+            Map<String, List<String>> tags) {
         this.productCode = productCode;
         this.productName = productName;
         this.productCategory = productCategory;
@@ -79,7 +86,7 @@ public class Product extends BaseModifyEntity {
         this.amount = param.amount();
         this.unit = param.unit();
         this.price = param.price();
-        this.status = ProductStatus.valueOf(param.status());                     // String -> Enum
+        this.status = ProductStatus.valueOf(param.status()); // String -> Enum
         this.tags = tags;
     }
 }

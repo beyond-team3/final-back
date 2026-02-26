@@ -3,6 +3,8 @@ package com.monsoon.seedflowplus.domain.product.controller;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
 import com.monsoon.seedflowplus.domain.product.service.ProductReadService;
@@ -41,8 +43,10 @@ public class ProductController {
     @PutMapping("/{productId}")
     public ResponseEntity<Void> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductRequest request) {
-        productWriteService.updateProduct(productId, request);
+            @Valid @RequestBody ProductRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+        productWriteService.updateProduct(productId, request, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -53,15 +57,27 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
-    // 상품 전체 목록 조회
+    // 상품 전체 목록 조회 (추후 성능 비교를 위해 임시로 전체 조회 사용)
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts(
             @AuthenticationPrincipal UserDetails userDetails) {
-        // UserDetails를 User 엔티티 또는 인증된 사용자 객체로 캐스팅하여 Role 획득 필요
-        // 현재는 UserDetails의 권한 정보를 바탕으로 Role 매핑 (예시 구현)
         Role role = extractRoleFromUserDetails(userDetails);
 
         List<ProductResponse> responses = productReadService.getAllProducts(role);
+        return ResponseEntity.ok(responses);
+    }
+
+    // 견적서, 계약서용 상품 목록 조회
+    @GetMapping("/for-contract")
+    public ResponseEntity<List<ProductContractResponse>> getProductsForContract() {
+        List<ProductContractResponse> responses = productReadService.getProductsForContract();
+        return ResponseEntity.ok(responses);
+    }
+
+    // 견적 요청서용 상품 목록 조회
+    @GetMapping("/for-estimate")
+    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq() {
+        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq();
         return ResponseEntity.ok(responses);
     }
 
