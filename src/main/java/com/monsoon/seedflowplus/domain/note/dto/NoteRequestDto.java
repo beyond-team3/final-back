@@ -30,10 +30,10 @@ public class NoteRequestDto {
     /**
      * DTO를 SalesNote 엔티티로 변환합니다.
      */
-    public SalesNote toEntity() {
+    public SalesNote toEntity(Long currentUserId) { // authorId를 파라미터로 받음
         return SalesNote.builder()
                 .clientId(this.clientId)
-                .authorId(1L)
+                .authorId(currentUserId) // 주입받은 ID 매핑
                 .contractId(this.contractId)
                 .activityDate(this.date)
                 .content(this.content)

@@ -29,14 +29,21 @@ public class NoteService {
      */
     @Transactional
     public SalesNote createNote(NoteRequestDto dto) {
-        // 엔티티 변환 및 저장
-        SalesNote note = dto.toEntity();
+        // 1. SecurityContext에서 현재 사용자 ID 추출
+        Long currentUserId = getCurrentUserId();
+
+        // 2. DTO 변환 시 사용자 ID 전달
+        SalesNote note = dto.toEntity(currentUserId);
         SalesNote savedNote = noteRepository.save(note);
 
-        // 저장 후 해당 고객의 AI 브리핑 업데이트 트리거 (비동기 권장)
         updateBriefingAsync(savedNote.getClientId());
-
         return savedNote;
+    }
+
+    private Long getCurrentUserId() {
+        // 실제 구현 시 SecurityContextHolder를 통해 Principal에서 ID를 추출합니다.
+        // 예: return ((UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getId();
+        return 123L; // 예시 ID
     }
 
     /**
