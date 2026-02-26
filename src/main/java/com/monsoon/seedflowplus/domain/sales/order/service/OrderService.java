@@ -5,6 +5,9 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
@@ -15,6 +18,7 @@ import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListRespons
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderDetail;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import lombok.RequiredArgsConstructor;
@@ -104,9 +108,6 @@ public class OrderService {
         // 7. 총액 업데이트
         orderHeader.updateTotalAmount(totalAmount);
 
-        // 8. 명세서 자동 생성
-        statementService.createStatement(orderHeader, totalAmount);
-
         return toOrderResponse(orderHeader);
     }
 
@@ -140,6 +141,22 @@ public class OrderService {
                 .orderId(orderHeader.getId())
                 .status(orderHeader.getStatus())
                 .build();
+    }
+
+    // 주문 확정
+    @Transactional
+    public OrderResponse confirmOrder(Long orderId) {
+        OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+
+        if (orderHeader.getStatus() != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
+        }
+
+        orderHeader.confirm();
+        statementService.createStatement(orderHeader);
+
+        return toOrderResponse(orderHeader);
     }
 
     // DTO 변환
