@@ -54,13 +54,13 @@ public class Invoice extends BaseCreateEntity {
     @Column(name = "status", nullable = false)
     private InvoiceStatus status;
 
-    @Column(name = "note")
-    private String note;
+    @Column(name = "memo", columnDefinition = "TEXT")
+    private String memo;
 
     // 생성
     public static Invoice create(Long contractId, Client client, Employee employee,
                                  LocalDate invoiceDate, LocalDate startDate, LocalDate endDate,
-                                 String invoiceCode, String note) {
+                                 String invoiceCode, String memo) {
         Invoice invoice = new Invoice();
         invoice.invoiceCode = invoiceCode;
         invoice.contractId = contractId;
@@ -73,7 +73,7 @@ public class Invoice extends BaseCreateEntity {
         invoice.vatAmount = BigDecimal.ZERO;
         invoice.totalAmount = BigDecimal.ZERO;
         invoice.status = InvoiceStatus.DRAFT;
-        invoice.note = note;
+        invoice.memo = memo;
         return invoice;
     }
 
