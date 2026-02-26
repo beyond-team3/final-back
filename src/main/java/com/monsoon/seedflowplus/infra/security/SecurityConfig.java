@@ -60,7 +60,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/clients/*/crops").hasRole("SALES_REP")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/accounts/clients/crops/*").hasRole("SALES_REP")
                         .requestMatchers("/api/v1/accounts/clients/register", "/api/v1/accounts/employees/register",
-                                "/api/v1/accounts/users/**").hasRole("ADMIN")
+                                "/api/v1/accounts/users/**")
+                        .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/clients/*").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
