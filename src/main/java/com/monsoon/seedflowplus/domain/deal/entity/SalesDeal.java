@@ -80,6 +80,7 @@ public class SalesDeal extends BaseModifyEntity {
             LocalDateTime closedAt,
             String summaryMemo
     ) {
+        DocumentStatusValidator.validateRequired(latestDocType, currentStatus, "currentStatus");
         this.client = client;
         this.ownerEmp = ownerEmp;
         this.currentStage = currentStage;
@@ -100,6 +101,7 @@ public class SalesDeal extends BaseModifyEntity {
             String latestTargetCode,
             LocalDateTime lastActivityAt
     ) {
+        DocumentStatusValidator.validateRequired(latestDocType, currentStatus, "currentStatus");
         this.currentStage = currentStage;
         this.currentStatus = currentStatus;
         this.latestDocType = latestDocType;
