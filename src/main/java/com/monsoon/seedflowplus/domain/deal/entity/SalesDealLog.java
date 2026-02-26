@@ -79,9 +79,6 @@ public class SalesDealLog extends BaseCreateEntity {
     @Column(name = "actor_id")
     private Long actorId;
 
-    @Column(name = "memo", length = 1000)
-    private String memo;
-
     @Builder
     public SalesDealLog(
             SalesDeal deal,
@@ -96,14 +93,15 @@ public class SalesDealLog extends BaseCreateEntity {
             ActionType actionType,
             LocalDateTime actionAt,
             ActorType actorType,
-            Long actorId,
-            String memo
+            Long actorId
     ) {
         SalesDeal requiredDeal = Objects.requireNonNull(deal, "deal은 null값이 될 수 없습니다.");
         Client dealClient = Objects.requireNonNull(requiredDeal.getClient(), "deal.client은 null값이 될 수 없습니다.");
         if (client != null && !Objects.equals(client, dealClient)) {
             throw new IllegalArgumentException("client는 deal.getClient()과 같아야 합니다.");
         }
+        DocumentStatusValidator.validateNullable(docType, fromStatus, "fromStatus");
+        DocumentStatusValidator.validateRequired(docType, toStatus, "toStatus");
 
         this.deal = requiredDeal;
         this.client = dealClient;
@@ -118,6 +116,5 @@ public class SalesDealLog extends BaseCreateEntity {
         this.actionAt = actionAt;
         this.actorType = actorType;
         this.actorId = actorId;
-        this.memo = memo;
     }
 }
