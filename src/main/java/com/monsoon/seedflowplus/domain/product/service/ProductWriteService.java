@@ -12,6 +12,9 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductPriceHistoryRep
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
+import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
+import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,7 @@ public class ProductWriteService {
     private final TagService tagService;
     private final ProductTagRepository productTagRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
+    private final CultivationTimeRepository cultivationTimeRepository;
     private final UserRepository userRepository;
 
     @Transactional
@@ -55,6 +59,21 @@ public class ProductWriteService {
         try {
             // saveAndFlush를 사용하여 유니크 검사
             Product savedProduct = productRepository.saveAndFlush(newProduct);
+
+            // 재배적기 정보가 있다면 저장
+            if (request.getCultivationTime() != null) {
+                CultivationTimeDto ctDto = request.getCultivationTime();
+                CultivationTime cultivationTime = CultivationTime.builder()
+                        .product(savedProduct)
+                        .sowingStart(ctDto.getSowingStart())
+                        .sowingEnd(ctDto.getSowingEnd())
+                        .plantingStart(ctDto.getPlantingStart())
+                        .plantingEnd(ctDto.getPlantingEnd())
+                        .harvestingStart(ctDto.getHarvestingStart())
+                        .harvestingEnd(ctDto.getHarvestingEnd())
+                        .build();
+                cultivationTimeRepository.save(cultivationTime);
+            }
 
             updateProductTags(savedProduct, request.getTags());
             return savedProduct.getId();
@@ -98,13 +117,43 @@ public class ProductWriteService {
                 request.getUnit(),
                 request.getPrice(),
                 request.getStatus(),
-                request.getTags()
-        );
+                request.getTags(),
+                request.getCultivationTime());
 
         // 찾은 엔티티의 정보 업데이트 (엔티티 내부의 수정 메서드 호출)
         product.updateProduct(param, param.tags());
 
         updateProductTags(product, param.tags());
+        updateCultivationTime(product, param.cultivationTime());
+    }
+
+    private void updateCultivationTime(Product product, CultivationTimeDto ctDto) {
+        CultivationTime currentCt = cultivationTimeRepository.findByProductId(product.getId()).orElse(null);
+
+        // DTO가 없는 경우
+        if (ctDto == null) {
+            if (currentCt != null) {
+                cultivationTimeRepository.delete(currentCt);
+            }
+            return;
+        }
+
+        // 기존 데이터가 있다면 삭제 후 재등록 (또는 엔티티 더티 체킹 활용 가능)
+        if (currentCt != null) {
+            cultivationTimeRepository.delete(currentCt);
+            cultivationTimeRepository.flush(); // 즉시 삭제 반영 (유니크 키 제약조건 위반 방지)
+        }
+
+        CultivationTime newCt = CultivationTime.builder()
+                .product(product)
+                .sowingStart(ctDto.getSowingStart())
+                .sowingEnd(ctDto.getSowingEnd())
+                .plantingStart(ctDto.getPlantingStart())
+                .plantingEnd(ctDto.getPlantingEnd())
+                .harvestingStart(ctDto.getHarvestingStart())
+                .harvestingEnd(ctDto.getHarvestingEnd())
+                .build();
+        cultivationTimeRepository.save(newCt);
     }
 
     @Transactional
