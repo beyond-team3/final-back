@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -265,6 +266,24 @@ public class AccountService {
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user); // Persistence Context에 의해 자동으로 반영되지만 명시적으로 호출할 수도 있음
         tokenStore.deleteRefreshToken(user.getLoginId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeListResponse> getAllEmployees() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        if (userDetails.getRole() != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        return userRepository.findAll().stream()
+                .filter(user -> user.getEmployee() != null)
+                .map(EmployeeListResponse::from)
+                .toList();
     }
 
 }
