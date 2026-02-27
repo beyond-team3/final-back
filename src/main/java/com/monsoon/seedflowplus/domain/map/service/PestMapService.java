@@ -68,7 +68,7 @@ public class PestMapService {
                         .name(client.getClientName())
                         .lat(client.getLatitude())
                         .lng(client.getLongitude())
-                        .score(calculateVisitScore(client))
+//                        .score(calculateVisitScore(client))
                         .handledCrops(
                                 client.getCrops().stream()
                                         .map(crop -> crop.getCropName())
@@ -90,11 +90,13 @@ public class PestMapService {
         return String.join(", ", product.getTags().get("내병성"));
     }
 
-    private Integer calculateVisitScore(Client client) {
-        if (client.getTotalCredit() == null || client.getTotalCredit().doubleValue() == 0) return 50;
-        double usageRatio = client.getUsedCredit().doubleValue() / client.getTotalCredit().doubleValue();
-        return (int) (usageRatio * 100);
-    }
+//    private Integer calculateVisitScore(Client client) {
+//        if (client.getTotalCredit() == null || client.getTotalCredit().doubleValue() == 0 || client.getUsedCredit() == null) {
+//            return 50;
+//        }
+//        double usageRatio = client.getUsedCredit().doubleValue() / client.getTotalCredit().doubleValue();
+//        return (int) (usageRatio * 100);
+//    }
 
     private ProductCategory mapCropCodeToCategory(String cropCode) {
         if (cropCode == null || cropCode.isBlank()) return null;
