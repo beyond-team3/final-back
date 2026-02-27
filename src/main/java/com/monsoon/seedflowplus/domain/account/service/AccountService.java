@@ -43,6 +43,8 @@ public class AccountService {
 
     @Transactional
     public void registerClient(ClientRegisterRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         // 1. 중복 검사
         if (clientRepository.existsByClientBrn(request.clientBrn())) {
@@ -77,6 +79,8 @@ public class AccountService {
 
     @Transactional
     public void registerEmployee(EmployeeRegisterRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         // 1. Employee 생성 및 저장
         // employeeCode는 EMP-000x 형식이므로, 먼저 임시값으로 저장 후 PK를 획득하여 업데이트함
@@ -212,13 +216,7 @@ public class AccountService {
     }
 
     private Client validateAndGetClient(Long clientId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 관리자는 클라이언트 정보 반환
         if (userDetails.getRole() == Role.ADMIN) {
@@ -252,13 +250,7 @@ public class AccountService {
 
     @Transactional
     public void changePassword(PasswordChangeRequest request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 보안을 위해 세션의 정보 대신 DB에서 최신 유저 정보를 조회
         User user = userRepository.findById(userDetails.getUserId())
@@ -305,16 +297,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientListForDocumentResponse> getClientsForDocument() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        // 권한 체크: SALES_REP만 허용
-        if (userDetails.getRole() != Role.SALES_REP) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.SALES_REP);
 
         // 담당 사원 ID가 없는 경우 (이론상 SALES_REP이면 있어야 함)
         if (userDetails.getEmployeeId() == null) {
@@ -328,11 +312,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientListResponse> getAllClients() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         Role role = userDetails.getRole();
 
@@ -359,11 +339,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public ClientDetailResponse getClientDetail(Long clientId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
@@ -392,19 +368,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public ClientProfileResponse getMyClientProfile() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        if (userDetails.getRole() != Role.CLIENT) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
-
-        if (userDetails.getClientId() == null) {
-            throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.CLIENT);
 
         Client client = clientRepository.findById(userDetails.getClientId())
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
