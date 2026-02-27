@@ -14,11 +14,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "payment_id"))
-@Table(name = "tbl_payment")
+@Table(name = "tbl_payment",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"invoice_id"}))
 public class Payment extends BaseCreateEntity {
 
     @Column(name = "payment_code", nullable = false, unique = true, length = 20)
-    private String paymentCode;
+    private String paymentCode;   // PAY-20260223-001
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id")

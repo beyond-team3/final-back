@@ -48,15 +48,14 @@ public class PaymentService {
             throw new CoreException(ErrorType.INVOICE_NOT_PUBLISHED);
         }
 
-        // 3. 이미 결제된 청구서 방지
-        paymentRepository.findByInvoice_Id(request.getInvoiceId())
-                .ifPresent(p -> { throw new CoreException(ErrorType.ALREADY_PAID); });
-
-        // 4. 거래처 조회
+        // 3. 청구서-거래처 소유 관계 검증
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        if (invoice.getClient() == null || !invoice.getClient().getId().equals(clientId)) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
 
-        // 5. 결제 저장 (paymentCode unique 충돌 시 최대 3회 재시도)
+        // 4. 결제 저장 (invoice_id unique 제약으로 중복 결제 DB 레벨 차단 + paymentCode 충돌 재시도)
         int maxRetries = 3;
         Payment payment = null;
         for (int i = 0; i < maxRetries; i++) {
@@ -66,14 +65,16 @@ public class PaymentService {
                 paymentRepository.saveAndFlush(payment);
                 break;
             } catch (DataIntegrityViolationException e) {
+                if (isInvoiceIdViolation(e)) {
+                    // invoice_id unique 위반 = 이미 결제된 청구서
+                    throw new CoreException(ErrorType.ALREADY_PAID);
+                }
                 if (!isPaymentCodeViolation(e) || i == maxRetries - 1) throw e;
+                // paymentCode 충돌만 재시도
             }
         }
 
-        // 6. 청구서 상태 PAID로 변경
-        if (invoice.getStatus() != InvoiceStatus.PUBLISHED) {
-            throw new CoreException(ErrorType.ALREADY_PAID);
-        }
+        // 5. 청구서 상태 PAID로 변경
         invoice.paid();
 
         return PaymentResponse.from(payment);
@@ -118,9 +119,15 @@ public class PaymentService {
         return todayPrefix + String.format("%03d", nextSeq);
     }
 
-    // payment_code 유니크 제약 위반 여부 판별
+    // invoice_id unique 제약 위반 여부 (중복 결제)
+    private boolean isInvoiceIdViolation(DataIntegrityViolationException e) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return msg.contains("invoice_id");
+    }
+
+    // payment_code unique 제약 위반 여부만 판별 (조건 좁힘)
     private boolean isPaymentCodeViolation(DataIntegrityViolationException e) {
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-        return msg.contains("payment_code") || msg.contains("uk_") || msg.contains("unique");
+        return msg.contains("payment_code");
     }
 }
