@@ -28,7 +28,7 @@ public record ClientListResponse(
         if (address == null || address.isBlank()) {
             return "";
         }
-        String[] parts = address.split("\\s+");
+        String[] parts = address.trim().split("\\s+");
         if (parts.length >= 2) {
             return parts[0] + " " + parts[1];
         } else if (parts.length == 1) {
