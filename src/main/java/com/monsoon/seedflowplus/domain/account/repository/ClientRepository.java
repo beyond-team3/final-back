@@ -13,4 +13,6 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 
     boolean existsByClientBrn(String clientBrn);
 
+    boolean existsByClientBrnAndIdNot(String clientBrn, Long id);
+
 }

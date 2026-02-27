@@ -66,10 +66,10 @@ public class Client extends BaseModifyEntity {
 
     @Builder
     public Client(String clientCode, String clientName, String clientBrn, String ceoName,
-                  String companyPhone, String address, Double latitude, Double longitude,
-                  ClientType clientType, String managerName, String managerPhone,
-                  String managerEmail, Employee managerEmployee, BigDecimal totalCredit,
-                  BigDecimal usedCredit) {
+                    String companyPhone, String address, Double latitude, Double longitude,
+                    ClientType clientType, String managerName, String managerPhone,
+                    String managerEmail, Employee managerEmployee, BigDecimal totalCredit,
+                    BigDecimal usedCredit) {
         this.clientCode = clientCode;
         this.clientName = clientName;
         this.clientBrn = clientBrn;
@@ -93,6 +93,36 @@ public class Client extends BaseModifyEntity {
 
     public void updateManagerEmployee(Employee employee) {
         this.managerEmployee = employee;
+    }
+
+    public void updateClientInfo(String clientName, String clientBrn, String ceoName,
+                                String companyPhone, String address, ClientType clientType,
+                                String managerName, String managerPhone, String managerEmail,
+                                BigDecimal totalCredit) {
+        if (clientName != null && !clientName.isBlank())
+            this.clientName = clientName.trim();
+        if (clientBrn != null && !clientBrn.isBlank())
+            this.clientBrn = clientBrn.trim();
+        if (ceoName != null && !ceoName.isBlank())
+            this.ceoName = ceoName.trim();
+        if (companyPhone != null && !companyPhone.isBlank())
+            this.companyPhone = companyPhone.trim();
+        if (address != null && !address.isBlank())
+            this.address = address.trim();
+        if (clientType != null)
+            this.clientType = clientType;
+        if (managerName != null && !managerName.isBlank())
+            this.managerName = managerName.trim();
+        if (managerPhone != null && !managerPhone.isBlank())
+            this.managerPhone = managerPhone.trim();
+        if (managerEmail != null && !managerEmail.isBlank())
+            this.managerEmail = managerEmail.trim();
+        if (totalCredit != null) {
+            if (this.usedCredit != null && totalCredit.compareTo(this.usedCredit) < 0) {
+                throw new IllegalArgumentException("총 크레딧은 사용한 크레딧보다 적을 수 없습니다.");
+            }
+            this.totalCredit = totalCredit;
+        }
     }
 
 }

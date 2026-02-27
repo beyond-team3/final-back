@@ -10,7 +10,6 @@ import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.infra.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +33,10 @@ public class AuthService {
     public TokenResponse login(LoginRequest request) {
 
         User user = userRepository.findByLoginId(request.loginId())
-                .orElseThrow(() -> new BadCredentialsException("아이디 또는 비밀번호가 잘못 되었습니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.INVALID_LOGIN));
 
         if (!passwordEncoder.matches(request.loginPw(), user.getLoginPw())) {
-            throw new BadCredentialsException("아이디 또는 비밀번호가 잘못 되었습니다.");
+            throw new CoreException(ErrorType.INVALID_LOGIN);
         }
 
         if (user.getStatus() == Status.DEACTIVATE) {
@@ -68,11 +67,18 @@ public class AuthService {
             throw new IllegalStateException("유효하지 않거나 만료된 리프레시 토큰입니다.");
         }
 
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BadCredentialsException("사용자를 찾을 수 없습니다."));
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null) {
+            tokenStore.deleteRefreshToken(loginId);
+            throw new CoreException(ErrorType.INVALID_LOGIN);
+        }
+
+        if (user.getStatus() == Status.DEACTIVATE) {
+            tokenStore.deleteRefreshToken(loginId);
+            throw new CoreException(ErrorType.ACCOUNT_DISABLED);
+        }
 
         String newAccessToken = jwtTokenProvider.createToken(user.getId(), user.getLoginId(), user.getRole().name());
-        // 리프레시 토큰도 새로 발급하여 Rotation 적용 (선택 사항이나 보안상 추천)
         String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getLoginId());
 
         tokenStore.storeRefreshToken(
