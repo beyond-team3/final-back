@@ -26,11 +26,9 @@ public class Employee extends BaseModifyEntity {
     @Column(name = "address", nullable = false)
     private String address;
 
-    @OneToOne(mappedBy = "employee")
-    private User account;
-
     @Builder
-    public Employee(String employeeCode, String employeeName, String employeeEmail, String employeePhone, String address) {
+    public Employee(String employeeCode, String employeeName, String employeeEmail, String employeePhone,
+                    String address) {
         this.employeeCode = employeeCode;
         this.employeeName = employeeName;
         this.employeeEmail = employeeEmail;
@@ -40,6 +38,17 @@ public class Employee extends BaseModifyEntity {
 
     public void updateEmployeeCode(String employeeCode) {
         this.employeeCode = employeeCode;
+    }
+
+    public void updateEmployeeInfo(String employeeName, String employeeEmail, String employeePhone, String address) {
+        if (employeeName != null && !employeeName.isBlank())
+            this.employeeName = employeeName.trim();
+        if (employeeEmail != null && !employeeEmail.isBlank())
+            this.employeeEmail = employeeEmail.trim();
+        if (employeePhone != null && !employeePhone.isBlank())
+            this.employeePhone = employeePhone.trim();
+        if (address != null && !address.isBlank())
+            this.address = address.trim();
     }
 
 }
