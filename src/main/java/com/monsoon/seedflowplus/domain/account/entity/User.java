@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -52,5 +53,15 @@ public class User extends BaseModifyEntity {
         this.lastLoginAt = lastLoginAt;
     }
 
+    public void updateStatus(Status status) {
+        this.status = Objects.requireNonNull(status, "status must not be null");
+    }
+
+    public void updatePassword(String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new IllegalArgumentException("newPassword must not be blank");
+        }
+        this.loginPw = newPassword;
+    }
 
 }

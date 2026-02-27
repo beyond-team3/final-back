@@ -1,9 +1,11 @@
 package com.monsoon.seedflowplus.core.common.support.error;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -15,17 +17,17 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(CoreException.class)
-    protected ResponseEntity<ApiResult<?>> handleCoreException(CoreException e) {
-        log.warn("CoreException: {}", e.getMessage());
-        ErrorType errorType = e.getErrorType();
+    @ExceptionHandler(ErrorCodeRuntimeException.class)
+    protected ResponseEntity<ApiResult<?>> handleErrorCodeException(ErrorCodeRuntimeException e) {
+        log.warn("ErrorCodeException: {}", e.getMessage());
         return ResponseEntity
-                .status(errorType.getStatus())
-                .body(ApiResult.error(errorType, e.getData()));
+                .status(e.getErrorCodeProvider().getHttpStatus())
+                .body(ApiResult.error(e.getErrorCodeProvider(), e.getData()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    protected ResponseEntity<ApiResult<?>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+    protected ResponseEntity<ApiResult<?>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e) {
         log.warn("MethodArgumentNotValidException: {}", e.getMessage());
         return ResponseEntity
                 .status(ErrorType.INVALID_INPUT_VALUE.getStatus())
@@ -58,6 +60,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(ErrorType.MISSING_REQUEST_PARAMETER));
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    protected ResponseEntity<ApiResult<?>> handleConstraintViolationException(ConstraintViolationException e) {
+        log.warn("ConstraintViolationException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorType.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE));
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     protected ResponseEntity<ApiResult<?>> handleHttpRequestMethodNotSupportedException(
             HttpRequestMethodNotSupportedException e) {
@@ -65,6 +75,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorType.METHOD_NOT_ALLOWED.getStatus())
                 .body(ApiResult.error(ErrorType.METHOD_NOT_ALLOWED));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    protected ResponseEntity<ApiResult<?>> handleHttpMediaTypeNotSupportedException(
+            HttpMediaTypeNotSupportedException e) {
+        log.warn("HttpMediaTypeNotSupportedException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorType.UNSUPPORTED_MEDIA_TYPE.getStatus())
+                .body(ApiResult.error(ErrorType.UNSUPPORTED_MEDIA_TYPE));
     }
 
     @ExceptionHandler(Exception.class)

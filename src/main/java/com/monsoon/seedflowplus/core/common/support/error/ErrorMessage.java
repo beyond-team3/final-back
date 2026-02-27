@@ -8,15 +8,15 @@ public class ErrorMessage {
     private final String message;
     private final Object data;
 
-    public ErrorMessage(ErrorType errorType) {
-        this.code = errorType.getCode().name();
-        this.message = errorType.getMessage();
+    public ErrorMessage(ErrorCodeProvider errorCode) {
+        this.code = String.valueOf(errorCode.getCode());
+        this.message = errorCode.getMessage();
         this.data = null;
     }
 
-    public ErrorMessage(ErrorType errorType, Object data) {
-        this.code = errorType.getCode().name();
-        this.message = errorType.getMessage();
+    public ErrorMessage(ErrorCodeProvider errorCode, Object data) {
+        this.code = String.valueOf(errorCode.getCode());
+        this.message = errorCode.getMessage();
         this.data = data;
     }
 }
