@@ -391,4 +391,27 @@ public class AccountService {
 
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
+
+    @Transactional(readOnly = true)
+    public ClientProfileResponse getMyClientProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        if (userDetails.getRole() != Role.CLIENT) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        if (userDetails.getClientId() == null) {
+            throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
+        }
+
+        Client client = clientRepository.findById(userDetails.getClientId())
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        return ClientProfileResponse.from(client);
+    }
+
 }
