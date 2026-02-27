@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
@@ -284,6 +285,26 @@ public class AccountService {
                 .filter(user -> user.getEmployee() != null)
                 .map(EmployeeListResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeDetailResponse getEmployeeDetail(Long employeeId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        // 권한 체크: ADMIN이 아니고, 본인의 employeeId와 요청된 employeeId가 다른 경우 거부
+        if (userDetails.getRole() != Role.ADMIN &&
+                (userDetails.getEmployeeId() == null || !userDetails.getEmployeeId().equals(employeeId))) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        User user = userRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        return EmployeeDetailResponse.from(user);
     }
 
 }
