@@ -29,6 +29,7 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
 
+
 # --- 모니터링 (Actuator & Prometheus) 설정 ---
 management:
   endpoints:
