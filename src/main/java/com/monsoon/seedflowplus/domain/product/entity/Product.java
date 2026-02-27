@@ -54,7 +54,7 @@ public class Product extends BaseModifyEntity {
     private ProductStatus status; // 상태 (판매중, 중단 등)
 
     @Column(name = "is_deleted", nullable = false)
-    private boolean isDeleted = false;
+    private boolean isDeleted;
 
     // JSON 타입으로 태그 저장
     @JdbcTypeCode(SqlTypes.JSON)

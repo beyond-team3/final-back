@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 public class ProductContractResponse {
 
     private Long productId;
+    private String productCode; // 상품코드
     private String productCategory; // 품종
     private String productName; // 상품명
     private String unit; // 단위
