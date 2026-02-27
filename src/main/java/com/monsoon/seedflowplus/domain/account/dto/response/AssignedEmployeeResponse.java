@@ -8,7 +8,7 @@ public record AssignedEmployeeResponse(
         String employeeEmail) {
     public static AssignedEmployeeResponse from(Employee employee) {
         if (employee == null) {
-            return null;
+            return none();
         }
         return new AssignedEmployeeResponse(
                 employee.getEmployeeName(),
