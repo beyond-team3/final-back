@@ -108,4 +108,10 @@ public class AccountController {
         return ApiResult.success(accountService.getMyClientProfile());
     }
 
+    // 마이페이지 - 거래처 -담당영업사원 정보 조회
+    @GetMapping("/clients/{clientId}/manager")
+    public ApiResult<AssignedEmployeeResponse> getAssignedEmployee(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getAssignedEmployee(clientId));
+    }
+
 }
