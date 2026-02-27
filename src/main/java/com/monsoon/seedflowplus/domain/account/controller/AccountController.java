@@ -102,4 +102,10 @@ public class AccountController {
         return ApiResult.success(accountService.getClientDetail(clientId));
     }
 
+    // 마이페이지
+    @GetMapping("/clients/me")
+    public ApiResult<ClientProfileResponse> getMyClientProfile() {
+        return ApiResult.success(accountService.getMyClientProfile());
+    }
+
 }
