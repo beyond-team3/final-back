@@ -7,6 +7,9 @@ public record ClientListForDocumentResponse(
         String clientName,
         String managerName) {
     public static ClientListForDocumentResponse from(Client client) {
+        if (client == null) {
+            return null;
+        }
         return new ClientListForDocumentResponse(
                 client.getClientCode(),
                 client.getClientName(),
