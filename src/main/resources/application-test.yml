@@ -30,3 +30,8 @@ jwt:
     secret: KHXxMP9orpMgPBvTyJYuajPO6tqyej2zx7od31vITTs=
     access-token-expiration-ms: 3600000
     refresh-token-expiration-ms: 1209600000
+
+google:
+  gemini:
+    api:
+      key: this-is-dummy-gemini-api-key
