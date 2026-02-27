@@ -443,4 +443,24 @@ public class AccountService {
         return AssignedEmployeeResponse.from(client.getManagerEmployee());
     }
 
+    @Transactional(readOnly = true)
+    public List<UnregisteredEmployeeResponse> getUnregisteredEmployees() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        // 계정 생성은 사원 등록과 마찬가지로 관리자 권한 필요 (필요 시 수정 가능)
+        if (userDetails.getRole() != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        return employeeRepository.findAllUnregistered().stream()
+                .map(UnregisteredEmployeeResponse::from)
+                .toList();
+    }
+
+
+
 }
