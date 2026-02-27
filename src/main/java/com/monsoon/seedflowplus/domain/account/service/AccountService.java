@@ -371,6 +371,10 @@ public class AccountService {
         CustomUserDetails userDetails = getAuthenticatedUser();
         requireRole(userDetails, Role.CLIENT);
 
+        if (userDetails.getClientId() == null) {
+            throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
+        }
+
         Client client = clientRepository.findById(userDetails.getClientId())
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
@@ -394,7 +398,8 @@ public class AccountService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-        return AssignedEmployeeResponse.from(client.getManagerEmployee());
+        Employee manager = client.getManagerEmployee();
+        return AssignedEmployeeResponse.from(manager);
     }
 
     @Transactional(readOnly = true)
