@@ -32,7 +32,9 @@ import lombok.NoArgsConstructor;
         indexes = {
                 @Index(name = "idx_delivery_notification", columnList = "notification_id"),
                 @Index(name = "idx_delivery_status", columnList = "status"),
-                @Index(name = "idx_delivery_channel_status", columnList = "channel, status")
+                @Index(name = "idx_delivery_channel_status", columnList = "channel, status"),
+                @Index(name = "idx_delivery_status_scheduled_at", columnList = "status, scheduled_at"),
+                @Index(name = "idx_delivery_channel_status_scheduled_at", columnList = "channel, status, scheduled_at")
         }
 )
 @AttributeOverride(name = "id", column = @Column(name = "delivery_id"))
@@ -65,12 +67,21 @@ public class NotificationDelivery extends BaseModifyEntity {
     @Column(name = "fail_reason", length = 500)
     private String failReason;
 
+    @Column(name = "scheduled_at")
+    private LocalDateTime scheduledAt;
+
     @Builder
-    public NotificationDelivery(Notification notification, DeliveryChannel channel, DeliveryStatus status) {
+    public NotificationDelivery(
+            Notification notification,
+            DeliveryChannel channel,
+            DeliveryStatus status,
+            LocalDateTime scheduledAt
+    ) {
         this.notification = notification;
         this.channel = channel;
         this.status = status;
         this.attemptCount = 0;
+        this.scheduledAt = scheduledAt;
     }
 
     public void markAttempt(LocalDateTime now) {
