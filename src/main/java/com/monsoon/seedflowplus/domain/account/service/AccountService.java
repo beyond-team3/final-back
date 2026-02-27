@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientListForDocumentResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
@@ -307,4 +308,26 @@ public class AccountService {
         return EmployeeDetailResponse.from(user);
     }
 
+    @Transactional(readOnly = true)
+    public List<ClientListForDocumentResponse> getClientsForDocument() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        // 권한 체크: SALES_REP만 허용
+        if (userDetails.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        // 담당 사원 ID가 없는 경우 (이론상 SALES_REP이면 있어야 함)
+        if (userDetails.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+                .map(ClientListForDocumentResponse::from)
+                .toList();
+    }
 }
