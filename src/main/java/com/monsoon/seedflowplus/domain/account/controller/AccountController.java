@@ -114,4 +114,11 @@ public class AccountController {
         return ApiResult.success(accountService.getAssignedEmployee(clientId));
     }
 
+    // 계정등록 - 영업사원(미등록)
+    @GetMapping("/employees/unregistered")
+    public ApiResult<List<UnregisteredEmployeeResponse>> getUnregisteredEmployees() {
+        return ApiResult.success(accountService.getUnregisteredEmployees());
+    }
+
+
 }
