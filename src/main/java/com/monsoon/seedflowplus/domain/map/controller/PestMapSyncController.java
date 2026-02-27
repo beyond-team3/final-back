@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/map/sync")
+@RequestMapping("/api/v1/map/sync")
 @RequiredArgsConstructor
 public class PestMapSyncController {
 
