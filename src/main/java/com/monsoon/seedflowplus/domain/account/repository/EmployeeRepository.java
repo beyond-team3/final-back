@@ -15,4 +15,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     @Query("SELECT e FROM Employee e WHERE NOT EXISTS (SELECT 1 FROM User u WHERE u.employee = e)")
     List<Employee> findAllUnregistered();
+
+    @Query("SELECT e FROM Employee e WHERE NOT EXISTS (SELECT 1 FROM User u WHERE u.employee = e AND u.role = 'ADMIN')")
+    List<Employee> findAllNonAdmin();
 }
