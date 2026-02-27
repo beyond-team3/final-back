@@ -2,10 +2,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
-import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.ClientListForDocumentResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.*;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -92,5 +89,10 @@ public class AccountController {
     @GetMapping("/clients/for-document")
     public ApiResult<List<ClientListForDocumentResponse>> getClientsForDocument() {
         return ApiResult.success(accountService.getClientsForDocument());
+    }
+
+    @GetMapping("/clients")
+    public ApiResult<List<ClientListResponse>> getAllClients() {
+        return ApiResult.success(accountService.getAllClients());
     }
 }
