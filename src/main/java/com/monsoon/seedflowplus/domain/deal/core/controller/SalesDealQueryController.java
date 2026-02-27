@@ -71,6 +71,10 @@ public class SalesDealQueryController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         TempUser user = tempUserResolver.resolve(userDetails);
+        LocalDateTime fromAtParsed = parseDateTime(fromAt, "fromAt");
+        LocalDateTime toAtParsed = parseDateTime(toAt, "toAt");
+        validateDateRange(fromAtParsed, toAtParsed);
+
         SalesDealSearchCondition condition = SalesDealSearchCondition.builder()
                 .ownerEmpId(ownerEmpId)
                 .clientId(clientId)
@@ -78,8 +82,8 @@ public class SalesDealQueryController {
                 .latestDocType(latestDocType)
                 .isClosed(isClosed)
                 .keyword(keyword)
-                .fromAt(parseDateTime(fromAt, "fromAt"))
-                .toAt(parseDateTime(toAt, "toAt"))
+                .fromAt(fromAtParsed)
+                .toAt(toAtParsed)
                 .build();
 
         Pageable pageable = PaginationUtils.parsePageRequest(
@@ -102,6 +106,12 @@ public class SalesDealQueryController {
             return LocalDateTime.parse(value, DATE_TIME_FORMATTER);
         } catch (DateTimeParseException e) {
             throw new ResponseStatusException(BAD_REQUEST, fieldName + " 형식이 올바르지 않습니다.");
+        }
+    }
+
+    private void validateDateRange(LocalDateTime fromAt, LocalDateTime toAt) {
+        if (fromAt != null && toAt != null && fromAt.isAfter(toAt)) {
+            throw new ResponseStatusException(BAD_REQUEST, "fromAt은 toAt보다 늦을 수 없습니다.");
         }
     }
 
