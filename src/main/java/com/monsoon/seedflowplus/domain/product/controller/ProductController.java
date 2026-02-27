@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.product.controller;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
+import com.monsoon.seedflowplus.domain.product.dto.request.ProductSearchCondition;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
@@ -60,10 +61,12 @@ public class ProductController {
     // 상품 전체 목록 조회 (추후 성능 비교를 위해 임시로 전체 조회 사용)
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts(
+            @io.swagger.v3.oas.annotations.Parameter(description = "10~500 숫자") @RequestParam(defaultValue = "10") int limit,
+            @ModelAttribute ProductSearchCondition condition,
             @AuthenticationPrincipal UserDetails userDetails) {
         Role role = extractRoleFromUserDetails(userDetails);
 
-        List<ProductResponse> responses = productReadService.getAllProducts(role);
+        List<ProductResponse> responses = productReadService.getAllProducts(role, condition);
         return ResponseEntity.ok(responses);
     }
 
