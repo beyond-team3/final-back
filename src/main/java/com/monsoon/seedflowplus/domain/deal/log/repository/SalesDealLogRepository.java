@@ -14,7 +14,8 @@ public interface SalesDealLogRepository extends JpaRepository<SalesDealLog, Long
 
     Sort DEFAULT_TIMELINE_SORT = Sort.by(
             Sort.Order.desc("actionAt"),
-            Sort.Order.asc("targetCode").nullsLast()
+            Sort.Order.asc("targetCode").nullsLast(),
+            Sort.Order.asc("id")
     );
 
     @Query("select l from SalesDealLog l where l.deal.id = :dealId")

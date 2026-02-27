@@ -45,9 +45,16 @@ public class DealLogDetail extends BaseCreateEntity {
     }
 
     public void setDealLog(SalesDealLog dealLog) {
-        this.dealLog = Objects.requireNonNull(dealLog, "dealLog는 null값이 될 수 없습니다.");
-        if (dealLog.getDetail() != this) {
-            dealLog.setDetail(this);
+        SalesDealLog requiredDealLog = Objects.requireNonNull(dealLog, "dealLog는 null값이 될 수 없습니다.");
+        if (this.dealLog != null && this.dealLog != requiredDealLog) {
+            throw new IllegalStateException("DealLogDetail은 다른 dealLog로 재할당할 수 없습니다.");
+        }
+        if (requiredDealLog.getDetail() != null && requiredDealLog.getDetail() != this) {
+            throw new IllegalStateException("이미 다른 DealLogDetail이 연결된 dealLog에는 재할당할 수 없습니다.");
+        }
+        this.dealLog = requiredDealLog;
+        if (requiredDealLog.getDetail() != this) {
+            requiredDealLog.setDetail(this);
         }
     }
 

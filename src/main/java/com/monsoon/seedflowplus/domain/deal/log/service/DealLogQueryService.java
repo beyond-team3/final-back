@@ -37,23 +37,11 @@ public class DealLogQueryService {
                 .map(this::toSummaryDto);
     }
 
-    public Page<DealLogSummaryDto> getTimelineByDeal(Long dealId, Pageable pageable) {
-        Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        return salesDealLogRepository.findByDealId(dealId, resolvedPageable)
-                .map(this::toSummaryDto);
-    }
-
     public Page<DealLogSummaryDto> getTimelineByClient(Long clientId, Pageable pageable, TempUser user) {
         Pageable resolvedPageable = resolveTimelinePageable(pageable);
         TempUser requiredUser = requireUser(user);
 
         return findByClientWithScope(clientId, resolvedPageable, requiredUser)
-                .map(this::toSummaryDto);
-    }
-
-    public Page<DealLogSummaryDto> getTimelineByClient(Long clientId, Pageable pageable) {
-        Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        return salesDealLogRepository.findByClientId(clientId, resolvedPageable)
                 .map(this::toSummaryDto);
     }
 
@@ -65,28 +53,19 @@ public class DealLogQueryService {
                 .map(this::toSummaryDto);
     }
 
-    public Page<DealLogSummaryDto> getTimelineByDocument(DealType docType, Long refId, Pageable pageable) {
-        Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        return salesDealLogRepository.findByDocTypeAndRefId(docType, refId, resolvedPageable)
-                .map(this::toSummaryDto);
-    }
-
     public DealLogDetailDto getLogDetail(Long dealLogId, TempUser user) {
         TempUser requiredUser = requireUser(user);
         DealLogDetail detail = dealLogDetailRepository.findByDealLogId(dealLogId)
-                .orElseThrow(() -> new IllegalArgumentException("DealLogDetail을 찾을 수 없습니다. dealLogId=" + dealLogId));
+                .orElseThrow(() -> new CoreException(
+                        ErrorType.DEAL_LOG_DETAIL_NOT_FOUND,
+                        "DealLogDetail을 찾을 수 없습니다. dealLogId=" + dealLogId
+                ));
 
         SalesDealLog log = detail.getDealLog();
         if (!canAccess(requiredUser, log.getDeal().getOwnerEmp().getId(), log.getClient().getId())) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        return toDetailDto(detail);
-    }
-
-    public DealLogDetailDto getLogDetail(Long dealLogId) {
-        DealLogDetail detail = dealLogDetailRepository.findByDealLogId(dealLogId)
-                .orElseThrow(() -> new IllegalArgumentException("DealLogDetail을 찾을 수 없습니다. dealLogId=" + dealLogId));
         return toDetailDto(detail);
     }
 

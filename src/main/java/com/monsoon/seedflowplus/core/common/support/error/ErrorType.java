@@ -46,6 +46,10 @@ public enum ErrorType {
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P101, "결제를 찾을 수 없습니다.", LogLevel.WARN),
     ALREADY_PAID(HttpStatus.BAD_REQUEST, ErrorCode.P102, "이미 결제된 청구서입니다.", LogLevel.WARN),
 
+    // 딜 로그
+    DEAL_LOG_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D001, "DealLogDetail을 찾을 수 없습니다.", LogLevel.WARN),
+    INVALID_DOC_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, ErrorCode.D002, "허용되지 않은 문서 상태 전이입니다.", LogLevel.WARN),
+
     // 계정
     CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A101, "거래처를 찾을 수 없습니다.", LogLevel.WARN),
     EMPLOYEE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A102, "영업사원을 찾을 수 없습니다.", LogLevel.WARN),
