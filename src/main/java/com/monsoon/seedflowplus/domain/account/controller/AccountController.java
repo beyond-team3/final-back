@@ -75,7 +75,7 @@ public class AccountController {
         return ApiResult.success();
     }
 
-    // 조회
+    // 조회 - 영업사원
     @GetMapping("/employees")
     public ApiResult<List<EmployeeListResponse>> getAllEmployees() {
         return ApiResult.success(accountService.getAllEmployees());
@@ -86,6 +86,7 @@ public class AccountController {
         return ApiResult.success(accountService.getEmployeeDetail(employeeId));
     }
 
+    // 조회 - 거래처
     @GetMapping("/clients/for-document")
     public ApiResult<List<ClientListForDocumentResponse>> getClientsForDocument() {
         return ApiResult.success(accountService.getClientsForDocument());
@@ -95,4 +96,10 @@ public class AccountController {
     public ApiResult<List<ClientListResponse>> getAllClients() {
         return ApiResult.success(accountService.getAllClients());
     }
+
+    @GetMapping("/clients/{clientId}")
+    public ApiResult<ClientDetailResponse> getClientDetail(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientDetail(clientId));
+    }
+
 }
