@@ -8,12 +8,13 @@ import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractRespo
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
+import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class ProductReadService {
 
     private final ProductRepository productRepository;
+    private final CultivationTimeRepository cultivationTimeRepository;
 
     // 상품 전체목록 (추후 성능 비교 후 Pageable/QueryDSL로 변경 예정)
     public List<ProductResponse> getAllProducts(Role role) {
@@ -31,11 +33,11 @@ public class ProductReadService {
 
         return products.stream()
                 .map(product -> convertToDto(product, canViewPrice))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 견적서/계약서용 상품 목록 조회
-    public List<ProductContractResponse> getProductsForContract(Role role) {
+    public List<ProductContractResponse> getProductsForContract() {
         return productRepository.findAll().stream()
                 .map(product -> ProductContractResponse.builder()
                         .productId(product.getId())
@@ -44,11 +46,11 @@ public class ProductReadService {
                         .unit(product.getUnit())
                         .price(product.getPrice())
                         .build())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 견적 요청서용 상품 목록 조회
-    public List<ProductEstimateReqResponse> getProductsForEstimateReq(Role role) {
+    public List<ProductEstimateReqResponse> getProductsForEstimateReq() {
         return productRepository.findAll().stream()
                 .map(product -> ProductEstimateReqResponse.builder()
                         .productId(product.getId())
@@ -56,7 +58,7 @@ public class ProductReadService {
                         .productName(product.getProductName())
                         .unit(product.getUnit())
                         .build())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 상품 비교하기 페이지 사용
@@ -73,7 +75,7 @@ public class ProductReadService {
 
         return products.stream()
                 .map(product -> convertToDto(product, canViewPrice))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 상품 상세페이지 사용
@@ -96,12 +98,21 @@ public class ProductReadService {
                 .imageUrl(product.getProductImageUrl())
                 .tags(product.getTags());
 
+        cultivationTimeRepository.findByProductId(product.getId())
+                .ifPresent(ct -> builder.cultivationTime(CultivationTimeDto.builder()
+                        .sowingStart(ct.getSowingStart())
+                        .sowingEnd(ct.getSowingEnd())
+                        .plantingStart(ct.getPlantingStart())
+                        .plantingEnd(ct.getPlantingEnd())
+                        .harvestingStart(ct.getHarvestingStart())
+                        .harvestingEnd(ct.getHarvestingEnd())
+                        .build()));
+
         if (canViewPrice) {
             builder.priceData(new ProductResponse.PriceData(
                     product.getAmount(),
                     product.getPrice(),
-                    product.getUnit()
-            ));
+                    product.getUnit()));
         }
 
         return builder.build();
