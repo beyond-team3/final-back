@@ -35,3 +35,4 @@ google:
   gemini:
     api:
       key: this-is-dummy-gemini-api-key
+      url: https://dummy.gemini.api.url
