@@ -479,4 +479,22 @@ public class AccountService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<EmployeeSimpleResponse> getAllEmployeesSimple() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        // 관리자 권한 확인
+        if (userDetails.getRole() != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        return employeeRepository.findAll().stream()
+                .map(EmployeeSimpleResponse::from)
+                .toList();
+    }
+
 }
