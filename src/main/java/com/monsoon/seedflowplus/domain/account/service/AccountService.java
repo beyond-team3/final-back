@@ -358,4 +358,37 @@ public class AccountService {
         // 그 외 권한은 접근 거부
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
+
+    @Transactional(readOnly = true)
+    public ClientDetailResponse getClientDetail(Long clientId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        Role role = userDetails.getRole();
+
+        // 관리자인 경우 전체 조회 허용
+        if (role == Role.ADMIN) {
+            return ClientDetailResponse.from(client);
+        }
+
+        // 영업사원인 경우 본인 담당 거래처만 조회 가능
+        if (role == Role.SALES_REP) {
+            if (userDetails.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return ClientDetailResponse.from(client);
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
 }
