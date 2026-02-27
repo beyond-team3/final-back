@@ -13,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -21,6 +22,24 @@ public class NcpmsDataSyncService {
 
     private final PestForecastRepository pestForecastRepository;
     private final WebClient webClient = WebClient.create("http://ncpms.rda.go.kr/npmsAPI/service");
+
+    // 작물 및 병해충 매핑 데이터 (향후 DB나 외부 설정으로 분리 가능)
+    private static final Map<String, String> CROP_NAME_TO_CODE = Map.of(
+            "배추", "cabbage",
+            "가을배추", "cabbage",
+            "고추", "pepper",
+            "풋고추", "pepper",
+            "마늘", "garlic",
+            "양파", "onion",
+            "무", "radish"
+    );
+
+    private static final Map<String, String> PEST_NAME_TO_CODE = Map.of(
+            "노균병", "P01",
+            "무름병", "P02",
+            "탄저병", "P03",
+            "뿌리혹병", "P04"
+    );
 
     @Value("${ncpms.api.key}")
     private String apiKey;
@@ -128,11 +147,25 @@ public class NcpmsDataSyncService {
         return "보통";
     }
 
-    private String mapCropNameToCode(String cropName) {
-        return "cabbage";
+    /**
+     * 작물명을 시스템 코드로 변환합니다.
+     */
+    String mapCropNameToCode(String cropName) {
+        if (cropName == null || cropName.isBlank()) {
+            return "UNKNOWN";
+        }
+        String normalized = cropName.trim();
+        return CROP_NAME_TO_CODE.getOrDefault(normalized, "UNKNOWN");
     }
 
-    private String mapPestNameToCode(String pestName) {
-        return "CB01";
+    /**
+     * 병해충명을 시스템 코드로 변환합니다.
+     */
+    String mapPestNameToCode(String pestName) {
+        if (pestName == null || pestName.isBlank()) {
+            return "UNKNOWN";
+        }
+        String normalized = pestName.trim();
+        return PEST_NAME_TO_CODE.getOrDefault(normalized, "UNKNOWN");
     }
 }
