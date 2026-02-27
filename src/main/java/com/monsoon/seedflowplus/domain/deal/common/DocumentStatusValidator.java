@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.deal.common;
 
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.StatementStatus;
@@ -22,15 +24,25 @@ public final class DocumentStatusValidator {
     }
 
     public static void validateRequired(DealType dealType, String status, String fieldName) {
-        Objects.requireNonNull(fieldName, "fieldName은 null값이 될 수 없습니다.");
+        if (fieldName == null) {
+            throw new DealException(DealErrorCode.FIELD_NAME_REQUIRED);
+        }
         if (status == null) {
-            throw new IllegalArgumentException(fieldName + "는 null값이 될 수 없습니다.");
+            if ("fromStatus".equals(fieldName)) {
+                throw new DealException(DealErrorCode.FROM_STATUS_REQUIRED);
+            }
+            if ("toStatus".equals(fieldName)) {
+                throw new DealException(DealErrorCode.TO_STATUS_REQUIRED);
+            }
+            throw new DealException(DealErrorCode.INVALID_DOCUMENT_STATUS, fieldName + "는 null이 될 수 없습니다.");
         }
         validate(dealType, status, fieldName);
     }
 
     public static void validateNullable(DealType dealType, String status, String fieldName) {
-        Objects.requireNonNull(fieldName, "fieldName은 null값이 될 수 없습니다.");
+        if (fieldName == null) {
+            throw new DealException(DealErrorCode.FIELD_NAME_REQUIRED);
+        }
         if (status == null) {
             return;
         }
@@ -41,7 +53,8 @@ public final class DocumentStatusValidator {
         Objects.requireNonNull(dealType, "dealType은 null값이 될 수 없습니다.");
         Set<String> allowedStatuses = ALLOWED_STATUS_BY_DEAL_TYPE.get(dealType);
         if (!allowedStatuses.contains(status)) {
-            throw new IllegalArgumentException(
+            throw new DealException(
+                    DealErrorCode.INVALID_DOCUMENT_STATUS,
                     fieldName + " 값이 유효하지 않습니다. dealType=" + dealType + ", status=" + status
             );
         }

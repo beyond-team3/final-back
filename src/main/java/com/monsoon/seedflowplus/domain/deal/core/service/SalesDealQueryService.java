@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.deal.core.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemDto;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
@@ -77,7 +79,7 @@ public class SalesDealQueryService {
         LocalDateTime fromAt = cond.getFromAt();
         LocalDateTime toAt = cond.getToAt();
         if (fromAt != null && toAt != null && fromAt.isAfter(toAt)) {
-            throw new IllegalArgumentException("fromAt은 toAt보다 늦을 수 없습니다.");
+            throw new DealException(DealErrorCode.INVALID_DATE_RANGE);
         }
     }
 

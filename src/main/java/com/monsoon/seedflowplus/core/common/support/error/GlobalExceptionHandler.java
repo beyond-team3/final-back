@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.core.common.support.error;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -22,6 +23,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorType.getStatus())
                 .body(ApiResult.error(errorType, e.getData()));
+    }
+
+    @ExceptionHandler(DealException.class)
+    protected ResponseEntity<ApiResult<?>> handleDealException(DealException e) {
+        log.warn("DealException: {}", e.getMessage());
+        return ResponseEntity
+                .status(e.getErrorCode().getHttpStatus())
+                .body(ApiResult.error(e.getErrorCode(), e.getData()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

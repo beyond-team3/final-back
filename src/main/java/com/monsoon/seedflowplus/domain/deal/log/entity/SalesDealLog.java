@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.common.DocumentStatusValidator;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -108,24 +110,29 @@ public class SalesDealLog extends BaseCreateEntity {
     ) {
         SalesDeal requiredDeal = Objects.requireNonNull(deal, "deal은 null값이 될 수 없습니다.");
         Client dealClient = Objects.requireNonNull(requiredDeal.getClient(), "deal.client은 null값이 될 수 없습니다.");
+        DealType requiredDocType = Objects.requireNonNull(docType, "docType은 null값이 될 수 없습니다.");
+        String requiredToStatus = Objects.requireNonNull(toStatus, "toStatus는 null값이 될 수 없습니다.");
+        ActionType requiredActionType = Objects.requireNonNull(actionType, "actionType은 null값이 될 수 없습니다.");
+        LocalDateTime requiredActionAt = Objects.requireNonNull(actionAt, "actionAt은 null값이 될 수 없습니다.");
+        ActorType requiredActorType = Objects.requireNonNull(actorType, "actorType은 null값이 될 수 없습니다.");
         if (client != null && !Objects.equals(client, dealClient)) {
-            throw new IllegalArgumentException("client는 deal.getClient()과 같아야 합니다.");
+            throw new DealException(DealErrorCode.DEAL_CLIENT_MISMATCH);
         }
-        DocumentStatusValidator.validateNullable(docType, fromStatus, "fromStatus");
-        DocumentStatusValidator.validateRequired(docType, toStatus, "toStatus");
+        DocumentStatusValidator.validateNullable(requiredDocType, fromStatus, "fromStatus");
+        DocumentStatusValidator.validateRequired(requiredDocType, requiredToStatus, "toStatus");
 
         this.deal = requiredDeal;
         this.client = dealClient;
-        this.docType = docType;
+        this.docType = requiredDocType;
         this.refId = refId;
         this.targetCode = targetCode;
         this.fromStage = fromStage;
         this.toStage = toStage;
         this.fromStatus = fromStatus;
-        this.toStatus = toStatus;
-        this.actionType = actionType;
-        this.actionAt = actionAt;
-        this.actorType = actorType;
+        this.toStatus = requiredToStatus;
+        this.actionType = requiredActionType;
+        this.actionAt = requiredActionAt;
+        this.actorType = requiredActorType;
         this.actorId = actorId;
     }
 

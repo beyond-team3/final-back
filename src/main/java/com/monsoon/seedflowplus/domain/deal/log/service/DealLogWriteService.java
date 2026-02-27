@@ -5,6 +5,8 @@ import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.log.entity.DealLogDetail;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.repository.DealLogDetailRepository;
@@ -148,6 +150,7 @@ public class DealLogWriteService {
     public ConvertLogPair writeConvertPair(ConvertLogRequest original, ConvertLogRequest created) {
         Objects.requireNonNull(original, "original은 null값이 될 수 없습니다.");
         Objects.requireNonNull(created, "created는 null값이 될 수 없습니다.");
+        validateConvertPairConsistency(original, created);
 
         LocalDateTime actionAt = original.actionAt() != null ? original.actionAt()
                 : (created.actionAt() != null ? created.actionAt() : nowKst());
@@ -199,8 +202,12 @@ public class DealLogWriteService {
         Objects.requireNonNull(docType, "docType은 null값이 될 수 없습니다.");
         Objects.requireNonNull(refId, "refId는 null값이 될 수 없습니다.");
         Objects.requireNonNull(toStage, "toStage는 null값이 될 수 없습니다.");
-        Objects.requireNonNull(fromStatus, "fromStatus는 null값이 될 수 없습니다.");
-        Objects.requireNonNull(toStatus, "toStatus는 null값이 될 수 없습니다.");
+        if (!StringUtils.hasText(fromStatus)) {
+            throw new DealException(DealErrorCode.FROM_STATUS_REQUIRED);
+        }
+        if (!StringUtils.hasText(toStatus)) {
+            throw new DealException(DealErrorCode.TO_STATUS_REQUIRED);
+        }
         Objects.requireNonNull(actionType, "actionType은 null값이 될 수 없습니다.");
         Objects.requireNonNull(actorType, "actorType은 null값이 될 수 없습니다.");
     }
@@ -208,17 +215,32 @@ public class DealLogWriteService {
     private void validateActor(ActorType actorType, Long actorId) {
         if (actorType == ActorType.SYSTEM) {
             if (actorId != null) {
-                throw new IllegalArgumentException("actorType이 SYSTEM이면 actorId는 null이어야 합니다.");
+                throw new DealException(DealErrorCode.SYSTEM_ACTOR_ID_MUST_BE_NULL);
             }
             return;
         }
         if (actorId == null) {
-            throw new IllegalArgumentException("actorType이 SYSTEM이 아니면 actorId는 null값이 될 수 없습니다.");
+            throw new DealException(DealErrorCode.NON_SYSTEM_ACTOR_ID_REQUIRED);
         }
     }
 
     private LocalDateTime nowKst() {
         return LocalDateTime.now(KST_ZONE_ID);
+    }
+
+    private void validateConvertPairConsistency(ConvertLogRequest original, ConvertLogRequest created) {
+        if (original.actionAt() != null && created.actionAt() != null
+                && !original.actionAt().equals(created.actionAt())) {
+            throw new DealException(DealErrorCode.CONVERT_ACTION_AT_MISMATCH);
+        }
+        if (original.actorType() != null && created.actorType() != null
+                && original.actorType() != created.actorType()) {
+            throw new DealException(DealErrorCode.CONVERT_ACTOR_TYPE_MISMATCH);
+        }
+        if (original.actorId() != null && created.actorId() != null
+                && !original.actorId().equals(created.actorId())) {
+            throw new DealException(DealErrorCode.CONVERT_ACTOR_ID_MISMATCH);
+        }
     }
 
     public record ConvertLogRequest(
