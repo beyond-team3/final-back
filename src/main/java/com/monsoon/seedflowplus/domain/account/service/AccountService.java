@@ -3,7 +3,17 @@ package com.monsoon.seedflowplus.domain.account.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
+import com.monsoon.seedflowplus.domain.account.dto.response.AssignedEmployeeResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientDetailResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientListForDocumentResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientProfileResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -33,6 +43,8 @@ public class AccountService {
 
     @Transactional
     public void registerClient(ClientRegisterRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         // 1. 중복 검사
         if (clientRepository.existsByClientBrn(request.clientBrn())) {
@@ -67,6 +79,8 @@ public class AccountService {
 
     @Transactional
     public void registerEmployee(EmployeeRegisterRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         // 1. Employee 생성 및 저장
         // employeeCode는 EMP-000x 형식이므로, 먼저 임시값으로 저장 후 PK를 획득하여 업데이트함
@@ -202,13 +216,7 @@ public class AccountService {
     }
 
     private Client validateAndGetClient(Long clientId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 관리자는 클라이언트 정보 반환
         if (userDetails.getRole() == Role.ADMIN) {
@@ -242,13 +250,7 @@ public class AccountService {
 
     @Transactional
     public void changePassword(PasswordChangeRequest request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 보안을 위해 세션의 정보 대신 DB에서 최신 유저 정보를 조회
         User user = userRepository.findById(userDetails.getUserId())
@@ -265,6 +267,184 @@ public class AccountService {
         user.updatePassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user); // Persistence Context에 의해 자동으로 반영되지만 명시적으로 호출할 수도 있음
         tokenStore.deleteRefreshToken(user.getLoginId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeListResponse> getAllEmployees() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        return userRepository.findAllByEmployeeIsNotNull().stream()
+                .map(EmployeeListResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeDetailResponse getEmployeeDetail(Long employeeId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        // 권한 체크: ADMIN이 아니고, 본인의 employeeId와 요청된 employeeId가 다른 경우 거부
+        if (userDetails.getRole() != Role.ADMIN &&
+                (userDetails.getEmployeeId() == null || !userDetails.getEmployeeId().equals(employeeId))) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        User user = userRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        return EmployeeDetailResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientListForDocumentResponse> getClientsForDocument() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.SALES_REP);
+
+        // 담당 사원 ID가 없는 경우 (이론상 SALES_REP이면 있어야 함)
+        if (userDetails.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+                .map(ClientListForDocumentResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientListResponse> getAllClients() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        Role role = userDetails.getRole();
+
+        // 관리자인 경우 전체 조회
+        if (role == Role.ADMIN) {
+            return clientRepository.findAll().stream()
+                    .map(ClientListResponse::from)
+                    .toList();
+        }
+
+        // 영업사원인 경우 본인 담당 거래처만 조회
+        if (role == Role.SALES_REP) {
+            if (userDetails.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+            return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+                    .map(ClientListResponse::from)
+                    .toList();
+        }
+
+        // 그 외 권한은 접근 거부
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    @Transactional(readOnly = true)
+    public ClientDetailResponse getClientDetail(Long clientId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        Role role = userDetails.getRole();
+
+        // 관리자인 경우 전체 조회 허용
+        if (role == Role.ADMIN) {
+            return ClientDetailResponse.from(client);
+        }
+
+        // 영업사원인 경우 본인 담당 거래처만 조회 가능
+        if (role == Role.SALES_REP) {
+            if (userDetails.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return ClientDetailResponse.from(client);
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    @Transactional(readOnly = true)
+    public ClientProfileResponse getMyClientProfile() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.CLIENT);
+
+        if (userDetails.getClientId() == null) {
+            throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
+        }
+
+        Client client = clientRepository.findById(userDetails.getClientId())
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        return ClientProfileResponse.from(client);
+    }
+
+    @Transactional(readOnly = true)
+    public AssignedEmployeeResponse getAssignedEmployee(Long clientId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        Role role = userDetails.getRole();
+
+        // 권한 체크: ADMIN은 통과, CLIENT는 본인의 clientId만 가능
+        if (role == Role.CLIENT) {
+            if (userDetails.getClientId() == null || !userDetails.getClientId().equals(clientId)) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        } else if (role != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        Employee manager = client.getManagerEmployee();
+        return AssignedEmployeeResponse.from(manager);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UnregisteredEmployeeResponse> getUnregisteredEmployees() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        return employeeRepository.findAllUnregistered().stream()
+                .map(UnregisteredEmployeeResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UnregisteredClientResponse> getUnregisteredClients() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        return clientRepository.findAllUnregistered().stream()
+                .map(UnregisteredClientResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeSimpleResponse> getAllEmployeesSimple() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        return employeeRepository.findAllNonAdmin(Role.ADMIN).stream()
+                .map(EmployeeSimpleResponse::from)
+                .toList();
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return userDetails;
+    }
+
+    private void requireRole(CustomUserDetails userDetails, Role role) {
+        if (userDetails.getRole() != role) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
     }
 
 }
