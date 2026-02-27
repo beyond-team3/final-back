@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -73,5 +74,11 @@ public class AccountController {
     public ApiResult<?> changePassword(@RequestBody @Valid PasswordChangeRequest request) {
         accountService.changePassword(request);
         return ApiResult.success();
+    }
+
+    // 조회
+    @GetMapping("/employees")
+    public ApiResult<List<EmployeeListResponse>> getAllEmployees() {
+        return ApiResult.success(accountService.getAllEmployees());
     }
 }
