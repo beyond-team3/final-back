@@ -1,8 +1,7 @@
 package com.monsoon.seedflowplus.core.common.support.response;
 
 import com.monsoon.seedflowplus.core.common.support.error.ErrorMessage;
-import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
-import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorCodeProvider;
 import lombok.Getter;
 
 @Getter
@@ -25,22 +24,11 @@ public class ApiResult<S> {
         return new ApiResult<>(ResultType.SUCCESS, data, null);
     }
 
-    public static ApiResult<?> error(ErrorType error) {
+    public static ApiResult<?> error(ErrorCodeProvider error) {
         return new ApiResult<>(ResultType.ERROR, null, new ErrorMessage(error));
     }
 
-    public static ApiResult<?> error(ErrorType error, Object errorData) {
+    public static ApiResult<?> error(ErrorCodeProvider error, Object errorData) {
         return new ApiResult<>(ResultType.ERROR, null, new ErrorMessage(error, errorData));
-    }
-
-    public static ApiResult<?> error(DealErrorCode errorCode) {
-        return new ApiResult<>(ResultType.ERROR, null, new ErrorMessage(errorCode));
-    }
-
-    public static ApiResult<?> error(
-            DealErrorCode errorCode,
-            Object errorData
-    ) {
-        return new ApiResult<>(ResultType.ERROR, null, new ErrorMessage(errorCode, errorData));
     }
 }

@@ -1,8 +1,9 @@
 package com.monsoon.seedflowplus.domain.deal.common.error;
 
+import com.monsoon.seedflowplus.core.common.support.error.ErrorCodeProvider;
 import org.springframework.http.HttpStatus;
 
-public enum DealErrorCode {
+public enum DealErrorCode implements ErrorCodeProvider {
 
     FROM_STATUS_REQUIRED(HttpStatus.BAD_REQUEST, ErrorType.VALIDATION_ERROR, "fromStatus는 null 또는 공백일 수 없습니다."),
     TO_STATUS_REQUIRED(HttpStatus.BAD_REQUEST, ErrorType.VALIDATION_ERROR, "toStatus는 null 또는 공백일 수 없습니다."),
@@ -25,6 +26,11 @@ public enum DealErrorCode {
         this.httpStatus = httpStatus;
         this.errorType = errorType;
         this.message = message;
+    }
+
+    @Override
+    public DealErrorCode getCode() {
+        return this;
     }
 
     public HttpStatus getHttpStatus() {

@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.deal.core.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.deal.common.DealPaginationConstants;
 import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
 import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemDto;
@@ -20,8 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SalesDealQueryService {
-
-    private static final int MAX_PAGE_SIZE = 50;
 
     private final SalesDealRepository salesDealRepository;
 
@@ -85,15 +84,15 @@ public class SalesDealQueryService {
 
     private Pageable capPageSize(Pageable pageable) {
         if (pageable == null) {
-            return PageRequest.of(0, MAX_PAGE_SIZE);
+            return PageRequest.of(0, DealPaginationConstants.MAX_PAGE_SIZE);
         }
 
         int requestedSize = pageable.getPageSize();
-        if (requestedSize <= MAX_PAGE_SIZE) {
+        if (requestedSize <= DealPaginationConstants.MAX_PAGE_SIZE) {
             return pageable;
         }
 
-        return PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort());
+        return PageRequest.of(pageable.getPageNumber(), DealPaginationConstants.MAX_PAGE_SIZE, pageable.getSort());
     }
 
     private SalesDealListItemDto toListItemDto(SalesDeal deal) {

@@ -1,6 +1,9 @@
 package com.monsoon.seedflowplus.domain.deal.common.error;
 
-public class DealException extends RuntimeException {
+import com.monsoon.seedflowplus.core.common.support.error.ErrorCodeProvider;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorCodeRuntimeException;
+
+public class DealException extends ErrorCodeRuntimeException {
 
     private final DealErrorCode errorCode;
     private final Object data;
@@ -21,6 +24,12 @@ public class DealException extends RuntimeException {
         return errorCode;
     }
 
+    @Override
+    public ErrorCodeProvider getErrorCodeProvider() {
+        return errorCode;
+    }
+
+    @Override
     public Object getData() {
         return data;
     }

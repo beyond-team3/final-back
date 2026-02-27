@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.core.common.support.error;
 
-public class CoreException extends RuntimeException {
+public class CoreException extends ErrorCodeRuntimeException {
 
     private final ErrorType errorType;
 
@@ -19,6 +19,11 @@ public class CoreException extends RuntimeException {
     }
 
     public ErrorType getErrorType() {
+        return errorType;
+    }
+
+    @Override
+    public ErrorCodeProvider getErrorCodeProvider() {
         return errorType;
     }
 

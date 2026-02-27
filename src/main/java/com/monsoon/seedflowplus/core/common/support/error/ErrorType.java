@@ -3,7 +3,7 @@ package com.monsoon.seedflowplus.core.common.support.error;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.http.HttpStatus;
 
-public enum ErrorType {
+public enum ErrorType implements ErrorCodeProvider {
 
     // 기본 에러 발생
     DEFAULT_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.E500, "예기치 않은 오류가 발생했습니다.", LogLevel.ERROR),
@@ -85,6 +85,11 @@ public enum ErrorType {
 
     public ErrorCode getCode() {
         return code;
+    }
+
+    @Override
+    public HttpStatus getHttpStatus() {
+        return status;
     }
 
     public String getMessage() {

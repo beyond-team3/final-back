@@ -1,7 +1,7 @@
 package com.monsoon.seedflowplus.core.common.support.error;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
-import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -17,21 +17,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(CoreException.class)
-    protected ResponseEntity<ApiResult<?>> handleCoreException(CoreException e) {
-        log.warn("CoreException: {}", e.getMessage());
-        ErrorType errorType = e.getErrorType();
+    @ExceptionHandler(ErrorCodeRuntimeException.class)
+    protected ResponseEntity<ApiResult<?>> handleErrorCodeException(ErrorCodeRuntimeException e) {
+        log.warn("ErrorCodeException: {}", e.getMessage());
         return ResponseEntity
-                .status(errorType.getStatus())
-                .body(ApiResult.error(errorType, e.getData()));
-    }
-
-    @ExceptionHandler(DealException.class)
-    protected ResponseEntity<ApiResult<?>> handleDealException(DealException e) {
-        log.warn("DealException: {}", e.getMessage());
-        return ResponseEntity
-                .status(e.getErrorCode().getHttpStatus())
-                .body(ApiResult.error(e.getErrorCode(), e.getData()));
+                .status(e.getErrorCodeProvider().getHttpStatus())
+                .body(ApiResult.error(e.getErrorCodeProvider(), e.getData()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -67,6 +58,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorType.MISSING_REQUEST_PARAMETER.getStatus())
                 .body(ApiResult.error(ErrorType.MISSING_REQUEST_PARAMETER));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    protected ResponseEntity<ApiResult<?>> handleConstraintViolationException(ConstraintViolationException e) {
+        log.warn("ConstraintViolationException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorType.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

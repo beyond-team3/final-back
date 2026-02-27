@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.deal.core.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.deal.common.DealPaginationConstants;
 import com.monsoon.seedflowplus.domain.deal.common.PaginationUtils;
 import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemDto;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -37,7 +38,6 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 public class SalesDealQueryController {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of("lastActivityAt", "closedAt");
 
     private final SalesDealQueryService salesDealQueryService;
@@ -88,7 +88,7 @@ public class SalesDealQueryController {
                 sort,
                 Sort.by(Sort.Order.desc("lastActivityAt")),
                 ALLOWED_SORT_PROPERTIES,
-                MAX_PAGE_SIZE
+                DealPaginationConstants.MAX_PAGE_SIZE
         );
 
         return ApiResult.success(salesDealQueryService.getDealsForCurrentUser(condition, pageable, user));
