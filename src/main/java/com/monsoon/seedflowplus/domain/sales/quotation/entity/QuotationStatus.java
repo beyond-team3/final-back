@@ -1,6 +1,6 @@
 package com.monsoon.seedflowplus.domain.sales.quotation.entity;
 
-import com.monsoon.seedflowplus.domain.deal.entity.DocumentStatus;
+import com.monsoon.seedflowplus.domain.deal.common.DocumentStatus;
 
 public enum QuotationStatus implements DocumentStatus {
     WAITING_ADMIN, // 관리자 승인 대기
