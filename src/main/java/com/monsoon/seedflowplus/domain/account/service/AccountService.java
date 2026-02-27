@@ -414,4 +414,33 @@ public class AccountService {
         return ClientProfileResponse.from(client);
     }
 
+    @Transactional(readOnly = true)
+    public AssignedEmployeeResponse getAssignedEmployee(Long clientId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        Role role = userDetails.getRole();
+
+        // 권한 체크: ADMIN은 통과, CLIENT는 본인의 clientId만 가능
+        if (role == Role.CLIENT) {
+            if (userDetails.getClientId() == null || !userDetails.getClientId().equals(clientId)) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        } else if (role != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        if (client.getManagerEmployee() == null) {
+            return null; // 또는 예외 처리 (담당자가 지정되지 않음)
+        }
+
+        return AssignedEmployeeResponse.from(client.getManagerEmployee());
+    }
+
 }
