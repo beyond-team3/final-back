@@ -15,4 +15,8 @@ public record AssignedEmployeeResponse(
                 employee.getEmployeePhone(),
                 employee.getEmployeeEmail());
     }
+
+    public static AssignedEmployeeResponse none() {
+        return new AssignedEmployeeResponse("미배정", "-", "-");
+    }
 }
