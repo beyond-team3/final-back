@@ -279,15 +279,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<EmployeeListResponse> getAllEmployees() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        if (userDetails.getRole() != Role.ADMIN) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         return userRepository.findAllByEmployeeIsNotNull().stream()
                 .map(EmployeeListResponse::from)
@@ -296,11 +289,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public EmployeeDetailResponse getEmployeeDetail(Long employeeId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 권한 체크: ADMIN이 아니고, 본인의 employeeId와 요청된 employeeId가 다른 경우 거부
         if (userDetails.getRole() != Role.ADMIN &&
@@ -425,12 +414,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AssignedEmployeeResponse getAssignedEmployee(Long clientId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
+        CustomUserDetails userDetails = getAuthenticatedUser();
         Role role = userDetails.getRole();
 
         // 권한 체크: ADMIN은 통과, CLIENT는 본인의 clientId만 가능
@@ -445,25 +429,13 @@ public class AccountService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-        if (client.getManagerEmployee() == null) {
-            return AssignedEmployeeResponse.none();
-        }
-
         return AssignedEmployeeResponse.from(client.getManagerEmployee());
     }
 
     @Transactional(readOnly = true)
     public List<UnregisteredEmployeeResponse> getUnregisteredEmployees() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        // 계정 생성은 사원 등록과 마찬가지로 관리자 권한 필요 (필요 시 수정 가능)
-        if (userDetails.getRole() != Role.ADMIN) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         return employeeRepository.findAllUnregistered().stream()
                 .map(UnregisteredEmployeeResponse::from)
@@ -472,16 +444,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<UnregisteredClientResponse> getUnregisteredClients() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
-        // 관리자 권한 확인
-        if (userDetails.getRole() != Role.ADMIN) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
 
         return clientRepository.findAllUnregistered().stream()
                 .map(UnregisteredClientResponse::from)
@@ -490,20 +454,27 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<EmployeeSimpleResponse> getAllEmployeesSimple() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        return employeeRepository.findAllNonAdmin(Role.ADMIN).stream()
+                .map(EmployeeSimpleResponse::from)
+                .toList();
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
+        return userDetails;
+    }
 
-        // 관리자 권한 확인
-        if (userDetails.getRole() != Role.ADMIN) {
+    private void requireRole(CustomUserDetails userDetails, Role role) {
+        if (userDetails.getRole() != role) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
-
-        return employeeRepository.findAllNonAdmin().stream()
-                .map(EmployeeSimpleResponse::from)
-                .toList();
     }
 
 }
