@@ -91,7 +91,7 @@ class ProductFeedbackServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        assertThat(responses.get(0).getContent()).isEqualTo("훌륭합니다");
-        assertThat(responses.get(0).getEmployeeName()).isEqualTo("홍길동");
+        assertThat(responses.getFirst().getContent()).isEqualTo("훌륭합니다");
+        assertThat(responses.getFirst().getEmployeeName()).isEqualTo("홍길동");
     }
 }

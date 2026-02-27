@@ -31,6 +31,7 @@ class ProductReadServiceTest {
     private ProductRepository productRepository;
 
     @Mock
+    @SuppressWarnings("unused")
     private CultivationTimeRepository cultivationTimeRepository;
 
     @InjectMocks
@@ -48,7 +49,7 @@ class ProductReadServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        ProductResponse response = responses.get(0);
+        ProductResponse response = responses.getFirst();
         assertThat(response.getName()).isEqualTo("사과 씨앗");
         assertThat(response.getPriceData()).isNotNull();
         assertThat(response.getPriceData().getPrice()).isEqualByComparingTo("50000");
@@ -66,7 +67,7 @@ class ProductReadServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        ProductResponse response = responses.get(0);
+        ProductResponse response = responses.getFirst();
         assertThat(response.getPriceData()).isNull(); // CLIENT는 가격 정보를 볼 수 없음
     }
 
@@ -82,7 +83,7 @@ class ProductReadServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        ProductContractResponse response = responses.get(0);
+        ProductContractResponse response = responses.getFirst();
         assertThat(response.getProductName()).isEqualTo("포도 씨앗");
         assertThat(response.getPrice()).isEqualByComparingTo("70000");
     }
@@ -99,7 +100,7 @@ class ProductReadServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        ProductEstimateReqResponse response = responses.get(0);
+        ProductEstimateReqResponse response = responses.getFirst();
         assertThat(response.getProductName()).isEqualTo("키위 씨앗");
         // 견적 요청서는 price 필드가 존재하지 않으므로 검증(Null 체크) 불필요 (타입 자체에 없음)
     }

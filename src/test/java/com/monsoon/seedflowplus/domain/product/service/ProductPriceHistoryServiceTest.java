@@ -62,7 +62,7 @@ class ProductPriceHistoryServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
-        ProductPriceHistoryResponse response = responses.get(0);
+        ProductPriceHistoryResponse response = responses.getFirst();
         assertThat(response.getOldPrice()).isEqualByComparingTo("50000");
         assertThat(response.getNewPrice()).isEqualByComparingTo("60000");
         assertThat(response.getEmployeeName()).isEqualTo("관리자");

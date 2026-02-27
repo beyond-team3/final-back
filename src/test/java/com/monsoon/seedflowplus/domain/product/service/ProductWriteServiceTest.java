@@ -32,16 +32,26 @@ class ProductWriteServiceTest {
 
         @Mock
         private ProductRepository productRepository;
+
         @Mock
+        @SuppressWarnings("unused")
         private ProductBookmarkRepository productBookmarkRepository;
+
         @Mock
+        @SuppressWarnings("unused")
         private TagService tagService;
+
         @Mock
+        @SuppressWarnings("unused")
         private ProductTagRepository productTagRepository;
+
         @Mock
         private ProductPriceHistoryRepository productPriceHistoryRepository;
+
         @Mock
+        @SuppressWarnings("unused")
         private CultivationTimeRepository cultivationTimeRepository;
+
         @Mock
         private UserRepository userRepository;
 
