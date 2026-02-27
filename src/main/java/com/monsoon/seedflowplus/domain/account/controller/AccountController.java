@@ -126,4 +126,10 @@ public class AccountController {
         return ApiResult.success(accountService.getUnregisteredClients());
     }
 
+    // 담당자 지정 - 영업사원 목록
+    @GetMapping("/employees/simple")
+    public ApiResult<List<EmployeeSimpleResponse>> getAllEmployeesSimple() {
+        return ApiResult.success(accountService.getAllEmployeesSimple());
+    }
+
 }
