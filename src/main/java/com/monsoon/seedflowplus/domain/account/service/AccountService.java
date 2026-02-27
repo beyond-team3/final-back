@@ -3,10 +3,7 @@ package com.monsoon.seedflowplus.domain.account.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
-import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.ClientListForDocumentResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
-import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.*;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -329,5 +326,36 @@ public class AccountService {
         return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
                 .map(ClientListForDocumentResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientListResponse> getAllClients() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        Role role = userDetails.getRole();
+
+        // 관리자인 경우 전체 조회
+        if (role == Role.ADMIN) {
+            return clientRepository.findAll().stream()
+                    .map(ClientListResponse::from)
+                    .toList();
+        }
+
+        // 영업사원인 경우 본인 담당 거래처만 조회
+        if (role == Role.SALES_REP) {
+            if (userDetails.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+            return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+                    .map(ClientListResponse::from)
+                    .toList();
+        }
+
+        // 그 외 권한은 접근 거부
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 }
