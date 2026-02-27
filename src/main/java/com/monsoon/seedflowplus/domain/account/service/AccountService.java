@@ -3,7 +3,17 @@ package com.monsoon.seedflowplus.domain.account.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
-import com.monsoon.seedflowplus.domain.account.dto.response.*;
+import com.monsoon.seedflowplus.domain.account.dto.response.AssignedEmployeeResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientDetailResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientListForDocumentResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.ClientProfileResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -279,8 +289,7 @@ public class AccountService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.getEmployee() != null)
+        return userRepository.findAllByEmployeeIsNotNull().stream()
                 .map(EmployeeListResponse::from)
                 .toList();
     }
@@ -437,7 +446,7 @@ public class AccountService {
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
         if (client.getManagerEmployee() == null) {
-            return null; // 또는 예외 처리 (담당자가 지정되지 않음)
+            return AssignedEmployeeResponse.none();
         }
 
         return AssignedEmployeeResponse.from(client.getManagerEmployee());
@@ -492,7 +501,7 @@ public class AccountService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        return employeeRepository.findAll().stream()
+        return employeeRepository.findAllNonAdmin().stream()
                 .map(EmployeeSimpleResponse::from)
                 .toList();
     }
