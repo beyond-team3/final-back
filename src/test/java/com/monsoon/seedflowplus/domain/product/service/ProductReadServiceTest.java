@@ -105,6 +105,22 @@ class ProductReadServiceTest {
         // 견적 요청서는 price 필드가 존재하지 않으므로 검증(Null 체크) 불필요 (타입 자체에 없음)
     }
 
+    @Test
+    @DisplayName("계약서용 특정 상품 단건 조회 시 올바른 DTO를 반환한다")
+    void testGetProductForContract() {
+        // given
+        Long productId = 10L;
+        Product product = createDummyProduct("P005", "참외 씨앗", new BigDecimal("45000"));
+        when(productRepository.findById(productId)).thenReturn(java.util.Optional.of(product));
+
+        // when
+        ProductContractResponse response = productReadService.getProductForContract(productId);
+
+        // then
+        assertThat(response.getProductName()).isEqualTo("참외 씨앗");
+        assertThat(response.getPrice()).isEqualByComparingTo("45000");
+    }
+
     private static long counter = 1L;
 
     private Product createDummyProduct(String code, String name, BigDecimal price) {
