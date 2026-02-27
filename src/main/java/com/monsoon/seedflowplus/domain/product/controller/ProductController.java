@@ -69,19 +69,15 @@ public class ProductController {
 
     // 견적서, 계약서용 상품 목록 조회
     @GetMapping("/for-contract")
-    public ResponseEntity<List<ProductContractResponse>> getProductsForContract(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Role role = extractRoleFromUserDetails(userDetails);
-        List<ProductContractResponse> responses = productReadService.getProductsForContract(role);
+    public ResponseEntity<List<ProductContractResponse>> getProductsForContract() {
+        List<ProductContractResponse> responses = productReadService.getProductsForContract();
         return ResponseEntity.ok(responses);
     }
 
     // 견적요청서 용 상품 목록 조회
     @GetMapping("/for-estimate")
-    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Role role = extractRoleFromUserDetails(userDetails);
-        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq(role);
+    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq() {
+        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq();
         return ResponseEntity.ok(responses);
     }
 

@@ -79,7 +79,7 @@ class ProductReadServiceTest {
         when(productRepository.findAll()).thenReturn(List.of(product));
 
         // when
-        List<ProductContractResponse> responses = productReadService.getProductsForContract(Role.ADMIN);
+        List<ProductContractResponse> responses = productReadService.getProductsForContract();
 
         // then
         assertThat(responses).hasSize(1);
@@ -96,7 +96,7 @@ class ProductReadServiceTest {
         when(productRepository.findAll()).thenReturn(List.of(product));
 
         // when
-        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq(Role.ADMIN);
+        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq();
 
         // then
         assertThat(responses).hasSize(1);

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,4 +40,7 @@ public class ProductRequest {
     private String status;
 
     private Map<String, List<String>> tags;
+
+    @Schema(description = "재배적기 정보")
+    private CultivationTimeDto cultivationTime;
 }
