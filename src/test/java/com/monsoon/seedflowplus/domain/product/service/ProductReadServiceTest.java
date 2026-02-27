@@ -42,10 +42,10 @@ class ProductReadServiceTest {
     void testGetAllProducts_Admin() {
         // given
         Product product = createDummyProduct("P001", "사과 씨앗", new BigDecimal("50000"));
-        when(productRepository.findAll()).thenReturn(List.of(product));
+        when(productRepository.searchByCondition(null)).thenReturn(List.of(product));
 
         // when
-        List<ProductResponse> responses = productReadService.getAllProducts(Role.ADMIN);
+        List<ProductResponse> responses = productReadService.getAllProducts(Role.ADMIN, null);
 
         // then
         assertThat(responses).hasSize(1);
@@ -60,10 +60,10 @@ class ProductReadServiceTest {
     void testGetAllProducts_Client() {
         // given
         Product product = createDummyProduct("P002", "배 씨앗", new BigDecimal("60000"));
-        when(productRepository.findAll()).thenReturn(List.of(product));
+        when(productRepository.searchByCondition(null)).thenReturn(List.of(product));
 
         // when
-        List<ProductResponse> responses = productReadService.getAllProducts(Role.CLIENT);
+        List<ProductResponse> responses = productReadService.getAllProducts(Role.CLIENT, null);
 
         // then
         assertThat(responses).hasSize(1);
