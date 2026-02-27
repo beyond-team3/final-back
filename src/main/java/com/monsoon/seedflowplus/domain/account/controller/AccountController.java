@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
@@ -80,5 +81,10 @@ public class AccountController {
     @GetMapping("/employees")
     public ApiResult<List<EmployeeListResponse>> getAllEmployees() {
         return ApiResult.success(accountService.getAllEmployees());
+    }
+
+    @GetMapping("/employees/{employeeId}")
+    public ApiResult<EmployeeDetailResponse> getEmployeeDetail(@PathVariable Long employeeId) {
+        return ApiResult.success(accountService.getEmployeeDetail(employeeId));
     }
 }
