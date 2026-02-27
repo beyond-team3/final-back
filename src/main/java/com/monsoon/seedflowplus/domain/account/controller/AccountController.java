@@ -120,5 +120,10 @@ public class AccountController {
         return ApiResult.success(accountService.getUnregisteredEmployees());
     }
 
+    // 계정등록 - 거래처(미등록)
+    @GetMapping("/clients/unregistered")
+    public ApiResult<List<UnregisteredClientResponse>> getUnregisteredClients() {
+        return ApiResult.success(accountService.getUnregisteredClients());
+    }
 
 }
