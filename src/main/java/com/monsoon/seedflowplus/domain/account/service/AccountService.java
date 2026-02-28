@@ -311,6 +311,18 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
+    public ClientListForDocumentResponse getClientForDocument(Long clientId) {
+        // 역할 체크를 먼저 수행 (SALES_REP 전용)
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.SALES_REP);
+
+        // 권한 체크 및 거래처 조회 (validateAndGetClient 내부에서 담당자인지 확인)
+        Client client = validateAndGetClient(clientId);
+
+        return ClientListForDocumentResponse.from(client);
+    }
+
+    @Transactional(readOnly = true)
     public List<ClientListResponse> getAllClients() {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
