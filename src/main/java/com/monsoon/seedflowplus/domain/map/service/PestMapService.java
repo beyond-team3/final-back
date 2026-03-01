@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,7 +72,9 @@ public class PestMapService {
                         .lng(client.getLongitude())
 //                        .score(calculateVisitScore(client))
                         .handledCrops(
-                                client.getCrops().stream()
+                                Optional.ofNullable(client.getCrops())
+                                        .orElse(Collections.emptyList())
+                                        .stream()
                                         .map(crop -> crop.getCropName())
                                         .toArray(String[]::new)
                         )
