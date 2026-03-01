@@ -116,18 +116,47 @@ public class PaymentService {
                 .map(max -> max + 1)
                 .orElse(1);
 
+        if (nextSeq > 999) {
+            throw new CoreException(ErrorType.PAYMENT_CODE_OVERFLOW);
+        }
+
         return todayPrefix + String.format("%03d", nextSeq);
     }
 
     // invoice_id unique 제약 위반 여부 (중복 결제)
     private boolean isInvoiceIdViolation(DataIntegrityViolationException e) {
-        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-        return msg.contains("invoice_id");
+        String constraint = extractConstraintName(e);
+        return constraint.contains("invoice_id");
     }
 
-    // payment_code unique 제약 위반 여부만 판별 (조건 좁힘)
+    // payment_code unique 제약 위반 여부만 판별
     private boolean isPaymentCodeViolation(DataIntegrityViolationException e) {
+        String constraint = extractConstraintName(e);
+        return constraint.contains("payment_code");
+    }
+
+    // 1. Hibernate ConstraintViolationException에서 제약 이름 추출 시도
+    // 2. 실패 시 MariaDB 메시지 패턴 파싱 (fallback)
+    private String extractConstraintName(DataIntegrityViolationException e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve
+                    && cve.getConstraintName() != null) {
+                return cve.getConstraintName().toLowerCase();
+            }
+            current = current.getCause();
+        }
+
+        // fallback: MariaDB "Duplicate entry '...' for key 'constraint_name'"
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-        return msg.contains("payment_code");
+        int start = msg.indexOf("for key '");
+        if (start != -1) {
+            start += "for key '".length();
+            int end = msg.indexOf("'", start);
+            if (end != -1) {
+                return msg.substring(start, end);
+            }
+        }
+        return "";
     }
 }
