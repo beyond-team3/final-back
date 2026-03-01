@@ -8,9 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +23,7 @@ import java.util.Map;
 public class NcpmsDataSyncService {
 
     private final PestForecastRepository pestForecastRepository;
+    private final TransactionTemplate transactionTemplate;
     private final WebClient webClient = WebClient.create("http://ncpms.rda.go.kr/npmsAPI/service");
 
     // 작물 및 병해충 매핑 데이터 (향후 DB나 외부 설정으로 분리 가능)
@@ -45,13 +48,11 @@ public class NcpmsDataSyncService {
     private String apiKey;
 
     @Async("briefingTaskExecutor")
-    @Transactional
     public void syncPestForecastData() {
         log.info("NCPMS 수동 동기화 시작 (백그라운드 스레드 동작)");
 
         try {
-            pestForecastRepository.deleteAllInBatch();
-
+            // 1. 데이터 먼저 수집 (트랜잭션 밖에서 네트워크 I/O 수행)
             List<NcpmsListDto> listResponse = fetchList();
             List<PestForecast> newForecasts = new ArrayList<>();
 
@@ -71,8 +72,16 @@ public class NcpmsDataSyncService {
                 }
             }
 
-            pestForecastRepository.saveAll(newForecasts);
-            log.info("NCPMS 데이터 동기화 완료. 총 {}건 저장", newForecasts.size());
+            // 2. 수집된 데이터가 있을 경우에만 트랜잭션 내에서 원자적 교체 수행
+            if (!newForecasts.isEmpty()) {
+                transactionTemplate.executeWithoutResult(status -> {
+                    pestForecastRepository.deleteAllInBatch();
+                    pestForecastRepository.saveAll(newForecasts);
+                });
+                log.info("NCPMS 데이터 동기화 완료. 총 {}건 저장", newForecasts.size());
+            } else {
+                log.warn("NCPMS로부터 수집된 데이터가 없어 동기화를 중단합니다.");
+            }
 
         } catch (Exception e) {
             log.error("NCPMS 데이터 동기화 실패: {}", e.getMessage(), e);
@@ -105,8 +114,13 @@ public class NcpmsDataSyncService {
                         .queryParam("displayCount", 50)
                         .build())
                 .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        response -> response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new RuntimeException("NCPMS API 에러: " + response.statusCode() + ", " + body))))
                 .bodyToFlux(NcpmsListDto.class)
                 .collectList()
+                .timeout(Duration.ofSeconds(10))
+                .onErrorMap(e -> new RuntimeException("NCPMS 목록 조회 중 오류 발생", e))
                 .block();
     }
 
@@ -119,8 +133,13 @@ public class NcpmsDataSyncService {
                         .queryParam("insectKey", insectKey)
                         .build())
                 .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        response -> response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new RuntimeException("NCPMS API 에러: " + response.statusCode() + ", " + body))))
                 .bodyToFlux(NcpmsSidoDto.class)
                 .collectList()
+                .timeout(Duration.ofSeconds(10))
+                .onErrorMap(e -> new RuntimeException("NCPMS 시도 상세 조회 중 오류 발생 (insectKey: " + insectKey + ")", e))
                 .block();
     }
 
@@ -134,8 +153,13 @@ public class NcpmsDataSyncService {
                         .queryParam("sidoCode", sidoCode)
                         .build())
                 .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        response -> response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new RuntimeException("NCPMS API 에러: " + response.statusCode() + ", " + body))))
                 .bodyToFlux(NcpmsSigunguDto.class)
                 .collectList()
+                .timeout(Duration.ofSeconds(10))
+                .onErrorMap(e -> new RuntimeException("NCPMS 시군구 상세 조회 중 오류 발생 (sidoCode: " + sidoCode + ")", e))
                 .block();
     }
 
