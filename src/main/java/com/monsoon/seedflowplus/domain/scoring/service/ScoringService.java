@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -28,33 +30,39 @@ public class ScoringService {
     private final SalesNoteRepository salesNoteRepository;
 
     public List<AccountPriorityResponse> getRankedAccounts() {
+        // N+1 최적화: 벌크 데이터 사전 조회
+        Map<Long, List<LocalDate>> endDatesMap = contractRepository.findAllClientEndDates();
+        Set<Long> clientsWithOrders = orderHeaderRepository.findAllClientIdsWithOrders();
+        Map<Long, LocalDate> lastVisitsMap = salesNoteRepository.findAllLastActivityDates();
+
         return clientRepository.findAll().stream()
-                .map(this::calculateAccountScore)
+                .map(client -> calculateAccountScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
                 .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
                 .toList();
     }
 
-    private AccountPriorityResponse calculateAccountScore(Client client) {
+    private AccountPriorityResponse calculateAccountScore(Client client,
+                                                           Map<Long, List<LocalDate>> endDatesMap,
+                                                           Set<Long> clientsWithOrders,
+                                                           Map<Long, LocalDate> lastVisitsMap) {
         LocalDate today = LocalDate.now();
-        
-        List<LocalDate> endDates = contractRepository.findByClientOrderByEndDateAsc(client).stream()
-                .map(ContractHeader::getEndDate)
-                .toList();
+        Long clientId = client.getId();
 
+        // 1. 데이터 조회 (메모리 맵 활용)
+        List<LocalDate> endDates = endDatesMap.getOrDefault(clientId, List.of());
+        boolean hasOrder = clientsWithOrders.contains(clientId);
+        LocalDate lastVisit = lastVisitsMap.get(clientId);
+
+        // 계약 종료일 추출 로직 (미래 우선 / 과거 fallback)
         LocalDate expiryDate = endDates.stream()
-                .filter(date -> !date.isBefore(today)) // 오늘 이후 계약 중 가장 가까운 만료일
+                .filter(date -> !date.isBefore(today))
                 .findFirst()
                 .orElseGet(() -> endDates.stream()
-                        .filter(date -> date.isBefore(today)) // 없을 경우 과거 계약 중 가장 최근 만료일
+                        .filter(date -> date.isBefore(today))
                         .reduce((first, second) -> second)
                         .orElse(null));
 
-        boolean hasOrder = orderHeaderRepository.existsByClient(client);
-
-        LocalDate lastVisit = salesNoteRepository.findTopByClientIdOrderByActivityDateDesc(client.getId())
-                .map(SalesNote::getActivityDate)
-                .orElse(null);
-
+        // 2. 점수 계산
         double cScore = calculateContractScore(expiryDate, today);
         double oScore = hasOrder ? 0.0 : 50.0;
         double vScore = calculateVisitScore(lastVisit, today);
