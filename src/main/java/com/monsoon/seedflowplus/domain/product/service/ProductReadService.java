@@ -37,12 +37,28 @@ public class ProductReadService {
                 .toList();
     }
 
-    // 견적서/계약서용 상품 목록 조회
+    // 견적서/계약서용 단건 상품 조회 (누구나 열람 가능)
+    public ProductContractResponse getProductForContract(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+        return ProductContractResponse.builder()
+                .productId(product.getId())
+                .productCode(product.getProductCode())
+                .productCategory(product.getProductCategory().getDescription())
+                .productName(product.getProductName())
+                .unit(product.getUnit())
+                .price(product.getPrice())
+                .build();
+    }
+
+    // 견적서/계약서용 상품 목록 조회 (누구나 열람 가능)
     public List<ProductContractResponse> getProductsForContract() {
         return productRepository.findAll().stream()
                 .map(product -> ProductContractResponse.builder()
                         .productId(product.getId())
-                        .productCategory(product.getProductCategory().name())
+                        .productCode(product.getProductCode())
+                        .productCategory(product.getProductCategory().getDescription())
                         .productName(product.getProductName())
                         .unit(product.getUnit())
                         .price(product.getPrice())
@@ -55,7 +71,8 @@ public class ProductReadService {
         return productRepository.findAll().stream()
                 .map(product -> ProductEstimateReqResponse.builder()
                         .productId(product.getId())
-                        .productCategory(product.getProductCategory().name())
+                        .productCode(product.getProductCode())
+                        .productCategory(product.getProductCategory().getDescription())
                         .productName(product.getProductName())
                         .unit(product.getUnit())
                         .build())

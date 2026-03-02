@@ -92,6 +92,11 @@ public class AccountController {
         return ApiResult.success(accountService.getClientsForDocument());
     }
 
+    @GetMapping("/clients/{clientId}/for-document")
+    public ApiResult<ClientListForDocumentResponse> getClientForDocument(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientForDocument(clientId));
+    }
+
     @GetMapping("/clients")
     public ApiResult<List<ClientListResponse>> getAllClients() {
         return ApiResult.success(accountService.getAllClients());
