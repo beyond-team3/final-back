@@ -77,7 +77,7 @@ public class ScoringService {
     private double calculateVisitScore(LocalDate lastVisit, LocalDate today) {
         if (lastVisit == null) return 100.0;
         long daysSinceVisit = ChronoUnit.DAYS.between(lastVisit, today);
-        return Math.min(100.0, daysSinceVisit * (100.0 / 90.0));
+        return Math.max(0.0, Math.min(100.0, daysSinceVisit * (100.0 / 90.0)));
     }
 
     private AccountPriorityResponse createResponse(Client client, double total, double c, double o, double v) {
