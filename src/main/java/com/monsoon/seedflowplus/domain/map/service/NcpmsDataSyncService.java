@@ -24,7 +24,7 @@ public class NcpmsDataSyncService {
 
     private final PestForecastRepository pestForecastRepository;
     private final TransactionTemplate transactionTemplate;
-    private final WebClient webClient = WebClient.create("http://ncpms.rda.go.kr/npmsAPI/service");
+    private final WebClient ncpmsWebClient;
 
     // 작물 및 병해충 매핑 데이터 (향후 DB나 외부 설정으로 분리 가능)
     private static final Map<String, String> CROP_NAME_TO_CODE = Map.of(
@@ -106,7 +106,7 @@ public class NcpmsDataSyncService {
     }
 
     private List<NcpmsListDto> fetchList() {
-        return webClient.get()
+        return ncpmsWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .queryParam("apiKey", apiKey)
                         .queryParam("serviceCode", "SVC51")
@@ -125,7 +125,7 @@ public class NcpmsDataSyncService {
     }
 
     private List<NcpmsSidoDto> fetchSidoDetails(String insectKey) {
-        return webClient.get()
+        return ncpmsWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .queryParam("apiKey", apiKey)
                         .queryParam("serviceCode", "SVC52")
@@ -144,7 +144,7 @@ public class NcpmsDataSyncService {
     }
 
     private List<NcpmsSigunguDto> fetchSigunguDetails(String insectKey, String sidoCode) {
-        return webClient.get()
+        return ncpmsWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .queryParam("apiKey", apiKey)
                         .queryParam("serviceCode", "SVC53")
