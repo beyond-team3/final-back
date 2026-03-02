@@ -37,10 +37,17 @@ public class ScoringService {
     private AccountPriorityResponse calculateAccountScore(Client client) {
         LocalDate today = LocalDate.now();
         
-        LocalDate expiryDate = contractRepository.findByClientOrderByEndDateAsc(client).stream()
+        List<LocalDate> endDates = contractRepository.findByClientOrderByEndDateAsc(client).stream()
                 .map(ContractHeader::getEndDate)
+                .toList();
+
+        LocalDate expiryDate = endDates.stream()
+                .filter(date -> !date.isBefore(today)) // 오늘 이후 계약 중 가장 가까운 만료일
                 .findFirst()
-                .orElse(null);
+                .orElseGet(() -> endDates.stream()
+                        .filter(date -> date.isBefore(today)) // 없을 경우 과거 계약 중 가장 최근 만료일
+                        .reduce((first, second) -> second)
+                        .orElse(null));
 
         boolean hasOrder = orderHeaderRepository.existsByClient(client);
 
