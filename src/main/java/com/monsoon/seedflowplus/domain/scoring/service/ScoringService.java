@@ -88,7 +88,10 @@ public class ScoringService {
         double oWeight = o * 0.3;
         double vWeight = v * 0.2;
 
-        if (cWeight >= oWeight && cWeight >= vWeight) {
+        if (total <= 0) {
+            reason = "관리 양호";
+            detail = "현재 계약 및 방문 관리가 원활하게 이루어지고 있습니다.";
+        } else if (cWeight >= oWeight && cWeight >= vWeight) {
             reason = "계약 종료 임박";
             detail = "계약 종료가 30일 이내로 다가와 재계약 논의가 시급합니다.";
         } else if (oWeight >= vWeight) {
