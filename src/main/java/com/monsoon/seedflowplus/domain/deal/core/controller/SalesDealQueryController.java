@@ -8,8 +8,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondition;
 import com.monsoon.seedflowplus.domain.deal.core.service.SalesDealQueryService;
-import com.monsoon.seedflowplus.domain.deal.core.service.TempUser;
-import com.monsoon.seedflowplus.domain.deal.core.service.TempUserResolver;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,7 +21,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,7 +39,6 @@ public class SalesDealQueryController {
     private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of("lastActivityAt", "closedAt");
 
     private final SalesDealQueryService salesDealQueryService;
-    private final TempUserResolver tempUserResolver;
 
     @Operation(
             summary = "모든 문서(딜) 목록 조회",
@@ -68,9 +65,8 @@ public class SalesDealQueryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "lastActivityAt,desc") String sort,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TempUser user = tempUserResolver.resolve(userDetails);
         LocalDateTime fromAtParsed = parseDateTime(fromAt, "fromAt");
         LocalDateTime toAtParsed = parseDateTime(toAt, "toAt");
         validateDateRange(fromAtParsed, toAtParsed);
@@ -95,7 +91,7 @@ public class SalesDealQueryController {
                 DealPaginationConstants.MAX_PAGE_SIZE
         );
 
-        return ApiResult.success(salesDealQueryService.getDealsForCurrentUser(condition, pageable, user));
+        return ApiResult.success(salesDealQueryService.getDealsForCurrentUser(condition, pageable, userDetails));
     }
 
     private LocalDateTime parseDateTime(String value, String fieldName) {
