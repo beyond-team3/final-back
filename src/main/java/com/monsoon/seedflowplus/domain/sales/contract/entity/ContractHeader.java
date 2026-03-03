@@ -102,6 +102,6 @@ public class ContractHeader extends BaseModifyEntity {
     }
 
     public void delete() {
-        this.status = ContractStatus.DELETE;
+        this.status = ContractStatus.DELETED;
     }
 }
