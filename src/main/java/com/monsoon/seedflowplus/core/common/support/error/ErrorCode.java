@@ -44,5 +44,5 @@ public enum ErrorCode {
     D001, D002,
 
     // 견적서
-    Q001, Q002, Q003
+    Q001, Q002, Q003, Q004
 }
