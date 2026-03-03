@@ -189,6 +189,10 @@ public class ContractService {
 
         // 3. 계약 상세 품목 생성 및 추가
         request.items().forEach(itemRequest -> {
+            if (itemRequest.productId() != null && !productRepository.existsById(itemRequest.productId())) {
+                throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+            }
+
             ContractDetail detail = new ContractDetail(
                     itemRequest.productId() != null ? productRepository.getReferenceById(itemRequest.productId())
                             : null,
