@@ -1,14 +1,16 @@
 package com.monsoon.seedflowplus.domain.scoring.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
-import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import com.monsoon.seedflowplus.domain.scoring.dto.AccountPriorityResponse;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +32,23 @@ public class ScoringService {
     private final SalesNoteRepository salesNoteRepository;
 
     public List<AccountPriorityResponse> getRankedAccounts() {
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        
+        List<Client> clients;
+        if (userDetails.getRole() == Role.ADMIN) {
+            clients = clientRepository.findAll();
+        } else if (userDetails.getRole() == Role.SALES_REP) {
+            clients = clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId());
+        } else {
+            return List.of(); // 다른 역할은 빈 목록 반환
+        }
+
         // N+1 최적화: 벌크 데이터 사전 조회
         Map<Long, List<LocalDate>> endDatesMap = contractRepository.findAllClientEndDates();
         Set<Long> clientsWithOrders = orderHeaderRepository.findAllClientIdsWithOrders();
         Map<Long, LocalDate> lastVisitsMap = salesNoteRepository.findAllLastActivityDates();
 
-        return clientRepository.findAll().stream()
+        return clients.stream()
                 .map(client -> calculateAccountScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
                 .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
                 .toList();
@@ -118,5 +131,13 @@ public class ScoringService {
                 .detailDescription(detail)
                 .breakdown(new AccountPriorityResponse.ScoreBreakdown(c, o, v))
                 .build();
+    }
+
+    private CustomUserDetails getCurrentUserDetails() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new IllegalStateException("인증 정보를 찾을 수 없습니다.");
+        }
+        return userDetails;
     }
 }
