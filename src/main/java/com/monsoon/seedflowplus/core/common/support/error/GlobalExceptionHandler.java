@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -23,6 +24,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(e.getErrorCodeProvider().getHttpStatus())
                 .body(ApiResult.error(e.getErrorCodeProvider(), e.getData()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    protected ResponseEntity<ApiResult<?>> handleAccessDeniedException(AccessDeniedException e) {
+        log.warn("AccessDeniedException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorType.ACCESS_DENIED.getStatus())
+                .body(ApiResult.error(ErrorType.ACCESS_DENIED));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

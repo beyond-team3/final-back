@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.infra.ai.AiClient;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -78,7 +79,7 @@ public class NoteService {
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
-            throw new IllegalArgumentException("본인이 작성한 노트만 수정할 수 있습니다.");
+            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
         // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
@@ -102,7 +103,7 @@ public class NoteService {
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
-            throw new IllegalArgumentException("본인이 작성한 노트만 삭제할 수 있습니다.");
+            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
         Long clientId = note.getClientId();
