@@ -26,7 +26,7 @@ public class QuotationHeader extends BaseModifyEntity {
     private QuotationRequestHeader quotationRequest; // 참조 견적 요청서
 
     @Column(name = "quotation_code", unique = true)
-    private  String quotationCode;
+    private String quotationCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
@@ -51,6 +51,31 @@ public class QuotationHeader extends BaseModifyEntity {
 
     @OneToMany(mappedBy = "quotation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuotationDetail> items = new ArrayList<>();
+
+    private QuotationHeader(QuotationRequestHeader quotationRequest, String quotationCode, Client client,
+                            Employee author, BigDecimal totalAmount, String memo) {
+        this.quotationRequest = quotationRequest;
+        this.quotationCode = quotationCode;
+        this.client = client;
+        this.author = author;
+        this.totalAmount = totalAmount;
+        this.memo = memo;
+        this.status = QuotationStatus.WAITING_ADMIN;
+    }
+
+    public static QuotationHeader create(QuotationRequestHeader quotationRequest, String tempCode, Client client,
+                                        Employee author, BigDecimal totalAmount, String memo) {
+        return new QuotationHeader(quotationRequest, tempCode, client, author, totalAmount, memo);
+    }
+
+    public void updateQuotationCode(String quotationCode) {
+        this.quotationCode = quotationCode;
+    }
+
+    public void addItem(QuotationDetail item) {
+        this.items.add(item);
+        item.setQuotation(this);
+    }
 
     @PrePersist
     public void prePersist() {
