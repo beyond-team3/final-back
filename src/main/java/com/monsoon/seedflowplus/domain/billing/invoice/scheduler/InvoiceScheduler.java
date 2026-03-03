@@ -4,7 +4,7 @@
 //import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
 //import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 //import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
-//import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractHeaderRepository;
+//import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 //import lombok.RequiredArgsConstructor;
 //import lombok.extern.slf4j.Slf4j;
 //import org.springframework.scheduling.annotation.Scheduled;
@@ -19,7 +19,7 @@
 //public class InvoiceScheduler {
 //
 //    private final InvoiceService invoiceService;
-//    private final ContractHeaderRepository contractHeaderRepository;
+//    private final ContractRepository contractHeaderRepository;
 //
 //    /**
 //     * 매일 자정 실행
