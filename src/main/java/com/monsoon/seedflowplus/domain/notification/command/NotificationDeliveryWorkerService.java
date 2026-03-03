@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.notification.service;
+package com.monsoon.seedflowplus.domain.notification.command;
 
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;

@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.notification.service;
+package com.monsoon.seedflowplus.domain.notification.query;
 
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;

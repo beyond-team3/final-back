@@ -1,6 +1,7 @@
-package com.monsoon.seedflowplus.domain.notification.service;
+package com.monsoon.seedflowplus.domain.notification.command;
 
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
+import com.monsoon.seedflowplus.domain.notification.service.CultivationNotificationService;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
