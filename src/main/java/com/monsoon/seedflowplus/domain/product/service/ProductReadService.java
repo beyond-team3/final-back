@@ -11,6 +11,11 @@ import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductSearchCondition;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
+import com.monsoon.seedflowplus.domain.product.entity.ProductBookmark;
+import com.monsoon.seedflowplus.domain.product.entity.ProductCompare;
+import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
+import com.monsoon.seedflowplus.domain.product.dto.response.CompareHistoryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,117 +27,166 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ProductReadService {
 
-    private final ProductRepository productRepository;
-    private final CultivationTimeRepository cultivationTimeRepository;
+        private final ProductRepository productRepository;
+        private final CultivationTimeRepository cultivationTimeRepository;
+        private final ProductBookmarkRepository productBookmarkRepository;
+        private final ProductCompareRepository productCompareRepository;
 
-    // 상품 전체목록 (검색 조건 적용)
-    public List<ProductResponse> getAllProducts(Role role, ProductSearchCondition condition) {
-        List<Product> products = productRepository.searchByCondition(condition);
+        // 상품 전체목록 (검색 조건 적용)
+        public List<ProductResponse> getAllProducts(Role role, ProductSearchCondition condition) {
+                List<Product> products = productRepository.searchByCondition(condition);
 
-        // 권한 체크후 관리자와 영업사원만 가격 정보 출력
-        boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+                // 권한 체크후 관리자와 영업사원만 가격 정보 출력
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
-        return products.stream()
-                .map(product -> convertToDto(product, canViewPrice))
-                .toList();
-    }
-
-    // 견적서/계약서용 단건 상품 조회 (누구나 열람 가능)
-    public ProductContractResponse getProductForContract(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-
-        return ProductContractResponse.builder()
-                .productId(product.getId())
-                .productCode(product.getProductCode())
-                .productCategory(product.getProductCategory().getDescription())
-                .productName(product.getProductName())
-                .unit(product.getUnit())
-                .price(product.getPrice())
-                .build();
-    }
-
-    // 견적서/계약서용 상품 목록 조회 (누구나 열람 가능)
-    public List<ProductContractResponse> getProductsForContract() {
-        return productRepository.findAll().stream()
-                .map(product -> ProductContractResponse.builder()
-                        .productId(product.getId())
-                        .productCode(product.getProductCode())
-                        .productCategory(product.getProductCategory().getDescription())
-                        .productName(product.getProductName())
-                        .unit(product.getUnit())
-                        .price(product.getPrice())
-                        .build())
-                .toList();
-    }
-
-    // 견적 요청서용 상품 목록 조회
-    public List<ProductEstimateReqResponse> getProductsForEstimateReq() {
-        return productRepository.findAll().stream()
-                .map(product -> ProductEstimateReqResponse.builder()
-                        .productId(product.getId())
-                        .productCode(product.getProductCode())
-                        .productCategory(product.getProductCategory().getDescription())
-                        .productName(product.getProductName())
-                        .unit(product.getUnit())
-                        .build())
-                .toList();
-    }
-
-    // 상품 비교하기 페이지 사용
-    public List<ProductResponse> getCompareProducts(List<Long> productIds, Role role) {
-
-        List<Product> products = productRepository.findAllById(productIds);
-
-        if (products.size() != productIds.size()) {
-            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+                return products.stream()
+                                .map(product -> convertToDto(product, canViewPrice))
+                                .toList();
         }
 
-        // 권한 체크후 관리자와 영업사원만 가격 정보 출력
-        boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+        // 사용자의 즐겨찾기 상품 목록 조회
+        public List<ProductResponse> getBookmarkedProducts(Long userId, Role role) {
+                List<ProductBookmark> bookmarks = productBookmarkRepository.findMyBookmarksWithProduct(userId);
 
-        return products.stream()
-                .map(product -> convertToDto(product, canViewPrice))
-                .toList();
-    }
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
-    // 상품 상세페이지 사용
-    public ProductResponse getProductDetail(Long productId, Role role) {
-
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-
-        boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
-
-        return convertToDto(product, canViewPrice);
-    }
-
-    private ProductResponse convertToDto(Product product, boolean canViewPrice) {
-        ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
-                .id(product.getId())
-                .category(product.getProductCategory().name())
-                .name(product.getProductName())
-                .description(product.getProductDescription())
-                .imageUrl(product.getProductImageUrl())
-                .tags(product.getTags());
-
-        cultivationTimeRepository.findByProductId(product.getId())
-                .ifPresent(ct -> builder.cultivationTime(CultivationTimeDto.builder()
-                        .sowingStart(ct.getSowingStart())
-                        .sowingEnd(ct.getSowingEnd())
-                        .plantingStart(ct.getPlantingStart())
-                        .plantingEnd(ct.getPlantingEnd())
-                        .harvestingStart(ct.getHarvestingStart())
-                        .harvestingEnd(ct.getHarvestingEnd())
-                        .build()));
-
-        if (canViewPrice) {
-            builder.priceData(new ProductResponse.PriceData(
-                    product.getAmount(),
-                    product.getPrice(),
-                    product.getUnit()));
+                return bookmarks.stream()
+                                .map(bookmark -> convertToDto(bookmark.getProduct(), canViewPrice))
+                                .toList();
         }
 
-        return builder.build();
-    }
+        // 견적서/계약서용 단건 상품 조회 (누구나 열람 가능)
+        public ProductContractResponse getProductForContract(Long productId) {
+                Product product = productRepository.findById(productId)
+                                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+                return ProductContractResponse.builder()
+                                .productId(product.getId())
+                                .productCode(product.getProductCode())
+                                .productCategory(product.getProductCategory().getDescription())
+                                .productName(product.getProductName())
+                                .unit(product.getUnit())
+                                .price(product.getPrice())
+                                .build();
+        }
+
+        // 견적서/계약서용 상품 목록 조회 (누구나 열람 가능)
+        public List<ProductContractResponse> getProductsForContract() {
+                return productRepository.findAll().stream()
+                                .map(product -> ProductContractResponse.builder()
+                                                .productId(product.getId())
+                                                .productCode(product.getProductCode())
+                                                .productCategory(product.getProductCategory().getDescription())
+                                                .productName(product.getProductName())
+                                                .unit(product.getUnit())
+                                                .price(product.getPrice())
+                                                .build())
+                                .toList();
+        }
+
+        // 견적 요청서용 상품 목록 조회
+        public List<ProductEstimateReqResponse> getProductsForEstimateReq() {
+                return productRepository.findAll().stream()
+                                .map(product -> ProductEstimateReqResponse.builder()
+                                                .productId(product.getId())
+                                                .productCode(product.getProductCode())
+                                                .productCategory(product.getProductCategory().getDescription())
+                                                .productName(product.getProductName())
+                                                .unit(product.getUnit())
+                                                .build())
+                                .toList();
+        }
+
+        // 상품 비교하기 페이지 사용
+        public List<ProductResponse> getCompareProducts(List<Long> productIds, Role role) {
+
+                List<Product> products = productRepository.findAllById(productIds);
+
+                if (products.size() != productIds.size()) {
+                        throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+                }
+
+                // 권한 체크후 관리자와 영업사원만 가격 정보 출력
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+
+                return products.stream()
+                                .map(product -> convertToDto(product, canViewPrice))
+                                .toList();
+        }
+
+        // 비교 내역 히스토리 목록 조회
+        public List<CompareHistoryResponse> getCompareHistories(Long userId, Role role) {
+                List<ProductCompare> histories = productCompareRepository.findAllByAccountIdWithItems(userId);
+
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+
+                return histories.stream()
+                                .map(history -> CompareHistoryResponse.builder()
+                                                .compareId(history.getId())
+                                                .title(history.getTitle())
+                                                .createdAt(history.getCreatedAt())
+                                                .products(history.getItems().stream()
+                                                                .map(item -> convertToDto(item.getProduct(),
+                                                                                canViewPrice))
+                                                                .toList())
+                                                .build())
+                                .toList();
+        }
+
+        // 유사 상품 추천 (동일 카테고리 최대 5개 반환)
+        public List<ProductResponse> getSimilarProducts(Long productId, Role role) {
+                Product currentProduct = productRepository.findById(productId)
+                                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+                List<Product> sameCategoryProducts = productRepository
+                                .findByProductCategory(currentProduct.getProductCategory());
+
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+
+                return sameCategoryProducts.stream()
+                                .filter(p -> !p.getId().equals(productId))
+                                .limit(5)
+                                .map(product -> convertToDto(product, canViewPrice))
+                                .toList();
+        }
+
+        // 상품 상세페이지 사용
+        public ProductResponse getProductDetail(Long productId, Role role) {
+
+                Product product = productRepository.findById(productId)
+                                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
+
+                return convertToDto(product, canViewPrice);
+        }
+
+        private ProductResponse convertToDto(Product product, boolean canViewPrice) {
+                ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
+                                .id(product.getId())
+                                .category(product.getProductCategory().name())
+                                .name(product.getProductName())
+                                .description(product.getProductDescription())
+                                .imageUrl(product.getProductImageUrl())
+                                .tags(product.getTags());
+
+                cultivationTimeRepository.findByProductId(product.getId())
+                                .ifPresent(ct -> builder.cultivationTime(CultivationTimeDto.builder()
+                                                .sowingStart(ct.getSowingStart())
+                                                .sowingEnd(ct.getSowingEnd())
+                                                .plantingStart(ct.getPlantingStart())
+                                                .plantingEnd(ct.getPlantingEnd())
+                                                .harvestingStart(ct.getHarvestingStart())
+                                                .harvestingEnd(ct.getHarvestingEnd())
+                                                .build()));
+
+                if (canViewPrice) {
+                        builder.priceData(new ProductResponse.PriceData(
+                                        product.getAmount(),
+                                        product.getPrice(),
+                                        product.getUnit()));
+                }
+
+                return builder.build();
+        }
 }
