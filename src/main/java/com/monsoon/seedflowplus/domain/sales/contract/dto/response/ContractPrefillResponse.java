@@ -15,7 +15,7 @@ public record ContractPrefillResponse(
             Long productId,
             String productName,
             String productCategory,
-            Integer quantity,
+            Integer totalQuantity,
             String unit,
             BigDecimal unitPrice,
             BigDecimal amount) {
