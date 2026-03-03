@@ -1,9 +1,274 @@
 package com.monsoon.seedflowplus.domain.sales.contract.service;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
+import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ContractService {
+
+    private final QuotationRepository quotationRepository;
+    private final ContractRepository contractRepository;
+    private final ProductRepository productRepository;
+    private final ClientRepository clientRepository;
+    private final EmployeeRepository employeeRepository;
+
+    public ContractPrefillResponse getPrefillData(Long quotationId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        QuotationHeader quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        // 1. 상태 검증: 최종 승인된 견적서만 가능
+        if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+        }
+
+        // 2. 권한 검증: 본인이 작성한 영업사원만 가능 (관리자, 거래처 등 차단)
+        validateQuotationAuthorAccess(quotation, userDetails);
+
+        return new ContractPrefillResponse(
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                quotation.getClient().getId(),
+                quotation.getClient().getClientName(),
+                quotation.getClient().getManagerName(),
+                quotation.getTotalAmount(),
+                quotation.getItems().stream()
+                        .map(item -> new ContractPrefillResponse.Item(
+                                item.getProduct() != null ? item.getProduct().getId() : null,
+                                item.getProductName(),
+                                item.getProductCategory(),
+                                item.getQuantity(),
+                                item.getUnit(),
+                                item.getUnitPrice(),
+                                item.getAmount()))
+                        .toList());
+    }
+
+    public ContractResponse getContractDetail(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        ContractHeader contract = contractRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        // 논리 삭제된 건 조회 불가
+        if (contract.getStatus() == ContractStatus.DELETED) {
+            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
+        }
+
+        // 권한 체크
+        validateAccess(contract, userDetails);
+
+        List<ContractResponse.ItemResponse> items = contract.getItems().stream()
+                .map(detail -> new ContractResponse.ItemResponse(
+                        detail.getProduct() != null ? detail.getProduct().getId() : null,
+                        detail.getProductName(),
+                        detail.getProductCategory(),
+                        detail.getTotalQuantity(),
+                        detail.getUnit(),
+                        detail.getUnitPrice(),
+                        detail.getAmount()))
+                .toList();
+
+        return new ContractResponse(
+                contract.getId(),
+                contract.getContractCode(),
+                contract.getQuotation() != null ? contract.getQuotation().getId() : null,
+                contract.getClient().getClientName(),
+                contract.getAuthor() != null ? contract.getAuthor().getEmployeeName() : null,
+                contract.getStatus(),
+                contract.getTotalAmount(),
+                contract.getStartDate(),
+                contract.getEndDate(),
+                contract.getBillingCycle(),
+                contract.getSpecialTerms(),
+                contract.getMemo(),
+                contract.getCreatedAt(),
+                items);
+    }
+
+    private void validateAccess(ContractHeader contract, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (user.getRole() == Role.SALES_REP) {
+            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(user.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        if (user.getRole() == Role.CLIENT) {
+            if (!contract.getClient().getId().equals(user.getClientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    @Transactional
+    public void deleteContract(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        ContractHeader contract = contractRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        // 이미 삭제된 경우 처리
+        if (contract.getStatus() == ContractStatus.DELETED) {
+            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
+        }
+
+        // 권한 체크 (작성자 또는 관리자만 삭제 가능하도록 설정)
+        if (userDetails.getRole() != Role.ADMIN) {
+            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        }
+
+        contract.delete();
+    }
+
+    @Transactional
+    public void createContract(@Valid ContractCreateRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        QuotationHeader quotation = null;
+        Client client;
+        Employee author;
+
+        if (request.quotationId() != null) {
+            // 1-1. 견적서 기반 작성
+            quotation = quotationRepository.findById(request.quotationId())
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // 요청한 거래처와 견적서의 거래처 일치 확인
+            if (!quotation.getClient().getId().equals(request.clientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            validateQuotationAuthorAccess(quotation, userDetails);
+
+            client = quotation.getClient();
+            author = quotation.getAuthor();
+        } else {
+            // 1-2. 신규 작성 (견적서 없음)
+            client = clientRepository.findById(request.clientId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+            // 신규 작성은 영업사원만 가능
+            if (userDetails.getRole() != Role.SALES_REP) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            author = employeeRepository.findById(userDetails.getEmployeeId())
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+
+        // 2. 계약 기간 검증
+        if (request.startDate().isAfter(request.endDate())) {
+            throw new CoreException(ErrorType.INVALID_CONTRACT_PERIOD);
+        }
+
+        // 3. 계약 총액 계산 (품목별 합계)
+        BigDecimal totalAmount = request.items().stream()
+                .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 견적서 기반 작성 시 총액 검증
+        if (quotation != null && totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
+            throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+        }
+
+        // 4. 계약서 헤더 생성 (임시 코드 사용 - 충돌 방지를 위해 UUID 사용)
+        String tempCode = "TEMP-" + UUID.randomUUID().toString().substring(0, 18).toUpperCase();
+
+        ContractHeader contract = ContractHeader.create(
+                tempCode,
+                quotation,
+                client,
+                author,
+                totalAmount,
+                request.startDate(),
+                request.endDate(),
+                request.billingCycle(),
+                request.specialTerms(),
+                request.memo());
+
+        // 5. 계약 상세 품목 생성 및 추가
+        request.items().forEach(itemRequest -> {
+            if (itemRequest.productId() != null && !productRepository.existsById(itemRequest.productId())) {
+                throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+            }
+
+            ContractDetail detail = new ContractDetail(
+                    itemRequest.productId() != null ? productRepository.getReferenceById(itemRequest.productId())
+                            : null,
+                    itemRequest.productName(),
+                    itemRequest.productCategory(),
+                    itemRequest.totalQuantity(),
+                    itemRequest.unit(),
+                    itemRequest.unitPrice(),
+                    itemRequest.unitPrice().multiply(BigDecimal.valueOf(itemRequest.totalQuantity())));
+            contract.addItem(detail);
+        });
+
+        // 6. 저장 및 식별자 기반 코드 업데이트
+        contractRepository.save(contract);
+        String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
+                + contract.getId();
+        contract.updateContractCode(finalCode);
+    }
+
+    private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
+        if (userDetails.getRole() != Role.SALES_REP ||
+                quotation.getAuthor() == null ||
+                !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return userDetails;
+    }
 }

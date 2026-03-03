@@ -41,7 +41,7 @@ public class ContractHeader extends BaseModifyEntity {
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private ContractStatus status; // 계약서 상태
+    private ContractStatus status = ContractStatus.WAITING_ADMIN; // 계약서 상태
 
     @Column(name = "total_amount")
     private BigDecimal totalAmount; // 총 가격
@@ -64,4 +64,48 @@ public class ContractHeader extends BaseModifyEntity {
 
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
+
+    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, Employee author,
+                        BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                        BillingCycle billingCycle, String specialTerms, String memo) {
+        this.contractCode = contractCode;
+        this.quotation = quotation;
+        this.client = client;
+        this.author = author;
+        this.totalAmount = totalAmount;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.billingCycle = billingCycle;
+        this.specialTerms = specialTerms;
+        this.memo = memo;
+    }
+
+    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, Employee author,
+                                        BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                                        BillingCycle billingCycle, String specialTerms, String memo) {
+        return new ContractHeader(
+                contractCode,
+                quotation,
+                client,
+                author,
+                totalAmount,
+                startDate,
+                endDate,
+                billingCycle,
+                specialTerms,
+                memo);
+    }
+
+    public void addItem(ContractDetail item) {
+        this.items.add(item);
+        item.setContract(this);
+    }
+
+    public void delete() {
+        this.status = ContractStatus.DELETED;
+    }
+
+    public void updateContractCode(String contractCode) {
+        this.contractCode = contractCode;
+    }
 }
