@@ -1,4 +1,3 @@
-/*
 package com.monsoon.seedflowplus.domain.sales.order.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
@@ -7,11 +6,13 @@ import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelRespo
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListResponse;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
 import com.monsoon.seedflowplus.domain.sales.order.service.OrderService;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,17 +30,17 @@ public class OrderController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<OrderResponse> createOrder(
             @RequestBody @Valid OrderCreateRequest request,
-            @RequestParam Long clientId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(orderService.createOrder(request, clientId));
+        return ApiResult.success(orderService.createOrder(request, userDetails.getClientId()));
     }
 
     @Operation(summary = "주문 목록 조회", description = "거래처의 주문 목록을 조회합니다.")
     @GetMapping
     public ApiResult<List<OrderListResponse>> getOrders(
-            @RequestParam Long clientId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(orderService.getOrders(clientId));
+        return ApiResult.success(orderService.getOrders(userDetails.getClientId()));
     }
 
     @Operation(summary = "주문 단건 조회", description = "주문 ID로 단건 조회합니다.")
@@ -54,9 +55,9 @@ public class OrderController {
     @PatchMapping("/{orderId}/cancel")
     public ApiResult<OrderCancelResponse> cancelOrder(
             @PathVariable Long orderId,
-            @RequestParam Long clientId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(orderService.cancelOrder(orderId, clientId));
+        return ApiResult.success(orderService.cancelOrder(orderId, userDetails.getClientId()));
     }
 
     @Operation(summary = "주문 확정", description = "주문 상태를 CONFIRMED로 변경하고 명세서를 자동 발급합니다.")
@@ -67,4 +68,3 @@ public class OrderController {
         return ApiResult.success(orderService.confirmOrder(orderId));
     }
 }
-*/

@@ -7,8 +7,7 @@ import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
-import com.monsoon.seedflowplus.domain.deal.core.service.TempUser;
-import com.monsoon.seedflowplus.domain.deal.core.service.TempUserResolver;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Min;
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,7 +35,6 @@ public class DealLogController {
     private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of("actionAt", "targetCode", "id");
 
     private final DealLogQueryService dealLogQueryService;
-    private final TempUserResolver tempUserResolver;
 
     @Operation(summary = "Deal 기준 타임라인 조회")
     @GetMapping("/deals/{dealId}/logs")
@@ -46,9 +43,8 @@ public class DealLogController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Positive int size,
             @RequestParam(required = false) String sort,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TempUser user = tempUserResolver.resolve(userDetails);
         Pageable pageable = PaginationUtils.parsePageRequest(
                 page,
                 size,
@@ -57,7 +53,7 @@ public class DealLogController {
                 ALLOWED_SORT_PROPERTIES,
                 MAX_PAGE_SIZE
         );
-        return ApiResult.success(dealLogQueryService.getTimelineByDeal(dealId, pageable, user));
+        return ApiResult.success(dealLogQueryService.getTimelineByDeal(dealId, pageable, userDetails));
     }
 
     @Operation(summary = "Client 기준 타임라인 조회")
@@ -67,9 +63,8 @@ public class DealLogController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Positive int size,
             @RequestParam(required = false) String sort,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TempUser user = tempUserResolver.resolve(userDetails);
         Pageable pageable = PaginationUtils.parsePageRequest(
                 page,
                 size,
@@ -78,7 +73,7 @@ public class DealLogController {
                 ALLOWED_SORT_PROPERTIES,
                 MAX_PAGE_SIZE
         );
-        return ApiResult.success(dealLogQueryService.getTimelineByClient(clientId, pageable, user));
+        return ApiResult.success(dealLogQueryService.getTimelineByClient(clientId, pageable, userDetails));
     }
 
     @Operation(summary = "문서 기준 타임라인 조회")
@@ -89,9 +84,8 @@ public class DealLogController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Positive int size,
             @RequestParam(required = false) String sort,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TempUser user = tempUserResolver.resolve(userDetails);
         Pageable pageable = PaginationUtils.parsePageRequest(
                 page,
                 size,
@@ -100,16 +94,15 @@ public class DealLogController {
                 ALLOWED_SORT_PROPERTIES,
                 MAX_PAGE_SIZE
         );
-        return ApiResult.success(dealLogQueryService.getTimelineByDocument(docType, refId, pageable, user));
+        return ApiResult.success(dealLogQueryService.getTimelineByDocument(docType, refId, pageable, userDetails));
     }
 
     @Operation(summary = "DealLog 상세 조회")
     @GetMapping("/deal-logs/{dealLogId}/detail")
     public ApiResult<DealLogDetailDto> getLogDetail(
             @PathVariable @Positive Long dealLogId,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TempUser user = tempUserResolver.resolve(userDetails);
-        return ApiResult.success(dealLogQueryService.getLogDetail(dealLogId, user));
+        return ApiResult.success(dealLogQueryService.getLogDetail(dealLogId, userDetails));
     }
 }

@@ -12,7 +12,8 @@ public enum ErrorType implements ErrorCodeProvider {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, ErrorCode.C003, "지원하지 않는 HTTP 메서드입니다.", LogLevel.WARN),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, ErrorCode.C004, "잘못된 타입입니다.", LogLevel.WARN),
     MISSING_REQUEST_PARAMETER(HttpStatus.BAD_REQUEST, ErrorCode.C005, "필수 요청 파라미터가 누락되었습니다.", LogLevel.WARN),
-    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ErrorCode.C006, "지원하지 않는 미디어 타입입니다. Content-Type을 확인하세요.", LogLevel.WARN),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ErrorCode.C006, "지원하지 않는 미디어 타입입니다. Content-Type을 확인하세요.",
+            LogLevel.WARN),
 
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, ErrorCode.A001, "인증이 필요합니다.", LogLevel.WARN),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, ErrorCode.A002, "접근이 거부되었습니다.", LogLevel.WARN),
@@ -47,6 +48,7 @@ public enum ErrorType implements ErrorCodeProvider {
     // 결제
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P101, "결제를 찾을 수 없습니다.", LogLevel.WARN),
     ALREADY_PAID(HttpStatus.BAD_REQUEST, ErrorCode.P102, "이미 결제된 청구서입니다.", LogLevel.WARN),
+    PAYMENT_CODE_OVERFLOW(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.P103, "일일 결제 코드 한도(999건)를 초과했습니다.", LogLevel.ERROR),
 
     // 딜 로그
     DEAL_LOG_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D001, "DealLogDetail을 찾을 수 없습니다.", LogLevel.WARN),
@@ -64,6 +66,12 @@ public enum ErrorType implements ErrorCodeProvider {
     CROP_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.C101, "품종을 찾을 수 없습니다.", LogLevel.WARN),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, ErrorCode.A007, "기존과 동일한 비밀번호로 변경할 수 없습니다.", LogLevel.WARN),
     EMPLOYEE_NOT_LINKED(HttpStatus.FORBIDDEN, ErrorCode.A005, "계정에 연결된 직원 정보가 없습니다. 관리자에게 문의하세요.", LogLevel.WARN),
+
+    // 견적서
+    QUOTATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.Q001, "견적서를 찾을 수 없습니다.", LogLevel.WARN),
+    INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, ErrorCode.Q002, "유효하지 않은 문서 상태입니다.", LogLevel.WARN),
+    INVALID_CONTRACT_PERIOD(HttpStatus.BAD_REQUEST, ErrorCode.Q003, "계약 종료일은 시작일보다 빠를 수 없습니다.", LogLevel.WARN),
+    INVALID_TOTAL_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.Q004, "계약 총액이 견적서와 일치하지 않습니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
