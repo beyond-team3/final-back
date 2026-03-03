@@ -69,7 +69,8 @@ public class PaymentService {
                     // invoice_id unique 위반 = 이미 결제된 청구서
                     throw new CoreException(ErrorType.ALREADY_PAID);
                 }
-                if (!isPaymentCodeViolation(e) || i == maxRetries - 1) throw e;
+                if (!isPaymentCodeViolation(e)) throw e;
+                if (i == maxRetries - 1) throw new CoreException(ErrorType.PAYMENT_CODE_OVERFLOW);
                 // paymentCode 충돌만 재시도
             }
         }
