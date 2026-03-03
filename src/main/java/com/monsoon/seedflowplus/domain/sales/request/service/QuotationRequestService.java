@@ -51,7 +51,8 @@ public class QuotationRequestService {
         // 3. Detail 생성 및 추가
         request.items().forEach(itemRequest -> {
             QuotationRequestDetail detail = new QuotationRequestDetail(
-                    itemRequest.productId() != null ? productRepository.getReferenceById(itemRequest.productId())
+                    itemRequest.productId() != null ? productRepository.findById(itemRequest.productId())
+                            .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND))
                             : null,
                     itemRequest.productCategory(),
                     itemRequest.productName(),
