@@ -203,6 +203,10 @@ public class ProductSimilarityService {
         if (startA == null || endA == null || startB == null || endB == null) {
             return null;
         }
+        if (!isValidMonth(startA) || !isValidMonth(endA)
+                || !isValidMonth(startB) || !isValidMonth(endB)) {
+            return null;
+        }
 
         Set<Integer> aMonths = expandMonths(startA, endA);
         Set<Integer> bMonths = expandMonths(startB, endB);
@@ -216,11 +220,15 @@ public class ProductSimilarityService {
         return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
     }
 
-    // 월 범위를 Set으로 확장 (순환 처리: 11 → 12 → 1 → 2)
+    private boolean isValidMonth(int month) {
+        return month >= 1 && month <= 12;
+    }
+
+    // 월 범위를 Set으로 확장 (순환 처리: 11 → 12 → 1 → 2), 최대 12회 반복으로 무한루프 방지
     private Set<Integer> expandMonths(int start, int end) {
         Set<Integer> months = new HashSet<>();
         int cur = start;
-        while (true) {
+        for (int i = 0; i < 12; i++) {
             months.add(cur);
             if (cur == end) break;
             cur = (cur % 12) + 1;
