@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -209,11 +210,11 @@ public class ContractService {
                 .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 4. 계약서 헤더 생성
-        String contractCode = "CNT-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
+        // 4. 계약서 헤더 생성 (임시 코드 사용)
+        String tempCode = "TEMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
 
         ContractHeader contract = ContractHeader.create(
-                contractCode,
+                tempCode,
                 quotation,
                 client,
                 author,
@@ -224,7 +225,7 @@ public class ContractService {
                 request.specialTerms(),
                 request.memo());
 
-        // 3. 계약 상세 품목 생성 및 추가
+        // 5. 계약 상세 품목 생성 및 추가
         request.items().forEach(itemRequest -> {
             if (itemRequest.productId() != null && !productRepository.existsById(itemRequest.productId())) {
                 throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
@@ -242,8 +243,11 @@ public class ContractService {
             contract.addItem(detail);
         });
 
-        // 4. 저장
+        // 6. 저장 및 식별자 기반 코드 업데이트
         contractRepository.save(contract);
+        String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
+                + contract.getId();
+        contract.updateContractCode(finalCode);
     }
 
     private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
