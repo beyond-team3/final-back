@@ -15,6 +15,8 @@ import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
 import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -35,7 +37,9 @@ public class ProductWriteService {
     private final ProductTagRepository productTagRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
     private final CultivationTimeRepository cultivationTimeRepository;
+    private final ProductCompareItemRepository productCompareItemRepository;
     private final UserRepository userRepository;
+    private final ProductCompareRepository productCompareRepository;
 
     @Transactional
     public Long createProduct(ProductRequest request) {
@@ -161,6 +165,9 @@ public class ProductWriteService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
+        // 비교 분석 내역 삭제
+        productCompareItemRepository.deleteAllByProductId(productId);
+
         // 즐겨찾기 데이터 삭제
         productBookmarkRepository.deleteAllByProductId(productId);
 
@@ -227,5 +234,58 @@ public class ProductWriteService {
             }
         }
         return String.format("%s-%s-%02d", categoryStr, yearStr, nextSequence);
+    }
+
+    // 비교 내역 저장
+    @Transactional
+    public Long saveCompareHistory(Long userId, List<Long> productIds, String title) {
+        if (productIds == null || productIds.isEmpty()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
+        // null 원소 제거 및 중복 제거
+        List<Long> distinctIds = productIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (distinctIds.isEmpty()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        List<Product> products = productRepository.findAllById(distinctIds);
+        if (products.size() != distinctIds.size()) {
+            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+        }
+
+        ProductCompare compare = ProductCompare.builder()
+                .account(user)
+                .title(title != null && !title.isBlank() ? title
+                        : products.get(0).getProductName() + " 등 " + products.size() + "건 비교")
+                .build();
+
+        List<ProductCompareItem> items = products.stream()
+                .map(p -> ProductCompareItem.builder().product(p).build())
+                .toList();
+
+        compare.addItems(items);
+        ProductCompare saved = productCompareRepository.save(compare);
+        return saved.getId();
+    }
+
+    // 비교 내역 삭제
+    @Transactional
+    public void deleteCompareHistory(Long userId, Long compareId) {
+        ProductCompare compare = productCompareRepository.findById(compareId)
+                .orElseThrow(() -> new CoreException(ErrorType.INVALID_INPUT_VALUE));
+
+        if (!compare.getAccount().getId().equals(userId)) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        productCompareRepository.delete(compare);
     }
 }

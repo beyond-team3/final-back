@@ -1,6 +1,7 @@
-package com.monsoon.seedflowplus.domain.note.dto;
+package com.monsoon.seedflowplus.domain.note.dto.request;
 
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -11,12 +12,22 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "영업 활동 기록 저장/수정 요청 DTO")
 public class NoteRequestDto {
 
+    @Schema(description = "고객사 ID")
     private Long clientId;
+
+    @Schema(description = "관련 계약 ID (선택)")
     private String contractId;
+
+    @Schema(description = "활동 일자")
     private LocalDate date;     // 내부 필드명은 date 유지 (JSON 바인딩용)
+
+    @Schema(description = "미팅/활동 내용 원문")
     private String content;
+
+    @Schema(description = "AI 요약 내용 (3문장 권장)")
     private List<String> aiSummary;
 
     /**

@@ -1,4 +1,3 @@
-/*
 package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
@@ -10,6 +9,8 @@ import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractDetailRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderDetailRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
@@ -36,7 +37,7 @@ import java.util.List;
 public class OrderService {
     private final OrderHeaderRepository orderHeaderRepository;
     private final OrderDetailRepository orderDetailRepository;
-    private final ContractHeaderRepository contractHeaderRepository;
+    private final ContractRepository contractHeaderRepository;
     private final ContractDetailRepository contractDetailRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
@@ -217,4 +218,3 @@ public class OrderService {
     }
 
 }
-*/

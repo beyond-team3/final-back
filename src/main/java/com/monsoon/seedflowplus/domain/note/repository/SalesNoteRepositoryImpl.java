@@ -25,7 +25,8 @@ public class SalesNoteRepositoryImpl implements SalesNoteRepositoryCustom {
             String keyword,
             LocalDate from,
             LocalDate to,
-            String sort
+            String sort,
+            Long authorId
     ) {
 
         if (from != null && to != null && from.isAfter(to)) {
@@ -37,6 +38,10 @@ public class SalesNoteRepositoryImpl implements SalesNoteRepositoryCustom {
 
         if (clientId != null) {
             condition.and(n.clientId.eq(clientId));
+        }
+
+        if (authorId != null) {
+            condition.and(n.authorId.eq(authorId));
         }
 
         if (contractId != null && !contractId.isBlank()) {

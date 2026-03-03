@@ -22,4 +22,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
     List<Product> findByProductNameContaining(String keyword);
 
     Optional<Product> findTopByProductCategoryOrderByIdDesc(ProductCategory productCategory);
+
+    // 유사 상품 추천용
+    List<Product> findAllByProductCategoryAndIdNot(ProductCategory category, Long id);
 }

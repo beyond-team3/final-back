@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.deal.core.dto.response.SalesDealListItemD
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondition;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,7 +28,7 @@ public class SalesDealQueryService {
     public Page<SalesDealListItemDto> getDealsForCurrentUser(
             SalesDealSearchCondition cond,
             Pageable pageable,
-            TempUser user
+            CustomUserDetails user
     ) {
         validateDateRange(cond);
 
@@ -38,36 +39,36 @@ public class SalesDealQueryService {
                 .map(this::toListItemDto);
     }
 
-    private SalesDealSearchCondition enforceScope(SalesDealSearchCondition cond, TempUser user) {
-        if (user == null || user.role() == null) {
+    private SalesDealSearchCondition enforceScope(SalesDealSearchCondition cond, CustomUserDetails user) {
+        if (user == null || user.getRole() == null) {
             throw new AccessDeniedException("사용자 권한 정보가 없습니다.");
         }
 
         SalesDealSearchCondition base = cond == null ? SalesDealSearchCondition.builder().build() : cond;
 
-        if (user.role() == Role.ADMIN) {
+        if (user.getRole() == Role.ADMIN) {
             return base;
         }
 
-        if (user.role() == Role.SALES_REP) {
-            if (user.employeeId() == null) {
+        if (user.getRole() == Role.SALES_REP) {
+            if (user.getEmployeeId() == null) {
                 throw new AccessDeniedException("영업사원 사용자에 employeeId가 없습니다.");
             }
             return base.toBuilder()
-                    .ownerEmpId(user.employeeId())
+                    .ownerEmpId(user.getEmployeeId())
                     .build();
         }
 
-        if (user.role() == Role.CLIENT) {
-            if (user.clientId() == null) {
+        if (user.getRole() == Role.CLIENT) {
+            if (user.getClientId() == null) {
                 throw new AccessDeniedException("거래처 사용자에 clientId가 없습니다.");
             }
             return base.toBuilder()
-                    .clientId(user.clientId())
+                    .clientId(user.getClientId())
                     .build();
         }
 
-        throw new AccessDeniedException("허용되지 않은 역할입니다: " + user.role());
+        throw new AccessDeniedException("허용되지 않은 역할입니다: " + user.getRole());
     }
 
     private void validateDateRange(SalesDealSearchCondition cond) {

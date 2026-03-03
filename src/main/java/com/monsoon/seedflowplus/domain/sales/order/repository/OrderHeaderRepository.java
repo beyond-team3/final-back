@@ -1,10 +1,13 @@
 package com.monsoon.seedflowplus.domain.sales.order.repository;
 
+import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Set;
 
 public interface OrderHeaderRepository extends JpaRepository<OrderHeader, Long> {
 
@@ -21,4 +24,12 @@ public interface OrderHeaderRepository extends JpaRepository<OrderHeader, Long> 
     boolean existsByOrderCode(String orderCode);
 
     long countByOrderCodeStartingWith(String prefix);
+
+
+    // 모든 주문 존재 거래처 ID 집합 조회
+    @Query("SELECT DISTINCT o.client.id FROM OrderHeader o")
+    Set<Long> findAllClientIdsWithOrders();
+
+    // 거래처 존재 여부 확인 (스코어링용)
+    boolean existsByClient(Client client);
 }

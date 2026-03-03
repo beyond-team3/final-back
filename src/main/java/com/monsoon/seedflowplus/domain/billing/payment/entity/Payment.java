@@ -14,8 +14,15 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "payment_id"))
-@Table(name = "tbl_payment")
+@Table(name = "tbl_payment",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_payment_code", columnNames = {"payment_code"}),
+                @UniqueConstraint(name = "uk_payment_invoice_id", columnNames = {"invoice_id"})
+        })
 public class Payment extends BaseCreateEntity {
+
+    @Column(name = "payment_code", nullable = false, length = 20)
+    private String paymentCode;   // PAY-20260223-001
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id")
@@ -35,4 +42,15 @@ public class Payment extends BaseCreateEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private PaymentStatus status;
+
+    public static Payment create(Invoice invoice, Client client, PaymentMethod paymentMethod, String paymentCode) {
+        Payment payment = new Payment();
+        payment.paymentCode = paymentCode;
+        payment.invoice = invoice;
+        payment.client = client;
+        payment.paymentAmount = invoice.getTotalAmount();
+        payment.paymentMethod = paymentMethod;
+        payment.status = PaymentStatus.COMPLETED;
+        return payment;
+    }
 }
