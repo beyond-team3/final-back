@@ -88,7 +88,7 @@ public class QuotationRequestService {
         // 2. CLIENT: 본인 것만 가능
         if (userDetails.getRole() == Role.CLIENT) {
             if (!header.getClient().getId().equals(userDetails.getClientId())) {
-                throw new CoreException(ErrorType.ACCESS_DENIED);
+                throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
             }
             return QuotationRequestResponse.from(header);
         }
@@ -98,12 +98,12 @@ public class QuotationRequestService {
             Client client = header.getClient();
             if (client.getManagerEmployee() == null
                     || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
-                throw new CoreException(ErrorType.ACCESS_DENIED);
+                throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
             }
             return QuotationRequestResponse.from(header);
         }
 
-        throw new CoreException(ErrorType.ACCESS_DENIED);
+        throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
     }
 
     public List<QuotationRequestListResponse> getPendingQuotationRequests() {
@@ -135,7 +135,7 @@ public class QuotationRequestService {
 
         // 권한 체크: 오직 본인(Client)인 경우만 삭제 가능 (Admin 포함 타인 불가)
         if (userDetails.getRole() != Role.CLIENT || !header.getClient().getId().equals(userDetails.getClientId())) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
+            throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
         }
 
         header.delete();
