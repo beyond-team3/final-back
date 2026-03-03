@@ -24,4 +24,10 @@ public class QuotationRequestController {
         return ApiResult.success();
     }
 
+    @Operation(summary = "견적요청서 삭제", description = "견적요청서 ID를 통해 논리적으로 삭제합니다 (상태를 DELETED로 변경).")
+    @DeleteMapping("/{id}")
+    public ApiResult<?> deleteQuotationRequest(@PathVariable("id") Long id) {
+        quotationRequestService.deleteQuotationRequest(id);
+        return ApiResult.success();
+    }
 }
