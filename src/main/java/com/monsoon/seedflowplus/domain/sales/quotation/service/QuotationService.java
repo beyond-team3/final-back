@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -107,7 +109,8 @@ public class QuotationService {
         // 6. 품목 추가
         request.items().forEach(itemRequest -> {
             QuotationDetail detail = new QuotationDetail(
-                    itemRequest.productId() != null ? productRepository.getReferenceById(itemRequest.productId())
+                    itemRequest.productId() != null
+                            ? productRepository.getReferenceById(itemRequest.productId())
                             : null,
                     itemRequest.productCategory(),
                     itemRequest.productName(),
@@ -123,6 +126,77 @@ public class QuotationService {
         String finalCode = "QUO-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + quotation.getId();
         quotation.updateQuotationCode(finalCode);
+    }
+
+    public QuotationResponse getQuotationDetail(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        QuotationHeader quotation = quotationRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        // 1. 접근 권한 상위 레벨 확인 (ADMIN, SALES_REP 담당자, CLIENT 담당자)
+        validateAccess(quotation, userDetails);
+
+        // 2. 메모 가시성 처리: 본인이 작성한 SALES_REP만 확인 가능
+        String memo = null;
+        if (quotation.getAuthor() != null
+                && quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+            memo = quotation.getMemo();
+        }
+
+        List<QuotationResponse.QuotationItemResponse> items = quotation.getItems().stream()
+                .map(item -> new QuotationResponse.QuotationItemResponse(
+                        item.getProduct() != null ? item.getProduct().getId() : null,
+                        item.getProductName(),
+                        item.getProductCategory(),
+                        item.getQuantity(),
+                        item.getUnit(),
+                        item.getUnitPrice(),
+                        item.getAmount()))
+                .toList();
+
+        return new QuotationResponse(
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                quotation.getQuotationRequest() != null ? quotation.getQuotationRequest().getId()
+                        : null,
+                quotation.getClient().getClientName(),
+                quotation.getAuthor() != null ? quotation.getAuthor().getEmployeeName() : null,
+                quotation.getStatus(),
+                quotation.getTotalAmount(),
+                quotation.getExpiredDate(),
+                memo,
+                quotation.getCreatedAt(),
+                items);
+    }
+
+    private void validateAccess(QuotationHeader quotation, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (user.getRole() == Role.SALES_REP) {
+            if (quotation.getAuthor() == null
+                    || !quotation.getAuthor().getId().equals(user.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        if (user.getRole() == Role.CLIENT) {
+            // 거래처 번호가 일치하는지 확인
+            if (!quotation.getClient().getId().equals(user.getClientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            // 미승인(관리자 승인 대기/반려) 상태는 거래처가 조회할 수 없음
+            if (quotation.getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.WAITING_ADMIN
+                    ||
+                    quotation.getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.REJECTED_ADMIN) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
     private CustomUserDetails getAuthenticatedUser() {
