@@ -36,17 +36,26 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(new ErrorCodeProvider() {
                     @Override
                     public Object getCode() {
-                        return ErrorCode.E500; // 또는 상황에 맞는 기본 코드
+                        int status = e.getStatusCode().value();
+                        return switch (status) {
+                            case 400 -> ErrorCode.C002;
+                            case 401 -> ErrorCode.A001;
+                            case 403 -> ErrorCode.A002;
+                            case 404 -> ErrorCode.E500; // Not Found에 딱 맞는 공통 코드가 없으면 E500 또는 전용 코드 사용
+                            case 405 -> ErrorCode.C003;
+                            default -> ErrorCode.E500;
+                        };
                     }
 
                     @Override
                     public String getMessage() {
-                        return e.getReason();
+                        return e.getReason() != null ? e.getReason() : "요청을 처리하는 중 오류가 발생했습니다.";
                     }
 
                     @Override
                     public HttpStatus getHttpStatus() {
-                        return HttpStatus.valueOf(e.getStatusCode().value());
+                        HttpStatus resolved = HttpStatus.resolve(e.getStatusCode().value());
+                        return resolved != null ? resolved : HttpStatus.INTERNAL_SERVER_ERROR;
                     }
                 }));
     }
