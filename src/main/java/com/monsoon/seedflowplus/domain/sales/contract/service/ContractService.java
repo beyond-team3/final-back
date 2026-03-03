@@ -137,6 +137,26 @@ public class ContractService {
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
+    @Transactional
+    public void deleteContract(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        ContractHeader contract = contractRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        // 이미 삭제된 경우 처리
+        if (contract.getStatus() == ContractStatus.DELETE) {
+            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
+        }
+
+        // 권한 체크 (작성자 또는 관리자만 삭제 가능하도록 설정)
+        if (userDetails.getRole() != Role.ADMIN) {
+            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        }
+
+        contract.delete();
+    }
 
     @Transactional
     public void createContract(@Valid ContractCreateRequest request) {
