@@ -153,7 +153,11 @@ public class CultivationNotificationService {
     }
 
     private LocalDateTime calcHarvestScheduledAt(LocalDateTime harvestingStart, LocalDateTime now) {
-        return LocalDateTime.of(harvestingStart.toLocalDate(), DEFAULT_SCHEDULE_TIME);
+        LocalDateTime scheduledAt = LocalDateTime.of(harvestingStart.toLocalDate(), DEFAULT_SCHEDULE_TIME);
+        while (scheduledAt.isBefore(now)) {
+            scheduledAt = scheduledAt.plusDays(1);
+        }
+        return scheduledAt;
     }
 
     private String buildSowingPromotionTitle() {
