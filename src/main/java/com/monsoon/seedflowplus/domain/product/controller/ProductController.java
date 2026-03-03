@@ -6,6 +6,7 @@ import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductSearchCondition;
 import com.monsoon.seedflowplus.domain.product.dto.response.CategoryResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
+import com.monsoon.seedflowplus.domain.product.dto.request.SaveCompareHistoryRequest;
 import com.monsoon.seedflowplus.domain.product.dto.response.CompareHistoryResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
@@ -91,14 +92,12 @@ public class ProductController {
     @PostMapping("/compare")
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 비교 저장", description = "상품 비교 내역 저장합니다.")
     public ResponseEntity<Long> saveCompareHistory(
-            @RequestBody java.util.Map<String, Object> body,
+            @Valid @RequestBody SaveCompareHistoryRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = extractUserIdFromUserDetails(userDetails);
 
-        List<Long> productIds = ((List<?>) body.get("productIds")).stream()
-                .map(id -> Long.valueOf(id.toString()))
-                .toList();
-        String title = (String) body.get("title");
+        List<Long> productIds = request.getProductIds();
+        String title = request.getTitle();
 
         Long compareId = productWriteService.saveCompareHistory(userId, productIds, title);
         return ResponseEntity.ok(compareId);

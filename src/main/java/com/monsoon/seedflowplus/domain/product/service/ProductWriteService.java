@@ -16,6 +16,7 @@ import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
 import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class ProductWriteService {
     private final ProductTagRepository productTagRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
     private final CultivationTimeRepository cultivationTimeRepository;
+    private final ProductCompareItemRepository productCompareItemRepository;
     private final UserRepository userRepository;
     private final ProductCompareRepository productCompareRepository;
 
@@ -162,6 +164,9 @@ public class ProductWriteService {
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+        // 비교 분석 내역 삭제
+        productCompareItemRepository.deleteAllByProductId(productId);
 
         // 즐겨찾기 데이터 삭제
         productBookmarkRepository.deleteAllByProductId(productId);
