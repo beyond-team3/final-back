@@ -126,7 +126,9 @@ public class GeminiAiClient implements AiClient {
                 jsonText = jsonText.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
             }
 
-            log.info("Gemini 요약 결과 정제 전: {}", jsonText);
+            if (log.isDebugEnabled()) {
+                log.debug("Gemini 요약 결과 정제 전: {}", jsonText);
+            }
             return objectMapper.readValue(jsonText, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
 
         } catch (Exception e) {
