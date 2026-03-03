@@ -22,15 +22,22 @@ public class SalesDashboardRepository {
     // 0. 영업사원 이름 조회
     // ──────────────────────────────────────────────
 
+    /**
+     * 사원이 없으면 NoSuchElementException → 서비스에서 404/401 변환 가능
+     */
     public String findEmployeeName(Long employeeId) {
         String sql = """
                 SELECT employee_name
                 FROM tbl_employee
                 WHERE employee_id = :empId
                 """;
-        return jdbc.queryForObject(sql,
+        List<String> results = jdbc.queryForList(sql,
                 new MapSqlParameterSource().addValue("empId", employeeId),
                 String.class);
+        return results.stream()
+                .findFirst()
+                .orElseThrow(() -> new java.util.NoSuchElementException(
+                        "Employee not found: " + employeeId));
     }
 
     // ──────────────────────────────────────────────
@@ -130,36 +137,40 @@ public class SalesDashboardRepository {
                                                              LocalDate thisMonthStart,
                                                              LocalDate thisMonthEnd) {
         String sql = """
-                SELECT i.invoice_code                          AS doc_no,
-                       cl.client_name,
-                       i.total_amount,
-                       i.invoice_date,
-                       i.status
-                FROM tbl_contract_header c
-                JOIN tbl_client cl ON cl.client_id = c.client_id
-                -- 해당 계약에 이번 달 invoice 가 이미 존재하면 그것을, 없으면 NULL
-                LEFT JOIN tbl_invoice i
-                       ON i.contract_id  = c.cnt_id
-                      AND i.employee_id  = :empId
-                      AND i.status      != 'CANCELED'
-                      AND i.invoice_date BETWEEN :start AND :end
-                WHERE c.author_id = :empId
-                  AND c.status NOT IN ('DELETED', 'EXPIRED', 'REJECTED_ADMIN', 'REJECTED_CLIENT')
-                  AND c.start_date <= :end
-                  AND (c.end_date IS NULL OR c.end_date >= :start)
-                  AND (
-                      -- MONTHLY: 항상 도래
-                      c.billing_cycle = 'MONTHLY'
-                      -- QUARTERLY: start_date 로부터 3개월 단위
-                      OR (c.billing_cycle = 'QUARTERLY'
-                          AND MOD(PERIOD_DIFF(DATE_FORMAT(:start, '%Y%m'),
-                                              DATE_FORMAT(c.start_date, '%Y%m')), 3) = 0)
-                      -- HALF_YEARLY: start_date 로부터 6개월 단위
-                      OR (c.billing_cycle = 'HALF_YEARLY'
-                          AND MOD(PERIOD_DIFF(DATE_FORMAT(:start, '%Y%m'),
-                                              DATE_FORMAT(c.start_date, '%Y%m')), 6) = 0)
-                  )
-                ORDER BY i.invoice_date ASC, cl.client_name ASC
+                SELECT doc_no, client_name, total_amount, invoice_date, status
+                FROM (
+                    SELECT i.invoice_code                          AS doc_no,
+                           cl.client_name,
+                           i.total_amount,
+                           i.invoice_date,
+                           i.status,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY c.cnt_id
+                               ORDER BY i.invoice_date DESC
+                           ) AS rn
+                    FROM tbl_contract_header c
+                    JOIN tbl_client cl ON cl.client_id = c.client_id
+                    LEFT JOIN tbl_invoice i
+                           ON i.contract_id  = c.cnt_id
+                          AND i.employee_id  = :empId
+                          AND i.status      != 'CANCELED'
+                          AND i.invoice_date BETWEEN :start AND :end
+                    WHERE c.author_id = :empId
+                      AND c.status NOT IN ('DELETED', 'EXPIRED', 'REJECTED_ADMIN', 'REJECTED_CLIENT')
+                      AND c.start_date <= :end
+                      AND (c.end_date IS NULL OR c.end_date >= :start)
+                      AND (
+                          c.billing_cycle = 'MONTHLY'
+                          OR (c.billing_cycle = 'QUARTERLY'
+                              AND MOD(PERIOD_DIFF(DATE_FORMAT(:start, '%Y%m'),
+                                                  DATE_FORMAT(c.start_date, '%Y%m')), 3) = 0)
+                          OR (c.billing_cycle = 'HALF_YEARLY'
+                              AND MOD(PERIOD_DIFF(DATE_FORMAT(:start, '%Y%m'),
+                                                  DATE_FORMAT(c.start_date, '%Y%m')), 6) = 0)
+                      )
+                ) ranked
+                WHERE rn = 1
+                ORDER BY invoice_date ASC, client_name ASC
                 """;
         return jdbc.queryForList(sql,
                 new MapSqlParameterSource()

@@ -201,8 +201,16 @@ public class SalesDashboardService {
         String targetCode = (String) row.get("target_code");
         String toStage    = (String) row.get("to_stage");
 
-        java.time.LocalDateTime actionAt =
-                ((java.sql.Timestamp) row.get("action_datetime")).toLocalDateTime();
+        // null 및 타입 안전 처리
+        Object raw = row.get("action_datetime");
+        java.time.LocalDateTime actionAt;
+        if (raw instanceof java.sql.Timestamp ts) {
+            actionAt = ts.toLocalDateTime();
+        } else if (raw instanceof java.time.LocalDateTime ldt) {
+            actionAt = ldt;
+        } else {
+            actionAt = java.time.LocalDateTime.now();
+        }
 
         String docLabel = DOC_LABEL.getOrDefault(docType, docType);
         String title    = docLabel + " - " + clientName;
