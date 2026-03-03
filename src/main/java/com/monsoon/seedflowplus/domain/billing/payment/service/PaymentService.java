@@ -138,6 +138,8 @@ public class PaymentService {
 
     // 1. Hibernate ConstraintViolationException에서 제약 이름 추출 시도
     // 2. 실패 시 MariaDB 메시지 패턴 파싱 (fallback)
+    // 1. Hibernate ConstraintViolationException에서 제약 이름 추출 시도
+    // 2. 실패 시 MariaDB 메시지 패턴 파싱 (fallback)
     private String extractConstraintName(DataIntegrityViolationException e) {
         Throwable current = e;
         while (current != null) {
@@ -148,15 +150,19 @@ public class PaymentService {
             current = current.getCause();
         }
 
-        // fallback: MariaDB "Duplicate entry '...' for key 'constraint_name'"
-        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-        int start = msg.indexOf("for key '");
-        if (start != -1) {
-            start += "for key '".length();
-            int end = msg.indexOf("'", start);
-            if (end != -1) {
-                return msg.substring(start, end);
+        // fallback: cause 체인에서 MariaDB "Duplicate entry '...' for key 'constraint_name'" 패턴 검색
+        current = e;
+        while (current != null) {
+            String msg = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
+            int start = msg.indexOf("for key '");
+            if (start != -1) {
+                start += "for key '".length();
+                int end = msg.indexOf("'", start);
+                if (end != -1) {
+                    return msg.substring(start, end);
+                }
             }
+            current = current.getCause();
         }
         return "";
     }
