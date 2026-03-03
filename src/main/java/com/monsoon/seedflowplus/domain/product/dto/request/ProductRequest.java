@@ -14,9 +14,6 @@ import java.util.Map;
 @NoArgsConstructor
 public class ProductRequest {
 
-    @NotBlank(message = "상품 코드는 필수입니다.")
-    private String productCode;
-
     @NotBlank(message = "상품명은 필수입니다.")
     private String productName;
 

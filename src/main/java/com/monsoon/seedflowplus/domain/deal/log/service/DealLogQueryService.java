@@ -7,7 +7,7 @@ import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogDetailDto;
 import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import com.monsoon.seedflowplus.domain.deal.log.entity.DealLogDetail;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
-import com.monsoon.seedflowplus.domain.deal.core.service.TempUser;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.repository.DealLogDetailRepository;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
@@ -29,32 +29,32 @@ public class DealLogQueryService {
     private final SalesDealLogRepository salesDealLogRepository;
     private final DealLogDetailRepository dealLogDetailRepository;
 
-    public Page<DealLogSummaryDto> getTimelineByDeal(Long dealId, Pageable pageable, TempUser user) {
+    public Page<DealLogSummaryDto> getTimelineByDeal(Long dealId, Pageable pageable, CustomUserDetails user) {
         Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        TempUser requiredUser = requireUser(user);
+        CustomUserDetails requiredUser = requireUser(user);
 
         return findByDealWithScope(dealId, resolvedPageable, requiredUser)
                 .map(this::toSummaryDto);
     }
 
-    public Page<DealLogSummaryDto> getTimelineByClient(Long clientId, Pageable pageable, TempUser user) {
+    public Page<DealLogSummaryDto> getTimelineByClient(Long clientId, Pageable pageable, CustomUserDetails user) {
         Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        TempUser requiredUser = requireUser(user);
+        CustomUserDetails requiredUser = requireUser(user);
 
         return findByClientWithScope(clientId, resolvedPageable, requiredUser)
                 .map(this::toSummaryDto);
     }
 
-    public Page<DealLogSummaryDto> getTimelineByDocument(DealType docType, Long refId, Pageable pageable, TempUser user) {
+    public Page<DealLogSummaryDto> getTimelineByDocument(DealType docType, Long refId, Pageable pageable, CustomUserDetails user) {
         Pageable resolvedPageable = resolveTimelinePageable(pageable);
-        TempUser requiredUser = requireUser(user);
+        CustomUserDetails requiredUser = requireUser(user);
 
         return findByDocumentWithScope(docType, refId, resolvedPageable, requiredUser)
                 .map(this::toSummaryDto);
     }
 
-    public DealLogDetailDto getLogDetail(Long dealLogId, TempUser user) {
-        TempUser requiredUser = requireUser(user);
+    public DealLogDetailDto getLogDetail(Long dealLogId, CustomUserDetails user) {
+        CustomUserDetails requiredUser = requireUser(user);
         DealLogDetail detail = dealLogDetailRepository.findByDealLogId(dealLogId)
                 .orElseThrow(() -> new CoreException(
                         ErrorType.DEAL_LOG_DETAIL_NOT_FOUND,
@@ -105,37 +105,37 @@ public class DealLogQueryService {
                 .build();
     }
 
-    private Page<SalesDealLog> findByDealWithScope(Long dealId, Pageable pageable, TempUser user) {
-        if (user.role() == Role.ADMIN) {
+    private Page<SalesDealLog> findByDealWithScope(Long dealId, Pageable pageable, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
             return salesDealLogRepository.findByDealId(dealId, pageable);
         }
-        if (user.role() == Role.SALES_REP) {
-            if (user.employeeId() == null) {
+        if (user.getRole() == Role.SALES_REP) {
+            if (user.getEmployeeId() == null) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return salesDealLogRepository.findByDealIdAndOwnerEmpId(dealId, user.employeeId(), pageable);
+            return salesDealLogRepository.findByDealIdAndOwnerEmpId(dealId, user.getEmployeeId(), pageable);
         }
-        if (user.role() == Role.CLIENT) {
-            if (user.clientId() == null) {
+        if (user.getRole() == Role.CLIENT) {
+            if (user.getClientId() == null) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return salesDealLogRepository.findByDealIdAndClientId(dealId, user.clientId(), pageable);
+            return salesDealLogRepository.findByDealIdAndClientId(dealId, user.getClientId(), pageable);
         }
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
-    private Page<SalesDealLog> findByClientWithScope(Long clientId, Pageable pageable, TempUser user) {
-        if (user.role() == Role.ADMIN) {
+    private Page<SalesDealLog> findByClientWithScope(Long clientId, Pageable pageable, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
             return salesDealLogRepository.findByClientId(clientId, pageable);
         }
-        if (user.role() == Role.SALES_REP) {
-            if (user.employeeId() == null) {
+        if (user.getRole() == Role.SALES_REP) {
+            if (user.getEmployeeId() == null) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return salesDealLogRepository.findByClientIdAndOwnerEmpId(clientId, user.employeeId(), pageable);
+            return salesDealLogRepository.findByClientIdAndOwnerEmpId(clientId, user.getEmployeeId(), pageable);
         }
-        if (user.role() == Role.CLIENT) {
-            if (user.clientId() == null || !user.clientId().equals(clientId)) {
+        if (user.getRole() == Role.CLIENT) {
+            if (user.getClientId() == null || !user.getClientId().equals(clientId)) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return salesDealLogRepository.findByClientId(clientId, pageable);
@@ -143,41 +143,41 @@ public class DealLogQueryService {
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
-    private Page<SalesDealLog> findByDocumentWithScope(DealType docType, Long refId, Pageable pageable, TempUser user) {
-        if (user.role() == Role.ADMIN) {
+    private Page<SalesDealLog> findByDocumentWithScope(DealType docType, Long refId, Pageable pageable, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
             return salesDealLogRepository.findByDocTypeAndRefId(docType, refId, pageable);
         }
-        if (user.role() == Role.SALES_REP) {
-            if (user.employeeId() == null) {
+        if (user.getRole() == Role.SALES_REP) {
+            if (user.getEmployeeId() == null) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return salesDealLogRepository.findByDocTypeAndRefIdAndOwnerEmpId(docType, refId, user.employeeId(), pageable);
+            return salesDealLogRepository.findByDocTypeAndRefIdAndOwnerEmpId(docType, refId, user.getEmployeeId(), pageable);
         }
-        if (user.role() == Role.CLIENT) {
-            if (user.clientId() == null) {
+        if (user.getRole() == Role.CLIENT) {
+            if (user.getClientId() == null) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
-            return salesDealLogRepository.findByDocTypeAndRefIdAndClientId(docType, refId, user.clientId(), pageable);
+            return salesDealLogRepository.findByDocTypeAndRefIdAndClientId(docType, refId, user.getClientId(), pageable);
         }
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
-    private TempUser requireUser(TempUser user) {
-        if (user == null || user.role() == null) {
+    private CustomUserDetails requireUser(CustomUserDetails user) {
+        if (user == null || user.getRole() == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
         return user;
     }
 
-    private boolean canAccess(TempUser user, Long ownerEmpId, Long clientId) {
-        if (user.role() == Role.ADMIN) {
+    private boolean canAccess(CustomUserDetails user, Long ownerEmpId, Long clientId) {
+        if (user.getRole() == Role.ADMIN) {
             return true;
         }
-        if (user.role() == Role.SALES_REP) {
-            return user.employeeId() != null && user.employeeId().equals(ownerEmpId);
+        if (user.getRole() == Role.SALES_REP) {
+            return user.getEmployeeId() != null && user.getEmployeeId().equals(ownerEmpId);
         }
-        if (user.role() == Role.CLIENT) {
-            return user.clientId() != null && user.clientId().equals(clientId);
+        if (user.getRole() == Role.CLIENT) {
+            return user.getClientId() != null && user.getClientId().equals(clientId);
         }
         return false;
     }

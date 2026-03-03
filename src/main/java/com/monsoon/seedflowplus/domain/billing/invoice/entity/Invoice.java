@@ -98,4 +98,8 @@ public class Invoice extends BaseCreateEntity {
     public void cancel() {
         this.status = InvoiceStatus.CANCELED;
     }
+
+    public void changeCode(String newCode) {
+        this.invoiceCode = newCode;
+    }
 }
