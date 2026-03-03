@@ -48,11 +48,7 @@ public class ContractService {
         }
 
         // 2. 권한 검증: 본인이 작성한 영업사원만 가능 (관리자, 거래처 등 차단)
-        if (userDetails.getRole() != Role.SALES_REP ||
-                quotation.getAuthor() == null ||
-                !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        validateQuotationAuthorAccess(quotation, userDetails);
 
         return new ContractPrefillResponse(
                 quotation.getId(),
@@ -73,7 +69,6 @@ public class ContractService {
                         .toList());
     }
 
-    @Transactional(readOnly = true)
     public ContractResponse getContractDetail(Long id) {
         CustomUserDetails userDetails = getAuthenticatedUser();
         ContractHeader contract = contractRepository.findById(id)
@@ -212,6 +207,14 @@ public class ContractService {
 
         // 4. 저장
         contractRepository.save(contract);
+    }
+
+    private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
+        if (userDetails.getRole() != Role.SALES_REP ||
+                quotation.getAuthor() == null ||
+                !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
     }
 
     private CustomUserDetails getAuthenticatedUser() {
