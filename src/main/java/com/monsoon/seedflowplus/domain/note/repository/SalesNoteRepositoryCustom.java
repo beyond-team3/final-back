@@ -13,6 +13,7 @@ public interface SalesNoteRepositoryCustom {
             String keyword,
             LocalDate from,
             LocalDate to,
-            String sort
+            String sort,
+            Long authorId
     );
 }
