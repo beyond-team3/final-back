@@ -180,12 +180,12 @@ public class ContractService {
                 quotation,
                 quotation.getClient(),
                 quotation.getAuthor(),
+                quotation.getTotalAmount(),
                 request.startDate(),
                 request.endDate(),
                 request.billingCycle(),
                 request.specialTerms(),
-                request.memo(),
-                quotation.getTotalAmount());
+                request.memo());
 
         // 3. 계약 상세 품목 생성 및 추가
         request.items().forEach(itemRequest -> {
