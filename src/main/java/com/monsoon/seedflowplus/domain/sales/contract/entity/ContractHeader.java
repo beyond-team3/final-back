@@ -64,4 +64,42 @@ public class ContractHeader extends BaseModifyEntity {
 
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
+
+    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, Employee author,
+                        ContractStatus status, BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                        BillingCycle billingCycle, String specialTerms, String memo) {
+        this.contractCode = contractCode;
+        this.quotation = quotation;
+        this.client = client;
+        this.author = author;
+        this.status = status;
+        this.totalAmount = totalAmount;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.billingCycle = billingCycle;
+        this.specialTerms = specialTerms;
+        this.memo = memo;
+    }
+
+    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, Employee author,
+                                        LocalDate startDate, LocalDate endDate, BillingCycle billingCycle,
+                                        String specialTerms, String memo, BigDecimal totalAmount) {
+        return new ContractHeader(
+                contractCode,
+                quotation,
+                client,
+                author,
+                ContractStatus.WAITING_ADMIN,
+                totalAmount,
+                startDate,
+                endDate,
+                billingCycle,
+                specialTerms,
+                memo);
+    }
+
+    public void addItem(ContractDetail item) {
+        this.items.add(item);
+        item.setContract(this);
+    }
 }
