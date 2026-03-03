@@ -24,7 +24,6 @@ public class QuotationRequestController {
 
     @Operation(summary = "견적요청서 작성", description = "새로운 견적요청서(RFQ)를 작성합니다. (Role: CLIENT 전용)")
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<?> createQuotationRequest(@RequestBody @Valid QuotationRequestCreateRequest request) {
         quotationRequestService.createQuotationRequest(request);
         return ApiResult.success();
@@ -46,7 +45,6 @@ public class QuotationRequestController {
 
     @Operation(summary = "견적요청서 삭제", description = "견적요청서 ID를 통해 논리적으로 삭제합니다 (상태를 DELETED로 변경).")
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResult<?> deleteQuotationRequest(@PathVariable("id") Long id) {
         quotationRequestService.deleteQuotationRequest(id);
         return ApiResult.success();
