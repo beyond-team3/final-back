@@ -243,17 +243,28 @@ public class ProductWriteService {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
+        // null 원소 제거 및 중복 제거
+        List<Long> distinctIds = productIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (distinctIds.isEmpty()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
-        List<Product> products = productRepository.findAllById(productIds);
-        if (products.size() != productIds.size()) {
+        List<Product> products = productRepository.findAllById(distinctIds);
+        if (products.size() != distinctIds.size()) {
             throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
         }
 
         ProductCompare compare = ProductCompare.builder()
                 .account(user)
-                .title(title != null ? title : products.get(0).getProductName() + " 등 " + products.size() + "건 비교")
+                .title(title != null && !title.isBlank() ? title
+                        : products.get(0).getProductName() + " 등 " + products.size() + "건 비교")
                 .build();
 
         List<ProductCompareItem> items = products.stream()
