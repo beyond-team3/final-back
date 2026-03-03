@@ -1,0 +1,136 @@
+package com.monsoon.seedflowplus.domain.sales.quotation.service;
+
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
+import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class QuotationService {
+
+    private final QuotationRepository quotationRepository;
+    private final QuotationRequestRepository quotationRequestRepository;
+    private final ClientRepository clientRepository;
+    private final EmployeeRepository employeeRepository;
+    private final ProductRepository productRepository;
+
+    @Transactional
+    public void createQuotation(QuotationCreateRequest request) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        // 1. 권한 검증: SALES_REP만 가능
+        if (userDetails.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Client client = clientRepository.findById(request.clientId())
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        // 2. 담당 거래처 확인: 자신이 담당한 client에 대해서만 작성 가능
+        if (client.getManagerEmployee() == null
+                || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Employee author = employeeRepository.findById(userDetails.getEmployeeId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        QuotationRequestHeader quotationRequest = null;
+        if (request.requestId() != null) {
+            // 3. 견적요청서 기반 작성 시 검증
+            quotationRequest = quotationRequestRepository.findById(request.requestId())
+                    .orElseThrow(() -> new CoreException(ErrorType.RFQ_NOT_FOUND));
+
+            // 상태가 PENDING이어야 함
+            if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // 요청된 제품 목록이 일치하는지 검증 (상품 정보만 비교)
+            Set<Long> requestProductIds = quotationRequest.getItems().stream()
+                    .map(item -> item.getProduct().getId())
+                    .collect(Collectors.toSet());
+
+            Set<Long> inputProductIds = request.items().stream()
+                    .map(QuotationCreateRequest.QuotationItemRequest::productId)
+                    .collect(Collectors.toSet());
+
+            if (!requestProductIds.equals(inputProductIds)) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA); // 혹은 전용 에러 타입 필요
+            }
+
+            // 상태를 REVIEWING으로 변경
+            quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
+        }
+
+        // 4. 총액 계산
+        BigDecimal totalAmount = request.items().stream()
+                .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 5. 견적서 생성 (임시 코드)
+        String tempCode = "TEMP-" + UUID.randomUUID().toString().substring(0, 18).toUpperCase();
+        QuotationHeader quotation = QuotationHeader.create(
+                quotationRequest,
+                tempCode,
+                client,
+                author,
+                totalAmount,
+                request.memo());
+
+        // 6. 품목 추가
+        request.items().forEach(itemRequest -> {
+            QuotationDetail detail = new QuotationDetail(
+                    itemRequest.productId() != null ? productRepository.getReferenceById(itemRequest.productId())
+                            : null,
+                    itemRequest.productCategory(),
+                    itemRequest.productName(),
+                    itemRequest.quantity(),
+                    itemRequest.unit(),
+                    itemRequest.unitPrice(),
+                    itemRequest.unitPrice().multiply(BigDecimal.valueOf(itemRequest.quantity())));
+            quotation.addItem(detail);
+        });
+
+        // 7. 저장 및 코드 업데이트
+        quotationRepository.save(quotation);
+        String finalCode = "QUO-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
+                + quotation.getId();
+        quotation.updateQuotationCode(finalCode);
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return userDetails;
+    }
+}
