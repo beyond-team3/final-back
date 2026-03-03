@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record ContractCreateRequest(
-        @NotNull(message = "견적서 ID는 필수입니다.") Long quotationId,
+        Long quotationId,
 
         @NotNull(message = "거래처 ID는 필수입니다.") Long clientId,
 
