@@ -28,9 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -215,8 +215,8 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
         }
 
-        // 4. 계약서 헤더 생성 (임시 코드 사용)
-        String tempCode = "TEMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
+        // 4. 계약서 헤더 생성 (임시 코드 사용 - 충돌 방지를 위해 UUID 사용)
+        String tempCode = "TEMP-" + UUID.randomUUID().toString().substring(0, 18).toUpperCase();
 
         ContractHeader contract = ContractHeader.create(
                 tempCode,
