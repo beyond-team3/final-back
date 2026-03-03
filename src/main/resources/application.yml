@@ -43,3 +43,7 @@ management:
   metrics:
     tags:
       application: monsoon-backend
+
+ncpms:
+  api:
+    url: "http://ncpms.rda.go.kr/npmsAPI/service"

@@ -36,3 +36,7 @@ google:
     api:
       key: this-is-dummy-gemini-api-key
       url: https://dummy.gemini.api.url
+
+ncpms:
+  api:
+    key: this-is-dummy-ncpms-api-key

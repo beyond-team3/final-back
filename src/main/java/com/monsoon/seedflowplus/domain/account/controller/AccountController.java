@@ -2,7 +2,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
-import com.monsoon.seedflowplus.domain.account.dto.response.ClientCropResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.*;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -74,4 +74,67 @@ public class AccountController {
         accountService.changePassword(request);
         return ApiResult.success();
     }
+
+    // 조회 - 영업사원
+    @GetMapping("/employees")
+    public ApiResult<List<EmployeeListResponse>> getAllEmployees() {
+        return ApiResult.success(accountService.getAllEmployees());
+    }
+
+    @GetMapping("/employees/{employeeId}")
+    public ApiResult<EmployeeDetailResponse> getEmployeeDetail(@PathVariable Long employeeId) {
+        return ApiResult.success(accountService.getEmployeeDetail(employeeId));
+    }
+
+    // 조회 - 거래처
+    @GetMapping("/clients/for-document")
+    public ApiResult<List<ClientListForDocumentResponse>> getClientsForDocument() {
+        return ApiResult.success(accountService.getClientsForDocument());
+    }
+
+    @GetMapping("/clients/{clientId}/for-document")
+    public ApiResult<ClientListForDocumentResponse> getClientForDocument(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientForDocument(clientId));
+    }
+
+    @GetMapping("/clients")
+    public ApiResult<List<ClientListResponse>> getAllClients() {
+        return ApiResult.success(accountService.getAllClients());
+    }
+
+    @GetMapping("/clients/{clientId}")
+    public ApiResult<ClientDetailResponse> getClientDetail(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getClientDetail(clientId));
+    }
+
+    // 마이페이지
+    @GetMapping("/clients/me")
+    public ApiResult<ClientProfileResponse> getMyClientProfile() {
+        return ApiResult.success(accountService.getMyClientProfile());
+    }
+
+    // 마이페이지 - 거래처 -담당영업사원 정보 조회
+    @GetMapping("/clients/{clientId}/manager")
+    public ApiResult<AssignedEmployeeResponse> getAssignedEmployee(@PathVariable Long clientId) {
+        return ApiResult.success(accountService.getAssignedEmployee(clientId));
+    }
+
+    // 계정등록 - 영업사원(미등록)
+    @GetMapping("/employees/unregistered")
+    public ApiResult<List<UnregisteredEmployeeResponse>> getUnregisteredEmployees() {
+        return ApiResult.success(accountService.getUnregisteredEmployees());
+    }
+
+    // 계정등록 - 거래처(미등록)
+    @GetMapping("/clients/unregistered")
+    public ApiResult<List<UnregisteredClientResponse>> getUnregisteredClients() {
+        return ApiResult.success(accountService.getUnregisteredClients());
+    }
+
+    // 담당자 지정 - 영업사원 목록
+    @GetMapping("/employees/simple")
+    public ApiResult<List<EmployeeSimpleResponse>> getAllEmployeesSimple() {
+        return ApiResult.success(accountService.getAllEmployeesSimple());
+    }
+
 }

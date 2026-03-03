@@ -3,10 +3,11 @@ package com.monsoon.seedflowplus.domain.product.controller;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
-import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
-import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
+import com.monsoon.seedflowplus.domain.product.dto.request.ProductSearchCondition;
+import com.monsoon.seedflowplus.domain.product.dto.response.CategoryResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
+import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.service.ProductReadService;
 import com.monsoon.seedflowplus.domain.product.service.ProductWriteService;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
@@ -60,28 +61,12 @@ public class ProductController {
     // 상품 전체 목록 조회 (추후 성능 비교를 위해 임시로 전체 조회 사용)
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts(
+            @io.swagger.v3.oas.annotations.Parameter(description = "10~500 숫자") @RequestParam(defaultValue = "10") int limit,
+            @ModelAttribute ProductSearchCondition condition,
             @AuthenticationPrincipal UserDetails userDetails) {
         Role role = extractRoleFromUserDetails(userDetails);
 
-        List<ProductResponse> responses = productReadService.getAllProducts(role);
-        return ResponseEntity.ok(responses);
-    }
-
-    // 견적서, 계약서용 상품 목록 조회
-    @GetMapping("/for-contract")
-    public ResponseEntity<List<ProductContractResponse>> getProductsForContract(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Role role = extractRoleFromUserDetails(userDetails);
-        List<ProductContractResponse> responses = productReadService.getProductsForContract(role);
-        return ResponseEntity.ok(responses);
-    }
-
-    // 견적요청서 용 상품 목록 조회
-    @GetMapping("/for-estimate")
-    public ResponseEntity<List<ProductEstimateReqResponse>> getProductsForEstimateReq(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Role role = extractRoleFromUserDetails(userDetails);
-        List<ProductEstimateReqResponse> responses = productReadService.getProductsForEstimateReq(role);
+        List<ProductResponse> responses = productReadService.getAllProducts(role, condition);
         return ResponseEntity.ok(responses);
     }
 
@@ -147,5 +132,19 @@ public class ProductController {
         return userRepository.findByLoginId(userDetails.getUsername())
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
                 .getId();
+    }
+
+    // 상품 카테고리 목록 조회 (프론트엔드 드롭다운 등 사용)
+    @GetMapping("/categories")
+    @io.swagger.v3.oas.annotations.Operation(summary = "상품 카테고리 목록 조회", description = "검색 및 등록 등에서 사용할 품종(수박, 고추 등) 한글명 리스트를 반환합니다.")
+    public ResponseEntity<List<CategoryResponse>> getProductCategories() {
+        List<CategoryResponse> categories = java.util.Arrays.stream(ProductCategory.values())
+                .map(category -> CategoryResponse.builder()
+                        .code(category.name())
+                        .name(category.getDescription())
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(categories);
     }
 }
