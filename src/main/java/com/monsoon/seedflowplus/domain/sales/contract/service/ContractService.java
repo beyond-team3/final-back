@@ -210,6 +210,11 @@ public class ContractService {
                 .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // 견적서 기반 작성 시 총액 검증
+        if (quotation != null && totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
+            throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+        }
+
         // 4. 계약서 헤더 생성 (임시 코드 사용)
         String tempCode = "TEMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
 
