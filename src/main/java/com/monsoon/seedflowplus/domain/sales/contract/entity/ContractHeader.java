@@ -41,7 +41,7 @@ public class ContractHeader extends BaseModifyEntity {
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private ContractStatus status; // 계약서 상태
+    private ContractStatus status = ContractStatus.WAITING_ADMIN; // 계약서 상태
 
     @Column(name = "total_amount")
     private BigDecimal totalAmount; // 총 가격
@@ -66,13 +66,12 @@ public class ContractHeader extends BaseModifyEntity {
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
 
     public ContractHeader(String contractCode, QuotationHeader quotation, Client client, Employee author,
-                        ContractStatus status, BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
-                        BillingCycle billingCycle, String specialTerms, String memo) {
+                          BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                          BillingCycle billingCycle, String specialTerms, String memo) {
         this.contractCode = contractCode;
         this.quotation = quotation;
         this.client = client;
         this.author = author;
-        this.status = status;
         this.totalAmount = totalAmount;
         this.startDate = startDate;
         this.endDate = endDate;
@@ -89,7 +88,6 @@ public class ContractHeader extends BaseModifyEntity {
                 quotation,
                 client,
                 author,
-                ContractStatus.WAITING_ADMIN,
                 totalAmount,
                 startDate,
                 endDate,
@@ -101,5 +99,9 @@ public class ContractHeader extends BaseModifyEntity {
     public void addItem(ContractDetail item) {
         this.items.add(item);
         item.setContract(this);
+    }
+
+    public void delete() {
+        this.status = ContractStatus.DELETE;
     }
 }
