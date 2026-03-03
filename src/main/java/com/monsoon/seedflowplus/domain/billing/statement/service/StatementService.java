@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementR
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.billing.statement.repository.StatementRepository;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -50,13 +51,29 @@ public class StatementService {
         }
     }
 
-    /**
-     * 명세서 단건 조회
-     */
-    public StatementResponse getStatement(Long statementId) {
-        Statement statement = statementRepository.findById(statementId)
-                .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
-        return StatementResponse.from(statement);
+    public StatementResponse getStatement(Long statementId, CustomUserDetails userDetails) {
+
+        if (userDetails == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+
+        if (userDetails.getClientId() != null) {
+            // 거래처 로그인
+            Statement statement = statementRepository
+                    .findByIdAndOrderHeader_Client_Id(statementId, userDetails.getClientId())
+                    .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
+
+            return StatementResponse.from(statement);
+        }
+
+        if (userDetails.getEmployeeId() != null) {
+            // 영업사원은 조회 허용 (또는 추가 검증)
+            Statement statement = statementRepository.findById(statementId)
+                    .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
+
+            return StatementResponse.from(statement);
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
     /**
