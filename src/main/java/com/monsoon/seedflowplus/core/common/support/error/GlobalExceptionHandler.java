@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.core.common.support.error;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @RestControllerAdvice
@@ -24,6 +26,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(e.getErrorCodeProvider().getHttpStatus())
                 .body(ApiResult.error(e.getErrorCodeProvider(), e.getData()));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    protected ResponseEntity<ApiResult<?>> handleResponseStatusException(ResponseStatusException e) {
+        log.warn("ResponseStatusException: {}", e.getReason());
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(ApiResult.error(new ErrorCodeProvider() {
+                    @Override
+                    public Object getCode() {
+                        return ErrorCode.E500; // 또는 상황에 맞는 기본 코드
+                    }
+
+                    @Override
+                    public String getMessage() {
+                        return e.getReason();
+                    }
+
+                    @Override
+                    public HttpStatus getHttpStatus() {
+                        return HttpStatus.valueOf(e.getStatusCode().value());
+                    }
+                }));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

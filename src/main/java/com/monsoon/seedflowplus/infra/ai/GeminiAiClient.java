@@ -130,11 +130,17 @@ public class GeminiAiClient implements AiClient {
             if (log.isDebugEnabled()) {
                 log.debug("Gemini 요약 결과 정제 전: {}", jsonText);
             }
-            return objectMapper.readValue(jsonText, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            List<String> summary = objectMapper.readValue(jsonText, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            
+            // 리스트 크기를 3개로 맞춤 (부족하면 빈 문자열 추가)
+            while (summary.size() < 3) {
+                summary.add("");
+            }
+            return summary.subList(0, 3); // 3개 초과시 절삭
 
         } catch (Exception e) {
             log.error("Gemini 요약 생성 중 상세 오류 발생: ", e); // 전체 스택트레이스 출력
-            return List.of("요약 생성에 실패했습니다.", "내용을 직접 확인해주세요.");
+            return List.of("요약 생성에 실패했습니다.", "AI 응답을 받지 못했습니다.", "내용을 직접 확인해주세요.");
         }
     }
 
