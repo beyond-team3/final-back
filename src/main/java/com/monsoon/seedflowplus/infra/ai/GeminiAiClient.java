@@ -93,6 +93,45 @@ public class GeminiAiClient implements AiClient {
         }
     }
 
+    @Override
+    public List<String> summarizeNote(String content) {
+        try {
+            String prompt = "다음 영업 미팅 내용을 핵심 위주로 3문장 이내의 리스트로 요약해줘. " +
+                    "응답은 반드시 [\"요약1\", \"요약2\", \"요약3\"] 형식의 JSON 문자열 배열이어야 해. 다른 설명 없이 배열만 반환해.\n\n" +
+                    "미팅 내용: " + content;
+
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                    "generationConfig", Map.of("temperature", 0.2)
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("x-goog-api-key", apiKey);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
+
+            ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
+                    uri, HttpMethod.POST, entity, GeminiApiResponse.class
+            );
+
+            String jsonText = response.getBody().getCandidates().get(0).getContent().getParts().get(0).getText();
+            
+            // [추가] 마크다운 기호(```json 등) 제거 로직
+            if (jsonText.startsWith("```")) {
+                jsonText = jsonText.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+            }
+
+            log.info("Gemini 요약 결과 정제 전: {}", jsonText);
+            return objectMapper.readValue(jsonText, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+
+        } catch (Exception e) {
+            log.error("Gemini 요약 생성 중 상세 오류 발생: ", e); // 전체 스택트레이스 출력
+            return List.of("요약 생성에 실패했습니다.", "내용을 직접 확인해주세요.");
+        }
+    }
+
     private String buildPromptWithCitation(String text) {
         return """
         당신은 종자 회사 전략 영업 컨설턴트입니다. 
