@@ -12,6 +12,7 @@ import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCrea
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
@@ -167,6 +168,34 @@ public class QuotationService {
                 memo,
                 quotation.getCreatedAt(),
                 items);
+    }
+
+    @Transactional
+    public void deleteQuotation(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        QuotationHeader quotation = quotationRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        // 1. 권한 체크: ADMIN(모두) 또는 SALES_REP(본인이 작성한 것만)
+        if (userDetails.getRole() != Role.ADMIN) {
+            if (userDetails.getRole() != Role.SALES_REP ||
+                    quotation.getAuthor() == null ||
+                    !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+        }
+
+        // 2. 상태 체크: FINAL_APPROVED, WAITING_CONTRACT, COMPLETED, EXPIRED인 경우 삭제 불가
+        QuotationStatus status = quotation.getStatus();
+        if (status == QuotationStatus.FINAL_APPROVED ||
+                status == QuotationStatus.WAITING_CONTRACT ||
+                status == QuotationStatus.COMPLETED ||
+                status == QuotationStatus.EXPIRED) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+        }
+
+        // 3. 논리 삭제 처리
+        quotation.updateStatus(QuotationStatus.DELETED);
     }
 
     private void validateAccess(QuotationHeader quotation, CustomUserDetails user) {
