@@ -16,7 +16,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -52,7 +54,9 @@ public class NoteController {
      */
     @Operation(summary = "영업 활동 기록 저장", description = "새로운 영업 활동을 기록하고 AI 요약 분석을 함께 저장합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "저장 완료")
+            @ApiResponse(responseCode = "201", description = "저장 완료"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 파라미터",
+                    content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @PostMapping
     public ApiResult<NoteResponseDto> createNote(@Valid @RequestBody NoteRequestDto dto) {
@@ -66,7 +70,11 @@ public class NoteController {
      */
     @Operation(summary = "영업 활동 기록 수정", description = "기존 영업 노트를 수정하고 AI 재분석을 수행합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "수정 완료")
+            @ApiResponse(responseCode = "200", description = "수정 완료"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 파라미터",
+                    content = @Content(schema = @Schema(implementation = ApiResult.class))),
+            @ApiResponse(responseCode = "404", description = "해당 ID의 노트를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @PutMapping("/{id}")
     public ApiResult<NoteResponseDto> updateNote(
@@ -82,7 +90,9 @@ public class NoteController {
      */
     @Operation(summary = "영업 활동 기록 삭제", description = "지정된 ID의 영업 활동 기록을 삭제합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "삭제 성공")
+            @ApiResponse(responseCode = "204", description = "삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 ID의 노트를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @DeleteMapping("/{id}")
     public ApiResult<?> deleteNote(@Parameter(description = "영업 노트 ID") @PathVariable Long id) {
@@ -96,12 +106,14 @@ public class NoteController {
      */
     @Operation(summary = "고객별 AI 영업 브리핑 조회", description = "특정 고객사에 대한 AI 기반의 통합 영업 브리핑 및 전략 리포트를 조회합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공")
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 고객의 브리핑 정보를 찾을 수 없습니다.",
+                    content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @GetMapping("/briefing/{clientId}")
     public ApiResult<BriefingResponseDto> getBriefing(@Parameter(description = "고객 ID") @PathVariable Long clientId) {
         return briefingService.getBriefingByClient(clientId)
                 .map(entity -> ApiResult.success(BriefingResponseDto.from(entity)))
-                .orElseThrow(() -> new IllegalArgumentException("해당 고객의 브리핑 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 고객의 브리핑 정보를 찾을 수 없습니다."));
     }
 }
