@@ -84,9 +84,11 @@ public class PaymentService {
     /**
      * 결제 단건 조회
      */
-    public PaymentResponse getPayment(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+    public PaymentResponse getPayment(Long paymentId, Long clientId) {
+
+        Payment payment = paymentRepository.findByIdAndClientId(paymentId, clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND)); // 불일치도 동일하게 NOT_FOUND
+
         return PaymentResponse.from(payment);
     }
 

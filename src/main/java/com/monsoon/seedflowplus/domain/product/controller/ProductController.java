@@ -8,9 +8,11 @@ import com.monsoon.seedflowplus.domain.product.dto.response.CategoryResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.dto.request.SaveCompareHistoryRequest;
 import com.monsoon.seedflowplus.domain.product.dto.response.CompareHistoryResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.SimilarProductResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.service.ProductReadService;
+import com.monsoon.seedflowplus.domain.product.service.ProductSimilarityService;
 import com.monsoon.seedflowplus.domain.product.service.ProductWriteService;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
@@ -34,6 +36,7 @@ public class ProductController {
     private final ProductReadService productReadService;
     private final ProductBookmarkService productBookmarkService;
     private final UserRepository userRepository;
+    private final ProductSimilarityService productSimilarityService;
 
     // 상품 등록
     @PostMapping
@@ -141,13 +144,19 @@ public class ProductController {
 
     // 유사도 분석
     @GetMapping("/{productId}/similar")
-    public ResponseEntity<List<ProductResponse>> getSimilarProducts(
+    @io.swagger.v3.oas.annotations.Operation(
+            summary = "유사 상품 추천",
+            description = "태그·재배적기·카테고리 기준 유사도를 계산하여 상위 N개 상품을 반환합니다."
+    )
+    public ResponseEntity<SimilarProductResponse> getSimilarProducts(
             @PathVariable Long productId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Role role = extractRoleFromUserDetails(userDetails);
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "0") int threshold,
+            @RequestParam(required = false) List<String> criteria) {
 
-        List<ProductResponse> responses = productReadService.getSimilarProducts(productId, role);
-        return ResponseEntity.ok(responses);
+        SimilarProductResponse response = productSimilarityService
+                .getSimilarProducts(productId, limit, threshold, criteria);
+        return ResponseEntity.ok(response);
     }
 
     // 상품 즐겨찾기 토글
