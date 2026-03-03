@@ -53,6 +53,7 @@ public enum ErrorType implements ErrorCodeProvider {
     // 딜 로그
     DEAL_LOG_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D001, "DealLogDetail을 찾을 수 없습니다.", LogLevel.WARN),
     INVALID_DOC_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, ErrorCode.D002, "허용되지 않은 문서 상태 전이입니다.", LogLevel.WARN),
+    DEAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D003, "딜을 찾을 수 없습니다.", LogLevel.WARN),
 
     // 알림
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.N001, "알림을 찾을 수 없습니다.", LogLevel.WARN),
@@ -72,6 +73,10 @@ public enum ErrorType implements ErrorCodeProvider {
     INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, ErrorCode.Q002, "유효하지 않은 문서 상태입니다.", LogLevel.WARN),
     INVALID_CONTRACT_PERIOD(HttpStatus.BAD_REQUEST, ErrorCode.Q003, "계약 종료일은 시작일보다 빠를 수 없습니다.", LogLevel.WARN),
     INVALID_TOTAL_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.Q004, "계약 총액이 견적서와 일치하지 않습니다.", LogLevel.WARN),
+
+    // 일정
+    PERSONAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK001, "개인 일정을 찾을 수 없습니다.", LogLevel.WARN),
+    DEAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK002, "거래 일정을 찾을 수 없습니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
