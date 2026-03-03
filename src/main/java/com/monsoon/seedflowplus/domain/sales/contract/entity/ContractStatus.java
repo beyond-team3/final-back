@@ -8,5 +8,6 @@ public enum ContractStatus implements DocumentStatus {
     WAITING_CLIENT, // 거래처 승인 대기 [관리자 승인]
     REJECTED_CLIENT, // 거래처 반려
     COMPLETED, // 계약 완료 [거래처 승인]
-    EXPIRED // 계약 만료
+    EXPIRED, // 계약 만료
+    DELETED; // 삭제
 }
