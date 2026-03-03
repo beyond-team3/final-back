@@ -80,7 +80,7 @@ public class ContractService {
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
         // 논리 삭제된 건 조회 불가
-        if (contract.getStatus() == ContractStatus.DELETE) {
+        if (contract.getStatus() == ContractStatus.DELETED) {
             throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
         }
 
@@ -144,7 +144,7 @@ public class ContractService {
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
         // 이미 삭제된 경우 처리
-        if (contract.getStatus() == ContractStatus.DELETE) {
+        if (contract.getStatus() == ContractStatus.DELETED) {
             throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
         }
 
