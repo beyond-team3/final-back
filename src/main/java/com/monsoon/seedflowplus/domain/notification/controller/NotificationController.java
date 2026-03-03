@@ -10,6 +10,7 @@ import com.monsoon.seedflowplus.domain.notification.query.NotificationQueryServi
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ public class NotificationController {
 
     private final NotificationQueryService notificationQueryService;
     private final NotificationCommandService notificationCommandService;
+    private final Clock clock;
 
     @GetMapping
     public ApiResult<Page<NotificationListItemResponse>> getMyNotifications(
@@ -63,7 +65,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Long userId = resolveUserId(principal);
-        notificationCommandService.markAsRead(userId, notificationId, LocalDateTime.now());
+        notificationCommandService.markAsRead(userId, notificationId, LocalDateTime.now(clock));
 
         return ApiResult.success();
     }
@@ -73,7 +75,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Long userId = resolveUserId(principal);
-        notificationCommandService.markAllAsRead(userId, LocalDateTime.now());
+        notificationCommandService.markAllAsRead(userId, LocalDateTime.now(clock));
 
         return ApiResult.success();
     }

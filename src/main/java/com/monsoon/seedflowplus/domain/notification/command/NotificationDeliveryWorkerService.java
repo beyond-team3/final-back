@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class NotificationDeliveryWorkerService {
 
+    private static final int FAIL_REASON_MAX_LENGTH = 500;
+
     private final NotificationDeliveryRepository notificationDeliveryRepository;
 
     public int dispatchDueDeliveries(LocalDateTime now) {
@@ -36,12 +38,13 @@ public class NotificationDeliveryWorkerService {
             try {
                 dispatch(delivery, now);
             } catch (Exception e) {
-                String reason = e.getMessage() == null ? "dispatch failed" : e.getMessage();
+                String reason = normalizeReason(e);
                 log.warn(
                         "Failed to dispatch notification delivery. deliveryId={}, channel={}, reason={}",
                         delivery.getId(),
                         delivery.getChannel(),
-                        reason
+                        reason,
+                        e
                 );
                 delivery.markFailed(now, reason);
             }
@@ -58,5 +61,16 @@ public class NotificationDeliveryWorkerService {
         }
 
         throw new IllegalStateException("Unsupported delivery channel: " + delivery.getChannel());
+    }
+
+    private String normalizeReason(Exception e) {
+        String message = e.getMessage() == null ? "dispatch failed" : e.getMessage().trim();
+        if (message.isEmpty()) {
+            message = "dispatch failed";
+        }
+        if (message.length() > FAIL_REASON_MAX_LENGTH) {
+            return message.substring(0, FAIL_REASON_MAX_LENGTH);
+        }
+        return message;
     }
 }
