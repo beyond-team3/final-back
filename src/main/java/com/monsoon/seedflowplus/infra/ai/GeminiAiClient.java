@@ -134,8 +134,8 @@ public class GeminiAiClient implements AiClient {
 
     private String buildPromptWithCitation(String text) {
         return """
-        당신은 종자 회사 전략 영업 컨설턴트입니다. 
-        제공된 [회의록]을 분석하여 전략을 수립하세요. 
+        당신은 종자 회사 전략 영업 컨설턴트입니다.
+        제공된 [회의록]을 분석하여 전략을 수립하세요.
         각 전략의 근거가 된 회의록의 [ID]를 'evidence_note_ids'에 리스트 형태로 포함해야 합니다.
 
         반드시 아래 JSON 구조로만 응답하세요:
