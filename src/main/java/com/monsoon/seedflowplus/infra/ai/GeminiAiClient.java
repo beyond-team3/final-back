@@ -15,6 +15,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -65,11 +67,9 @@ public class GeminiAiClient implements AiClient {
                     GeminiApiResponse.class
             );
 
-            // 5. 응답 데이터 추출 및 DTO 변환
-            String jsonText = response.getBody()
-                    .getCandidates().get(0)
-                    .getContent().getParts().get(0)
-                    .getText();
+            // 5. 응답 데이터 추출 (방어적 코드 적용)
+            String jsonText = extractTextFromResponse(response.getBody())
+                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 응답을 받지 못했습니다."));
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
@@ -83,7 +83,6 @@ public class GeminiAiClient implements AiClient {
                     .version(aiResult.getVersion())
                     .build();
 
-            // GeminiAiClient.java의 catch 블록 수정 예시
         } catch (org.springframework.web.client.ResourceAccessException e) {
             log.error("Gemini API 호출 타임아웃 발생: {}", e.getMessage());
             throw new RuntimeException("AI 분석 서버 응답 시간이 초과되었습니다.", e);
@@ -93,10 +92,77 @@ public class GeminiAiClient implements AiClient {
         }
     }
 
+    @Override
+    public List<String> summarizeNote(String content) {
+        try {
+            String prompt = "다음 영업 미팅 내용을 핵심 위주로 3문장 이내의 리스트로 요약해줘. " +
+                    "응답은 반드시 [\"요약1\", \"요약2\", \"요약3\"] 형식의 JSON 문자열 배열이어야 해. 다른 설명 없이 배열만 반환해.\n\n" +
+                    "미팅 내용: " + content;
+
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                    "generationConfig", Map.of(
+                            "temperature", 0.2,
+                            "response_mime_type", "application/json"
+                    )
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("x-goog-api-key", apiKey);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
+
+            ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
+                    uri, HttpMethod.POST, entity, GeminiApiResponse.class
+            );
+
+            // 응답 데이터 추출 (방어적 코드 적용)
+            String jsonText = extractTextFromResponse(response.getBody())
+                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 요약 응답을 받지 못했습니다."));
+            
+            // [추가] 마크다운 기호(```json 등) 제거 로직
+            if (jsonText.startsWith("```")) {
+                jsonText = jsonText.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+            }
+
+            if (log.isDebugEnabled()) {
+                log.debug("Gemini 요약 결과 정제 전: {}", jsonText);
+            }
+            List<String> summary = objectMapper.readValue(jsonText, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            
+            // 리스트 크기를 3개로 맞춤 (부족하면 빈 문자열 추가)
+            while (summary.size() < 3) {
+                summary.add("");
+            }
+            return summary.subList(0, 3); // 3개 초과시 절삭
+
+        } catch (Exception e) {
+            log.error("Gemini 요약 생성 중 상세 오류 발생: ", e); // 전체 스택트레이스 출력
+            return List.of("요약 생성에 실패했습니다.", "AI 응답을 받지 못했습니다.", "내용을 직접 확인해주세요.");
+        }
+    }
+
+    /**
+     * Gemini API 응답 객체로부터 텍스트 내용을 안전하게 추출합니다.
+     */
+    private Optional<String> extractTextFromResponse(GeminiApiResponse response) {
+        return Optional.ofNullable(response)
+                .map(GeminiApiResponse::getCandidates)
+                .filter(candidates -> !candidates.isEmpty())
+                .map(candidates -> candidates.get(0))
+                .map(GeminiApiResponse.Candidate::getContent)
+                .map(GeminiApiResponse.Content::getParts)
+                .filter(parts -> !parts.isEmpty())
+                .map(parts -> parts.get(0))
+                .map(GeminiApiResponse.Part::getText);
+    }
+
     private String buildPromptWithCitation(String text) {
         return """
-        당신은 종자 회사 전략 영업 컨설턴트입니다. 
-        제공된 [회의록]을 분석하여 전략을 수립하세요. 
+        당신은 종자 회사 전략 영업 컨설턴트입니다.
+        제공된 [회의록]을 분석하여 전략을 수립하세요.
         각 전략의 근거가 된 회의록의 [ID]를 'evidence_note_ids'에 리스트 형태로 포함해야 합니다.
 
         반드시 아래 JSON 구조로만 응답하세요:

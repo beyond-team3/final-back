@@ -2,10 +2,15 @@ package com.monsoon.seedflowplus.domain.note.service;
 
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
-import com.monsoon.seedflowplus.domain.note.dto.NoteRequestDto;
+import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
+import com.monsoon.seedflowplus.infra.ai.AiClient;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -21,18 +26,25 @@ public class NoteService {
 
     private final SalesNoteRepository noteRepository;
     private final BriefingService briefingService;
+    private final AiClient aiClient;
 
     /**
      * 1. 영업 활동 기록 목록 조회 및 검색
      */
     public List<SalesNote> searchNotes(NoteSearchCondition condition) {
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        
+        // 모든 사용자는 본인이 작성한 노트만 조회 가능 (authorId 필터 상시 적용)
+        Long authorIdFilter = userDetails.getEmployeeId();
+
         return noteRepository.searchNotes(
                 condition.getClientId(),
                 condition.getContractId(),
                 condition.getKeyword(),
                 condition.getDateFrom(),
                 condition.getDateTo(),
-                condition.getSort()
+                condition.getSort(),
+                authorIdFilter
         );
     }
 
@@ -41,8 +53,13 @@ public class NoteService {
      */
     @Transactional
     public SalesNote createNote(NoteRequestDto dto) {
-        Long currentUserId = getCurrentUserId();
-        SalesNote note = dto.toEntity(currentUserId);
+        Long currentEmployeeId = getCurrentEmployeeId();
+
+        // [자동화] 저장 전 실시간 AI 요약 생성
+        List<String> summary = aiClient.summarizeNote(dto.getContent());
+        dto.setAiSummary(summary);
+
+        SalesNote note = dto.toEntity(currentEmployeeId);
         SalesNote savedNote = noteRepository.save(note);
 
         // [리팩토링] 비동기 분석 트리거
@@ -56,10 +73,18 @@ public class NoteService {
      */
     @Transactional
     public SalesNote updateNote(Long id, NoteRequestDto dto) {
+        CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 노트를 찾을 수 없습니다. ID: " + id));
 
-        note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), dto.getAiSummary());
+        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
+        if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
+            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
+        }
+
+        // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
+        List<String> summary = aiClient.summarizeNote(dto.getContent());
+        note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
 
         // [리팩토링] 데이터 수정 후 비동기 분석 요청
         triggerBriefingUpdate(note.getClientId());
@@ -72,8 +97,14 @@ public class NoteService {
      */
     @Transactional
     public void deleteNote(Long id) {
+        CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("삭제할 노트를 찾을 수 없습니다."));
+
+        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
+        if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
+            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
+        }
 
         Long clientId = note.getClientId();
         noteRepository.delete(note);
@@ -104,7 +135,15 @@ public class NoteService {
         }
     }
 
-    private Long getCurrentUserId() {
-        return 123L; // 예시 ID (Spring Security 연동 필요)
+    private CustomUserDetails getCurrentUserDetails() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new IllegalStateException("인증 정보를 찾을 수 없습니다.");
+        }
+        return userDetails;
+    }
+
+    private Long getCurrentEmployeeId() {
+        return getCurrentUserDetails().getEmployeeId();
     }
 }
