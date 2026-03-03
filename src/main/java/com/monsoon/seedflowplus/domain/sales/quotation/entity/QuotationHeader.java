@@ -72,6 +72,10 @@ public class QuotationHeader extends BaseModifyEntity {
         this.quotationCode = quotationCode;
     }
 
+    public void updateStatus(QuotationStatus status) {
+        this.status = status;
+    }
+
     public void addItem(QuotationDetail item) {
         this.items.add(item);
         item.setQuotation(this);
