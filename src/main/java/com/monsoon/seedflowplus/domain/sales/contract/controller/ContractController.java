@@ -38,8 +38,8 @@ public class ContractController {
         return ApiResult.success(contractService.getContractDetail(id));
     }
 
-    @Operation(summary = "계약서 삭제 (상태 변경)", description = "계약서의 상태를 DELETE로 변경합니다.")
-    @PatchMapping("/{id}")
+    @Operation(summary = "계약서 삭제", description = "계약서를 논리적으로 삭제합니다 (상태를 DELETED로 변경).")
+    @DeleteMapping("/{id}")
     public ApiResult<?> deleteContract(@PathVariable("id") Long id) {
         contractService.deleteContract(id);
         return ApiResult.success();
