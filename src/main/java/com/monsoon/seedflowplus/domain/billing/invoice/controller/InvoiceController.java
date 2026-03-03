@@ -7,11 +7,13 @@ import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceListR
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoicePublishResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.service.InvoiceService;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,9 +31,9 @@ public class InvoiceController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<InvoiceDetailResponse> createInvoice(
             @RequestBody @Valid InvoiceCreateRequest request,
-            @RequestParam Long employeeId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.createInvoice(request, employeeId));
+        return ApiResult.success(invoiceService.createInvoice(request, userDetails.getEmployeeId()));
     }
 
     @Operation(summary = "청구서 발행 확정", description = "DRAFT 상태의 청구서를 PUBLISHED로 변경합니다.")
@@ -76,8 +78,8 @@ public class InvoiceController {
     @Operation(summary = "청구서 목록 조회 (거래처별)", description = "특정 거래처의 청구서 목록을 조회합니다.")
     @GetMapping("/clients/{clientId}")
     public ApiResult<List<InvoiceListResponse>> getInvoicesByClient(
-            @PathVariable Long clientId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.getInvoicesByClient(clientId));
+        return ApiResult.success(invoiceService.getInvoicesByClient(userDetails.getClientId()));
     }
 }

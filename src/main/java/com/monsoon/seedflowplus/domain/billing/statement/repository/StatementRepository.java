@@ -13,6 +13,8 @@ public interface StatementRepository extends JpaRepository<Statement, Long> {
 
     Optional<Statement> findByOrderHeader_Id(Long orderId);
 
+    Optional<Statement> findByIdAndClientId(Long statementId, Long clientId);
+
     List<Statement> findAllByStatus(StatementStatus status);
 
     // 코드 채번용
