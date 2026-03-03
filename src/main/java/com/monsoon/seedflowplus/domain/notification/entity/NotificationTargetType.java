@@ -9,5 +9,6 @@ public enum NotificationTargetType {
     ORDER,
     INVOICE,
     STATEMENT,
-    INVENTORY
+    INVENTORY,
+    PRODUCT
 }
