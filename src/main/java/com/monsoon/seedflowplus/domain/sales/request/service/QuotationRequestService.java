@@ -109,9 +109,7 @@ public class QuotationRequestService {
         CustomUserDetails userDetails = getAuthenticatedUser();
         List<QuotationRequestHeader> requests;
 
-        if (userDetails.getRole() == Role.ADMIN) {
-            requests = quotationRequestRepository.findByStatus(QuotationRequestStatus.PENDING);
-        } else if (userDetails.getRole() == Role.SALES_REP) {
+        if (userDetails.getRole() == Role.SALES_REP) {
             requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING,
                     userDetails.getEmployeeId());
         } else {
