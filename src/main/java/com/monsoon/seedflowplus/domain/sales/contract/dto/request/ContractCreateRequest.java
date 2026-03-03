@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,10 +33,10 @@ public record ContractCreateRequest(
 
             @NotBlank(message = "카테고리는 필수입니다.") String productCategory,
 
-            @NotNull(message = "수량은 필수입니다.") Integer totalQuantity,
+            @NotNull(message = "수량은 필수입니다.") @Positive(message = "수량은 1 이상이어야 합니다.") Integer totalQuantity,
 
             @NotBlank(message = "단위는 필수입니다.") String unit,
 
-            @NotNull(message = "단가는 필수입니다.") BigDecimal unitPrice) {
+            @NotNull(message = "단가는 필수입니다.") @Positive(message = "단가는 0보다 커야 합니다.") BigDecimal unitPrice) {
     }
 }
