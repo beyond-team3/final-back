@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.request.dto.response.QuotationRequestListResponse;
 import com.monsoon.seedflowplus.domain.sales.request.dto.response.QuotationRequestResponse;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestDetail;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -101,6 +103,24 @@ public class QuotationRequestService {
         }
 
         throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    public List<QuotationRequestListResponse> getPendingQuotationRequests() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        List<QuotationRequestHeader> requests;
+
+        if (userDetails.getRole() == Role.ADMIN) {
+            requests = quotationRequestRepository.findByStatus(QuotationRequestStatus.PENDING);
+        } else if (userDetails.getRole() == Role.SALES_REP) {
+            requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING,
+                    userDetails.getEmployeeId());
+        } else {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        return requests.stream()
+                .map(QuotationRequestListResponse::from)
+                .toList();
     }
 
     @Transactional
