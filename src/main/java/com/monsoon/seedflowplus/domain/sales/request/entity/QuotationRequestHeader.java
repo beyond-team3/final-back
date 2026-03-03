@@ -56,6 +56,10 @@ public class QuotationRequestHeader extends BaseModifyEntity {
         item.setQuotationRequest(this);
     }
 
+    public void updateStatus(QuotationRequestStatus status) {
+        this.status = status;
+    }
+
     public void delete() {
         this.status = QuotationRequestStatus.DELETED;
     }
