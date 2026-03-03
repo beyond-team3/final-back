@@ -176,7 +176,12 @@ public class ContractService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        // 2. 계약서 헤더 생성
+        // 2. 계약 기간 검증
+        if (request.startDate().isAfter(request.endDate())) {
+            throw new CoreException(ErrorType.INVALID_CONTRACT_PERIOD);
+        }
+
+        // 3. 계약서 헤더 생성
         String contractCode = "CNT-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
 
         ContractHeader contract = ContractHeader.create(
