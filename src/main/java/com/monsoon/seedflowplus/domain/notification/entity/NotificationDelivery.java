@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -67,7 +68,7 @@ public class NotificationDelivery extends BaseModifyEntity {
     @Column(name = "fail_reason", length = 500)
     private String failReason;
 
-    @Column(name = "scheduled_at")
+    @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
 
     @Builder
@@ -77,11 +78,11 @@ public class NotificationDelivery extends BaseModifyEntity {
             DeliveryStatus status,
             LocalDateTime scheduledAt
     ) {
-        this.notification = notification;
-        this.channel = channel;
-        this.status = status;
+        this.notification = Objects.requireNonNull(notification, "notification must not be null");
+        this.channel = Objects.requireNonNull(channel, "channel must not be null");
+        this.status = Objects.requireNonNull(status, "status must not be null");
         this.attemptCount = 0;
-        this.scheduledAt = scheduledAt;
+        this.scheduledAt = Objects.requireNonNull(scheduledAt, "scheduledAt must not be null");
     }
 
     public void markAttempt(LocalDateTime now) {

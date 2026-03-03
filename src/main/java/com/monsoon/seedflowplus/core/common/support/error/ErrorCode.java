@@ -46,6 +46,9 @@ public enum ErrorCode {
     // 일정
     SK001, SK002,
 
+    // 알림
+    N001,
+
     // 견적서
     Q001, Q002, Q003, Q004
 }

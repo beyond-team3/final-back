@@ -121,7 +121,8 @@ public void convertExample(...) {
 
 ## 5. 체크리스트
 
-- `fromStatus`, `toStatus`는 `null` 금지
-- `ActorType.SYSTEM`이면 `actorId=null`
+- `fromStatus`는 상태 변경 로그(예: `UPDATE`, `TRANSITION`)에서만 `null` 금지이며, 최초 생성 로그(`CREATE`)에서는 `fromStatus=null` 허용
+- `toStatus`는 모든 로그에서 필수(`null` 금지)
+- `ActorType.SYSTEM`이면 `actorId=null` 유지 (`SYSTEM`이 아니면 `actorId` 필수)
 - 로그 생성은 Controller가 아닌 Service 내부에서만 수행
 - 상태 변경이 실제로 반영된 트랜잭션 안에서 로그를 기록

@@ -123,4 +123,4 @@ feat(deal-log): implement end-to-end deal log domain (entity/repository/service/
 - `src/main/java/com/monsoon/seedflowplus/domain/deal/dto/response/DealLogDetailDto.java`
 - `src/main/java/com/monsoon/seedflowplus/domain/deal/service/DealLogQueryService.java`
 - `src/main/java/com/monsoon/seedflowplus/domain/deal/controller/DealLogController.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/service/DealLogIntegrationGuide.md`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/docs/DealLogIntegrationGuide.md`

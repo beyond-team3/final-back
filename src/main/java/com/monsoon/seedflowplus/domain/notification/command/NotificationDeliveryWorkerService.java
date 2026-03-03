@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.notification.service;
+package com.monsoon.seedflowplus.domain.notification.command;
 
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
@@ -8,23 +8,27 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class NotificationDeliveryWorkerService {
+
+    private static final int FAIL_REASON_MAX_LENGTH = 500;
 
     private final NotificationDeliveryRepository notificationDeliveryRepository;
 
     public int dispatchDueDeliveries(LocalDateTime now) {
         Objects.requireNonNull(now, "now must not be null");
 
-        // TODO: 다중 워커 환경에서는 조회-처리 구간에 대한 락 전략(예: SKIP LOCKED) 도입 필요
         List<NotificationDelivery> dueDeliveries =
-                notificationDeliveryRepository.findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
-                        DeliveryStatus.PENDING,
+                notificationDeliveryRepository
+                        .findTop100ForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                        DeliveryStatus.PENDING.name(),
                         now
                 );
 
@@ -34,7 +38,14 @@ public class NotificationDeliveryWorkerService {
             try {
                 dispatch(delivery, now);
             } catch (Exception e) {
-                String reason = e.getMessage() == null ? "dispatch failed" : e.getMessage();
+                String reason = normalizeReason(e);
+                log.warn(
+                        "Failed to dispatch notification delivery. deliveryId={}, channel={}, reason={}",
+                        delivery.getId(),
+                        delivery.getChannel(),
+                        reason,
+                        e
+                );
                 delivery.markFailed(now, reason);
             }
             processedCount++;
@@ -50,5 +61,16 @@ public class NotificationDeliveryWorkerService {
         }
 
         throw new IllegalStateException("Unsupported delivery channel: " + delivery.getChannel());
+    }
+
+    private String normalizeReason(Exception e) {
+        String message = e.getMessage() == null ? "dispatch failed" : e.getMessage().trim();
+        if (message.isEmpty()) {
+            message = "dispatch failed";
+        }
+        if (message.length() > FAIL_REASON_MAX_LENGTH) {
+            return message.substring(0, FAIL_REASON_MAX_LENGTH);
+        }
+        return message;
     }
 }
