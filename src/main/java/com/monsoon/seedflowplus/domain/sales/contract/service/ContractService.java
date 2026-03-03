@@ -165,11 +165,7 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
-        if (userDetails.getRole() != Role.SALES_REP ||
-                quotation.getAuthor() == null ||
-                !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        validateQuotationAuthorAccess(quotation, userDetails);
 
         // 2. 계약 기간 검증
         if (request.startDate().isAfter(request.endDate())) {
