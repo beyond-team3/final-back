@@ -102,7 +102,10 @@ public class GeminiAiClient implements AiClient {
 
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-                    "generationConfig", Map.of("temperature", 0.2)
+                    "generationConfig", Map.of(
+                            "temperature", 0.2,
+                            "response_mime_type", "application/json"
+                    )
             );
 
             HttpHeaders headers = new HttpHeaders();
