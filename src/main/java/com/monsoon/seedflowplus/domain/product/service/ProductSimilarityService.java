@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +35,7 @@ public class ProductSimilarityService {
     private static final double WEIGHT_CULTIVATION = 0.4;
 
     private static final int DEFAULT_LIMIT = 10;
+    private static final int MAX_LIMIT = 100;
 
     private final ProductRepository productRepository;
     private final CultivationTimeRepository cultivationTimeRepository;
@@ -62,10 +64,22 @@ public class ProductSimilarityService {
 
         CultivationTime baseCt = cultivationTimeRepository.findByProductId(productId).orElse(null);
 
-        // criteria 미지정 시 전체 카테고리 사용
-        Set<String> activeCriteria = (criteria == null || criteria.isEmpty())
-                ? TAG_CATEGORY_WEIGHTS.keySet()
-                : new HashSet<>(criteria);
+        // 파라미터 정규화
+        int normalizedLimit     = (limit <= 0) ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
+        int normalizedThreshold = Math.max(0, Math.min(threshold, 100));
+
+        // criteria 유효성 검증 - 알 수 없는 키 필터링, 전부 무효 시 전체 카테고리로 fallback
+        Set<String> validatedCriteria = (criteria == null || criteria.isEmpty())
+                ? Set.of()
+                : criteria.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(TAG_CATEGORY_WEIGHTS::containsKey)
+                .collect(Collectors.toSet());
+
+        final Set<String> activeCriteria = validatedCriteria.isEmpty()
+                ? new HashSet<>(TAG_CATEGORY_WEIGHTS.keySet())
+                : validatedCriteria;
 
         // 유사도 계산 → threshold 필터 → 상위 limit개 정렬
         List<SimilarProductItem> similarProducts = candidates.stream()
@@ -80,9 +94,9 @@ public class ProductSimilarityService {
                             .similarityScore((int) Math.round(score * 100))
                             .build();
                 })
-                .filter(item -> item.getSimilarityScore() >= threshold) // 임계값 필터
+                .filter(item -> item.getSimilarityScore() >= normalizedThreshold)
                 .sorted(Comparator.comparingInt(SimilarProductItem::getSimilarityScore).reversed())
-                .limit(limit > 0 ? limit : DEFAULT_LIMIT)
+                .limit(normalizedLimit)
                 .toList();
 
         return SimilarProductResponse.builder()
@@ -181,9 +195,8 @@ public class ProductSimilarityService {
     }
 
     /**
-     * 두 월 범위의 겹침 비율 계산
-     * 겹침 월 수 / 전체 합집합 월 수
-     * 두 범위 중 하나라도 null이면 해당 구간 계산 제외 (null 반환)
+     * 두 월 범위의 겹침 비율 계산 (연도 경계 순환 구간 처리)
+     * ex) 11~2월(겨울 파종) 같은 연말-연초 구간도 정확하게 계산
      */
     private Double rangeOverlapRatio(Integer startA, Integer endA,
                                      Integer startB, Integer endB) {
@@ -191,14 +204,27 @@ public class ProductSimilarityService {
             return null;
         }
 
-        int overlapStart = Math.max(startA, startB);
-        int overlapEnd   = Math.min(endA, endB);
-        int overlap      = Math.max(0, overlapEnd - overlapStart + 1);
+        Set<Integer> aMonths = expandMonths(startA, endA);
+        Set<Integer> bMonths = expandMonths(startB, endB);
 
-        int unionStart = Math.min(startA, startB);
-        int unionEnd   = Math.max(endA, endB);
-        int union      = unionEnd - unionStart + 1;
+        Set<Integer> intersection = new HashSet<>(aMonths);
+        intersection.retainAll(bMonths);
 
-        return union == 0 ? 0.0 : (double) overlap / union;
+        Set<Integer> union = new HashSet<>(aMonths);
+        union.addAll(bMonths);
+
+        return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
+    }
+
+    // 월 범위를 Set으로 확장 (순환 처리: 11 → 12 → 1 → 2)
+    private Set<Integer> expandMonths(int start, int end) {
+        Set<Integer> months = new HashSet<>();
+        int cur = start;
+        while (true) {
+            months.add(cur);
+            if (cur == end) break;
+            cur = (cur % 12) + 1;
+        }
+        return months;
     }
 }
