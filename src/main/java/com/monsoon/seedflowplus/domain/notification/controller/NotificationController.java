@@ -10,6 +10,7 @@ import com.monsoon.seedflowplus.domain.notification.query.NotificationQueryServi
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +62,7 @@ public class NotificationController {
 
     @PatchMapping("/{notificationId}/read")
     public ApiResult<?> markAsRead(
-            @PathVariable Long notificationId,
+            @PathVariable @Positive Long notificationId,
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Long userId = resolveUserId(principal);
