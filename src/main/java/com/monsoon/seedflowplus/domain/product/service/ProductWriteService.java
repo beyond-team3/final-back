@@ -239,6 +239,10 @@ public class ProductWriteService {
     // 비교 내역 저장
     @Transactional
     public Long saveCompareHistory(Long userId, List<Long> productIds, String title) {
+        if (productIds == null || productIds.isEmpty()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
