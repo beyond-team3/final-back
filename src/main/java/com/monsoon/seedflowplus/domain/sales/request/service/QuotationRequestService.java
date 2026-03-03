@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.request.dto.response.QuotationRequestResponse;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestDetail;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
@@ -63,6 +64,43 @@ public class QuotationRequestService {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
+    }
+
+    public QuotationRequestResponse getQuotationRequest(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        QuotationRequestHeader header = quotationRequestRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        // 삭제된 건은 조회 불가 (직접 URL 접근 방지)
+        if (header.getStatus() == QuotationRequestStatus.DELETED) {
+            throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
+        }
+
+        // 권한 체크:
+        // 1. ADMIN: 통과
+        if (userDetails.getRole() == Role.ADMIN) {
+            return QuotationRequestResponse.from(header);
+        }
+
+        // 2. CLIENT: 본인 것만 가능
+        if (userDetails.getRole() == Role.CLIENT) {
+            if (!header.getClient().getId().equals(userDetails.getClientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return QuotationRequestResponse.from(header);
+        }
+
+        // 3. SALES_REP: 담당 거래처 것만 가능
+        if (userDetails.getRole() == Role.SALES_REP) {
+            Client client = header.getClient();
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return QuotationRequestResponse.from(header);
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
     @Transactional
