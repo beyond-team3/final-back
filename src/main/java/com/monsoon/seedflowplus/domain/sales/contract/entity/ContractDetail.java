@@ -41,4 +41,19 @@ public class ContractDetail extends BaseEntity {
 
     @Column(name = "amount")
     private BigDecimal amount; // 소계(단가 × 수량)
+
+    public ContractDetail(Product product, String productName, String productCategory, Integer totalQuantity,
+                        String unit, BigDecimal unitPrice, BigDecimal amount) {
+        this.product = product;
+        this.productName = productName;
+        this.productCategory = productCategory;
+        this.totalQuantity = totalQuantity;
+        this.unit = unit;
+        this.unitPrice = unitPrice;
+        this.amount = amount;
+    }
+
+    public void setContract(ContractHeader contract) {
+        this.contract = contract;
+    }
 }
