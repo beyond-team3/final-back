@@ -12,11 +12,13 @@ public enum ProductCategory {
     PEPPER("고추", "PP"),
     TOMATO("토마토", "TM"),
     CUCUMBER("오이", "CU"),
+    MELON("참외", "ML"),
 
     // 엽근채류 (잎/뿌리채소)
     CABBAGE("배추", "CB"),
     RADISH("무", "RD"),
     ONION("양파", "ON"),
+    GREEN_ONION("파", "GO"),
 
     // 식량작물 기타
     CORN("옥수수", "CN"),
