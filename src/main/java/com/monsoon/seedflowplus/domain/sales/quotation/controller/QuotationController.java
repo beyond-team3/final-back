@@ -8,12 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Quotation", description = "견적서 API")
 @RestController
@@ -35,5 +30,12 @@ public class QuotationController {
     public ApiResult<QuotationResponse> getQuotationDetail(@PathVariable("id") Long id) {
         QuotationResponse response = quotationService.getQuotationDetail(id);
         return ApiResult.success(response);
+    }
+
+    @Operation(summary = "견적서 삭제", description = "견적서 ID를 통해 논리적으로 삭제합니다 (상태를 DELETED로 변경).")
+    @DeleteMapping("/{id}")
+    public ApiResult<?> deleteQuotation(@PathVariable("id") Long id) {
+        quotationService.deleteQuotation(id);
+        return ApiResult.success();
     }
 }
