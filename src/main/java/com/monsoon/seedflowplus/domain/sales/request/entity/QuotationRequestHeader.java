@@ -33,4 +33,24 @@ public class QuotationRequestHeader extends BaseModifyEntity {
 
     @OneToMany(mappedBy = "quotationRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuotationRequestDetail> items = new ArrayList<>();
+
+    private QuotationRequestHeader(Client client, String requirements) {
+        this.client = client;
+        this.requirements = requirements;
+        this.status = QuotationRequestStatus.PENDING;
+    }
+
+    public static QuotationRequestHeader create(Client client, String requirements) {
+        return new QuotationRequestHeader(client, requirements);
+    }
+
+    public void updateRequestCode(String requestCode) {
+        this.requestCode = requestCode;
+    }
+
+    public void addItem(QuotationRequestDetail item) {
+        this.items.add(item);
+        item.setQuotationRequest(this);
+    }
+
 }
