@@ -115,7 +115,8 @@ public class QuotationRequestService {
 
         // 2. CLIENT: 본인 것만 가능
         if (userDetails.getRole() == Role.CLIENT) {
-            if (!header.getClient().getId().equals(userDetails.getClientId())) {
+            Long clientId = userDetails.getClientId();
+            if (clientId == null || !header.getClient().getId().equals(clientId)) {
                 throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
             }
             return QuotationRequestResponse.from(header);
@@ -149,7 +150,8 @@ public class QuotationRequestService {
                 throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
             }
 
-            requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING, employeeId);
+            requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING,
+                    employeeId);
         } else {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
@@ -166,7 +168,9 @@ public class QuotationRequestService {
                 .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
         // 1. 권한 체크: 오직 본인(Client)인 경우만 삭제 가능
-        if (userDetails.getRole() != Role.CLIENT || !header.getClient().getId().equals(userDetails.getClientId())) {
+        Long clientId = userDetails.getClientId();
+        if (userDetails.getRole() != Role.CLIENT || clientId == null
+                || !header.getClient().getId().equals(clientId)) {
             throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
         }
 
@@ -176,7 +180,6 @@ public class QuotationRequestService {
         }
 
         header.delete();
-        quotationRequestRepository.save(header);
     }
 
     private CustomUserDetails getAuthenticatedUser() {
