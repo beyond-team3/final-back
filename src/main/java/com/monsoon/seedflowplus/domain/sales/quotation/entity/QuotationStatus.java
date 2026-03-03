@@ -10,5 +10,6 @@ public enum QuotationStatus implements DocumentStatus {
     FINAL_APPROVED, // 최종 승인
     WAITING_CONTRACT, // 계약진행중
     COMPLETED, // 완료
-    EXPIRED // 만료
+    EXPIRED, // 만료
+    DELETED // 삭제
 }
