@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.sales.request.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.request.dto.response.QuotationRequestResponse;
 import com.monsoon.seedflowplus.domain.sales.request.service.QuotationRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +23,13 @@ public class QuotationRequestController {
     public ApiResult<?> createQuotationRequest(@RequestBody @Valid QuotationRequestCreateRequest request) {
         quotationRequestService.createQuotationRequest(request);
         return ApiResult.success();
+    }
+
+    @Operation(summary = "견적요청서 상세 조회", description = "견적요청서 ID를 통해 상세 정보를 조회합니다. (Role별 접근 제어 적용)")
+    @GetMapping("/{id}")
+    public ApiResult<QuotationRequestResponse> getQuotationRequest(@PathVariable("id") Long id) {
+        QuotationRequestResponse response = quotationRequestService.getQuotationRequest(id);
+        return ApiResult.success(response);
     }
 
     @Operation(summary = "견적요청서 삭제", description = "견적요청서 ID를 통해 논리적으로 삭제합니다 (상태를 DELETED로 변경).")
