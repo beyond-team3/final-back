@@ -41,5 +41,8 @@ public enum ErrorCode {
     A101, A102,
 
     // 딜 로그
-    D001, D002
+    D001, D002,
+
+    // 알림
+    N001
 }

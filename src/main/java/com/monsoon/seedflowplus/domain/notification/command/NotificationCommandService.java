@@ -1,5 +1,8 @@
 package com.monsoon.seedflowplus.domain.notification.command;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import com.monsoon.seedflowplus.domain.notification.service.CultivationNotificationService;
 import java.time.LocalDateTime;
@@ -21,8 +24,14 @@ public class NotificationCommandService {
         Objects.requireNonNull(notificationId, "notificationId must not be null");
         Objects.requireNonNull(now, "now must not be null");
 
-        notificationRepository.findByIdAndUser_Id(notificationId, userId)
-                .ifPresent(notification -> notification.markAsRead(now));
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOTIFICATION_NOT_FOUND));
+
+        if (!notification.getUser().getId().equals(userId)) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        notification.markAsRead(now);
     }
 
     public void markAllAsRead(Long userId, LocalDateTime now) {

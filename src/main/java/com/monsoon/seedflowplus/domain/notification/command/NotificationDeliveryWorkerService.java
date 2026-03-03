@@ -8,9 +8,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -21,10 +23,10 @@ public class NotificationDeliveryWorkerService {
     public int dispatchDueDeliveries(LocalDateTime now) {
         Objects.requireNonNull(now, "now must not be null");
 
-        // TODO: 다중 워커 환경에서는 조회-처리 구간에 대한 락 전략(예: SKIP LOCKED) 도입 필요
         List<NotificationDelivery> dueDeliveries =
-                notificationDeliveryRepository.findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
-                        DeliveryStatus.PENDING,
+                notificationDeliveryRepository
+                        .findTop100ForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                        DeliveryStatus.PENDING.name(),
                         now
                 );
 
@@ -35,6 +37,12 @@ public class NotificationDeliveryWorkerService {
                 dispatch(delivery, now);
             } catch (Exception e) {
                 String reason = e.getMessage() == null ? "dispatch failed" : e.getMessage();
+                log.warn(
+                        "Failed to dispatch notification delivery. deliveryId={}, channel={}, reason={}",
+                        delivery.getId(),
+                        delivery.getChannel(),
+                        reason
+                );
                 delivery.markFailed(now, reason);
             }
             processedCount++;
