@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
+import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
@@ -168,6 +169,28 @@ public class QuotationService {
                 memo,
                 quotation.getCreatedAt(),
                 items);
+    }
+
+    public List<QuotationListResponse> getApprovedQuotations() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        List<QuotationHeader> quotations = quotationRepository.findAllByStatusAndAuthorId(
+                QuotationStatus.FINAL_APPROVED,
+                user.getEmployeeId());
+
+        return quotations.stream()
+                .map(q -> new QuotationListResponse(
+                        q.getId(),
+                        q.getQuotationCode(),
+                        q.getClient().getClientName(),
+                        q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                        q.getCreatedAt(),
+                        q.getStatus()))
+                .toList();
     }
 
     @Transactional
