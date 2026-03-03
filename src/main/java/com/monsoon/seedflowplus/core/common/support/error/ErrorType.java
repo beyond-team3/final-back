@@ -48,6 +48,7 @@ public enum ErrorType implements ErrorCodeProvider {
     // 결제
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P101, "결제를 찾을 수 없습니다.", LogLevel.WARN),
     ALREADY_PAID(HttpStatus.BAD_REQUEST, ErrorCode.P102, "이미 결제된 청구서입니다.", LogLevel.WARN),
+    PAYMENT_CODE_OVERFLOW(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.P103, "일일 결제 코드 한도(999건)를 초과했습니다.", LogLevel.ERROR),
 
     // 딜 로그
     DEAL_LOG_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D001, "DealLogDetail을 찾을 수 없습니다.", LogLevel.WARN),

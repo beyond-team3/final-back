@@ -1,0 +1,56 @@
+package com.monsoon.seedflowplus.domain.billing.payment.controller;
+
+import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.billing.payment.dto.request.PaymentCreateRequest;
+import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListResponse;
+import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentResponse;
+import com.monsoon.seedflowplus.domain.billing.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Tag(name = "Payment", description = "결제 API")
+@RestController
+@RequestMapping("/api/v1/payments")
+@RequiredArgsConstructor
+public class PaymentController {
+
+    private final PaymentService paymentService;
+
+    @Operation(summary = "결제 처리", description = "PUBLISHED 상태의 청구서를 결제합니다. 거래처만 가능합니다.")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResult<PaymentResponse> processPayment(
+            @RequestBody @Valid PaymentCreateRequest request,
+            @RequestParam Long clientId   // TODO: JWT 붙이면 @AuthenticationPrincipal로 교체
+    ) {
+        return ApiResult.success(paymentService.processPayment(request, clientId));
+    }
+
+    @Operation(summary = "결제 단건 조회", description = "결제 ID로 단건 조회합니다.")
+    @GetMapping("/{paymentId}")
+    public ApiResult<PaymentResponse> getPayment(
+            @PathVariable Long paymentId
+    ) {
+        return ApiResult.success(paymentService.getPayment(paymentId));
+    }
+
+    @Operation(summary = "결제 목록 조회 (거래처별)", description = "특정 거래처의 결제 목록을 조회합니다.")
+    @GetMapping("/clients/{clientId}")
+    public ApiResult<List<PaymentListResponse>> getPaymentsByClient(
+            @PathVariable Long clientId
+    ) {
+        return ApiResult.success(paymentService.getPaymentsByClient(clientId));
+    }
+
+    @Operation(summary = "결제 목록 조회 (전체)", description = "전체 결제 목록을 조회합니다.")
+    @GetMapping
+    public ApiResult<List<PaymentListResponse>> getPayments() {
+        return ApiResult.success(paymentService.getPayments());
+    }
+}
