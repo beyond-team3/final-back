@@ -56,7 +56,7 @@ public class StatementService {
         if (userDetails.getClientId() != null) {
             // 거래처 로그인
             Statement statement = statementRepository
-                    .findByIdAndClientId(statementId, userDetails.getClientId())
+                    .findByIdAndOrderHeader_Client_Id(statementId, userDetails.getClientId())
                     .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
 
             return StatementResponse.from(statement);
