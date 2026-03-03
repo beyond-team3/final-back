@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 public interface SalesNoteRepository extends JpaRepository<SalesNote, Long>, SalesNoteRepositoryCustom {
 
-    // 거래처별 최근 방문일 일괄 조회 (N+1 최적화용)
+    // 거래처별 최근 방문일 일괄 조회
     @Query("SELECT s.clientId, MAX(s.activityDate) FROM SalesNote s GROUP BY s.clientId")
     List<Object[]> findAllLastActivityDatesRaw();
 
