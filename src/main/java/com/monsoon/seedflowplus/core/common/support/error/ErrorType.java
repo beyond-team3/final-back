@@ -66,6 +66,7 @@ public enum ErrorType implements ErrorCodeProvider {
     // 견적서
     QUOTATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.Q001, "견적서를 찾을 수 없습니다.", LogLevel.WARN),
     INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, ErrorCode.Q002, "유효하지 않은 문서 상태입니다.", LogLevel.WARN),
+    INVALID_CONTRACT_PERIOD(HttpStatus.BAD_REQUEST, ErrorCode.Q003, "계약 종료일은 시작일보다 빠를 수 없습니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
