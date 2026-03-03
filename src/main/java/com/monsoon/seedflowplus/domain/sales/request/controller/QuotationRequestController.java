@@ -28,7 +28,7 @@ public class QuotationRequestController {
         return ApiResult.success();
     }
 
-    @Operation(summary = "대기 중인 견적요청서 목록 조회", description = "견적서 작성 시 사용할 대기(PENDING) 상태의 견적요청서 목록을 조회합니다.")
+    @Operation(summary = "대기 중인 견적요청서 목록 조회", description = "견적서 작성 시 사용할 대기(PENDING) 상태의 견적요청서 목록을 조회합니다. (Role: SALES_REP 전용)")
     @GetMapping("/pending")
     public ApiResult<List<QuotationRequestListResponse>> getPendingQuotationRequests() {
         List<QuotationRequestListResponse> response = quotationRequestService.getPendingQuotationRequests();
