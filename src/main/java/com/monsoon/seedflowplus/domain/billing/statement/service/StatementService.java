@@ -53,6 +53,9 @@ public class StatementService {
 
     public StatementResponse getStatement(Long statementId, CustomUserDetails userDetails) {
 
+        if (userDetails == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+
         if (userDetails.getClientId() != null) {
             // 거래처 로그인
             Statement statement = statementRepository

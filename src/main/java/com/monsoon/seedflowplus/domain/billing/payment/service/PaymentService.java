@@ -86,13 +86,8 @@ public class PaymentService {
      */
     public PaymentResponse getPayment(Long paymentId, Long clientId) {
 
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
-
-        //본인 결제인지 검증
-        if (!payment.getClient().getId().equals(clientId)) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        Payment payment = paymentRepository.findByIdAndClientId(paymentId, clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND)); // 불일치도 동일하게 NOT_FOUND
 
         return PaymentResponse.from(payment);
     }

@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.billing.payment.controller;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.request.PaymentCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListResponse;
@@ -31,6 +33,8 @@ public class PaymentController {
             @RequestBody @Valid PaymentCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        if (userDetails == null || userDetails.getClientId() == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
         return ApiResult.success(paymentService.processPayment(request, userDetails.getClientId()));
     }
 
@@ -46,10 +50,12 @@ public class PaymentController {
     }
 
     @Operation(summary = "결제 목록 조회 (거래처별)", description = "특정 거래처의 결제 목록을 조회합니다.")
-    @GetMapping("/clients/{clientId}")
+    @GetMapping("/clients/me")  // /clients/{clientId} → /clients/me
     public ApiResult<List<PaymentListResponse>> getPaymentsByClient(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        if (userDetails == null || userDetails.getClientId() == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
         return ApiResult.success(paymentService.getPaymentsByClient(userDetails.getClientId()));
     }
 

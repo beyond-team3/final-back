@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.billing.invoice.controller;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
@@ -28,13 +30,19 @@ public class InvoiceController {
 
     @Operation(summary = "청구서 수동 생성", description = "영업사원이 청구서를 수동으로 생성합니다.")
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<InvoiceDetailResponse> createInvoice(
             @RequestBody @Valid InvoiceCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.createInvoice(request, userDetails.getEmployeeId()));
+        if (userDetails == null || userDetails.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        return ApiResult.success(
+                invoiceService.createInvoice(request, userDetails.getEmployeeId())
+        );
     }
+
 
     @Operation(summary = "청구서 발행 확정", description = "DRAFT 상태의 청구서를 PUBLISHED로 변경합니다.")
     @PatchMapping("/{invoiceId}/publish")
@@ -76,10 +84,22 @@ public class InvoiceController {
     }
 
     @Operation(summary = "청구서 목록 조회 (거래처별)", description = "특정 거래처의 청구서 목록을 조회합니다.")
-    @GetMapping("/clients/{clientId}")
+    @GetMapping("/clients/me")
     public ApiResult<List<InvoiceListResponse>> getInvoicesByClient(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.getInvoicesByClient(userDetails.getClientId()));
+        return ApiResult.success(invoiceService.getInvoicesByClient(requireClientId(userDetails)));
+    }
+
+    private Long requireEmployeeId(CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getEmployeeId() == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        return userDetails.getEmployeeId();
+    }
+
+    private Long requireClientId(CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getClientId() == null)
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        return userDetails.getClientId();
     }
 }
