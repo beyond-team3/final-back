@@ -6,15 +6,16 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
-import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractDetailRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,16 +25,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ContractService {
 
-    private final QuotationRepository quotationRepository; // typo in codebase probably, using what's there if needed
-    // or fixing
+    private final QuotationRepository quotationRepository;
     private final ContractRepository contractRepository;
-    private final ContractDetailRepository contractDetailRepository;
     private final ProductRepository productRepository;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
@@ -73,8 +73,73 @@ public class ContractService {
                         .toList());
     }
 
+    @Transactional(readOnly = true)
+    public ContractResponse getContractDetail(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        ContractHeader contract = contractRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        // 논리 삭제된 건 조회 불가
+        if (contract.getStatus() == ContractStatus.DELETE) {
+            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
+        }
+
+        // 권한 체크
+        validateAccess(contract, userDetails);
+
+        List<ContractResponse.ItemResponse> items = contract.getItems().stream()
+                .map(detail -> new ContractResponse.ItemResponse(
+                        detail.getProduct() != null ? detail.getProduct().getId() : null,
+                        detail.getProductName(),
+                        detail.getProductCategory(),
+                        detail.getTotalQuantity(),
+                        detail.getUnit(),
+                        detail.getUnitPrice(),
+                        detail.getAmount()))
+                .toList();
+
+        return new ContractResponse(
+                contract.getId(),
+                contract.getContractCode(),
+                contract.getQuotation() != null ? contract.getQuotation().getId() : null,
+                contract.getClient().getClientName(),
+                contract.getAuthor() != null ? contract.getAuthor().getEmployeeName() : null,
+                contract.getStatus(),
+                contract.getTotalAmount(),
+                contract.getStartDate(),
+                contract.getEndDate(),
+                contract.getBillingCycle(),
+                contract.getSpecialTerms(),
+                contract.getMemo(),
+                contract.getCreatedAt(),
+                items);
+    }
+
+    private void validateAccess(ContractHeader contract, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (user.getRole() == Role.SALES_REP) {
+            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(user.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        if (user.getRole() == Role.CLIENT) {
+            if (!contract.getClient().getId().equals(user.getClientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+
     @Transactional
-    public void createContract(ContractCreateRequest request) {
+    public void createContract(@Valid ContractCreateRequest request) {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
         // 1. 견적서 조회 및 검증
@@ -92,7 +157,7 @@ public class ContractService {
         }
 
         // 2. 계약서 헤더 생성
-        String contractCode = "CT-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
+        String contractCode = "CNT-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
 
         ContractHeader contract = ContractHeader.create(
                 contractCode,
