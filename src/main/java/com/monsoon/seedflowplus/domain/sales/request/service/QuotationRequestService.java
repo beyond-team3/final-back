@@ -128,14 +128,14 @@ public class QuotationRequestService {
         QuotationRequestHeader header = quotationRequestRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
-        // PENDING 상태인 경우만 삭제 가능
-        if (header.getStatus() != QuotationRequestStatus.PENDING) {
-            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-        }
-
-        // 권한 체크: 오직 본인(Client)인 경우만 삭제 가능 (Admin 포함 타인 불가)
+        // 1. 권한 체크: 오직 본인(Client)인 경우만 삭제 가능
         if (userDetails.getRole() != Role.CLIENT || !header.getClient().getId().equals(userDetails.getClientId())) {
             throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
+        }
+
+        // 2. 상태 체크: PENDING 상태인 경우만 삭제 가능
+        if (header.getStatus() != QuotationRequestStatus.PENDING) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
         header.delete();
