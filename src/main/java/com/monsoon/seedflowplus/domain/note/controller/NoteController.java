@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -41,11 +42,11 @@ public class NoteController {
             @ApiResponse(responseCode = "200", description = "조회 성공")
     })
     @GetMapping
-    public ApiResult<List<NoteResponseDto>> getNotes(@Parameter(description = "검색 및 필터 조건") NoteSearchCondition condition) {
+    public ResponseEntity<ApiResult<List<NoteResponseDto>>> getNotes(@Parameter(description = "검색 및 필터 조건") NoteSearchCondition condition) {
         List<NoteResponseDto> notes = noteService.searchNotes(condition).stream()
                 .map(NoteResponseDto::from)
                 .collect(Collectors.toList());
-        return ApiResult.success(notes);
+        return ResponseEntity.ok(ApiResult.success(notes));
     }
 
     /**
@@ -59,9 +60,9 @@ public class NoteController {
                     content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @PostMapping
-    public ApiResult<NoteResponseDto> createNote(@Valid @RequestBody NoteRequestDto dto) {
+    public ResponseEntity<ApiResult<NoteResponseDto>> createNote(@Valid @RequestBody NoteRequestDto dto) {
         NoteResponseDto createdNote = NoteResponseDto.from(noteService.createNote(dto));
-        return ApiResult.success(createdNote);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResult.success(createdNote));
     }
 
     /**
@@ -77,11 +78,11 @@ public class NoteController {
                     content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @PutMapping("/{id}")
-    public ApiResult<NoteResponseDto> updateNote(
+    public ResponseEntity<ApiResult<NoteResponseDto>> updateNote(
             @Parameter(description = "영업 노트 ID") @PathVariable Long id,
             @Valid @RequestBody NoteRequestDto dto) {
         NoteResponseDto updatedNote = NoteResponseDto.from(noteService.updateNote(id, dto));
-        return ApiResult.success(updatedNote);
+        return ResponseEntity.ok(ApiResult.success(updatedNote));
     }
 
     /**
@@ -95,9 +96,9 @@ public class NoteController {
                     content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @DeleteMapping("/{id}")
-    public ApiResult<?> deleteNote(@Parameter(description = "영업 노트 ID") @PathVariable Long id) {
+    public ResponseEntity<Void> deleteNote(@Parameter(description = "영업 노트 ID") @PathVariable Long id) {
         noteService.deleteNote(id);
-        return ApiResult.success();
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -111,9 +112,9 @@ public class NoteController {
                     content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
     @GetMapping("/briefing/{clientId}")
-    public ApiResult<BriefingResponseDto> getBriefing(@Parameter(description = "고객 ID") @PathVariable Long clientId) {
+    public ResponseEntity<ApiResult<BriefingResponseDto>> getBriefing(@Parameter(description = "고객 ID") @PathVariable Long clientId) {
         return briefingService.getBriefingByClient(clientId)
-                .map(entity -> ApiResult.success(BriefingResponseDto.from(entity)))
+                .map(entity -> ResponseEntity.ok(ApiResult.success(BriefingResponseDto.from(entity))))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 고객의 브리핑 정보를 찾을 수 없습니다."));
     }
 }
