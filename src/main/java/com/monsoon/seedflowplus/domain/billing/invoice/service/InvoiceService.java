@@ -95,15 +95,12 @@ public class InvoiceService {
                 break;
             } catch (DataIntegrityViolationException e) {
                 if (!isInvoiceCodeViolation(e) || i == maxRetries - 1) throw e;
-                // invoiceCode 충돌 시 새 코드로 재시도
-                invoice = Invoice.create(
-                        contract.getId(), client, employee,
-                        LocalDate.now(), request.getStartDate(), request.getEndDate(),
-                        generateCode("INV"), request.getMemo()
-                );
-                invoiceRepository.save(invoice);
+                // 새 객체 생성X
+                String newCode = generateCode("INV");
+                invoice.changeCode(newCode);  // 이 메서드 추가 필요
             }
         }
+
 
         // 7. 연결된 InvoiceStatement 목록 조회 후 반환
         List<InvoiceStatement> invoiceStatements =
@@ -213,34 +210,41 @@ public class InvoiceService {
      */
     @Transactional
     public void createDraftInvoice(ContractHeader contract) {
-        // 이미 DRAFT/PUBLISHED 청구서 존재하면 스킵
+
         if (invoiceRepository.existsByContractIdAndStatusIn(
                 contract.getId(),
                 List.of(InvoiceStatus.DRAFT, InvoiceStatus.PUBLISHED))) {
             return;
         }
 
-        // 청구 기간 계산 (이번 달 1일 ~ 말일)
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.withDayOfMonth(1);
         LocalDate endDate = today.withDayOfMonth(today.lengthOfMonth());
 
         String invoiceCode = generateCode("INV");
-        // 스케줄러 자동 생성은 employee 없이 생성 (null 허용 또는 시스템 계정 사용)
+
         Invoice invoice = Invoice.create(
-                contract.getId(), contract.getClient(), null,
-                today, startDate, endDate,
-                invoiceCode, null
+                contract.getId(),
+                contract.getClient(),
+                null,
+                today,
+                startDate,
+                endDate,
+                invoiceCode,
+                null
         );
+
         invoiceRepository.save(invoice);
 
-        // 청구 가능한 명세서 연결
         List<Statement> billableStatements =
                 invoiceStatementRepository.findBillableStatements(contract.getId());
 
         BigDecimal totalAmount = BigDecimal.ZERO;
+
         for (Statement statement : billableStatements) {
-            invoiceStatementRepository.save(InvoiceStatement.create(invoice, statement));
+            invoiceStatementRepository.save(
+                    InvoiceStatement.create(invoice, statement)
+            );
             totalAmount = totalAmount.add(statement.getTotalAmount());
         }
 
@@ -253,15 +257,13 @@ public class InvoiceService {
                 break;
             } catch (DataIntegrityViolationException e) {
                 if (!isInvoiceCodeViolation(e) || i == maxRetries - 1) throw e;
+
                 String newCode = generateCode("INV");
-                invoice = Invoice.create(
-                        contract.getId(), contract.getClient(), null,
-                        today, startDate, endDate, newCode, null
-                );
-                invoiceRepository.save(invoice);
+                invoice.changeCode(newCode);
             }
         }
     }
+
 
     // invoice_code 유니크 제약 위반 여부 판별
     private boolean isInvoiceCodeViolation(DataIntegrityViolationException e) {
