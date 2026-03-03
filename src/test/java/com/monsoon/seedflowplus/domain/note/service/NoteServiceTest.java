@@ -1,6 +1,6 @@
 //package com.monsoon.seedflowplus.domain.note.service;
 //
-//import com.monsoon.seedflowplus.domain.note.dto.NoteRequestDto;
+//import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 //import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 //import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 //import org.junit.jupiter.api.DisplayName;

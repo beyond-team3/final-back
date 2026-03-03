@@ -29,6 +29,11 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
 
+google:
+  gemini:
+    api:
+      url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
 
 # --- 모니터링 (Actuator & Prometheus) 설정 ---
 management:
