@@ -49,6 +49,9 @@ public class QuotationRequestHeader extends BaseModifyEntity {
     }
 
     public void addItem(QuotationRequestDetail item) {
+        if (item == null) {
+            throw new IllegalArgumentException("아이템은 null일 수 없습니다.");
+        }
         this.items.add(item);
         item.setQuotationRequest(this);
     }
