@@ -37,4 +37,11 @@ public class ContractController {
     public ApiResult<ContractResponse> getContractDetail(@PathVariable("id") Long id) {
         return ApiResult.success(contractService.getContractDetail(id));
     }
+
+    @Operation(summary = "계약서 삭제 (상태 변경)", description = "계약서의 상태를 DELETE로 변경합니다.")
+    @PatchMapping("/{id}")
+    public ApiResult<?> deleteContract(@PathVariable("id") Long id) {
+        contractService.deleteContract(id);
+        return ApiResult.success();
+    }
 }
