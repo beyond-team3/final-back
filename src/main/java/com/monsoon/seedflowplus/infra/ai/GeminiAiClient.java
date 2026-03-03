@@ -15,6 +15,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -65,11 +67,9 @@ public class GeminiAiClient implements AiClient {
                     GeminiApiResponse.class
             );
 
-            // 5. 응답 데이터 추출 및 DTO 변환
-            String jsonText = response.getBody()
-                    .getCandidates().get(0)
-                    .getContent().getParts().get(0)
-                    .getText();
+            // 5. 응답 데이터 추출 (방어적 코드 적용)
+            String jsonText = extractTextFromResponse(response.getBody())
+                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 응답을 받지 못했습니다."));
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
@@ -83,7 +83,6 @@ public class GeminiAiClient implements AiClient {
                     .version(aiResult.getVersion())
                     .build();
 
-            // GeminiAiClient.java의 catch 블록 수정 예시
         } catch (org.springframework.web.client.ResourceAccessException e) {
             log.error("Gemini API 호출 타임아웃 발생: {}", e.getMessage());
             throw new RuntimeException("AI 분석 서버 응답 시간이 초과되었습니다.", e);
@@ -119,7 +118,9 @@ public class GeminiAiClient implements AiClient {
                     uri, HttpMethod.POST, entity, GeminiApiResponse.class
             );
 
-            String jsonText = response.getBody().getCandidates().get(0).getContent().getParts().get(0).getText();
+            // 응답 데이터 추출 (방어적 코드 적용)
+            String jsonText = extractTextFromResponse(response.getBody())
+                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 요약 응답을 받지 못했습니다."));
             
             // [추가] 마크다운 기호(```json 등) 제거 로직
             if (jsonText.startsWith("```")) {
@@ -135,6 +136,21 @@ public class GeminiAiClient implements AiClient {
             log.error("Gemini 요약 생성 중 상세 오류 발생: ", e); // 전체 스택트레이스 출력
             return List.of("요약 생성에 실패했습니다.", "내용을 직접 확인해주세요.");
         }
+    }
+
+    /**
+     * Gemini API 응답 객체로부터 텍스트 내용을 안전하게 추출합니다.
+     */
+    private Optional<String> extractTextFromResponse(GeminiApiResponse response) {
+        return Optional.ofNullable(response)
+                .map(GeminiApiResponse::getCandidates)
+                .filter(candidates -> !candidates.isEmpty())
+                .map(candidates -> candidates.get(0))
+                .map(GeminiApiResponse.Candidate::getContent)
+                .map(GeminiApiResponse.Content::getParts)
+                .filter(parts -> !parts.isEmpty())
+                .map(parts -> parts.get(0))
+                .map(GeminiApiResponse.Part::getText);
     }
 
     private String buildPromptWithCitation(String text) {
