@@ -66,8 +66,8 @@ public class ContractHeader extends BaseModifyEntity {
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
 
     public ContractHeader(String contractCode, QuotationHeader quotation, Client client, Employee author,
-                          BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
-                          BillingCycle billingCycle, String specialTerms, String memo) {
+                        BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                        BillingCycle billingCycle, String specialTerms, String memo) {
         this.contractCode = contractCode;
         this.quotation = quotation;
         this.client = client;
@@ -103,5 +103,9 @@ public class ContractHeader extends BaseModifyEntity {
 
     public void delete() {
         this.status = ContractStatus.DELETED;
+    }
+
+    public void updateContractCode(String contractCode) {
+        this.contractCode = contractCode;
     }
 }
