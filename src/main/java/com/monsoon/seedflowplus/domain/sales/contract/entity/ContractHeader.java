@@ -81,8 +81,8 @@ public class ContractHeader extends BaseModifyEntity {
     }
 
     public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, Employee author,
-                                        LocalDate startDate, LocalDate endDate, BillingCycle billingCycle,
-                                        String specialTerms, String memo, BigDecimal totalAmount) {
+                                        BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                                        BillingCycle billingCycle, String specialTerms, String memo) {
         return new ContractHeader(
                 contractCode,
                 quotation,
