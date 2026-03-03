@@ -15,10 +15,13 @@ import java.math.BigDecimal;
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "payment_id"))
 @Table(name = "tbl_payment",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"invoice_id"}))
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_payment_code", columnNames = {"payment_code"}),
+                @UniqueConstraint(name = "uk_payment_invoice_id", columnNames = {"invoice_id"})
+        })
 public class Payment extends BaseCreateEntity {
 
-    @Column(name = "payment_code", nullable = false, unique = true, length = 20)
+    @Column(name = "payment_code", nullable = false, length = 20)
     private String paymentCode;   // PAY-20260223-001
 
     @ManyToOne(fetch = FetchType.LAZY)

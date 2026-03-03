@@ -127,13 +127,13 @@ public class PaymentService {
     // invoice_id unique 제약 위반 여부 (중복 결제)
     private boolean isInvoiceIdViolation(DataIntegrityViolationException e) {
         String constraint = extractConstraintName(e);
-        return constraint.contains("invoice_id");
+        return "uk_payment_invoice_id".equals(constraint);
     }
 
     // payment_code unique 제약 위반 여부만 판별
     private boolean isPaymentCodeViolation(DataIntegrityViolationException e) {
         String constraint = extractConstraintName(e);
-        return constraint.contains("payment_code");
+        return "uk_payment_code".equals(constraint);
     }
 
     // 1. Hibernate ConstraintViolationException에서 제약 이름 추출 시도
