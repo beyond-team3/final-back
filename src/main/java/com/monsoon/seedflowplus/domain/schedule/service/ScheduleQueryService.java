@@ -171,9 +171,11 @@ public class ScheduleQueryService {
         if (condition.getAssigneeUserId() != null || condition.getClientId() != null || condition.getDealId() != null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
-        Long actorClientId = condition.getActorClientId() != null
-                ? condition.getActorClientId()
-                : (actor.getClient() == null ? null : actor.getClient().getId());
+        Long actorClientId = actor.getClient() == null ? null : actor.getClient().getId();
+
+        if (condition.getActorClientId() != null && !condition.getActorClientId().equals(actorClientId)) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
 
         if (actorClientId == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);

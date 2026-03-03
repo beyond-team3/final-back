@@ -39,6 +39,9 @@ import lombok.NoArgsConstructor;
 )
 public class DealSchedule extends BaseModifyEntity {
 
+    private static final int TITLE_MAX_LENGTH = 200;
+    private static final int EXTERNAL_KEY_MAX_LENGTH = 180;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deal_id", nullable = false)
     private SalesDeal deal;
@@ -117,7 +120,7 @@ public class DealSchedule extends BaseModifyEntity {
         this.refDocId = refDocId;
         this.refDealLogId = refDealLogId;
         this.source = source;
-        this.externalKey = externalKey;
+        this.externalKey = externalKey == null ? null : externalKey.trim();
         this.lastSyncedAt = lastSyncedAt;
     }
 
@@ -173,6 +176,9 @@ public class DealSchedule extends BaseModifyEntity {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("title must not be blank");
         }
+        if (title.trim().length() > TITLE_MAX_LENGTH) {
+            throw new IllegalArgumentException("title must not exceed 200 characters");
+        }
         if (startAt == null || endAt == null) {
             throw new IllegalArgumentException("startAt/endAt must not be null");
         }
@@ -190,6 +196,9 @@ public class DealSchedule extends BaseModifyEntity {
         }
         if (externalKey == null || externalKey.isBlank()) {
             throw new IllegalArgumentException("externalKey must not be blank");
+        }
+        if (externalKey.trim().length() > EXTERNAL_KEY_MAX_LENGTH) {
+            throw new IllegalArgumentException("externalKey must not exceed 180 characters");
         }
         if (lastSyncedAt == null) {
             throw new IllegalArgumentException("lastSyncedAt must not be null");

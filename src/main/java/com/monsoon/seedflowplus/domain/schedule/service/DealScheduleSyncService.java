@@ -37,6 +37,7 @@ public class DealScheduleSyncService {
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
         User assignee = userRepository.findById(command.assigneeUserId())
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        validateDealClientMatch(deal, client);
 
         try {
             DealSchedule schedule = dealScheduleRepository.findByExternalKey(command.externalKey())
@@ -115,6 +116,12 @@ public class DealScheduleSyncService {
         }
         if (command.lastSyncedAt() == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void validateDealClientMatch(SalesDeal deal, Client client) {
+        if (deal.getClient() == null || deal.getClient().getId() == null || !deal.getClient().getId().equals(client.getId())) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "deal and client mismatch");
         }
     }
 }
