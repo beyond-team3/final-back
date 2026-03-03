@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.sales.contract.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.service.ContractService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,5 +30,11 @@ public class ContractController {
     public ApiResult<?> createContract(@RequestBody @Valid ContractCreateRequest request) {
         contractService.createContract(request);
         return ApiResult.success();
+    }
+
+    @Operation(summary = "계약서 상세 조회", description = "계약서 ID를 통해 상세 정보를 조회합니다.")
+    @GetMapping("/{id}")
+    public ApiResult<ContractResponse> getContractDetail(@PathVariable("id") Long id) {
+        return ApiResult.success(contractService.getContractDetail(id));
     }
 }
