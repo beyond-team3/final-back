@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.request.dto.response.QuotationRequestListResponse;
@@ -23,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,28 +47,51 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        Client client = clientRepository.findById(userDetails.getClientId())
+        Long clientId = userDetails.getClientId();
+        if (clientId == null) {
+            throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
+        }
+
+        Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
         // 2. Header 생성
         QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements());
 
-        // 3. Detail 생성 및 추가
+        // 3. 품목 배치 조회 처리 (N+1 방지)
+        List<Long> productIds = request.items().stream()
+                .map(QuotationRequestCreateRequest.ItemRequest::productId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Product> productMap = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        // 4. Detail 생성 및 추가
         request.items().forEach(itemRequest -> {
+            Long productId = itemRequest.productId();
+            Product product = null;
+
+            if (productId != null) {
+                product = productMap.get(productId);
+                if (product == null) {
+                    throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+                }
+            }
+
             QuotationRequestDetail detail = new QuotationRequestDetail(
-                    itemRequest.productId() != null ? productRepository.findById(itemRequest.productId())
-                            .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND))
-                            : null,
+                    product,
                     itemRequest.productCategory(),
                     itemRequest.productName(),
                     itemRequest.quantity());
             header.addItem(detail);
         });
 
-        // 4. 저장
+        // 5. 저장
         quotationRequestRepository.save(header);
 
-        // 5. requestCode 업데이트: RFQ-YYYYMMDD-ID
+        // 6. requestCode 업데이트: RFQ-YYYYMMDD-ID
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
@@ -95,9 +123,14 @@ public class QuotationRequestService {
 
         // 3. SALES_REP: 담당 거래처 것만 가능
         if (userDetails.getRole() == Role.SALES_REP) {
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+
             Client client = header.getClient();
             if (client.getManagerEmployee() == null
-                    || !client.getManagerEmployee().getId().equals(userDetails.getEmployeeId())) {
+                    || !client.getManagerEmployee().getId().equals(employeeId)) {
                 throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
             }
             return QuotationRequestResponse.from(header);
@@ -111,8 +144,12 @@ public class QuotationRequestService {
         List<QuotationRequestHeader> requests;
 
         if (userDetails.getRole() == Role.SALES_REP) {
-            requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING,
-                    userDetails.getEmployeeId());
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
+                throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+            }
+
+            requests = quotationRequestRepository.findByStatusAndClientManagerEmployeeId(QuotationRequestStatus.PENDING, employeeId);
         } else {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
