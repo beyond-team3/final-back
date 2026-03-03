@@ -6,6 +6,8 @@ import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductSearchCondition;
 import com.monsoon.seedflowplus.domain.product.dto.response.CategoryResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
+import com.monsoon.seedflowplus.domain.product.dto.request.SaveCompareHistoryRequest;
+import com.monsoon.seedflowplus.domain.product.dto.response.CompareHistoryResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductBookmarkService;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.service.ProductReadService;
@@ -86,6 +88,45 @@ public class ProductController {
         return ResponseEntity.ok(responses);
     }
 
+    // 상품 비교 내역 저장
+    @PostMapping("/compare")
+    @io.swagger.v3.oas.annotations.Operation(summary = "상품 비교 저장", description = "상품 비교 내역 저장합니다.")
+    public ResponseEntity<Long> saveCompareHistory(
+            @Valid @RequestBody SaveCompareHistoryRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+
+        List<Long> productIds = request.getProductIds();
+        String title = request.getTitle();
+
+        Long compareId = productWriteService.saveCompareHistory(userId, productIds, title);
+        return ResponseEntity.ok(compareId);
+    }
+
+    // 상품 비교 내역 히스토리 목록 조회
+    @GetMapping("/compare/history")
+    @io.swagger.v3.oas.annotations.Operation(summary = "상품 비교 내역", description = "상품 비교 내역 조회합니다.")
+    public ResponseEntity<List<CompareHistoryResponse>> getCompareHistories(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+        Role role = extractRoleFromUserDetails(userDetails);
+
+        List<CompareHistoryResponse> responses = productReadService.getCompareHistories(userId, role);
+        return ResponseEntity.ok(responses);
+    }
+
+    // 비교 내역 삭제
+    @DeleteMapping("/compare/{compareId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "상품 비교 삭제", description = "상품 비교 내역 삭제합니다.")
+    public ResponseEntity<Void> deleteCompareHistory(
+            @PathVariable Long compareId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+
+        productWriteService.deleteCompareHistory(userId, compareId);
+        return ResponseEntity.noContent().build();
+    }
+
     // 상품 상세 조회
     @GetMapping("/{productId}")
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 상세 조회", description = "상품 상세 페이지를 반환합니다.")
@@ -98,6 +139,17 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    // 유사도 분석
+    @GetMapping("/{productId}/similar")
+    public ResponseEntity<List<ProductResponse>> getSimilarProducts(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Role role = extractRoleFromUserDetails(userDetails);
+
+        List<ProductResponse> responses = productReadService.getSimilarProducts(productId, role);
+        return ResponseEntity.ok(responses);
+    }
+
     // 상품 즐겨찾기 토글
     @PostMapping("/{productId}/bookmark")
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 즐겨찾기 버튼", description = "상품을 즐겨찾기 목록에 등록합니다.")
@@ -108,6 +160,18 @@ public class ProductController {
 
         productBookmarkService.toggleBookmark(userId, productId);
         return ResponseEntity.ok().build();
+    }
+
+    // 상품 즐겨찾기 목록 조회
+    @GetMapping("/bookmarks")
+    @io.swagger.v3.oas.annotations.Operation(summary = "즐겨찾기 목록 조회", description = "즐겨찾기 목록 조회합니다.")
+    public ResponseEntity<List<ProductResponse>> getBookmarkedProducts(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+        Role role = extractRoleFromUserDetails(userDetails);
+
+        List<ProductResponse> responses = productReadService.getBookmarkedProducts(userId, role);
+        return ResponseEntity.ok(responses);
     }
 
     // Role 추출 헬퍼 메서드

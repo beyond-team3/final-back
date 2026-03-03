@@ -9,4 +9,5 @@ public interface CultivationTimeRepository extends JpaRepository<CultivationTime
 
     Optional<CultivationTime> findByProductId(Long productId);
 
+    java.util.List<CultivationTime> findAllByProductIdIn(java.util.List<Long> productIds);
 }
