@@ -2,7 +2,11 @@ package com.monsoon.seedflowplus.domain.sales.contract.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
@@ -35,6 +39,8 @@ public class ContractService {
     private final QuotationRepository quotationRepository;
     private final ContractRepository contractRepository;
     private final ProductRepository productRepository;
+    private final ClientRepository clientRepository;
+    private final EmployeeRepository employeeRepository;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -157,30 +163,61 @@ public class ContractService {
     public void createContract(@Valid ContractCreateRequest request) {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
-        // 1. 견적서 조회 및 검증
-        QuotationHeader quotation = quotationRepository.findById(request.quotationId())
-                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+        QuotationHeader quotation = null;
+        Client client;
+        Employee author;
 
-        if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
-            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+        if (request.quotationId() != null) {
+            // 1-1. 견적서 기반 작성
+            quotation = quotationRepository.findById(request.quotationId())
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // 요청한 거래처와 견적서의 거래처 일치 확인
+            if (!quotation.getClient().getId().equals(request.clientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            validateQuotationAuthorAccess(quotation, userDetails);
+
+            client = quotation.getClient();
+            author = quotation.getAuthor();
+        } else {
+            // 1-2. 신규 작성 (견적서 없음)
+            client = clientRepository.findById(request.clientId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+            // 신규 작성은 영업사원만 가능
+            if (userDetails.getRole() != Role.SALES_REP) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            author = employeeRepository.findById(userDetails.getEmployeeId())
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
         }
-
-        validateQuotationAuthorAccess(quotation, userDetails);
 
         // 2. 계약 기간 검증
         if (request.startDate().isAfter(request.endDate())) {
             throw new CoreException(ErrorType.INVALID_CONTRACT_PERIOD);
         }
 
-        // 3. 계약서 헤더 생성
+        // 3. 계약 총액 계산 (품목별 합계)
+        BigDecimal totalAmount = request.items().stream()
+                .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 4. 계약서 헤더 생성
         String contractCode = "CNT-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmmssSSS"));
 
         ContractHeader contract = ContractHeader.create(
                 contractCode,
                 quotation,
-                quotation.getClient(),
-                quotation.getAuthor(),
-                quotation.getTotalAmount(),
+                client,
+                author,
+                totalAmount,
                 request.startDate(),
                 request.endDate(),
                 request.billingCycle(),
