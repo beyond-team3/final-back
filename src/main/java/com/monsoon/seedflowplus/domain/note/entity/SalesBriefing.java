@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.note.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -12,27 +13,34 @@ import java.util.List;
 @Table(name = "tbl_sales_briefing")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Schema(description = "고객별 AI 영업 브리핑 및 전략 리포트 엔티티")
 public class SalesBriefing extends BaseModifyEntity {
 
+    @Schema(description = "고객사 ID")
     @Column(nullable = false, unique = true)
     private Long clientId; // 고객사별 1:1 매칭
 
+    @Schema(description = "최근 현황 및 변화 요약")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "status_change", columnDefinition = "json")
     private List<String> statusChange; // 핵심 현황 및 최근 변화 리스트
 
+    @Schema(description = "장기 패턴 및 특이사항")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "long_term_pattern", columnDefinition = "json")
     private List<String> longTermPattern; // 장기 패턴 및 특이사항 리스트
 
+    @Schema(description = "분석 근거가 된 영업 노트 ID 리스트")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "evidence_note_ids", columnDefinition = "json")
     private List<Long> evidenceNoteIds; // [추가] 분석 근거가 된 노트 ID 리스트
 
+    @Schema(description = "AI 추천 영업 전략")
     @Lob
     @Column(columnDefinition = "TEXT")
     private String strategySuggestion; // AI 추천 전략
 
+    @Schema(description = "브리핑 생성 버전")
     @Column(length = 20)
     private String version; // 브리핑 버전
 

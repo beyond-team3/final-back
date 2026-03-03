@@ -154,25 +154,6 @@ public class ProductReadService {
                                 .toList();
         }
 
-        // 유사 상품 추천 (동일 카테고리 최대 5개 반환 - DB 단에서 쿼리 처리)
-        public List<ProductResponse> getSimilarProducts(Long productId, Role role) {
-                Product currentProduct = productRepository.findById(productId)
-                                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-
-                // 메모리에서 필터/limit을 적용하지 않고, Repository 레벨에 쿼리를 위임
-                List<Product> similarProducts = productRepository
-                                .findTop5ByProductCategoryAndIdNotOrderByIdDesc(currentProduct.getProductCategory(),
-                                                productId);
-
-                boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
-
-                List<Long> productIds = similarProducts.stream().map(Product::getId).toList();
-                Map<Long, CultivationTime> ctMap = getCultivationTimeMap(productIds);
-
-                return similarProducts.stream()
-                                .map(product -> convertToDto(product, canViewPrice, ctMap.get(product.getId())))
-                                .toList();
-        }
 
         // 상품 상세페이지 사용
         public ProductResponse getProductDetail(Long productId, Role role) {
