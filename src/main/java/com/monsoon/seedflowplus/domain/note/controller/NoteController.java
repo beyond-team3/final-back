@@ -1,10 +1,10 @@
 package com.monsoon.seedflowplus.domain.note.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
-import com.monsoon.seedflowplus.domain.note.dto.NoteRequestDto;
+import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
-import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
-import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
+import com.monsoon.seedflowplus.domain.note.dto.response.BriefingResponseDto;
+import com.monsoon.seedflowplus.domain.note.dto.response.NoteResponseDto;
 import com.monsoon.seedflowplus.domain.note.service.NoteService;
 import com.monsoon.seedflowplus.domain.note.service.BriefingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,11 +16,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Tag(name = "Sales Note & AI Briefing", description = "영업 활동 기록 관리 및 AI 전략 브리핑 API")
 @RestController
@@ -40,9 +39,11 @@ public class NoteController {
             @ApiResponse(responseCode = "200", description = "조회 성공")
     })
     @GetMapping
-    public ResponseEntity<List<SalesNote>> getNotes(@Parameter(description = "검색 및 필터 조건") NoteSearchCondition condition) {
-        List<SalesNote> notes = noteService.searchNotes(condition);
-        return ResponseEntity.ok(notes);
+    public ApiResult<List<NoteResponseDto>> getNotes(@Parameter(description = "검색 및 필터 조건") NoteSearchCondition condition) {
+        List<NoteResponseDto> notes = noteService.searchNotes(condition).stream()
+                .map(NoteResponseDto::from)
+                .collect(Collectors.toList());
+        return ApiResult.success(notes);
     }
 
     /**
@@ -54,9 +55,9 @@ public class NoteController {
             @ApiResponse(responseCode = "201", description = "저장 완료")
     })
     @PostMapping
-    public ResponseEntity<SalesNote> createNote(@Valid @RequestBody NoteRequestDto dto) {
-        SalesNote createdNote = noteService.createNote(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdNote);
+    public ApiResult<NoteResponseDto> createNote(@Valid @RequestBody NoteRequestDto dto) {
+        NoteResponseDto createdNote = NoteResponseDto.from(noteService.createNote(dto));
+        return ApiResult.success(createdNote);
     }
 
     /**
@@ -68,11 +69,11 @@ public class NoteController {
             @ApiResponse(responseCode = "200", description = "수정 완료")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<SalesNote> updateNote(
-            @Parameter(description = "영업 노트 ID", example = "1") @PathVariable Long id,
+    public ApiResult<NoteResponseDto> updateNote(
+            @Parameter(description = "영업 노트 ID") @PathVariable Long id,
             @Valid @RequestBody NoteRequestDto dto) {
-        SalesNote updatedNote = noteService.updateNote(id, dto);
-        return ResponseEntity.ok(updatedNote);
+        NoteResponseDto updatedNote = NoteResponseDto.from(noteService.updateNote(id, dto));
+        return ApiResult.success(updatedNote);
     }
 
     /**
@@ -84,9 +85,9 @@ public class NoteController {
             @ApiResponse(responseCode = "204", description = "삭제 성공")
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteNote(@Parameter(description = "영업 노트 ID", example = "1") @PathVariable Long id) {
+    public ApiResult<?> deleteNote(@Parameter(description = "영업 노트 ID") @PathVariable Long id) {
         noteService.deleteNote(id);
-        return ResponseEntity.noContent().build();
+        return ApiResult.success();
     }
 
     /**
@@ -98,9 +99,9 @@ public class NoteController {
             @ApiResponse(responseCode = "200", description = "조회 성공")
     })
     @GetMapping("/briefing/{clientId}")
-    public ResponseEntity<SalesBriefing> getBriefing(@Parameter(description = "고객 ID", example = "10") @PathVariable Long clientId) {
+    public ApiResult<BriefingResponseDto> getBriefing(@Parameter(description = "고객 ID") @PathVariable Long clientId) {
         return briefingService.getBriefingByClient(clientId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(entity -> ApiResult.success(BriefingResponseDto.from(entity)))
+                .orElseThrow(() -> new IllegalArgumentException("해당 고객의 브리핑 정보를 찾을 수 없습니다."));
     }
 }

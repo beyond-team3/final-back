@@ -16,31 +16,31 @@ import java.util.List;
 @Schema(description = "고객별 AI 영업 브리핑 및 전략 리포트 엔티티")
 public class SalesBriefing extends BaseModifyEntity {
 
-    @Schema(description = "고객사 ID", example = "10")
+    @Schema(description = "고객사 ID")
     @Column(nullable = false, unique = true)
     private Long clientId; // 고객사별 1:1 매칭
 
-    @Schema(description = "최근 현황 및 변화 요약", example = "[\"최근 3개월간 구매 빈도 20% 증가\", \"신규 프로젝트 담당자 변경\"]")
+    @Schema(description = "최근 현황 및 변화 요약")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "status_change", columnDefinition = "json")
     private List<String> statusChange; // 핵심 현황 및 최근 변화 리스트
 
-    @Schema(description = "장기 패턴 및 특이사항", example = "[\"매년 4분기 대량 발주 경향\", \"특정 제품군 선호도 높음\"]")
+    @Schema(description = "장기 패턴 및 특이사항")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "long_term_pattern", columnDefinition = "json")
     private List<String> longTermPattern; // 장기 패턴 및 특이사항 리스트
 
-    @Schema(description = "분석 근거가 된 영업 노트 ID 리스트", example = "[1, 5, 12]")
+    @Schema(description = "분석 근거가 된 영업 노트 ID 리스트")
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "evidence_note_ids", columnDefinition = "json")
     private List<Long> evidenceNoteIds; // [추가] 분석 근거가 된 노트 ID 리스트
 
-    @Schema(description = "AI 추천 영업 전략", example = "고객사의 예산 증액 시기에 맞춰 프리미엄 서비스 제안 권장.")
+    @Schema(description = "AI 추천 영업 전략")
     @Lob
     @Column(columnDefinition = "TEXT")
     private String strategySuggestion; // AI 추천 전략
 
-    @Schema(description = "브리핑 생성 버전", example = "v1.2")
+    @Schema(description = "브리핑 생성 버전")
     @Column(length = 20)
     private String version; // 브리핑 버전
 

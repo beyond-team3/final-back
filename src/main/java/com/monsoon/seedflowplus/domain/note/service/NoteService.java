@@ -2,8 +2,7 @@ package com.monsoon.seedflowplus.domain.note.service;
 
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
-import com.monsoon.seedflowplus.domain.note.dto.NoteRequestDto;
-import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
 import com.monsoon.seedflowplus.infra.ai.AiClient;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
