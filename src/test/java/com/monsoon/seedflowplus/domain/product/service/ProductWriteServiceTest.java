@@ -12,6 +12,7 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductPriceHistoryRep
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,9 @@ class ProductWriteServiceTest {
         @Mock
         @SuppressWarnings("unused")
         private CultivationTimeRepository cultivationTimeRepository;
+
+        @Mock
+        private ProductCompareItemRepository productCompareItemRepository;
 
         @Mock
         private UserRepository userRepository;
