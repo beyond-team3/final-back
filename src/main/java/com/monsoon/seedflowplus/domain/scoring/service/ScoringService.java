@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import com.monsoon.seedflowplus.domain.scoring.dto.AccountPriorityResponse;
+import com.monsoon.seedflowplus.domain.scoring.entity.AccountScore;
+import com.monsoon.seedflowplus.domain.scoring.repository.AccountScoreRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -23,13 +25,14 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class ScoringService {
 
     private final ClientRepository clientRepository;
     private final ContractRepository contractRepository;
     private final OrderHeaderRepository orderHeaderRepository;
     private final SalesNoteRepository salesNoteRepository;
+    private final AccountScoreRepository accountScoreRepository;
 
     public List<AccountPriorityResponse> getRankedAccounts() {
         CustomUserDetails userDetails = getCurrentUserDetails();
@@ -49,12 +52,12 @@ public class ScoringService {
         Map<Long, LocalDate> lastVisitsMap = salesNoteRepository.findAllLastActivityDates();
 
         return clients.stream()
-                .map(client -> calculateAccountScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
+                .map(client -> calculateAndPersistScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
                 .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
                 .toList();
     }
 
-    private AccountPriorityResponse calculateAccountScore(Client client,
+    private AccountPriorityResponse calculateAndPersistScore(Client client,
                                                            Map<Long, List<LocalDate>> endDatesMap,
                                                            Set<Long> clientsWithOrders,
                                                            Map<Long, LocalDate> lastVisitsMap) {
@@ -80,9 +83,36 @@ public class ScoringService {
         double oScore = hasOrder ? 0.0 : 50.0;
         double vScore = calculateVisitScore(lastVisit, today);
 
-        double total = (cScore * 0.5) + (oScore * 0.3) + (vScore * 0.2);
+        double total = Math.round(((cScore * 0.5) + (oScore * 0.3) + (vScore * 0.2)) * 100) / 100.0;
 
-        return createResponse(client, total, cScore, oScore, vScore);
+        // 3. 근거 및 설명 생성
+        String[] reasons = generateReasons(total, cScore, oScore, vScore);
+        String reason = reasons[0];
+        String detail = reasons[1];
+
+        // 4. DB 영속화 (AccountScore 엔티티 활용)
+        accountScoreRepository.findByClientId(clientId)
+                .ifPresentOrElse(
+                        existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
+                        () -> accountScoreRepository.save(AccountScore.builder()
+                                .client(client)
+                                .totalScore(total)
+                                .contractScore(cScore)
+                                .orderScore(oScore)
+                                .visitScore(vScore)
+                                .primaryReason(reason)
+                                .detailDescription(detail)
+                                .build())
+                );
+
+        return AccountPriorityResponse.builder()
+                .accountId(client.getId())
+                .accountName(client.getClientName())
+                .totalScore(total)
+                .primaryReason(reason)
+                .detailDescription(detail)
+                .breakdown(new AccountPriorityResponse.ScoreBreakdown(cScore, oScore, vScore))
+                .build();
     }
 
     private double calculateContractScore(LocalDate expiry, LocalDate today) {
@@ -101,7 +131,7 @@ public class ScoringService {
         return Math.max(0.0, Math.min(100.0, daysSinceVisit * (100.0 / 90.0)));
     }
 
-    private AccountPriorityResponse createResponse(Client client, double total, double c, double o, double v) {
+    private String[] generateReasons(double total, double c, double o, double v) {
         String reason;
         String detail;
 
@@ -122,15 +152,8 @@ public class ScoringService {
             reason = "장기 미방문";
             detail = "마지막 방문 이후 상당 기간이 경과하여 관계 유지를 위한 방문을 권장합니다.";
         }
-
-        return AccountPriorityResponse.builder()
-                .accountId(client.getId())
-                .accountName(client.getClientName())
-                .totalScore(Math.round(total * 100) / 100.0)
-                .primaryReason(reason)
-                .detailDescription(detail)
-                .breakdown(new AccountPriorityResponse.ScoreBreakdown(c, o, v))
-                .build();
+        
+        return new String[]{reason, detail};
     }
 
     private CustomUserDetails getCurrentUserDetails() {
