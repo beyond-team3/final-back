@@ -1,0 +1,89 @@
+package com.monsoon.seedflowplus.domain.statistics.billing.api;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
+import com.monsoon.seedflowplus.domain.statistics.billing.service.BillingRevenueStatisticsQueryService;
+import java.math.BigDecimal;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+@ExtendWith(MockitoExtension.class)
+class BillingRevenueStatisticsControllerTest {
+
+    @Mock
+    private BillingRevenueStatisticsQueryService queryService;
+
+    @InjectMocks
+    private BillingRevenueStatisticsController controller;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        this.mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    }
+
+    @Test
+    @DisplayName("월별 API는 from/to/category를 필터에 바인딩해 QueryService에 전달한다")
+    void shouldBindParamsAndCallQueryService() throws Exception {
+        when(queryService.getMonthlyRevenue(any(BillingRevenueStatisticsFilter.class)))
+                .thenReturn(List.of(new MonthlyBilledRevenueDto("2026-01", new BigDecimal("1000"))));
+
+        mockMvc.perform(get("/statistics/billing/revenue/monthly")
+                        .param("from", "2026-01-01")
+                        .param("to", "2026-12-31")
+                        .param("category", "수박"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").value("SUCCESS"))
+                .andExpect(jsonPath("$.data[0].month").value("2026-01"))
+                .andExpect(jsonPath("$.data[0].billedRevenue").value(1000));
+
+        ArgumentCaptor<BillingRevenueStatisticsFilter> captor =
+                ArgumentCaptor.forClass(BillingRevenueStatisticsFilter.class);
+        verify(queryService).getMonthlyRevenue(captor.capture());
+        BillingRevenueStatisticsFilter captured = captor.getValue();
+
+        org.assertj.core.api.Assertions.assertThat(captured.getFromDate().toString()).isEqualTo("2026-01-01");
+        org.assertj.core.api.Assertions.assertThat(captured.getToDate().toString()).isEqualTo("2026-12-31");
+        org.assertj.core.api.Assertions.assertThat(captured.getCategory()).isEqualTo("수박");
+    }
+
+    @Test
+    @DisplayName("구 경로(/api/v1/statistics/...)는 매핑되지 않아 404를 반환한다")
+    void shouldReturn404ForLegacyPath() throws Exception {
+        mockMvc.perform(get("/api/v1/statistics/billing/revenue/monthly")
+                        .param("from", "2026-01-01")
+                        .param("to", "2026-12-31"))
+                .andExpect(status().isNotFound());
+
+        verify(queryService, never()).getMonthlyRevenue(any(BillingRevenueStatisticsFilter.class));
+    }
+
+    @Test
+    @DisplayName("날짜 형식이 잘못되면 400을 반환하고 QueryService를 호출하지 않는다")
+    void shouldReturn400WhenDateFormatInvalid() throws Exception {
+        mockMvc.perform(get("/statistics/billing/revenue/monthly")
+                        .param("from", "2026/01/01")
+                        .param("to", "2026-12-31"))
+                .andExpect(status().isBadRequest());
+
+        verify(queryService, never()).getMonthlyRevenue(any(BillingRevenueStatisticsFilter.class));
+    }
+}
