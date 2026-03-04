@@ -1,5 +1,8 @@
 package com.monsoon.seedflowplus.domain.note.service;
 
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
@@ -25,6 +28,7 @@ import java.util.List;
 public class NoteService {
 
     private final SalesNoteRepository noteRepository;
+    private final ClientRepository clientRepository;
     private final BriefingService briefingService;
     private final AiClient aiClient;
 
@@ -53,7 +57,18 @@ public class NoteService {
      */
     @Transactional
     public SalesNote createNote(NoteRequestDto dto) {
-        Long currentEmployeeId = getCurrentEmployeeId();
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        Long currentEmployeeId = userDetails.getEmployeeId();
+
+        // 영업사원인 경우 본인이 담당하는 거래처인지 확인
+        if (userDetails.getRole() == Role.SALES_REP) {
+            Client client = clientRepository.findById(dto.getClientId())
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다."));
+            
+            if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(currentEmployeeId)) {
+                throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
+            }
+        }
 
         // [자동화] 저장 전 실시간 AI 요약 생성
         List<String> summary = aiClient.summarizeNote(dto.getContent());
