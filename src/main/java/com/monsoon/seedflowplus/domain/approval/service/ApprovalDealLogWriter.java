@@ -130,7 +130,7 @@ public class ApprovalDealLogWriter {
     }
 
     private String approvedStatus(ApprovalRequest request) {
-        return request.getDealType().name().equals("QUO") ? "FINAL_APPROVED" : "COMPLETED";
+        return request.getDealType() == DealType.QUO ? "FINAL_APPROVED" : "COMPLETED";
     }
 
     private String buildDiffJson(Long approvalRequestId, Integer stepOrder, DecisionType decision) {

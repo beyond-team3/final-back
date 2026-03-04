@@ -12,8 +12,10 @@ import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -62,12 +64,13 @@ public class ApprovalController {
 
     @Operation(summary = "승인 요청 검색")
     @GetMapping
-    public ApiResult<List<ApprovalDetailResponse>> search(
+    public ApiResult<Page<ApprovalDetailResponse>> search(
             @RequestParam(required = false) ApprovalStatus status,
             @RequestParam(required = false) DealType dealType,
             @RequestParam(required = false) Long targetId,
+            @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(approvalCommandService.search(status, dealType, targetId, userDetails));
+        return ApiResult.success(approvalCommandService.search(status, dealType, targetId, pageable, userDetails));
     }
 }

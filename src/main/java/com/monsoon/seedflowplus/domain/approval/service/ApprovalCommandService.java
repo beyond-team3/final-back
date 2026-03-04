@@ -21,12 +21,16 @@ import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
-import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -58,6 +62,9 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
         }
 
+        ActorType submitActorType = determineActorTypeFromPrincipal(principal);
+        validateCreateAccess(dto, principal, submitActorType);
+
         ApprovalRequest request = ApprovalRequest.builder()
                 .dealType(dto.dealType())
                 .targetId(dto.targetId())
@@ -87,7 +94,6 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_REQUEST_DUPLICATED);
         }
 
-        ActorType submitActorType = resolveSubmitActorType(dto.submitActorType(), principal);
         Long actorId = submitActorType == ActorType.SYSTEM ? null : principal.getUserId();
         approvalDealLogWriter.writeSubmit(saved, submitActorType, actorId);
 
@@ -163,7 +169,7 @@ public class ApprovalCommandService {
         return toDetail(request);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ApprovalDetailResponse getApproval(Long approvalId, CustomUserDetails principal) {
         ApprovalRequest request = approvalRequestRepository.findById(approvalId)
                 .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_NOT_FOUND));
@@ -171,18 +177,20 @@ public class ApprovalCommandService {
         return toDetail(request);
     }
 
-    @Transactional
-    public List<ApprovalDetailResponse> search(
+    @Transactional(readOnly = true)
+    public Page<ApprovalDetailResponse> search(
             ApprovalStatus status,
             DealType dealType,
             Long targetId,
+            Pageable pageable,
             CustomUserDetails principal
     ) {
-        return approvalRequestRepository.search(status, dealType, targetId)
-                .stream()
+        Page<ApprovalRequest> page = approvalRequestRepository.search(status, dealType, targetId, pageable);
+        List<ApprovalDetailResponse> content = page.getContent().stream()
                 .filter(request -> canAccess(request, principal))
                 .map(this::toDetail)
                 .toList();
+        return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
     private void validateSupportedDealType(DealType dealType) {
@@ -229,21 +237,40 @@ public class ApprovalCommandService {
         throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
     }
 
-    private ActorType resolveSubmitActorType(ActorType requestedActorType, CustomUserDetails principal) {
-        ActorType actorType = requestedActorType == null ? ActorType.SYSTEM : requestedActorType;
-        if (actorType == ActorType.SYSTEM) {
-            return actorType;
+    private ActorType determineActorTypeFromPrincipal(CustomUserDetails principal) {
+        if (principal == null || principal.getRole() == null) {
+            return ActorType.SYSTEM;
         }
-        if (actorType != ActorType.SALES_REP) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "submitActorType must be SYSTEM or SALES_REP");
+        if (principal.getRole() == Role.SALES_REP) {
+            if (principal.getUserId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return ActorType.SALES_REP;
         }
-        if (principal == null || principal.getRole() != Role.SALES_REP) {
-            throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+        return ActorType.SYSTEM;
+    }
+
+    private void validateCreateAccess(
+            CreateApprovalRequestRequest dto,
+            CustomUserDetails principal,
+            ActorType submitActorType
+    ) {
+        if (principal == null || principal.getRole() == null) {
+            return;
         }
-        if (principal.getUserId() == null) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
+        boolean needsClientSnapshotValidation = submitActorType != ActorType.SALES_REP || principal.getRole() == Role.CLIENT;
+        if (!needsClientSnapshotValidation) {
+            return;
         }
-        return actorType;
+        if (principal.getClientId() == null) {
+            return;
+        }
+        if (dto.clientIdSnapshot() == null) {
+            throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
+        }
+        if (!Objects.equals(dto.clientIdSnapshot(), principal.getClientId())) {
+            throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+        }
     }
 
     private ApprovalDetailResponse toDetail(ApprovalRequest request) {
@@ -291,17 +318,24 @@ public class ApprovalCommandService {
         }
         if (principal.getRole() == Role.CLIENT) {
             if (request.getClientIdSnapshot() != null && principal.getClientId() != null) {
-                return request.getClientIdSnapshot().equals(principal.getClientId());
+                return Objects.equals(request.getClientIdSnapshot(), principal.getClientId());
             }
             return salesDealLogRepository
                     .findTopByDocTypeAndRefIdOrderByActionAtDescIdDesc(request.getDealType(), request.getTargetId())
-                    .map(log -> log.getClient().getId().equals(principal.getClientId()))
+                    .map(log -> log != null
+                            && log.getClient() != null
+                            && principal.getClientId() != null
+                            && Objects.equals(log.getClient().getId(), principal.getClientId()))
                     .orElse(false);
         }
         if (principal.getRole() == Role.SALES_REP) {
             return salesDealLogRepository
                     .findTopByDocTypeAndRefIdOrderByActionAtDescIdDesc(request.getDealType(), request.getTargetId())
-                    .map(log -> log.getDeal().getOwnerEmp().getId().equals(principal.getEmployeeId()))
+                    .map(log -> log != null
+                            && log.getDeal() != null
+                            && log.getDeal().getOwnerEmp() != null
+                            && principal.getEmployeeId() != null
+                            && Objects.equals(log.getDeal().getOwnerEmp().getId(), principal.getEmployeeId()))
                     .orElse(false);
         }
         return false;
