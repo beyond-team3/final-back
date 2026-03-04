@@ -85,8 +85,18 @@ public class PestMapService {
 
     private boolean isProductResistantToPest(Product product, String pestCode, String pestName) {
         if (product.getTags() == null || !product.getTags().containsKey("내병성")) return false;
+
+        // 매핑 성공 여부 확인 (코드와 이름이 다르면 매핑 성공으로 간주)
+        boolean isMappingSuccessful = !pestCode.equals(pestName);
+
         return product.getTags().get("내병성").stream()
-                .anyMatch(tag -> tag.contains(pestName) || tag.equalsIgnoreCase(pestCode));
+                .anyMatch(tag -> {
+                    // 1. 코드는 완전 일치 (대소문자 무관)
+                    if (tag.equalsIgnoreCase(pestCode)) return true;
+
+                    // 2. 이름(한글) 매핑 성공 시에만 부분 일치 허용
+                    return isMappingSuccessful && tag.contains(pestName);
+                });
     }
 
     private String extractResistanceTag(Product product) {
