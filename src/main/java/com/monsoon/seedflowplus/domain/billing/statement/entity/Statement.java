@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.billing.statement.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,7 +15,12 @@ import java.math.RoundingMode;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "statement_id"))
-@Table(name = "tbl_statement")
+@Table(
+        name = "tbl_statement",
+        indexes = {
+                @Index(name = "idx_statement_id_status_order", columnList = "statement_id, status, order_id")
+        }
+)
 public class Statement extends BaseCreateEntity {
     // id (Long) → BaseEntity에서 상속
 

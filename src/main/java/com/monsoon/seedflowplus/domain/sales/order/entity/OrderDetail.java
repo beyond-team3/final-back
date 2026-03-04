@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.sales.order.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
+import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -12,7 +13,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "order_detail_id"))
-@Table(name = "tbl_order_detail")
+@Table(
+        name = "tbl_order_detail",
+        indexes = {
+                @Index(name = "idx_order_detail_order_contract", columnList = "order_id, contract_detail_id")
+        }
+)
 public class OrderDetail extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
