@@ -87,8 +87,8 @@ public class QuotationHeader extends BaseModifyEntity {
         if (item == null) {
             throw new IllegalArgumentException("추가할 항목이 null일 수 없습니다.");
         }
-        this.items.add(item);
         item.setQuotation(this);
+        this.items.add(item);
     }
 
     @PrePersist
