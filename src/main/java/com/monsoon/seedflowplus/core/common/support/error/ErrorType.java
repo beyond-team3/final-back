@@ -74,6 +74,8 @@ public enum ErrorType implements ErrorCodeProvider {
     INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, ErrorCode.Q002, "유효하지 않은 문서 상태입니다.", LogLevel.WARN),
     INVALID_CONTRACT_PERIOD(HttpStatus.BAD_REQUEST, ErrorCode.Q003, "계약 종료일은 시작일보다 빠를 수 없습니다.", LogLevel.WARN),
     INVALID_TOTAL_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.Q004, "계약 총액이 견적서와 일치하지 않습니다.", LogLevel.WARN),
+    RFQ_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.Q005, "견적요청서를 찾을 수 없습니다.", LogLevel.WARN),
+    INVALID_DOCUMENT_DATA(HttpStatus.BAD_REQUEST, ErrorCode.Q006, "문서 데이터가 유효하지 않습니다.(제품 불일치 등)", LogLevel.WARN),
 
     // 일정
     PERSONAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK001, "개인 일정을 찾을 수 없습니다.", LogLevel.WARN),
