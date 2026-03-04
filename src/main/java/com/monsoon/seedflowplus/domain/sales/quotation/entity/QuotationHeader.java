@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Getter
@@ -56,7 +57,7 @@ public class QuotationHeader extends BaseModifyEntity {
                             Employee author, BigDecimal totalAmount, String memo) {
         this.quotationRequest = quotationRequest;
         this.quotationCode = quotationCode;
-        this.client = client;
+        this.client = Objects.requireNonNull(client, "거래처 정보는 필수입니다.");
         this.author = author;
         this.totalAmount = totalAmount;
         this.memo = memo;
@@ -70,21 +71,21 @@ public class QuotationHeader extends BaseModifyEntity {
 
     public void updateQuotationCode(String quotationCode) {
         if (quotationCode == null || quotationCode.isBlank()) {
-            throw new IllegalArgumentException("quotationCode must not be null or blank");
+            throw new IllegalArgumentException("견적 코드는 필수이며 공백일 수 없습니다.");
         }
         this.quotationCode = quotationCode;
     }
 
     public void updateStatus(QuotationStatus status) {
         if (status == null) {
-            throw new IllegalArgumentException("status must not be null");
+            throw new IllegalArgumentException("변경할 상태 값이 존재하지 않습니다.");
         }
         this.status = status;
     }
 
     public void addItem(QuotationDetail item) {
         if (item == null) {
-            throw new IllegalArgumentException("item must not be null");
+            throw new IllegalArgumentException("추가할 항목이 null일 수 없습니다.");
         }
         this.items.add(item);
         item.setQuotation(this);
