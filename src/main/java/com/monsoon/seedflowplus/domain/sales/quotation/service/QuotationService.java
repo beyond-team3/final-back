@@ -188,7 +188,7 @@ public class QuotationService {
                         q.getQuotationCode(),
                         q.getClient().getClientName(),
                         q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
-                        q.getCreatedAt(),
+                        q.getCreatedAt().toLocalDate(),
                         q.getStatus()))
                 .toList();
     }
