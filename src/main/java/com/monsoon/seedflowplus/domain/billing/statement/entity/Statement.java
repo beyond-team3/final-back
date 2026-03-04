@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 @AttributeOverride(name = "id", column = @Column(name = "statement_id"))
 @Table(
         name = "tbl_statement",
+        // 통계 전용 인덱스
         indexes = {
                 @Index(name = "idx_statement_id_status_order", columnList = "statement_id, status, order_id")
         }

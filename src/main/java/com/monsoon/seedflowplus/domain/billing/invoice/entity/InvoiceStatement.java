@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @AttributeOverride(name = "id", column = @Column(name = "invoice_statement_id"))
 @Table(name = "tbl_invoice_statement",
         uniqueConstraints = @UniqueConstraint(columnNames = {"invoice_id", "statement_id"}),
+        // 통계 전용 인덱스
         indexes = {
                 @Index(name = "idx_invoice_statement_invoice_included", columnList = "invoice_id, is_included")
         })

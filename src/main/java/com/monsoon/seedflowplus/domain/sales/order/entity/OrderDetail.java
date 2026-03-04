@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 @AttributeOverride(name = "id", column = @Column(name = "order_detail_id"))
 @Table(
         name = "tbl_order_detail",
+        // 통계 전용 인덱스
         indexes = {
                 @Index(name = "idx_order_detail_order_contract", columnList = "order_id, contract_detail_id")
         }

@@ -19,6 +19,7 @@ import java.time.LocalDate;
 @AttributeOverride(name = "id", column = @Column(name = "invoice_id"))
 @Table(
         name = "tbl_invoice",
+        // 통계 전용 인덱스
         indexes = {
                 @Index(name = "idx_invoice_status_date", columnList = "status, invoice_date")
         }
