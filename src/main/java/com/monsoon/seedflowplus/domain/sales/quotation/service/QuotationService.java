@@ -143,6 +143,10 @@ public class QuotationService {
         QuotationHeader quotation = quotationRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
+        if (quotation.getStatus() == QuotationStatus.DELETED) {
+            throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
+        }
+
         // 1. 접근 권한 상위 레벨 확인 (ADMIN, SALES_REP 담당자, CLIENT 담당자)
         validateAccess(quotation, userDetails);
 
