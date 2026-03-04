@@ -8,7 +8,9 @@ import static org.mockito.Mockito.when;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.CategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyCategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.repository.BillingRevenueStatisticsRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -80,11 +82,41 @@ class BillingRevenueStatisticsQueryServiceTest {
         verify(repository).findMonthlyRevenue(filter);
     }
 
+    @Test
+    @DisplayName("getCategoryRevenue는 유효한 기간에서 repository를 1회 호출한다")
+    void shouldCallCategoryRepositoryWhenDateRangeWithin24Months() {
+        BillingRevenueStatisticsFilter filter = filter(
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                "수박"
+        );
+
+        when(repository.findCategoryRevenue(filter))
+                .thenReturn(List.of(new CategoryBilledRevenueDto("수박", BigDecimal.ONE)));
+
+        queryService.getCategoryRevenue(filter);
+
+        verify(repository).findCategoryRevenue(filter);
+    }
+
+    @Test
+    @DisplayName("getMonthlyCategoryRevenue는 유효한 기간에서 repository를 1회 호출한다")
+    void shouldCallMonthlyCategoryRepositoryWhenDateRangeWithin24Months() {
+        BillingRevenueStatisticsFilter filter = filter(
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                "수박"
+        );
+
+        when(repository.findMonthlyCategoryRevenue(filter))
+                .thenReturn(List.of(new MonthlyCategoryBilledRevenueDto("2026-01", "수박", BigDecimal.ONE)));
+
+        queryService.getMonthlyCategoryRevenue(filter);
+
+        verify(repository).findMonthlyCategoryRevenue(filter);
+    }
+
     private BillingRevenueStatisticsFilter filter(LocalDate from, LocalDate to, String category) {
-        BillingRevenueStatisticsFilter filter = new BillingRevenueStatisticsFilter();
-        filter.setFromDate(from);
-        filter.setToDate(to);
-        filter.setCategory(category);
-        return filter;
+        return new BillingRevenueStatisticsFilter(from, to, category);
     }
 }
