@@ -219,6 +219,12 @@ public class QuotationService {
 
         // 3. 논리 삭제 처리
         quotation.updateStatus(QuotationStatus.DELETED);
+
+        // 4. 관련 RFQ 상태 복구 (검토 중인 경우 다시 대기 상태로)
+        if (quotation.getQuotationRequest() != null
+                && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
+            quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
+        }
     }
 
     private void validateAccess(QuotationHeader quotation, CustomUserDetails user) {
