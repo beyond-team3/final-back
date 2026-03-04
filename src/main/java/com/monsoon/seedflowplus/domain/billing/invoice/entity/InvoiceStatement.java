@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseEntity;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
+import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -12,7 +13,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "invoice_statement_id"))
 @Table(name = "tbl_invoice_statement",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"invoice_id", "statement_id"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"invoice_id", "statement_id"}),
+        // 통계 전용 인덱스
+        indexes = {
+                @Index(name = "idx_invoice_statement_invoice_included", columnList = "invoice_id, is_included")
+        })
 public class InvoiceStatement extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

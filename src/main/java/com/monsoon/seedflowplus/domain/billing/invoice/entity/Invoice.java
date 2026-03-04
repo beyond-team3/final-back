@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.entity;
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,7 +17,13 @@ import java.time.LocalDate;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @AttributeOverride(name = "id", column = @Column(name = "invoice_id"))
-@Table(name = "tbl_invoice")
+@Table(
+        name = "tbl_invoice",
+        // 통계 전용 인덱스
+        indexes = {
+                @Index(name = "idx_invoice_status_date", columnList = "status, invoice_date")
+        }
+)
 public class Invoice extends BaseCreateEntity {
     @Column(name = "invoice_code", nullable = false, unique = true, length = 20)
     private String invoiceCode;   // INV-20260223-001
