@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "tbl_clientscore")
+@Table(name = "tbl_account_score")
 @AttributeOverride(name = "id", column = @Column(name = "account_score_id"))
 public class AccountScore extends BaseModifyEntity {
 
