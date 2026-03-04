@@ -1,5 +1,8 @@
 package com.monsoon.seedflowplus.domain.note.service;
 
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
@@ -8,6 +11,7 @@ import com.monsoon.seedflowplus.infra.ai.AiClient;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -25,6 +30,7 @@ import java.util.List;
 public class NoteService {
 
     private final SalesNoteRepository noteRepository;
+    private final ClientRepository clientRepository;
     private final BriefingService briefingService;
     private final AiClient aiClient;
 
@@ -53,7 +59,28 @@ public class NoteService {
      */
     @Transactional
     public SalesNote createNote(NoteRequestDto dto) {
-        Long currentEmployeeId = getCurrentEmployeeId();
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        Long currentEmployeeId = userDetails.getEmployeeId();
+        Role role = userDetails.getRole();
+
+        // [리팩토링] 역할별 권한 검증 (AccountService 패턴 적용)
+        if (role == Role.ADMIN) {
+            // 관리자는 모든 거래처에 대해 노트 작성이 가능하며, 거래처 존재 여부만 확인
+            if (!clientRepository.existsById(dto.getClientId())) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다.");
+            }
+        } else if (role == Role.SALES_REP) {
+            // 영업사원은 본인이 담당하는 거래처인지 확인
+            Client client = clientRepository.findById(dto.getClientId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다."));
+
+            if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(currentEmployeeId)) {
+                throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
+            }
+        } else {
+            // 그 외 역할(CLIENT 등)은 영업 활동 기록 작성 불가
+            throw new AccessDeniedException("노트 작성 권한이 없습니다.");
+        }
 
         // [자동화] 저장 전 실시간 AI 요약 생성
         List<String> summary = aiClient.summarizeNote(dto.getContent());
@@ -75,7 +102,7 @@ public class NoteService {
     public SalesNote updateNote(Long id, NoteRequestDto dto) {
         CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("해당 노트를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 노트를 찾을 수 없습니다. ID: " + id));
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
@@ -99,7 +126,7 @@ public class NoteService {
     public void deleteNote(Long id) {
         CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("삭제할 노트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 노트를 찾을 수 없습니다."));
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
