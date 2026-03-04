@@ -151,8 +151,7 @@ class ApprovalCommandServiceTest {
                 DealType.QUO,
                 500L,
                 null,
-                "Q-500",
-                null
+                "Q-500"
         );
 
         when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(
