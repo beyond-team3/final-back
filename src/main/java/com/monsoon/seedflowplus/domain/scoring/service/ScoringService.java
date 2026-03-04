@@ -91,19 +91,7 @@ public class ScoringService {
         String detail = reasons[1];
 
         // 4. DB 영속화 (AccountScore 엔티티 활용)
-        accountScoreRepository.findByClient_Id(clientId)
-                .ifPresentOrElse(
-                        existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
-                        () -> accountScoreRepository.save(AccountScore.builder()
-                                .client(client)
-                                .totalScore(total)
-                                .contractScore(cScore)
-                                .orderScore(oScore)
-                                .visitScore(vScore)
-                                .primaryReason(reason)
-                                .detailDescription(detail)
-                                .build())
-                );
+        upsertScore(client, total, cScore, oScore, vScore, reason, detail);
 
         return AccountPriorityResponse.builder()
                 .accountId(client.getId())
@@ -113,6 +101,34 @@ public class ScoringService {
                 .detailDescription(detail)
                 .breakdown(new AccountPriorityResponse.ScoreBreakdown(cScore, oScore, vScore))
                 .build();
+    }
+
+    private void upsertScore(Client client, double total, double cScore, double oScore, double vScore, String reason, String detail) {
+        Long clientId = client.getId();
+        try {
+            accountScoreRepository.findByClient_Id(clientId)
+                    .ifPresentOrElse(
+                            existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
+                            () -> accountScoreRepository.save(AccountScore.builder()
+                                    .client(client)
+                                    .totalScore(total)
+                                    .contractScore(cScore)
+                                    .orderScore(oScore)
+                                    .visitScore(vScore)
+                                    .primaryReason(reason)
+                                    .detailDescription(detail)
+                                    .build())
+                    );
+            // JPA 변경 감지가 동작하도록 flush 강제 (unique 제약 조건 위반 확인을 위해)
+            accountScoreRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 중복 삽입 에러 발생 시(경합 상황), 다시 조회하여 업데이트 시도
+            accountScoreRepository.findByClient_Id(clientId)
+                    .ifPresent(existingScore -> {
+                        existingScore.updateScore(total, cScore, oScore, vScore, reason, detail);
+                        accountScoreRepository.save(existingScore);
+                    });
+        }
     }
 
     private double calculateContractScore(LocalDate expiry, LocalDate today) {
