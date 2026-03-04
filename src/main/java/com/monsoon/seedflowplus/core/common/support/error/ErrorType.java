@@ -77,6 +77,17 @@ public enum ErrorType implements ErrorCodeProvider {
     // 일정
     PERSONAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK001, "개인 일정을 찾을 수 없습니다.", LogLevel.WARN),
     DEAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK002, "거래 일정을 찾을 수 없습니다.", LogLevel.WARN),
+
+    // 승인
+    APPROVAL_REQUEST_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.AP001, "이미 진행 중인 승인 요청이 존재합니다.", LogLevel.WARN),
+    APPROVAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AP002, "승인 요청을 찾을 수 없습니다.", LogLevel.WARN),
+    APPROVAL_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AP003, "승인 단계를 찾을 수 없습니다.", LogLevel.WARN),
+    APPROVAL_ALREADY_DECIDED(HttpStatus.CONFLICT, ErrorCode.AP004, "이미 결정된 승인 단계입니다.", LogLevel.WARN),
+    APPROVAL_STEP_NOT_ACTIVE(HttpStatus.CONFLICT, ErrorCode.AP005, "현재 처리할 수 없는 승인 단계입니다.", LogLevel.WARN),
+    APPROVAL_REASON_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP006, "반려 사유는 필수입니다.", LogLevel.WARN),
+    APPROVAL_ROLE_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP007, "해당 단계의 승인 권한이 없습니다.", LogLevel.WARN),
+    APPROVAL_CLIENT_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP008, "승인 요청의 거래처 정보와 로그인 사용자가 일치하지 않습니다.", LogLevel.WARN),
+    APPROVAL_CLIENT_SNAPSHOT_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP009, "계약서 승인 요청에는 clientIdSnapshot이 필요합니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;
