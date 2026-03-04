@@ -297,7 +297,8 @@ public class ContractService {
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
             quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
-            if (quotation.getQuotationRequest() != null) {
+            if (quotation.getQuotationRequest() != null &&
+                    quotation.getQuotationRequest().getStatus() != QuotationRequestStatus.DELETED) {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
             }
         }
