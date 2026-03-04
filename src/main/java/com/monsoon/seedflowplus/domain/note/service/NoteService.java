@@ -61,15 +61,25 @@ public class NoteService {
     public SalesNote createNote(NoteRequestDto dto) {
         CustomUserDetails userDetails = getCurrentUserDetails();
         Long currentEmployeeId = userDetails.getEmployeeId();
+        Role role = userDetails.getRole();
 
-        // 영업사원인 경우 본인이 담당하는 거래처인지 확인
-        if (userDetails.getRole() == Role.SALES_REP) {
+        // [리팩토링] 역할별 권한 검증 (AccountService 패턴 적용)
+        if (role == Role.ADMIN) {
+            // 관리자는 모든 거래처에 대해 노트 작성이 가능하며, 거래처 존재 여부만 확인
+            if (!clientRepository.existsById(dto.getClientId())) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다.");
+            }
+        } else if (role == Role.SALES_REP) {
+            // 영업사원은 본인이 담당하는 거래처인지 확인
             Client client = clientRepository.findById(dto.getClientId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다."));
-            
+
             if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(currentEmployeeId)) {
                 throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
             }
+        } else {
+            // 그 외 역할(CLIENT 등)은 영업 활동 기록 작성 불가
+            throw new AccessDeniedException("노트 작성 권한이 없습니다.");
         }
 
         // [자동화] 저장 전 실시간 AI 요약 생성
