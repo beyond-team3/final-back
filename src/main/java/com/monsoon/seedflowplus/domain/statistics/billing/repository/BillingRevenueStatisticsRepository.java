@@ -40,9 +40,10 @@ public class BillingRevenueStatisticsRepository {
     public List<MonthlyBilledRevenueDto> findMonthlyRevenue(BillingRevenueStatisticsFilter filter) {
         StringExpression monthExpr = monthExpression();
         NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> sumExpr = amountExpr.sum().coalesce(BigDecimal.ZERO);
 
         List<Tuple> rows = queryFactory
-                .select(monthExpr, amountExpr.sum().coalesce(BigDecimal.ZERO))
+                .select(monthExpr, sumExpr)
                 .from(invoice)
                 .where(
                         invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
@@ -56,7 +57,7 @@ public class BillingRevenueStatisticsRepository {
         return rows.stream()
                 .map(row -> new MonthlyBilledRevenueDto(
                         row.get(monthExpr),
-                        Objects.requireNonNullElse(row.get(amountExpr.sum().coalesce(BigDecimal.ZERO)), BigDecimal.ZERO)
+                        Objects.requireNonNullElse(row.get(sumExpr), BigDecimal.ZERO)
                 ))
                 .toList();
     }
@@ -80,7 +81,7 @@ public class BillingRevenueStatisticsRepository {
                         categoryEq(filter.getCategory())
                 )
                 // invoice+category 단위로 1회만 집계되도록 중복 제거
-                .groupBy(categoryExpr, invoice.id, amountExpr)
+                .groupBy(categoryExpr, invoice.id)
                 .fetch();
 
         Map<String, BigDecimal> grouped = rows.stream()
@@ -119,7 +120,7 @@ public class BillingRevenueStatisticsRepository {
                         categoryEq(filter.getCategory())
                 )
                 // invoice+month+category 단위로 1회만 집계되도록 중복 제거
-                .groupBy(monthExpr, categoryExpr, invoice.id, amountExpr)
+                .groupBy(monthExpr, categoryExpr, invoice.id)
                 .fetch();
 
         Map<MonthCategoryKey, BigDecimal> grouped = rows.stream()
@@ -147,6 +148,7 @@ public class BillingRevenueStatisticsRepository {
     }
 
     private StringExpression monthExpression() {
+        // MySQL 및 H2(MODE=MySQL) 환경 기준 월 키 포맷
         return Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m')", invoice.invoiceDate);
     }
 

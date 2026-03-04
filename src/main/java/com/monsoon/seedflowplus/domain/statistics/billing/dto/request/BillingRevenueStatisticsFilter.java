@@ -2,11 +2,13 @@ package com.monsoon.seedflowplus.domain.statistics.billing.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class BillingRevenueStatisticsFilter {
 
     @NotNull

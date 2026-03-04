@@ -19,7 +19,7 @@ import java.math.RoundingMode;
         name = "tbl_statement",
         // 통계 전용 인덱스
         indexes = {
-                @Index(name = "idx_statement_id_status_order", columnList = "statement_id, status, order_id")
+                @Index(name = "idx_statement_status_order", columnList = "status, order_id")
         }
 )
 public class Statement extends BaseCreateEntity {

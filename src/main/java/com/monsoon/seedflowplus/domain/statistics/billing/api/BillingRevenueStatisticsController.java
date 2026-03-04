@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Billing Statistics API", description = "청구 매출 통계 조회 API")
+// `/api/v1` 프리픽스는 의도적으로 제외한다.
+// 관련 검증: BillingRevenueStatisticsControllerTest.shouldReturn404ForLegacyPath
 @RestController("billingRevenueStatisticsApiController")
 @RequestMapping("/statistics/billing/revenue")
 @RequiredArgsConstructor
@@ -81,10 +83,6 @@ public class BillingRevenueStatisticsController {
     }
 
     private BillingRevenueStatisticsFilter toFilter(LocalDate from, LocalDate to, String category) {
-        BillingRevenueStatisticsFilter filter = new BillingRevenueStatisticsFilter();
-        filter.setFromDate(from);
-        filter.setToDate(to);
-        filter.setCategory(category);
-        return filter;
+        return new BillingRevenueStatisticsFilter(from, to, category);
     }
 }
