@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Schema(description = "견적서 목록 응답")
 public record QuotationListResponse(
@@ -16,7 +16,7 @@ public record QuotationListResponse(
 
         @Schema(description = "담당 영업사원명") String managerName,
 
-        @Schema(description = "작성일 (YYYY-MM-DD)") @JsonFormat(pattern = "yyyy-MM-dd") LocalDateTime createdAt,
+        @Schema(description = "작성일 (YYYY-MM-DD)") @JsonFormat(pattern = "yyyy-MM-dd") LocalDate createdAt,
 
         @Schema(description = "견적서 상태") QuotationStatus status) {
 }
