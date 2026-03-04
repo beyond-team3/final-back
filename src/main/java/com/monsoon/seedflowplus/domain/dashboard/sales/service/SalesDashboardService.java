@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.dashboard.sales.service;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.dashboard.sales.dto.*;
 import com.monsoon.seedflowplus.domain.dashboard.sales.repository.SalesDashboardRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,12 @@ public class SalesDashboardService {
     );
 
     public SalesDashboardResponse getDashboard(Long employeeId) {
-        String employeeName = repo.findEmployeeName(employeeId);
+        String employeeName;
+        try {
+            employeeName = repo.findEmployeeName(employeeId);
+        } catch (java.util.NoSuchElementException e) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_FOUND);
+        }
         LocalDate today = LocalDate.now();
         LocalDate thisMonthStart = today.withDayOfMonth(1);
         LocalDate thisMonthEnd   = today.withDayOfMonth(today.lengthOfMonth());
