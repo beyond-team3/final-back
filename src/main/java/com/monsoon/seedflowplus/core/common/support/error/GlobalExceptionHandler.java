@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
                             case 400 -> ErrorCode.C002;
                             case 401 -> ErrorCode.A001;
                             case 403 -> ErrorCode.A002;
-                            case 404 -> ErrorCode.E500; // Not Found에 딱 맞는 공통 코드가 없으면 E500 또는 전용 코드 사용
+                            case 404 -> ErrorCode.C001;
                             case 405 -> ErrorCode.C003;
                             default -> ErrorCode.E500;
                         };

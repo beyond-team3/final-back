@@ -11,6 +11,7 @@ import com.monsoon.seedflowplus.infra.ai.AiClient;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -63,7 +65,7 @@ public class NoteService {
         // 영업사원인 경우 본인이 담당하는 거래처인지 확인
         if (userDetails.getRole() == Role.SALES_REP) {
             Client client = clientRepository.findById(dto.getClientId())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다."));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다."));
             
             if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(currentEmployeeId)) {
                 throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
@@ -90,7 +92,7 @@ public class NoteService {
     public SalesNote updateNote(Long id, NoteRequestDto dto) {
         CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("해당 노트를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 노트를 찾을 수 없습니다. ID: " + id));
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
@@ -114,7 +116,7 @@ public class NoteService {
     public void deleteNote(Long id) {
         CustomUserDetails userDetails = getCurrentUserDetails();
         SalesNote note = noteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("삭제할 노트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 노트를 찾을 수 없습니다."));
 
         // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
