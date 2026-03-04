@@ -159,6 +159,18 @@ public class ContractService {
         }
 
         contract.delete();
+
+        // 연관된 견적서 및 견적요청서 상태 복구
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation != null) {
+            // 견적서 상태: 계약 진행 중 -> 최종 승인 상태로 복구
+            quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+
+            // 견적요청서 상태: 완료 -> 검토 중 상태로 복구
+            if (quotation.getQuotationRequest() != null) {
+                quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
+            }
+        }
     }
 
     @Transactional
