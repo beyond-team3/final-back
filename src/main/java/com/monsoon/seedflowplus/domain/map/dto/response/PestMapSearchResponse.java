@@ -20,6 +20,7 @@ public class PestMapSearchResponse {
     @Getter
     @Builder
     public static class ProductDto {
+        private Long id;
         private String name;
         private String description;
         private String resistance;

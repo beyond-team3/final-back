@@ -59,6 +59,7 @@ public class PestMapService {
                     .stream()
                     .filter(p -> isProductResistantToPest(p, request.getPestCode(), targetPestName))
                     .map(p -> PestMapSearchResponse.ProductDto.builder()
+                            .id(p.getId())
                             .name(p.getProductName())
                             .description(p.getProductDescription())
                             .resistance(extractResistanceTag(p))
