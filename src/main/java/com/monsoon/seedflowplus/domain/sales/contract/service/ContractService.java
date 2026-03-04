@@ -18,6 +18,7 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -205,14 +206,39 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_CONTRACT_PERIOD);
         }
 
-        // 3. 계약 총액 계산 (품목별 합계)
+        // 3. 계약 총액 및 품목 일치 검증
         BigDecimal totalAmount = request.items().stream()
                 .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 견적서 기반 작성 시 총액 검증
-        if (quotation != null && totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
-            throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+        if (quotation != null) {
+            // 품목 개수 비교
+            if (request.items().size() != quotation.getItems().size()) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 개수가 견적서와 일치하지 않습니다.");
+            }
+
+            // 각 품목 상세 비교 (상품 정보, 수량, 단가)
+            for (int i = 0; i < request.items().size(); i++) {
+                ContractCreateRequest.Item requestItem = request.items().get(i);
+                com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail quotationItem = quotation
+                        .getItems().get(i);
+
+                boolean isProductMismatch = (requestItem.productId() != null && quotationItem.getProduct() != null &&
+                        !requestItem.productId().equals(quotationItem.getProduct().getId())) ||
+                        (requestItem.productId() == null && quotationItem.getProduct() != null) ||
+                        (requestItem.productId() != null && quotationItem.getProduct() == null);
+
+                if (isProductMismatch ||
+                        !requestItem.totalQuantity().equals(quotationItem.getQuantity()) ||
+                        requestItem.unitPrice().compareTo(quotationItem.getUnitPrice()) != 0) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 정보(상품, 수량, 단가)가 견적서와 일치하지 않습니다.");
+                }
+            }
+
+            // 총액 검증
+            if (totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
+                throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+            }
         }
 
         // 4. 계약서 헤더 생성 (임시 코드 사용 - 충돌 방지를 위해 UUID 사용)
@@ -253,6 +279,14 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
+
+        // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
+        if (quotation != null) {
+            quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
+            if (quotation.getQuotationRequest() != null) {
+                quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
+            }
+        }
     }
 
     private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
