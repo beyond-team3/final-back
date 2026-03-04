@@ -44,9 +44,10 @@ public class PestMapService {
 
         // 카테고리가 정상적으로 매핑되었을 때만 DB 조회 실행
         if (category != null) {
+            String targetPestName = mapPestCodeToName(request.getPestCode());
             products = productRepository.findByProductCategory(category)
                     .stream()
-                    .filter(p -> isProductResistantToPest(p, request.getPestCode()))
+                    .filter(p -> isProductResistantToPest(p, request.getPestCode(), targetPestName))
                     .map(p -> PestMapSearchResponse.ProductDto.builder()
                             .name(p.getProductName())
                             .description(p.getProductDescription())
@@ -82,11 +83,10 @@ public class PestMapService {
                 .collect(Collectors.toList());
     }
 
-    private boolean isProductResistantToPest(Product product, String pestCode) {
+    private boolean isProductResistantToPest(Product product, String pestCode, String pestName) {
         if (product.getTags() == null || !product.getTags().containsKey("내병성")) return false;
-        String pestName = mapPestCodeToName(pestCode);
         return product.getTags().get("내병성").stream()
-                .anyMatch(tag -> tag.contains(pestName) || tag.contains(pestCode));
+                .anyMatch(tag -> tag.contains(pestName) || tag.equalsIgnoreCase(pestCode));
     }
 
     private String extractResistanceTag(Product product) {
@@ -114,10 +114,11 @@ public class PestMapService {
 
     private String mapPestCodeToName(String pestCode) {
         return switch (pestCode) {
-            case "PP01" -> "탄저병";
+            case "P01", "CB03", "GR01" -> "노균병";
+            case "P02", "CB01", "RD01" -> "무름병";
+            case "P03", "PP01" -> "탄저병";
+            case "P04" -> "뿌리혹병";
             case "PP02", "TM01" -> "역병";
-            case "CB01", "RD01" -> "무름병";
-            case "CB03", "GR01" -> "노균병";
             default -> pestCode;
         };
     }
