@@ -71,7 +71,7 @@ public class ProductController {
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 전체목록 조회", description = "상품 리스트를 반환합니다.")
     public ResponseEntity<List<ProductResponse>> getAllProducts(
             @io.swagger.v3.oas.annotations.Parameter(description = "10~500 숫자") @RequestParam(defaultValue = "10") int limit,
-            @ModelAttribute ProductSearchCondition condition,
+            @org.springdoc.core.annotations.ParameterObject @ModelAttribute ProductSearchCondition condition,
             @AuthenticationPrincipal UserDetails userDetails) {
         Role role = extractRoleFromUserDetails(userDetails);
 
@@ -144,10 +144,7 @@ public class ProductController {
 
     // 유사도 분석
     @GetMapping("/{productId}/similar")
-    @io.swagger.v3.oas.annotations.Operation(
-            summary = "유사 상품 추천",
-            description = "태그·재배적기·카테고리 기준 유사도를 계산하여 상위 N개 상품을 반환합니다."
-    )
+    @io.swagger.v3.oas.annotations.Operation(summary = "유사 상품 추천", description = "태그·재배적기·카테고리 기준 유사도를 계산하여 상위 N개 상품을 반환합니다.")
     public ResponseEntity<SimilarProductResponse> getSimilarProducts(
             @PathVariable Long productId,
             @RequestParam(defaultValue = "10") int limit,

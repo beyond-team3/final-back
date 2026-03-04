@@ -8,6 +8,7 @@ public enum ErrorType implements ErrorCodeProvider {
     // 기본 에러 발생
     DEFAULT_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.E500, "예기치 않은 오류가 발생했습니다.", LogLevel.ERROR),
 
+    NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.C001, "요청한 리소스를 찾을 수 없습니다.", LogLevel.WARN),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, ErrorCode.C002, "잘못된 입력값입니다.", LogLevel.WARN),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, ErrorCode.C003, "지원하지 않는 HTTP 메서드입니다.", LogLevel.WARN),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, ErrorCode.C004, "잘못된 타입입니다.", LogLevel.WARN),
@@ -53,6 +54,10 @@ public enum ErrorType implements ErrorCodeProvider {
     // 딜 로그
     DEAL_LOG_DETAIL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D001, "DealLogDetail을 찾을 수 없습니다.", LogLevel.WARN),
     INVALID_DOC_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, ErrorCode.D002, "허용되지 않은 문서 상태 전이입니다.", LogLevel.WARN),
+    DEAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.D003, "딜을 찾을 수 없습니다.", LogLevel.WARN),
+
+    // 알림
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.N001, "알림을 찾을 수 없습니다.", LogLevel.WARN),
 
     // 계정
     CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.A101, "거래처를 찾을 수 없습니다.", LogLevel.WARN),
@@ -69,6 +74,23 @@ public enum ErrorType implements ErrorCodeProvider {
     INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, ErrorCode.Q002, "유효하지 않은 문서 상태입니다.", LogLevel.WARN),
     INVALID_CONTRACT_PERIOD(HttpStatus.BAD_REQUEST, ErrorCode.Q003, "계약 종료일은 시작일보다 빠를 수 없습니다.", LogLevel.WARN),
     INVALID_TOTAL_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.Q004, "계약 총액이 견적서와 일치하지 않습니다.", LogLevel.WARN),
+    RFQ_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.Q005, "견적요청서를 찾을 수 없습니다.", LogLevel.WARN),
+    INVALID_DOCUMENT_DATA(HttpStatus.BAD_REQUEST, ErrorCode.Q006, "문서 데이터가 유효하지 않습니다.(제품 불일치 등)", LogLevel.WARN),
+
+    // 일정
+    PERSONAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK001, "개인 일정을 찾을 수 없습니다.", LogLevel.WARN),
+    DEAL_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.SK002, "거래 일정을 찾을 수 없습니다.", LogLevel.WARN),
+
+    // 승인
+    APPROVAL_REQUEST_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.AP001, "이미 진행 중인 승인 요청이 존재합니다.", LogLevel.WARN),
+    APPROVAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AP002, "승인 요청을 찾을 수 없습니다.", LogLevel.WARN),
+    APPROVAL_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AP003, "승인 단계를 찾을 수 없습니다.", LogLevel.WARN),
+    APPROVAL_ALREADY_DECIDED(HttpStatus.CONFLICT, ErrorCode.AP004, "이미 결정된 승인 단계입니다.", LogLevel.WARN),
+    APPROVAL_STEP_NOT_ACTIVE(HttpStatus.CONFLICT, ErrorCode.AP005, "현재 처리할 수 없는 승인 단계입니다.", LogLevel.WARN),
+    APPROVAL_REASON_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP006, "반려 사유는 필수입니다.", LogLevel.WARN),
+    APPROVAL_ROLE_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP007, "해당 단계의 승인 권한이 없습니다.", LogLevel.WARN),
+    APPROVAL_CLIENT_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP008, "승인 요청의 거래처 정보와 로그인 사용자가 일치하지 않습니다.", LogLevel.WARN),
+    APPROVAL_CLIENT_SNAPSHOT_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP009, "계약서 승인 요청에는 clientIdSnapshot이 필요합니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;

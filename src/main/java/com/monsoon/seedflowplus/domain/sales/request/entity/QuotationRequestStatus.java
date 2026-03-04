@@ -5,5 +5,6 @@ import com.monsoon.seedflowplus.domain.deal.common.DocumentStatus;
 public enum QuotationRequestStatus implements DocumentStatus {
     PENDING, // 대기
     REVIEWING, // 검토
-    COMPLETED // 완료
+    COMPLETED, // 완료
+    DELETED // 삭제 == 취소
 }

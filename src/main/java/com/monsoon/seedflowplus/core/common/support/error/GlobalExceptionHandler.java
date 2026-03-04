@@ -36,17 +36,31 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(new ErrorCodeProvider() {
                     @Override
                     public Object getCode() {
-                        return ErrorCode.E500; // 또는 상황에 맞는 기본 코드
+                        int status = e.getStatusCode().value();
+                        if (status >= 400 && status < 500) {
+                            return switch (status) {
+                                case 401 -> ErrorCode.A001;
+                                case 403 -> ErrorCode.A002;
+                                case 404 -> ErrorCode.C001;
+                                case 405 -> ErrorCode.C003;
+                                default -> ErrorCode.C002; // 400, 409, 422 등은 기본적으로 C002(잘못된 요청) 반환
+                            };
+                        }
+                        return ErrorCode.E500;
                     }
 
                     @Override
                     public String getMessage() {
-                        return e.getReason();
+                        return e.getReason() != null ? e.getReason() : "요청을 처리하는 중 오류가 발생했습니다.";
                     }
 
                     @Override
                     public HttpStatus getHttpStatus() {
-                        return HttpStatus.valueOf(e.getStatusCode().value());
+                        HttpStatus resolved = HttpStatus.resolve(e.getStatusCode().value());
+                        if (resolved != null) {
+                            return resolved;
+                        }
+                        return e.getStatusCode().is4xxClientError() ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
                     }
                 }));
     }
