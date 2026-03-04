@@ -232,22 +232,21 @@ public class ContractService {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 개수가 견적서와 일치하지 않습니다.");
             }
 
-            // 각 품목 상세 비교 (상품 정보, 수량, 단가)
-            for (int i = 0; i < request.items().size(); i++) {
-                ContractCreateRequest.Item requestItem = request.items().get(i);
-                com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail quotationItem = quotation
-                        .getItems().get(i);
+            // 각 품목 상세 비교 (순서 비의존 비교를 위해 정렬된 키 활용)
+            List<String> requestKeys = request.items().stream()
+                    .map(i -> (i.productId() == null ? "NULL" : i.productId()) + "|" +
+                            i.totalQuantity() + "|" + i.unitPrice())
+                    .sorted()
+                    .toList();
 
-                boolean isProductMismatch = (requestItem.productId() != null && quotationItem.getProduct() != null &&
-                        !requestItem.productId().equals(quotationItem.getProduct().getId())) ||
-                        (requestItem.productId() == null && quotationItem.getProduct() != null) ||
-                        (requestItem.productId() != null && quotationItem.getProduct() == null);
+            List<String> quotationKeys = quotation.getItems().stream()
+                    .map(i -> (i.getProduct() == null ? "NULL" : i.getProduct().getId()) + "|" +
+                            i.getQuantity() + "|" + i.getUnitPrice())
+                    .sorted()
+                    .toList();
 
-                if (isProductMismatch ||
-                        !requestItem.totalQuantity().equals(quotationItem.getQuantity()) ||
-                        requestItem.unitPrice().compareTo(quotationItem.getUnitPrice()) != 0) {
-                    throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 정보(상품, 수량, 단가)가 견적서와 일치하지 않습니다.");
-                }
+            if (!requestKeys.equals(quotationKeys)) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 정보(상품, 수량, 단가)가 견적서와 일치하지 않습니다.");
             }
 
             // 총액 검증
