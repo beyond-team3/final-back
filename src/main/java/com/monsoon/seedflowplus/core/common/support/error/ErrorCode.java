@@ -50,5 +50,5 @@ public enum ErrorCode {
     N001,
 
     // 견적서
-    Q001, Q002, Q003, Q004
+    Q001, Q002, Q003, Q004, Q005, Q006
 }
