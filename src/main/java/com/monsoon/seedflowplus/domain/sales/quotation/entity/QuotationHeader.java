@@ -64,11 +64,14 @@ public class QuotationHeader extends BaseModifyEntity {
     }
 
     public static QuotationHeader create(QuotationRequestHeader quotationRequest, String tempCode, Client client,
-                                        Employee author, BigDecimal totalAmount, String memo) {
+                                         Employee author, BigDecimal totalAmount, String memo) {
         return new QuotationHeader(quotationRequest, tempCode, client, author, totalAmount, memo);
     }
 
     public void updateQuotationCode(String quotationCode) {
+        if (quotationCode == null || quotationCode.isBlank()) {
+            throw new IllegalArgumentException("quotationCode must not be null or blank");
+        }
         this.quotationCode = quotationCode;
     }
 
@@ -82,9 +85,6 @@ public class QuotationHeader extends BaseModifyEntity {
     public void addItem(QuotationDetail item) {
         if (item == null) {
             throw new IllegalArgumentException("item must not be null");
-        }
-        if (this.items == null) {
-            this.items = new ArrayList<>();
         }
         this.items.add(item);
         item.setQuotation(this);
