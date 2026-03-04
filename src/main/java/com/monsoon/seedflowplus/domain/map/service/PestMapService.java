@@ -107,7 +107,7 @@ public class PestMapService {
     }
 
     private boolean isProductResistantToPest(Product product, String pestCode, String pestName) {
-        if (product.getTags() == null || !product.getTags().containsKey("내병성")) return false;
+        if (pestCode == null || product.getTags() == null || !product.getTags().containsKey("내병성")) return false;
 
         // 매핑 성공 여부 확인 (코드와 이름이 다르면 매핑 성공으로 간주)
         boolean isMappingSuccessful = !pestCode.equals(pestName);
@@ -118,7 +118,7 @@ public class PestMapService {
                     if (tag.equalsIgnoreCase(pestCode)) return true;
 
                     // 2. 이름(한글) 매핑 성공 시에만 부분 일치 허용
-                    return isMappingSuccessful && tag.contains(pestName);
+                    return isMappingSuccessful && pestName != null && tag.contains(pestName);
                 });
     }
 
@@ -146,6 +146,8 @@ public class PestMapService {
     }
 
     private String mapPestCodeToName(String pestCode) {
+        if (pestCode == null || pestCode.isBlank()) return "UNKNOWN";
+        
         return switch (pestCode) {
             case "P01", "CB03", "GR01" -> "노균병";
             case "P02", "CB01", "RD01" -> "무름병";
