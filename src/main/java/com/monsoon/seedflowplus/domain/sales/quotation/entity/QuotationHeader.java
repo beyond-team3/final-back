@@ -73,10 +73,19 @@ public class QuotationHeader extends BaseModifyEntity {
     }
 
     public void updateStatus(QuotationStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("status must not be null");
+        }
         this.status = status;
     }
 
     public void addItem(QuotationDetail item) {
+        if (item == null) {
+            throw new IllegalArgumentException("item must not be null");
+        }
+        if (this.items == null) {
+            this.items = new ArrayList<>();
+        }
         this.items.add(item);
         item.setQuotation(this);
     }
