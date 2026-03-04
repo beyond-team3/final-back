@@ -65,9 +65,6 @@ public class ApprovalStep extends BaseModifyEntity {
 
     public void setApprovalRequest(ApprovalRequest approvalRequest) {
         this.approvalRequest = approvalRequest;
-        if (approvalRequest != null && !approvalRequest.getSteps().contains(this)) {
-            approvalRequest.getSteps().add(this);
-        }
     }
 
     public void approve(LocalDateTime decidedAt) {

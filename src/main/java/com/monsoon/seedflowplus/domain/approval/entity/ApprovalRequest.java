@@ -68,21 +68,32 @@ public class ApprovalRequest extends BaseModifyEntity {
     }
 
     public void addStep(ApprovalStep step) {
-        this.steps.add(step);
+        if (!this.steps.contains(step)) {
+            this.steps.add(step);
+        }
         if (step.getApprovalRequest() != this) {
             step.setApprovalRequest(this);
         }
     }
 
     public void approve() {
+        if (this.status != ApprovalStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 승인할 수 있습니다.");
+        }
         this.status = ApprovalStatus.APPROVED;
     }
 
     public void reject() {
+        if (this.status != ApprovalStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 반려할 수 있습니다.");
+        }
         this.status = ApprovalStatus.REJECTED;
     }
 
     public void cancel() {
+        if (this.status == ApprovalStatus.APPROVED || this.status == ApprovalStatus.REJECTED) {
+            throw new IllegalStateException("최종 상태에서는 취소할 수 없습니다.");
+        }
         this.status = ApprovalStatus.CANCELED;
     }
 }
