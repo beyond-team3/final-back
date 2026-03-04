@@ -110,10 +110,18 @@ public class QuotationService {
 
         // 6. 품목 추가
         request.items().forEach(itemRequest -> {
+            Long productId = itemRequest.productId();
+            com.monsoon.seedflowplus.domain.product.entity.Product product = null;
+
+            if (productId != null) {
+                if (!productRepository.existsById(productId)) {
+                    throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+                }
+                product = productRepository.getReferenceById(productId);
+            }
+
             QuotationDetail detail = new QuotationDetail(
-                    itemRequest.productId() != null
-                            ? productRepository.getReferenceById(itemRequest.productId())
-                            : null,
+                    product,
                     itemRequest.productCategory(),
                     itemRequest.productName(),
                     itemRequest.quantity(),
