@@ -235,13 +235,13 @@ public class ContractService {
             // 각 품목 상세 비교 (순서 비의존 비교를 위해 정렬된 키 활용)
             List<String> requestKeys = request.items().stream()
                     .map(i -> (i.productId() == null ? "NULL" : i.productId()) + "|" +
-                            i.totalQuantity() + "|" + i.unitPrice())
+                            i.totalQuantity() + "|" + i.unitPrice().stripTrailingZeros().toPlainString())
                     .sorted()
                     .toList();
 
             List<String> quotationKeys = quotation.getItems().stream()
                     .map(i -> (i.getProduct() == null ? "NULL" : i.getProduct().getId()) + "|" +
-                            i.getQuantity() + "|" + i.getUnitPrice())
+                            i.getQuantity() + "|" + i.getUnitPrice().stripTrailingZeros().toPlainString())
                     .sorted()
                     .toList();
 
