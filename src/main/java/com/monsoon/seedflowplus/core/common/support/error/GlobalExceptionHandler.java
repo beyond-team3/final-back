@@ -37,14 +37,16 @@ public class GlobalExceptionHandler {
                     @Override
                     public Object getCode() {
                         int status = e.getStatusCode().value();
-                        return switch (status) {
-                            case 400 -> ErrorCode.C002;
-                            case 401 -> ErrorCode.A001;
-                            case 403 -> ErrorCode.A002;
-                            case 404 -> ErrorCode.C001;
-                            case 405 -> ErrorCode.C003;
-                            default -> ErrorCode.E500;
-                        };
+                        if (status >= 400 && status < 500) {
+                            return switch (status) {
+                                case 401 -> ErrorCode.A001;
+                                case 403 -> ErrorCode.A002;
+                                case 404 -> ErrorCode.C001;
+                                case 405 -> ErrorCode.C003;
+                                default -> ErrorCode.C002; // 400, 409, 422 등은 기본적으로 C002(잘못된 요청) 반환
+                            };
+                        }
+                        return ErrorCode.E500;
                     }
 
                     @Override
@@ -55,7 +57,10 @@ public class GlobalExceptionHandler {
                     @Override
                     public HttpStatus getHttpStatus() {
                         HttpStatus resolved = HttpStatus.resolve(e.getStatusCode().value());
-                        return resolved != null ? resolved : HttpStatus.INTERNAL_SERVER_ERROR;
+                        if (resolved != null) {
+                            return resolved;
+                        }
+                        return e.getStatusCode().is4xxClientError() ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
                     }
                 }));
     }
