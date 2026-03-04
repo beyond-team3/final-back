@@ -18,6 +18,7 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -158,6 +159,21 @@ public class ContractService {
         }
 
         contract.delete();
+
+        // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation != null) {
+            // 견적서 상태: WAITING_CONTRACT 일 때만 FINAL_APPROVED로 복구
+            if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
+                quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+            }
+
+            // 견적요청서 상태: 완료(COMPLETED) 상태일 때만 검토 중(REVIEWING)으로 복구
+            if (quotation.getQuotationRequest() != null &&
+                    quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.COMPLETED) {
+                quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
+            }
+        }
     }
 
     @Transactional
@@ -205,14 +221,38 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_CONTRACT_PERIOD);
         }
 
-        // 3. 계약 총액 계산 (품목별 합계)
+        // 3. 계약 총액 및 품목 일치 검증
         BigDecimal totalAmount = request.items().stream()
                 .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.totalQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 견적서 기반 작성 시 총액 검증
-        if (quotation != null && totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
-            throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+        if (quotation != null) {
+            // 품목 개수 비교
+            if (request.items().size() != quotation.getItems().size()) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 개수가 견적서와 일치하지 않습니다.");
+            }
+
+            // 각 품목 상세 비교 (순서 비의존 비교를 위해 정렬된 키 활용)
+            List<String> requestKeys = request.items().stream()
+                    .map(i -> (i.productId() == null ? "NULL" : i.productId()) + "|" +
+                            i.totalQuantity() + "|" + i.unitPrice().stripTrailingZeros().toPlainString())
+                    .sorted()
+                    .toList();
+
+            List<String> quotationKeys = quotation.getItems().stream()
+                    .map(i -> (i.getProduct() == null ? "NULL" : i.getProduct().getId()) + "|" +
+                            i.getQuantity() + "|" + i.getUnitPrice().stripTrailingZeros().toPlainString())
+                    .sorted()
+                    .toList();
+
+            if (!requestKeys.equals(quotationKeys)) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, "품목 정보(상품, 수량, 단가)가 견적서와 일치하지 않습니다.");
+            }
+
+            // 총액 검증
+            if (totalAmount.compareTo(quotation.getTotalAmount()) != 0) {
+                throw new CoreException(ErrorType.INVALID_TOTAL_AMOUNT);
+            }
         }
 
         // 4. 계약서 헤더 생성 (임시 코드 사용 - 충돌 방지를 위해 UUID 사용)
@@ -253,6 +293,15 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
+
+        // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
+        if (quotation != null) {
+            quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
+            if (quotation.getQuotationRequest() != null &&
+                    quotation.getQuotationRequest().getStatus() != QuotationRequestStatus.DELETED) {
+                quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
+            }
+        }
     }
 
     private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
