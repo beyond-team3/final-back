@@ -56,7 +56,7 @@ public class QuotationHeader extends BaseModifyEntity {
     private QuotationHeader(QuotationRequestHeader quotationRequest, String quotationCode, Client client,
                             Employee author, BigDecimal totalAmount, String memo) {
         this.quotationRequest = quotationRequest;
-        this.quotationCode = quotationCode;
+        updateQuotationCode(quotationCode);
         this.client = Objects.requireNonNull(client, "거래처 정보는 필수입니다.");
         this.author = author;
         this.totalAmount = totalAmount;
