@@ -91,7 +91,7 @@ public class ScoringService {
         String detail = reasons[1];
 
         // 4. DB 영속화 (AccountScore 엔티티 활용)
-        accountScoreRepository.findByClientId(clientId)
+        accountScoreRepository.findByClient_Id(clientId)
                 .ifPresentOrElse(
                         existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
                         () -> accountScoreRepository.save(AccountScore.builder()

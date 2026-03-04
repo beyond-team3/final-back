@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface AccountScoreRepository extends JpaRepository<AccountScore, Long> {
-    Optional<AccountScore> findByClientId(Long clientId);
+    Optional<AccountScore> findByClient_Id(Long clientId);
 }
