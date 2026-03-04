@@ -57,6 +57,9 @@ public class QuotationRequestHeader extends BaseModifyEntity {
     }
 
     public void updateStatus(QuotationRequestStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("status must not be null");
+        }
         this.status = status;
     }
 
