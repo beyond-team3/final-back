@@ -41,4 +41,19 @@ public class QuotationDetail extends BaseEntity {
 
     @Column(name = "amount")
     private BigDecimal amount; // 소계
+
+    public QuotationDetail(Product product, String productCategory,
+                            String productName, Integer quantity, String unit, BigDecimal unitPrice, BigDecimal amount) {
+        this.product = product;
+        this.productCategory = productCategory;
+        this.productName = productName;
+        this.quantity = quantity;
+        this.unit = unit;
+        this.unitPrice = unitPrice;
+        this.amount = amount;
+    }
+
+    protected void setQuotation(QuotationHeader quotation) {
+        this.quotation = quotation;
+    }
 }
