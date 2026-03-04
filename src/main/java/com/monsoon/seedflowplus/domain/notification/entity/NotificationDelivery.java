@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,7 +33,9 @@ import lombok.NoArgsConstructor;
         indexes = {
                 @Index(name = "idx_delivery_notification", columnList = "notification_id"),
                 @Index(name = "idx_delivery_status", columnList = "status"),
-                @Index(name = "idx_delivery_channel_status", columnList = "channel, status")
+                @Index(name = "idx_delivery_channel_status", columnList = "channel, status"),
+                @Index(name = "idx_delivery_status_scheduled_at", columnList = "status, scheduled_at"),
+                @Index(name = "idx_delivery_channel_status_scheduled_at", columnList = "channel, status, scheduled_at")
         }
 )
 @AttributeOverride(name = "id", column = @Column(name = "delivery_id"))
@@ -65,12 +68,21 @@ public class NotificationDelivery extends BaseModifyEntity {
     @Column(name = "fail_reason", length = 500)
     private String failReason;
 
+    @Column(name = "scheduled_at", nullable = false)
+    private LocalDateTime scheduledAt;
+
     @Builder
-    public NotificationDelivery(Notification notification, DeliveryChannel channel, DeliveryStatus status) {
-        this.notification = notification;
-        this.channel = channel;
-        this.status = status;
+    public NotificationDelivery(
+            Notification notification,
+            DeliveryChannel channel,
+            DeliveryStatus status,
+            LocalDateTime scheduledAt
+    ) {
+        this.notification = Objects.requireNonNull(notification, "notification must not be null");
+        this.channel = Objects.requireNonNull(channel, "channel must not be null");
+        this.status = Objects.requireNonNull(status, "status must not be null");
         this.attemptCount = 0;
+        this.scheduledAt = Objects.requireNonNull(scheduledAt, "scheduledAt must not be null");
     }
 
     public void markAttempt(LocalDateTime now) {
