@@ -160,14 +160,17 @@ public class ContractService {
 
         contract.delete();
 
-        // 연관된 견적서 및 견적요청서 상태 복구
+        // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
         QuotationHeader quotation = contract.getQuotation();
         if (quotation != null) {
-            // 견적서 상태: 계약 진행 중 -> 최종 승인 상태로 복구
-            quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+            // 견적서 상태: WAITING_CONTRACT 일 때만 FINAL_APPROVED로 복구
+            if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
+                quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+            }
 
-            // 견적요청서 상태: 완료 -> 검토 중 상태로 복구
-            if (quotation.getQuotationRequest() != null) {
+            // 견적요청서 상태: 완료(COMPLETED) 상태일 때만 검토 중(REVIEWING)으로 복구
+            if (quotation.getQuotationRequest() != null &&
+                    quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.COMPLETED) {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
             }
         }
