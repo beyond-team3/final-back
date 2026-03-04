@@ -7,15 +7,21 @@ import com.monsoon.seedflowplus.domain.map.dto.response.PestMapSearchResponse;
 import com.monsoon.seedflowplus.domain.map.dto.response.SalesOfficeResponse;
 import com.monsoon.seedflowplus.domain.map.repository.PestForecastRepository;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
+import com.monsoon.seedflowplus.domain.product.entity.ProductBookmark;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
+import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +32,7 @@ public class PestMapService {
     private final PestForecastRepository forecastRepository;
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
+    private final ProductBookmarkRepository bookmarkRepository;
 
     public PestMapSearchResponse getPestMapData(PestMapSearchRequest request) {
 
@@ -42,6 +49,9 @@ public class PestMapService {
         ProductCategory category = mapCropCodeToCategory(request.getCropCode());
         List<PestMapSearchResponse.ProductDto> products = java.util.Collections.emptyList();
 
+        // 3. 현재 유저의 북마크 목록 조회 (성능을 위해 미리 조회)
+        Set<Long> bookmarkedProductIds = getCurrentUserBookmarkedProductIds();
+
         // 카테고리가 정상적으로 매핑되었을 때만 DB 조회 실행
         if (category != null) {
             String targetPestName = mapPestCodeToName(request.getPestCode());
@@ -52,7 +62,7 @@ public class PestMapService {
                             .name(p.getProductName())
                             .description(p.getProductDescription())
                             .resistance(extractResistanceTag(p))
-                            .isFavorite(false)
+                            .isFavorite(bookmarkedProductIds.contains(p.getId()))
                             .build())
                     .collect(Collectors.toList());
         }
@@ -61,6 +71,18 @@ public class PestMapService {
                 .forecasts(forecasts)
                 .recommendedProducts(products)
                 .build();
+    }
+
+    private Set<Long> getCurrentUserBookmarkedProductIds() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            return Collections.emptySet();
+        }
+
+        Long accountId = userDetails.getUserId();
+        return bookmarkRepository.findByAccount_Id(accountId).stream()
+                .map(bookmark -> bookmark.getProduct().getId())
+                .collect(Collectors.toSet());
     }
 
     public List<SalesOfficeResponse> getAllSalesOffices() {
