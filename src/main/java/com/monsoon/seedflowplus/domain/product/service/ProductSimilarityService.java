@@ -21,13 +21,22 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class ProductSimilarityService {
 
-    // 태그 카테고리별 가중치 (합계 = 1.0)
+    // 태그 카테고리별 가중치 - DB 저장 키(한글) 기준
     private static final Map<String, Double> TAG_CATEGORY_WEIGHTS = Map.of(
-            "env",    0.30,  // 재배환경
-            "res",    0.25,  // 내병성
-            "growth", 0.20,  // 생육 및 숙기
-            "quality",0.15,  // 과실 품질
-            "conv",   0.10   // 재배 편의성
+            "재배환경",   0.30,
+            "내병성",     0.25,
+            "생육및숙기", 0.20,
+            "과실품질",   0.15,
+            "재배편의성", 0.10
+    );
+
+    // 프론트 체크박스 키(영문) → DB 태그 키(한글) 매핑
+    private static final Map<String, String> CRITERIA_KEY_MAP = Map.of(
+            "env",    "재배환경",
+            "res",    "내병성",
+            "growth", "생육및숙기",
+            "quality","과실품질",
+            "conv",   "재배편의성"
     );
 
     // 유사도 전체 가중치 (같은 카테고리 내에서만 비교하므로 카테고리 가중치 제거)
@@ -68,12 +77,13 @@ public class ProductSimilarityService {
         int normalizedLimit     = (limit <= 0) ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
         int normalizedThreshold = Math.max(0, Math.min(threshold, 100));
 
-        // criteria 유효성 검증 - 알 수 없는 키 필터링, 전부 무효 시 전체 카테고리로 fallback
+        // criteria 영문 키 → 한글 변환 후 유효성 검증, 전부 무효 시 전체 카테고리로 fallback
         Set<String> validatedCriteria = (criteria == null || criteria.isEmpty())
                 ? Set.of()
                 : criteria.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
+                .map(key -> CRITERIA_KEY_MAP.getOrDefault(key, key)) // 영문이면 한글로 변환
                 .filter(TAG_CATEGORY_WEIGHTS::containsKey)
                 .collect(Collectors.toSet());
 
