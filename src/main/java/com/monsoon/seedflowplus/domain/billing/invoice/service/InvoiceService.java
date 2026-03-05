@@ -250,8 +250,13 @@ public class InvoiceService {
      * 청구서 단건 조회 (공통 - memo 없음)
      */
     public InvoiceResponse getInvoice(Long invoiceId) {
+        return getInvoice(invoiceId, null);
+    }
+
+    public InvoiceResponse getInvoice(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
+        validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
         return InvoiceResponse.of(
@@ -269,8 +274,13 @@ public class InvoiceService {
      * 청구서 단건 조회 (영업사원 전용 - memo 포함)
      */
     public InvoiceDetailResponse getInvoiceDetail(Long invoiceId) {
+        return getInvoiceDetail(invoiceId, null);
+    }
+
+    public InvoiceDetailResponse getInvoiceDetail(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
+        validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
         return InvoiceDetailResponse.of(
@@ -419,5 +429,37 @@ public class InvoiceService {
             case PAID -> DealStage.PAID;
             case CANCELED -> DealStage.CANCELED;
         };
+    }
+
+    private void validateInvoiceReadPermission(Invoice invoice, CustomUserDetails principal) {
+        if (principal == null || principal.getRole() == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+        if (principal.getRole() == Role.ADMIN) {
+            return;
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            Long principalClientId = principal.getClientId();
+            Long invoiceClientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
+            if (principalClientId == null || !principalClientId.equals(invoiceClientId)) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+        Long principalEmployeeId = principal.getEmployeeId();
+        if (principalEmployeeId == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+        Long invoiceEmployeeId = invoice.getEmployee() != null ? invoice.getEmployee().getId() : null;
+        Long ownerEmpId = invoice.getDeal() != null && invoice.getDeal().getOwnerEmp() != null
+                ? invoice.getDeal().getOwnerEmp().getId()
+                : null;
+        if (invoiceEmployeeId != null && principalEmployeeId.equals(invoiceEmployeeId)) {
+            return;
+        }
+        if (ownerEmpId != null && principalEmployeeId.equals(ownerEmpId)) {
+            return;
+        }
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 }

@@ -12,7 +12,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
@@ -110,7 +110,7 @@ public class QuotationRequestService {
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
 
-        dealPipelineFacade.recordAndSync(
+        dealPipelineFacade.recordAndSyncWithPublicDiffs(
                 deal,
                 DealType.RFQ,
                 header.getId(),
@@ -125,14 +125,14 @@ public class QuotationRequestService {
                 clientId,
                 null,
                 List.of(
-                        new DealLogWriteService.DiffField(
+                        new DealDiffField(
                                 "requirements",
                                 "요구사항",
                                 null,
                                 request.requirements(),
                                 "TEXT"
                         ),
-                        new DealLogWriteService.DiffField(
+                        new DealDiffField(
                                 "itemCount",
                                 "요청 품목 수",
                                 null,

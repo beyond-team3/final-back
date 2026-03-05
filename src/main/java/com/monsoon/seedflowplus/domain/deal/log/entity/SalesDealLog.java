@@ -38,7 +38,8 @@ import lombok.NoArgsConstructor;
         indexes = {
                 @Index(name = "idx_deal_log_deal_dt", columnList = "deal_id, action_at"),
                 @Index(name = "idx_deal_log_client_dt", columnList = "client_id, action_at"),
-                @Index(name = "idx_deal_log_doc_ref_dt", columnList = "doc_type, ref_id, action_at")
+                @Index(name = "idx_deal_log_doc_ref_dt", columnList = "doc_type, ref_id, action_at"),
+                @Index(name = "idx_deal_log_recent_doc", columnList = "deal_id, doc_type, ref_id, action_at, deal_log_id")
         }
 )
 public class SalesDealLog extends BaseCreateEntity {

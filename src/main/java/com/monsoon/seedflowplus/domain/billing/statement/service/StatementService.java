@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.billing.statement.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -31,6 +32,7 @@ import java.util.List;
 public class StatementService {
 
     private final StatementRepository statementRepository;
+    private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
 
@@ -73,6 +75,7 @@ public class StatementService {
                         actorId,
                         null,
                         List.of(
+                                new DealLogWriteService.DiffField("isInitialCreate", "초기 생성 이벤트", null, true, "BOOLEAN"),
                                 new DealLogWriteService.DiffField("totalAmount", "명세서 금액", null, statement.getTotalAmount(), "MONEY"),
                                 new DealLogWriteService.DiffField("orderCode", "주문 번호", null, orderHeader.getOrderCode(), "REFERENCE")
                         )
@@ -126,7 +129,7 @@ public class StatementService {
                 List.of(new DealLogWriteService.DiffField("status", "명세서 상태", fromStatus, StatementStatus.CANCELED.name(), "STATUS"))
         );
 
-        return StatementResponse.from(statement, recentLogs(statement));
+        return StatementResponse.from(statement, resolveInvoiceId(statement), recentLogs(statement));
     }
 
     public StatementResponse getStatement(Long statementId, CustomUserDetails userDetails) {
@@ -140,7 +143,7 @@ public class StatementService {
                     .findByIdAndOrderHeader_Client_Id(statementId, userDetails.getClientId())
                     .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
 
-            return StatementResponse.from(statement, recentLogs(statement));
+            return StatementResponse.from(statement, resolveInvoiceId(statement), recentLogs(statement));
         }
 
         if (userDetails.getEmployeeId() != null) {
@@ -148,7 +151,7 @@ public class StatementService {
             Statement statement = statementRepository.findById(statementId)
                     .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
 
-            return StatementResponse.from(statement, recentLogs(statement));
+            return StatementResponse.from(statement, resolveInvoiceId(statement), recentLogs(statement));
         }
 
         throw new CoreException(ErrorType.ACCESS_DENIED);
@@ -215,5 +218,12 @@ public class StatementService {
                 DealType.STMT,
                 statement.getId()
         );
+    }
+
+    private Long resolveInvoiceId(Statement statement) {
+        return invoiceStatementRepository.findAllByStatementIdAndIncludedTrue(statement.getId()).stream()
+                .findFirst()
+                .map(invoiceStatement -> invoiceStatement.getInvoice().getId())
+                .orElse(null);
     }
 }

@@ -82,6 +82,13 @@ public class DealLogQueryService {
     }
 
     public List<DealLogSummaryDto> getRecentDocumentLogs(Long dealId, DealType docType, Long refId, int limit) {
+        if (dealId == null || docType == null || refId == null) {
+            return List.of();
+        }
+        return getRecentDocumentLogsStrict(dealId, docType, refId, limit);
+    }
+
+    public List<DealLogSummaryDto> getRecentDocumentLogsStrict(Long dealId, DealType docType, Long refId, int limit) {
         requireRecentLogParam("dealId", dealId);
         requireRecentLogParam("docType", docType);
         requireRecentLogParam("refId", refId);

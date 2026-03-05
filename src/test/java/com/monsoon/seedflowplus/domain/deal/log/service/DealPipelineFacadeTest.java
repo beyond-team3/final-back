@@ -62,7 +62,7 @@ class DealPipelineFacadeTest {
                 .when(docStatusTransitionValidator)
                 .validateOrThrow(DealType.ORD, "PENDING", ActionType.CONFIRM, "CONFIRMED");
 
-        assertThrows(
+        CoreException ex = assertThrows(
                 CoreException.class,
                 () -> dealPipelineFacade.recordAndSync(
                         deal,
@@ -81,6 +81,7 @@ class DealPipelineFacadeTest {
                         List.of()
                 )
         );
+        org.junit.jupiter.api.Assertions.assertEquals(ErrorType.INVALID_DOC_STATUS_TRANSITION, ex.getErrorType());
 
         verify(salesDealLogRepository, never()).save(any(SalesDealLog.class));
     }

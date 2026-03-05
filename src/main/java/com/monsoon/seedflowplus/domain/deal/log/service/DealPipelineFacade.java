@@ -5,11 +5,15 @@ import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
 import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.Collection;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +68,52 @@ public class DealPipelineFacade {
                 savedLog.getActionAt()
         );
         return savedLog;
+    }
+
+    @Transactional
+    public SalesDealLog recordAndSyncWithPublicDiffs(
+            SalesDeal deal,
+            DealType docType,
+            Long refId,
+            String targetCode,
+            DealStage fromStage,
+            DealStage toStage,
+            String fromStatus,
+            String toStatus,
+            ActionType actionType,
+            java.time.LocalDateTime actionAt,
+            ActorType actorType,
+            Long actorId,
+            String reason,
+            Collection<DealDiffField> diffFields
+    ) {
+        List<DealLogWriteService.DiffField> internalDiffFields = diffFields == null
+                ? null
+                : diffFields.stream()
+                .map(field -> new DealLogWriteService.DiffField(
+                        field.field(),
+                        field.label(),
+                        field.before(),
+                        field.after(),
+                        field.type()
+                ))
+                .toList();
+        return recordAndSync(
+                deal,
+                docType,
+                refId,
+                targetCode,
+                fromStage,
+                toStage,
+                fromStatus,
+                toStatus,
+                actionType,
+                actionAt,
+                actorType,
+                actorId,
+                reason,
+                internalDiffFields
+        );
     }
 
     @Transactional

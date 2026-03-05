@@ -46,17 +46,16 @@ public class DealLogPolicyValidator {
 
         Set<ActionType> allowedActions = ALLOWED_ACTIONS_BY_ACTOR.getOrDefault(actorType, Set.of());
         if (!allowedActions.contains(actionType)) {
-            // TODO: 프로젝트 표준 예외(ErrorCode/ErrorType)로 치환
-            throw new IllegalArgumentException(
-                    "허용되지 않은 actor/action 조합입니다. actorType=" + actorType + ", actionType=" + actionType
+            throw new DealException(
+                    DealErrorCode.INVALID_ACTOR_ACTION_COMBINATION,
+                    "actorType=" + actorType + ", actionType=" + actionType
             );
         }
     }
 
     public void validateTargetCodeOrThrow(String targetCode) {
         if (!StringUtils.hasText(targetCode)) {
-            // TODO: 프로젝트 표준 예외(ErrorCode/ErrorType)로 치환
-            throw new IllegalArgumentException("targetCode는 null/blank일 수 없습니다.");
+            throw new DealException(DealErrorCode.TARGET_CODE_REQUIRED);
         }
     }
 

@@ -14,6 +14,8 @@ public enum DealErrorCode implements ErrorCodeProvider {
     SYSTEM_ACTOR_ID_MUST_BE_NULL(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "actorType이 SYSTEM이면 actorId는 null이어야 합니다."),
     NON_SYSTEM_ACTOR_ID_REQUIRED(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "actorType이 SYSTEM이 아니면 actorId는 null일 수 없습니다."),
     NON_SYSTEM_ACTOR_ID_MUST_BE_POSITIVE(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "actorType이 SYSTEM이 아니면 actorId는 1 이상의 값이어야 합니다."),
+    INVALID_ACTOR_ACTION_COMBINATION(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "허용되지 않은 actor/action 조합입니다."),
+    TARGET_CODE_REQUIRED(HttpStatus.BAD_REQUEST, DealErrorType.VALIDATION_ERROR, "targetCode는 null/blank일 수 없습니다."),
     CONVERT_ACTION_AT_MISMATCH(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "original.actionAt과 created.actionAt이 일치해야 합니다."),
     CONVERT_ACTOR_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "original.actorType과 created.actorType이 일치해야 합니다."),
     CONVERT_ACTOR_ID_MISMATCH(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "original.actorId와 created.actorId가 일치해야 합니다."),
