@@ -41,6 +41,14 @@ public class DealPipelineFacade {
             String reason,
             java.util.List<DealLogWriteService.DiffField> diffFields
     ) {
+        Objects.requireNonNull(deal, "deal must not be null");
+        Objects.requireNonNull(docType, "docType must not be null");
+        Objects.requireNonNull(refId, "refId must not be null");
+        Objects.requireNonNull(actionType, "actionType must not be null");
+        Objects.requireNonNull(actorType, "actorType must not be null");
+        Objects.requireNonNull(toStage, "toStage must not be null");
+        Objects.requireNonNull(toStatus, "toStatus must not be null");
+
         validateTransitionIfNeeded(docType, fromStatus, toStatus, actionType);
 
         SalesDealLog savedLog = dealLogWriteService.write(

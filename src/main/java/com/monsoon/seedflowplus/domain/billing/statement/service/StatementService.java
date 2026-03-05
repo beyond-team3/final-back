@@ -19,8 +19,11 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -35,6 +38,7 @@ public class StatementService {
     private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
@@ -56,9 +60,7 @@ public class StatementService {
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                String code = generateCode("STMT");
-                Statement statement = Statement.create(orderHeader, orderHeader.getDeal(), orderHeader.getTotalAmount(), code);
-                statementRepository.saveAndFlush(statement);  // flush로 즉시 제약 검사
+                Statement statement = createAndSaveStatementRequiresNew(orderHeader);
 
                 dealPipelineFacade.recordAndSync(
                         orderHeader.getDeal(),
@@ -227,9 +229,18 @@ public class StatementService {
     }
 
     private Long resolveInvoiceId(Statement statement) {
-        return invoiceStatementRepository.findAllByStatementIdAndIncludedTrue(statement.getId()).stream()
-                .findFirst()
+        return invoiceStatementRepository.findTopByStatementIdAndIncludedTrueOrderByIdDesc(statement.getId())
                 .map(invoiceStatement -> invoiceStatement.getInvoice().getId())
                 .orElse(null);
+    }
+
+    private Statement createAndSaveStatementRequiresNew(OrderHeader orderHeader) {
+        TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+        txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return txTemplate.execute(status -> {
+            String code = generateCode("STMT");
+            Statement statement = Statement.create(orderHeader, orderHeader.getDeal(), orderHeader.getTotalAmount(), code);
+            return statementRepository.saveAndFlush(statement);
+        });
     }
 }
