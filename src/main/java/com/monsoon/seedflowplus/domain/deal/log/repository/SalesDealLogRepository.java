@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.List;
 import java.util.Optional;
 
 public interface SalesDealLogRepository extends JpaRepository<SalesDealLog, Long> {
@@ -66,6 +67,21 @@ public interface SalesDealLogRepository extends JpaRepository<SalesDealLog, Long
     );
 
     Optional<SalesDealLog> findTopByDocTypeAndRefIdOrderByActionAtDescIdDesc(DealType docType, Long refId);
+
+    @Query("""
+            select l
+            from SalesDealLog l
+            where l.deal.id = :dealId
+              and l.docType = :docType
+              and l.refId = :refId
+            order by l.actionAt desc, l.id desc
+            """)
+    List<SalesDealLog> findRecentByDealIdAndDocTypeAndRefId(
+            @Param("dealId") Long dealId,
+            @Param("docType") DealType docType,
+            @Param("refId") Long refId,
+            Pageable pageable
+    );
 
     static Pageable withDefaultTimelineSort(Pageable pageable) {
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_TIMELINE_SORT);

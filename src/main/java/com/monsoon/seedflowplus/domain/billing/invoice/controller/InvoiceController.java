@@ -47,18 +47,20 @@ public class InvoiceController {
     @Operation(summary = "청구서 발행 확정", description = "DRAFT 상태의 청구서를 PUBLISHED로 변경합니다.")
     @PatchMapping("/{invoiceId}/publish")
     public ApiResult<InvoicePublishResponse> publishInvoice(
-            @PathVariable Long invoiceId
+            @PathVariable Long invoiceId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.publishInvoice(invoiceId));
+        return ApiResult.success(invoiceService.publishInvoice(invoiceId, userDetails));
     }
 
     @Operation(summary = "명세서 포함/제외 토글", description = "청구서에 포함된 명세서를 포함/제외 처리합니다. DRAFT 상태에서만 가능합니다.")
     @PatchMapping("/{invoiceId}/statements/{statementId}/toggle")
     public ApiResult<InvoiceDetailResponse> toggleStatement(
             @PathVariable Long invoiceId,
-            @PathVariable Long statementId
+            @PathVariable Long statementId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.toggleStatement(invoiceId, statementId));
+        return ApiResult.success(invoiceService.toggleStatement(invoiceId, statementId, userDetails));
     }
 
     @Operation(summary = "청구서 단건 조회 (공통)", description = "청구서를 조회합니다. memo는 포함되지 않습니다.")

@@ -94,7 +94,7 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_REQUEST_DUPLICATED);
         }
 
-        Long actorId = submitActorType == ActorType.SYSTEM ? null : principal.getUserId();
+        Long actorId = resolveActorIdByActorType(submitActorType, principal);
         approvalDealLogWriter.writeSubmit(saved, submitActorType, actorId);
 
         return new CreateApprovalRequestResponse(
@@ -134,13 +134,21 @@ public class ApprovalCommandService {
 
         LocalDateTime now = LocalDateTime.now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
+        Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
+
+        approvalDealLogWriter.validateDecisionTransitionBeforeStatusChange(
+                request,
+                step,
+                dto.decision(),
+                step.getActorType()
+        );
 
         try {
             approvalDecisionRepository.save(ApprovalDecision.builder()
                     .approvalStep(step)
                     .decision(dto.decision())
                     .reason(trimmedReason)
-                    .decidedByUserId(principal.getUserId())
+                    .decidedByUserId(actorId)
                     .decidedAt(now)
                     .build());
         } catch (DataIntegrityViolationException e) {
@@ -163,7 +171,7 @@ public class ApprovalCommandService {
                 dto.decision(),
                 trimmedReason,
                 step.getActorType(),
-                principal.getUserId()
+                actorId
         );
 
         return toDetail(request);
@@ -271,6 +279,28 @@ public class ApprovalCommandService {
         if (!Objects.equals(dto.clientIdSnapshot(), principal.getClientId())) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
         }
+    }
+
+    private Long resolveActorIdByActorType(ActorType actorType, CustomUserDetails principal) {
+        if (actorType == ActorType.SYSTEM) {
+            return null;
+        }
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        if (actorType == ActorType.CLIENT) {
+            if (principal.getClientId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return principal.getClientId();
+        }
+        if (actorType == ActorType.SALES_REP || actorType == ActorType.ADMIN) {
+            if (principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return principal.getEmployeeId();
+        }
+        throw new CoreException(ErrorType.UNAUTHORIZED);
     }
 
     private ApprovalDetailResponse toDetail(ApprovalRequest request) {

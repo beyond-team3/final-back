@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.dto.response;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
+import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -29,6 +30,7 @@ public class InvoiceResponse {
     private InvoiceStatus status;
     private LocalDateTime createdAt;
     private List<InvoiceStatementItem> statements;
+    private List<DealLogSummaryDto> recentLogs;
 
     @Getter
     @Builder
@@ -40,6 +42,14 @@ public class InvoiceResponse {
     }
 
     public static InvoiceResponse of(Invoice invoice, List<InvoiceStatement> invoiceStatements) {
+        return of(invoice, invoiceStatements, List.of());
+    }
+
+    public static InvoiceResponse of(
+            Invoice invoice,
+            List<InvoiceStatement> invoiceStatements,
+            List<DealLogSummaryDto> recentLogs
+    ) {
         List<InvoiceStatementItem> statementItems = invoiceStatements.stream()
                 .map(is -> InvoiceStatementItem.builder()
                         .statementId(is.getStatement().getId())
@@ -64,6 +74,7 @@ public class InvoiceResponse {
                 .status(invoice.getStatus())
                 .createdAt(invoice.getCreatedAt())
                 .statements(statementItems)
+                .recentLogs(recentLogs)
                 .build();
     }
 }

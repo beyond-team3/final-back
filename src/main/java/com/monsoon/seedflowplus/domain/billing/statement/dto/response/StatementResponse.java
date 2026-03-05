@@ -2,11 +2,13 @@ package com.monsoon.seedflowplus.domain.billing.statement.dto.response;
 
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.StatementStatus;
+import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -22,8 +24,13 @@ public class StatementResponse {
     private BigDecimal totalAmount;
     private StatementStatus status;
     private LocalDateTime createdAt;
+    private List<DealLogSummaryDto> recentLogs;
 
     public static StatementResponse from(Statement statement) {
+        return from(statement, List.of());
+    }
+
+    public static StatementResponse from(Statement statement, List<DealLogSummaryDto> recentLogs) {
         return StatementResponse.builder()
                 .statementId(statement.getId())
                 .statementCode(statement.getStatementCode())
@@ -34,6 +41,7 @@ public class StatementResponse {
                 .totalAmount(statement.getTotalAmount())
                 .status(statement.getStatus())
                 .createdAt(statement.getCreatedAt())
+                .recentLogs(recentLogs)
                 .build();
     }
 }

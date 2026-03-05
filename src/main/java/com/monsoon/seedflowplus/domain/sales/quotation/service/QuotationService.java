@@ -7,10 +7,15 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
@@ -49,6 +54,8 @@ public class QuotationService {
     private final EmployeeRepository employeeRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
+    private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogQueryService dealLogQueryService;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -149,13 +156,25 @@ public class QuotationService {
         String finalCode = "QUO-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + quotation.getId();
         quotation.updateQuotationCode(finalCode);
-        deal.updateSnapshot(
-                DealStage.PENDING_ADMIN,
-                QuotationStatus.WAITING_ADMIN.name(),
+
+        dealPipelineFacade.recordAndSync(
+                deal,
                 DealType.QUO,
                 quotation.getId(),
                 finalCode,
-                LocalDateTime.now()
+                deal.getCurrentStage(),
+                DealStage.PENDING_ADMIN,
+                QuotationStatus.WAITING_ADMIN.name(),
+                QuotationStatus.WAITING_ADMIN.name(),
+                ActionType.CREATE,
+                null,
+                ActorType.SALES_REP,
+                userDetails.getEmployeeId(),
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
+                        new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(), "COUNT")
+                )
         );
     }
 
@@ -201,7 +220,12 @@ public class QuotationService {
                 quotation.getExpiredDate(),
                 memo,
                 quotation.getCreatedAt(),
-                items);
+                items,
+                dealLogQueryService.getRecentDocumentLogs(
+                        quotation.getDeal() != null ? quotation.getDeal().getId() : null,
+                        DealType.QUO,
+                        quotation.getId()
+                ));
     }
 
     public List<QuotationListResponse> getApprovedQuotations() {

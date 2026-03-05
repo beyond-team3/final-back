@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.dto.response;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
+import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -31,8 +32,17 @@ public class InvoiceDetailResponse {
     private String memo;            // 영업사원 전용
     private LocalDateTime createdAt;
     private List<InvoiceResponse.InvoiceStatementItem> statements;
+    private List<DealLogSummaryDto> recentLogs;
 
     public static InvoiceDetailResponse of(Invoice invoice, List<InvoiceStatement> invoiceStatements) {
+        return of(invoice, invoiceStatements, List.of());
+    }
+
+    public static InvoiceDetailResponse of(
+            Invoice invoice,
+            List<InvoiceStatement> invoiceStatements,
+            List<DealLogSummaryDto> recentLogs
+    ) {
         List<InvoiceResponse.InvoiceStatementItem> statementItems = invoiceStatements.stream()
                 .map(is -> InvoiceResponse.InvoiceStatementItem.builder()
                         .statementId(is.getStatement().getId())
@@ -58,6 +68,7 @@ public class InvoiceDetailResponse {
                 .memo(invoice.getMemo())
                 .createdAt(invoice.getCreatedAt())
                 .statements(statementItems)
+                .recentLogs(recentLogs)
                 .build();
     }
 }

@@ -37,4 +37,13 @@ public class StatementController {
     public ApiResult<List<StatementListResponse>> getStatements() {
         return ApiResult.success(statementService.getStatements());
     }
+
+    @Operation(summary = "명세서 취소", description = "명세서 상태를 CANCELED로 변경합니다.")
+    @PatchMapping("/{statementId}/cancel")
+    public ApiResult<StatementResponse> cancelStatement(
+            @PathVariable Long statementId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ApiResult.success(statementService.cancelStatement(statementId, userDetails));
+    }
 }

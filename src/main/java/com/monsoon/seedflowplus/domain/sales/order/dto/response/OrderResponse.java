@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.sales.order.dto.response;
 
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
+import com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -30,4 +31,5 @@ public class OrderResponse {
     private String deliveryRequest;
 
     private List<OrderDetailResponse> items;
+    private List<DealLogSummaryDto> recentLogs;
 }
