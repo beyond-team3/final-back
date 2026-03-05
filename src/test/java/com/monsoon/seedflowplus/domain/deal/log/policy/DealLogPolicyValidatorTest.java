@@ -1,11 +1,13 @@
 package com.monsoon.seedflowplus.domain.deal.log.policy;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
 import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -30,51 +32,61 @@ class DealLogPolicyValidatorTest {
     @ParameterizedTest(name = "{index}: reject actor={0}, action={2}")
     @MethodSource("deniedActorActionCombinations")
     void shouldRejectInvalidActorActionCombinations(ActorType actorType, Long actorId, ActionType actionType) {
-        assertThrows(DealException.class, () -> validator.validateActorAndActionOrThrow(actorType, actorId, actionType));
+        DealException thrown = assertThrows(
+                DealException.class,
+                () -> validator.validateActorAndActionOrThrow(actorType, actorId, actionType)
+        );
+        assertEquals(DealErrorCode.INVALID_ACTOR_ACTION_COMBINATION, thrown.getErrorCode());
     }
 
     @Test
     void shouldRejectWhenSystemActorHasActorId() {
         // 정책: ActorType.SYSTEM 인 경우 actorId는 반드시 null 이어야 한다.
-        assertThrows(
+        DealException thrown = assertThrows(
                 DealException.class,
                 () -> validator.validateActorAndActionOrThrow(ActorType.SYSTEM, 1L, ActionType.SUBMIT)
         );
+        assertEquals(DealErrorCode.SYSTEM_ACTOR_ID_MUST_BE_NULL, thrown.getErrorCode());
     }
 
     @Test
     void shouldRejectWhenSystemApproves() {
         // 정책: SYSTEM + APPROVE 조합은 허용되지 않는다.
-        assertThrows(
+        DealException thrown = assertThrows(
                 DealException.class,
                 () -> validator.validateActorAndActionOrThrow(ActorType.SYSTEM, null, ActionType.APPROVE)
         );
+        assertEquals(DealErrorCode.INVALID_ACTOR_ACTION_COMBINATION, thrown.getErrorCode());
     }
 
     @Test
     void shouldRejectWhenNonSystemActorHasNullActorId() {
-        assertThrows(
+        DealException thrown = assertThrows(
                 DealException.class,
                 () -> validator.validateActorAndActionOrThrow(ActorType.SALES_REP, null, ActionType.SUBMIT)
         );
+        assertEquals(DealErrorCode.NON_SYSTEM_ACTOR_ID_MUST_BE_POSITIVE, thrown.getErrorCode());
     }
 
     @Test
     void shouldRejectWhenNonSystemActorHasNonPositiveActorId() {
-        assertThrows(
+        DealException thrownZero = assertThrows(
                 DealException.class,
                 () -> validator.validateActorAndActionOrThrow(ActorType.SALES_REP, 0L, ActionType.SUBMIT)
         );
-        assertThrows(
+        assertEquals(DealErrorCode.NON_SYSTEM_ACTOR_ID_MUST_BE_POSITIVE, thrownZero.getErrorCode());
+        DealException thrownNegative = assertThrows(
                 DealException.class,
                 () -> validator.validateActorAndActionOrThrow(ActorType.CLIENT, -1L, ActionType.PAY)
         );
+        assertEquals(DealErrorCode.NON_SYSTEM_ACTOR_ID_MUST_BE_POSITIVE, thrownNegative.getErrorCode());
     }
 
     @ParameterizedTest
     @MethodSource("invalidTargetCodes")
     void shouldRejectBlankTargetCode(String targetCode) {
-        assertThrows(DealException.class, () -> validator.validateTargetCodeOrThrow(targetCode));
+        DealException thrown = assertThrows(DealException.class, () -> validator.validateTargetCodeOrThrow(targetCode));
+        assertEquals(DealErrorCode.TARGET_CODE_REQUIRED, thrown.getErrorCode());
     }
 
     @Test

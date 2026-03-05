@@ -206,10 +206,16 @@ public class StatementService {
         if (actorType == ActorType.SYSTEM) {
             return null;
         }
-        if (actorType == ActorType.CLIENT) {
-            return principal.getClientId();
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
-        return principal.getEmployeeId();
+        Long actorId = actorType == ActorType.CLIENT
+                ? principal.getClientId()
+                : principal.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return actorId;
     }
 
     private List<com.monsoon.seedflowplus.domain.deal.log.dto.response.DealLogSummaryDto> recentLogs(Statement statement) {

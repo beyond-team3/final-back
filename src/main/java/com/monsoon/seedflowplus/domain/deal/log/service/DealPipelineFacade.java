@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -121,6 +122,17 @@ public class DealPipelineFacade {
             DealLogWriteService.ConvertLogRequest original,
             DealLogWriteService.ConvertLogRequest created
     ) {
+        Objects.requireNonNull(original, "original must not be null");
+        Objects.requireNonNull(created, "created must not be null");
+        Objects.requireNonNull(original.docType(), "original.docType must not be null");
+        Objects.requireNonNull(original.fromStatus(), "original.fromStatus must not be null");
+        Objects.requireNonNull(original.toStatus(), "original.toStatus must not be null");
+        Objects.requireNonNull(created.deal(), "created.deal must not be null");
+        Objects.requireNonNull(created.toStatus(), "created.toStatus must not be null");
+        Objects.requireNonNull(created.docType(), "created.docType must not be null");
+        Objects.requireNonNull(created.refId(), "created.refId must not be null");
+        Objects.requireNonNull(created.targetCode(), "created.targetCode must not be null");
+
         validateTransitionIfNeeded(
                 original.docType(),
                 original.fromStatus(),

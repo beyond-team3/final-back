@@ -8,6 +8,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 @Getter
@@ -35,6 +36,7 @@ public class StatementResponse {
     }
 
     public static StatementResponse from(Statement statement, Long invoiceId, List<DealLogSummaryDto> recentLogs) {
+        List<DealLogSummaryDto> safeRecentLogs = recentLogs != null ? recentLogs : Collections.emptyList();
         return StatementResponse.builder()
                 .statementId(statement.getId())
                 .statementCode(statement.getStatementCode())
@@ -46,7 +48,7 @@ public class StatementResponse {
                 .totalAmount(statement.getTotalAmount())
                 .status(statement.getStatus())
                 .createdAt(statement.getCreatedAt())
-                .recentLogs(recentLogs)
+                .recentLogs(safeRecentLogs)
                 .build();
     }
 }

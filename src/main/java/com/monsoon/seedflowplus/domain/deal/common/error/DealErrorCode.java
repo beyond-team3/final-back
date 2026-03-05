@@ -20,7 +20,7 @@ public enum DealErrorCode implements ErrorCodeProvider {
     CONVERT_ACTOR_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "original.actorType과 created.actorType이 일치해야 합니다."),
     CONVERT_ACTOR_ID_MISMATCH(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "original.actorId와 created.actorId가 일치해야 합니다."),
     INVALID_DOCUMENT_STATUS(HttpStatus.BAD_REQUEST, DealErrorType.BUSINESS_RULE_VIOLATION, "DocumentStatus 값이 유효하지 않습니다."),
-    DIFF_JSON_SERIALIZATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, DealErrorType.BUSINESS_RULE_VIOLATION, "diffJson 직렬화에 실패했습니다.");
+    DIFF_JSON_SERIALIZATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, DealErrorType.SYSTEM_ERROR, "diffJson 직렬화에 실패했습니다.");
 
     private final HttpStatus httpStatus;
     private final DealErrorType errorType;
