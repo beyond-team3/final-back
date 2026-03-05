@@ -1,7 +1,7 @@
-package com.monsoon.seedflowplus.domain.dashboard.sales.controller;
+package com.monsoon.seedflowplus.domain.dashboard.salesRep.controller;
 
-import com.monsoon.seedflowplus.domain.dashboard.sales.dto.SalesDashboardResponse;
-import com.monsoon.seedflowplus.domain.dashboard.sales.service.SalesDashboardService;
+import com.monsoon.seedflowplus.domain.dashboard.salesRep.dto.SalesDashboardResponse;
+import com.monsoon.seedflowplus.domain.dashboard.salesRep.service.SalesDashboardService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.dashboard.sales.repository;
+package com.monsoon.seedflowplus.domain.dashboard.salesRep.repository;
 
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
