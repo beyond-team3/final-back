@@ -62,6 +62,14 @@ public class SalesNoteRagService {
     }
 
     /**
+     * 특정 노트를 벡터 DB에서 삭제합니다. (업데이트/삭제 시 사용)
+     */
+    public void deleteNote(Long noteId) {
+        Filter filter = MetadataFilterBuilder.metadataKey("id").isEqualTo(noteId.toString());
+        embeddingStore.removeAll(filter);
+    }
+
+    /**
      * 계층적 분석 범위를 지원하는 검색 메서드
      * @param clientId (필수) 고객 ID
      * @param contractId (선택) 계약 코드

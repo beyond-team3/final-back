@@ -68,14 +68,12 @@ public class NoteService {
         Long currentEmployeeId = userDetails.getEmployeeId();
         Role role = userDetails.getRole();
 
-        // [리팩토링] 역할별 권한 검증 (AccountService 패턴 적용)
+        // 역할별 권한 검증
         if (role == Role.ADMIN) {
-            // 관리자는 모든 거래처에 대해 노트 작성이 가능하며, 거래처 존재 여부만 확인
             if (!clientRepository.existsById(dto.getClientId())) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다.");
             }
         } else if (role == Role.SALES_REP) {
-            // 영업사원은 본인이 담당하는 거래처인지 확인
             Client client = clientRepository.findById(dto.getClientId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다."));
 
@@ -83,14 +81,11 @@ public class NoteService {
                 throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
             }
         } else {
-            // 그 외 역할(CLIENT 등)은 영업 활동 기록 작성 불가
             throw new AccessDeniedException("노트 작성 권한이 없습니다.");
         }
 
-        // [추가] 계약 ID 유효성 검증: 해당 거래처의 계약인지 확인
         validateContractOwnership(dto.getContractId(), dto.getClientId());
 
-        // [자동화] 저장 전 실시간 AI 요약 생성
         List<String> summary = aiClient.summarizeNote(dto.getContent());
 
         SalesNote note = SalesNote.builder()
@@ -99,15 +94,15 @@ public class NoteService {
                 .contractId(dto.getContractId())
                 .activityDate(dto.getDate())
                 .content(dto.getContent())
-                .aiSummary(summary) // AI 요약 결과 직접 주입
+                .aiSummary(summary)
                 .build();
         
         SalesNote savedNote = noteRepository.save(note);
 
-        // [RAG] 벡터 DB 인덱싱 수행 (트랜잭션 커밋 후 실행되도록 지연 호출)
+        // [RAG] 벡터 DB 인덱싱 수행 (트랜잭션 커밋 후)
         triggerRagIndexingAfterCommit(savedNote);
 
-        // [리팩토링] 비동기 분석 트리거
+        // 비동기 분석 트리거
         triggerBriefingUpdate(savedNote.getClientId());
 
         return savedNote;
@@ -122,43 +117,83 @@ public class NoteService {
         SalesNote note = noteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 노트를 찾을 수 없습니다. ID: " + id));
 
-        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
             throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
-        // [추가] 계약 ID 유효성 검증: 해당 거래처의 계약인지 확인 (수정 시에도 체크)
-        // 기존 노트의 clientId를 기준으로 검증하여 데이터 변조 방지
         validateContractOwnership(dto.getContractId(), note.getClientId());
 
-        // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
         List<String> summary = aiClient.summarizeNote(dto.getContent());
         note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
 
-        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (트랜잭션 커밋 후 실행)
+        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (트랜잭션 커밋 후)
         triggerRagIndexingAfterCommit(note);
 
-        // [리팩토링] 데이터 수정 후 비동기 분석 요청
+        // 비동기 분석 요청
         triggerBriefingUpdate(note.getClientId());
 
         return note;
     }
 
     /**
+     * 4. 영업 활동 기록 삭제 및 AI 재분석 트리거
+     */
+    @Transactional
+    public void deleteNote(Long id) {
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        SalesNote note = noteRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 노트를 찾을 수 없습니다."));
+
+        if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
+            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
+        }
+
+        Long clientId = note.getClientId();
+        Long noteId = note.getId();
+        
+        noteRepository.delete(note);
+
+        // [RAG] 벡터 DB에서 정보 삭제 (트랜잭션 커밋 후)
+        triggerRagDeletionAfterCommit(noteId);
+
+        // 비동기 분석 요청
+        triggerBriefingUpdate(clientId);
+    }
+
+    /**
      * [리팩토링] RAG 인덱싱 비동기/지연 처리 헬퍼
-     * 트랜잭션이 성공적으로 커밋된 후에만 벡터 DB에 반영하여 정합성을 유지합니다.
+     * 중복 방지를 위해 기존 정보를 삭제 후 인덱싱합니다.
      */
     private void triggerRagIndexingAfterCommit(SalesNote note) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    log.info("트랜잭션 커밋 완료 확인 - RAG 인덱싱 수행: Note ID={}", note.getId());
+                    log.info("트랜잭션 커밋 완료 확인 - RAG 인덱싱 수행 (기존 삭제 후 등록): Note ID={}", note.getId());
+                    ragService.deleteNote(note.getId()); 
                     ragService.indexNote(note);
                 }
             });
         } else {
+            ragService.deleteNote(note.getId());
             ragService.indexNote(note);
+        }
+    }
+
+    /**
+     * [리팩토링] RAG 삭제 비동기/지연 처리 헬퍼
+     */
+    private void triggerRagDeletionAfterCommit(Long noteId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("트랜잭션 커밋 완료 확인 - RAG 데이터 삭제: Note ID={}", noteId);
+                    ragService.deleteNote(noteId);
+                }
+            });
+        } else {
+            ragService.deleteNote(noteId);
         }
     }
 
@@ -176,38 +211,13 @@ public class NoteService {
     }
 
     /**
-     * 4. 영업 활동 기록 삭제 및 AI 재분석 트리거
-     */
-    @Transactional
-    public void deleteNote(Long id) {
-        CustomUserDetails userDetails = getCurrentUserDetails();
-        SalesNote note = noteRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 노트를 찾을 수 없습니다."));
-
-        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
-        if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
-            throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
-        }
-
-        Long clientId = note.getClientId();
-        noteRepository.delete(note);
-
-        // [리팩토링] 데이터 삭제 후 비동기 분석 요청
-        triggerBriefingUpdate(clientId);
-    }
-
-    /**
-     * [리팩토링] 내부 헬퍼 메서드: 진정한 비동기 호출 수행
-     * 메서드명을 의도에 맞게 'trigger'로 변경하고 실제 비동기 메서드를 호출함
+     * 비동기 분석 트리거
      */
     private void triggerBriefingUpdate(Long clientId) {
-        // 현재 실행 중인 스레드가 트랜잭션 상태인지 확인
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            // 트랜잭션 동기화 매니저에 '커밋 후 실행' 콜백 등록
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 실제 DB 커밋이 완료된 직후에만 비동기 호출 실행
                     log.info("트랜잭션 커밋 완료 확인 - RAGseed 분석 트리거: clientId={}", clientId);
                     try {
                         ragSeedService.refreshStandardBriefingAsync(clientId);
@@ -217,7 +227,6 @@ public class NoteService {
                 }
             });
         } else {
-            // 트랜잭션이 없는 환경(예: 테스트 코드 등)에서는 즉시 호출
             try {
                 ragSeedService.refreshStandardBriefingAsync(clientId);
             } catch (RejectedExecutionException e) {
