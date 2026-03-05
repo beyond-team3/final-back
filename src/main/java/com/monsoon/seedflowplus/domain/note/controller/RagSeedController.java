@@ -24,7 +24,7 @@ public class RagSeedController {
                description = "특정 고객 또는 계약에 대해 맞춤형 전략을 인출합니다. query 파라미터에 'RECAP', 'RISK', 'MATCHING', 'CHECKLIST' 등을 사용하거나 일반 질문을 입력하세요.")
     @GetMapping("/ask")
     public ApiResult<RagSeedResponseDto> askRagSeed(
-            @Parameter(description = "고객사 ID (전사 분석 시 생략)") @RequestParam(required = false) Long clientId,
+            @Parameter(description = "고객사 ID (필수)") @RequestParam Long clientId,
             @Parameter(description = "계약 코드 (고객별 분석 시 생략 또는 'NONE')") @RequestParam(required = false) String contractId,
             @Parameter(description = "인출 쿼리 또는 템플릿 타입(RECAP, RISK, MATCHING, CHECKLIST)") @RequestParam String query) {
         

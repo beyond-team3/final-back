@@ -95,19 +95,17 @@ public class RagSeedService {
 
     /**
      * [이원화 로직 2] RAGseed 전용 맞춤형 전략 인출
-     * 분석 범위(Scope)를 계층적으로 제어합니다.
+     * 분석 범위(Scope)를 계층적으로 제어합니다. (clientId 필수)
      */
     public RagSeedResponseDto getTargetedStrategy(Long clientId, String contractId, String queryType) {
         log.info("[RAGseed] 타겟 전략 인출 요청: clientId={}, contractId={}, type={}", clientId, contractId, queryType);
 
         // 1. 분석 범위(Scope) 판별 및 설명 생성
         String scopeDesc;
-        if (clientId != null && contractId != null && !contractId.isBlank() && !"NONE".equals(contractId)) {
+        if (contractId != null && !contractId.isBlank() && !"NONE".equals(contractId)) {
             scopeDesc = String.format("특정 계약(코드: %s) 관련 데이터", contractId);
-        } else if (clientId != null) {
-            scopeDesc = String.format("특정 고객(ID: %d)의 전체 영업 데이터", clientId);
         } else {
-            scopeDesc = "전사 영업 데이터 자산";
+            scopeDesc = String.format("특정 고객(ID: %d)의 전체 영업 데이터", clientId);
         }
 
         // 2. 쿼리 타입에 따른 '숨겨진 프롬프트' 설정
@@ -148,7 +146,12 @@ public class RagSeedService {
         combined.addAll(noteContexts);
         combined.addAll(productContexts);
 
-        // 4. 엔진 호출 및 결과 반환
+        // 4. 데이터 부재 시 특수 처리 (안내 문구 출력 지침 포함)
+        if (combined.isEmpty()) {
+            hiddenPrompt += "\n[주의] 현재 분석 범위에 영업 기록이 전혀 없습니다. 사용자에게 '해당 고객에 대한 영업 기록이 없어 분석이 불가능합니다. 먼저 노트를 작성해주세요.'라고 친절히 안내하세요.";
+        }
+
+        // 5. 엔진 호출 및 결과 반환
         String aiResponse = aiClient.generateTargetedResponse(hiddenPrompt, combined, scopeDesc);
         
         List<Long> evidenceIds = combined.stream()

@@ -63,24 +63,23 @@ public class SalesNoteRagService {
 
     /**
      * 계층적 분석 범위를 지원하는 검색 메서드
-     * @param clientId (선택) 고객 ID
+     * @param clientId (필수) 고객 ID
      * @param contractId (선택) 계약 코드
      * @param query 검색어
      */
     public List<TextSegment> retrieveRelatedNotes(Long clientId, String contractId, String query, int maxResults) {
         Embedding queryEmbedding = embeddingModel.embed(query).content();
 
-        // [동적 필터 생성 로직]
-        Filter filter = null;
-        if (clientId != null && contractId != null && !contractId.isBlank() && !"NONE".equals(contractId)) {
+        // [동적 필터 생성 로직] clientId는 항상 필수
+        Filter filter;
+        if (contractId != null && !contractId.isBlank() && !"NONE".equals(contractId)) {
             // 1. 계약별 모드: 고객 ID와 계약 코드가 모두 일치해야 함
             filter = MetadataFilterBuilder.metadataKey("clientId").isEqualTo(clientId.toString())
                     .and(MetadataFilterBuilder.metadataKey("contractId").isEqualTo(contractId));
-        } else if (clientId != null) {
+        } else {
             // 2. 고객별 모드: 해당 고객의 모든 데이터
             filter = MetadataFilterBuilder.metadataKey("clientId").isEqualTo(clientId.toString());
         }
-        // 3. 전사 모드: filter가 null인 상태 유지 (전체 검색)
 
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
