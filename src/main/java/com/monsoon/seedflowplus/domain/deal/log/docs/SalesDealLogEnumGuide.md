@@ -86,15 +86,16 @@ append-only로 기록합니다.
 
 | dealType | 사용 Enum | 허용값 |
 |---|---|---|
-| `RFQ`  | `RequestStatus`   | `PENDING` `REVIEWING` `CANCELED` |
-| `QUO`  | `QuotationStatus` | `DRAFT` `ADMIN_PENDING` `ADMIN_REJECTED` `CLIENT_PENDING` `CLIENT_REJECTED` `APPROVED` `EXPIRED` |
-| `CNT`  | `ContractStatus`  | `ADMIN_PENDING` `ADMIN_REJECTED` `CLIENT_PENDING` `CLIENT_REJECTED` `COMPLETED` |
+| `RFQ`  | `QuotationRequestStatus` | `PENDING` `REVIEWING` `COMPLETED` `DELETED` |
+| `QUO`  | `QuotationStatus` | `WAITING_ADMIN` `REJECTED_ADMIN` `WAITING_CLIENT` `REJECTED_CLIENT` `FINAL_APPROVED` `WAITING_CONTRACT` `COMPLETED` `EXPIRED` `DELETED` |
+| `CNT`  | `ContractStatus`  | `WAITING_ADMIN` `REJECTED_ADMIN` `WAITING_CLIENT` `REJECTED_CLIENT` `COMPLETED` `ACTIVE_CONTRACT` `EXPIRED` `DELETED` |
 | `ORD`  | `OrderStatus`     | `PENDING` `CONFIRMED` `CANCELED` |
 | `STMT` | `StatementStatus` | `ISSUED` `CANCELED` |
 | `INV`  | `InvoiceStatus`   | `DRAFT` `PUBLISHED` `PAID` `CANCELED` |
 | `PAY`  | `PaymentStatus`   | `PENDING` `COMPLETED` `FAILED` |
 
-`fromStatus`는 문서 최초 생성 시 `null`이 허용됩니다.
+엔티티(`SalesDealLog`) 레벨에서는 `fromStatus`가 `null`일 수 있습니다.
+다만 현재 `DealLogWriteService.write(...)` 경로는 `fromStatus` 공백/null을 허용하지 않습니다.
 문서 타입별 허용값 검증은 서비스 레이어에서 수행합니다.
 
 ---
@@ -106,17 +107,17 @@ append-only로 기록합니다.
 docType      : QUO
 actionType   : APPROVE
 actorType    : ADMIN
-fromStage    : PENDING_ADMIN   /  fromStatus : ADMIN_PENDING
-toStage      : PENDING_CLIENT  /  toStatus   : CLIENT_PENDING
+fromStage    : PENDING_ADMIN   /  fromStatus : WAITING_ADMIN
+toStage      : PENDING_CLIENT  /  toStatus   : WAITING_CLIENT
 ```
 
-**견적요청서(RFQ) → 견적서(QUO) 전환 시** (로그 레코드 2개 생성)
+**문서 전환 시** (로그 레코드 2개 생성)
 ```
-# 1. RFQ 종결
-docType      : RFQ  /  actionType : CONVERT
-toStage      : APPROVED  /  toStatus : (전환 전 마지막 상태)
+# 1. 원본 문서 종결
+docType      : (원본 타입)  /  actionType : CONVERT
+toStage      : APPROVED  /  toStatus : (전환 후 원본 문서 상태, 예: QUO는 COMPLETED)
 
-# 2. QUO 생성
-docType      : QUO  /  actionType : CREATE
-toStage      : CREATED  /  toStatus : DRAFT
+# 2. 신규 문서 생성
+docType      : (신규 타입)  /  actionType : CREATE
+toStage      : CREATED  /  toStatus : (신규 문서 최초 상태)
 ```
