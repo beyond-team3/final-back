@@ -1,24 +1,20 @@
-# DealLog 연결 가이드 (조회/기록 규칙 준수)
+# DealLog 연결 가이드 (실제 구현 기준)
 
-이 문서는 `quotation`, `contract`, `invoice`, `payment` 등 문서 서비스의 **상태 변경 메서드**에서  
-`SalesDealLog`를 어떻게 호출해야 하는지 설명한다.
-
-실제 연결 코드는 이 문서에서 수행하지 않는다.  
-아래 순서를 서비스 메서드에 그대로 적용한다.
+이 문서는 문서 서비스(견적/계약/주문/명세서/청구서/결제)의 상태 변경 시
+`SalesDealLog`를 남기는 표준 흐름을 정리합니다.
 
 ---
 
 ## 1. 공통 호출 순서
 
 1. 현재 상태 조회 (`fromStatus`, `fromStage`)
-2. 상태 전이 검증 (`DocStatusTransitionValidator`)
+2. 상태 전이 검증 (`DocStatusTransitionValidator.validateOrThrow(...)`)
 3. 문서 상태 변경 및 저장 (`toStatus`, `toStage`)
-4. 로그 기록 (`dealLogWriteService.recordStatusChange(...)` 역할 메서드 호출)
+4. 로그 기록 (`DealLogWriteService.write(...)` 또는 `writeConvertPair(...)`)
 
 핵심:
-- 상태 변경 실패 시 예외를 던지고 롤백한다.
-- 예외가 발생하면 DealLog를 남기지 않는다.
-- stage 변화가 없어도 `toStatus`가 바뀌면 로그를 남긴다.
+- 상태 전이 검증/저장 실패 시 예외로 롤백되어 로그도 남지 않습니다.
+- `stage` 변화가 없어도 `toStatus`가 바뀌면 로그를 남깁니다.
 
 ---
 
@@ -28,20 +24,20 @@
 @Transactional
 public void changeStatusExample(Long docId, ActionType actionType, ActorType actorType, Long actorId) {
     // 1) 현재 상태 조회
-    QuotationHeader doc = quotationRepository.findById(docId)
+    var doc = repository.findById(docId)
             .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
 
     String fromStatus = doc.getStatus().name();
-    DealStage fromStage = mapStage(doc.getStatus()); // 기존 매핑 함수 사용
+    DealStage fromStage = mapStage(doc.getStatus());
 
-    // 요청 목표 상태 결정
-    QuotationStatus nextStatus = decideNextStatus(doc.getStatus(), actionType);
+    // 목표 상태 계산
+    var nextStatus = decideNextStatus(doc.getStatus(), actionType);
     String toStatus = nextStatus.name();
     DealStage toStage = mapStage(nextStatus);
 
     // 2) 상태 전이 검증
     docStatusTransitionValidator.validateOrThrow(
-            DealType.QUO,
+            DealType.QUO,   // 실제 문서 타입으로 교체
             fromStatus,
             actionType,
             toStatus
@@ -49,21 +45,20 @@ public void changeStatusExample(Long docId, ActionType actionType, ActorType act
 
     // 3) 상태 변경 저장
     doc.changeStatus(nextStatus);
-    quotationRepository.save(doc);
+    repository.save(doc);
 
-    // 4) 로그 기록 (recordStatusChange 역할)
-    // - 현재 구현체가 write(...) 라면 write(...)를 래핑한 recordStatusChange(...)를 서비스에 추가해 사용 권장
+    // 4) 로그 기록
     dealLogWriteService.write(
-            doc.getDeal(),                  // SalesDeal
-            DealType.QUO,                   // docType
-            doc.getId(),                    // refId
-            doc.getQuotationCode(),         // targetCode
+            doc.getDeal(),
+            DealType.QUO,   // 실제 문서 타입으로 교체
+            doc.getId(),
+            doc.getCode(),
             fromStage,
             toStage,
             fromStatus,
             toStatus,
             actionType,
-            LocalDateTime.now(ZoneId.of("Asia/Seoul")), // KST
+            null,           // null이면 내부에서 KST now 사용
             actorType,
             actorId
     );
@@ -72,45 +67,68 @@ public void changeStatusExample(Long docId, ActionType actionType, ActorType act
 
 ---
 
-## 3. 문서별 적용 포인트
+## 3. 문서별 상태 전이 규칙 (현재 `DocStatusTransitionPolicy`)
 
-`QuotationService`:
-- 승인/반려/재제출/만료 전환 전에 검증 호출
-- `fromStatus=doc.getStatus().name()` 기반
+`RFQ`:
+- `PENDING --SUBMIT--> REVIEWING`
+- `REVIEWING --APPROVE--> COMPLETED`
+- `REVIEWING --REJECT--> PENDING`
 
-`ContractService`:
-- 관리자 승인, 거래처 승인, 반려, 재제출, 만료에 동일 패턴 적용
+`QUO`:
+- `WAITING_ADMIN --APPROVE--> WAITING_CLIENT`
+- `WAITING_ADMIN --REJECT--> REJECTED_ADMIN`
+- `REJECTED_ADMIN --RESUBMIT--> WAITING_ADMIN`
+- `WAITING_CLIENT --APPROVE--> FINAL_APPROVED`
+- `WAITING_CLIENT --REJECT--> REJECTED_CLIENT`
+- `REJECTED_CLIENT --RESUBMIT--> WAITING_CLIENT`
+- `FINAL_APPROVED --CONVERT--> COMPLETED`
+- `WAITING_ADMIN|WAITING_CLIENT --EXPIRE--> EXPIRED`
 
-`InvoiceService`:
-- 발행(`ISSUE`), 결제완료(`PAY`), 취소(`CANCEL`) 전환 전에 검증
+`CNT`:
+- `WAITING_ADMIN --APPROVE--> WAITING_CLIENT`
+- `WAITING_ADMIN --REJECT--> REJECTED_ADMIN`
+- `REJECTED_ADMIN --RESUBMIT--> WAITING_ADMIN`
+- `WAITING_CLIENT --APPROVE--> COMPLETED`
+- `WAITING_CLIENT --REJECT--> REJECTED_CLIENT`
+- `REJECTED_CLIENT --RESUBMIT--> WAITING_CLIENT`
+- `WAITING_ADMIN|WAITING_CLIENT --EXPIRE--> EXPIRED`
 
-`PaymentService`:
-- 결제완료(`PAY`) 또는 실패/취소(`CANCEL`) 전환 전에 검증
+`ORD`:
+- `PENDING --CONFIRM--> CONFIRMED`
+- `PENDING --CANCEL--> CANCELED`
+
+`STMT`:
+- `ISSUED --CANCEL--> CANCELED`
+
+`INV`:
+- `DRAFT --ISSUE--> PUBLISHED`
+- `DRAFT --CANCEL--> CANCELED`
+- `PUBLISHED --PAY--> PAID`
+- `PUBLISHED --CANCEL--> CANCELED`
+
+`PAY`:
+- `PENDING --PAY--> COMPLETED`
+- `PENDING --CANCEL--> FAILED`
 
 ---
 
 ## 4. CONVERT 처리 예시
 
-전환은 같은 트랜잭션에서 로그 2건을 기록한다.
+문서 전환은 같은 트랜잭션에서 `writeConvertPair(...)`로 로그 2건을 남깁니다.
 
 ```java
-@Transactional
-public void convertExample(...) {
-    // 상태 전이 검증 + 원본/신규 문서 저장이 선행됨
-
-    dealLogWriteService.writeConvertPair(
-            new DealLogWriteService.ConvertLogRequest(
-                    originalDeal, originalType, originalRefId, originalCode,
-                    originalFromStage, originalFromStatus, originalToStatus,
-                    null, actorType, actorId, "convert original", diffJsonOriginal
-            ),
-            new DealLogWriteService.ConvertLogRequest(
-                    newDeal, newType, newRefId, newCode,
-                    newFromStage, newFromStatus, newToStatus,
-                    null, actorType, actorId, "create converted doc", diffJsonNew
-            )
-    );
-}
+dealLogWriteService.writeConvertPair(
+        new DealLogWriteService.ConvertLogRequest(
+                originalDeal, originalType, originalRefId, originalCode,
+                originalFromStage, originalFromStatus, originalToStatus,
+                null, actorType, actorId, "convert original", diffJsonOriginal
+        ),
+        new DealLogWriteService.ConvertLogRequest(
+                newDeal, newType, newRefId, newCode,
+                newFromStage, newFromStatus, newToStatus,
+                null, actorType, actorId, "create converted doc", diffJsonNew
+        )
+);
 ```
 
 규칙:
@@ -121,8 +139,9 @@ public void convertExample(...) {
 
 ## 5. 체크리스트
 
-- `fromStatus`는 상태 변경 로그(예: `UPDATE`, `TRANSITION`)에서만 `null` 금지이며, 최초 생성 로그(`CREATE`)에서는 `fromStatus=null` 허용
-- `toStatus`는 모든 로그에서 필수(`null` 금지)
-- `ActorType.SYSTEM`이면 `actorId=null` 유지 (`SYSTEM`이 아니면 `actorId` 필수)
-- 로그 생성은 Controller가 아닌 Service 내부에서만 수행
-- 상태 변경이 실제로 반영된 트랜잭션 안에서 로그를 기록
+- `DealLogWriteService.write(...)` 경로에서는 `fromStatus`/`toStatus` 모두 필수(공백/null 불가)
+- `toStage`, `docType`, `refId`, `actionType`, `actorType`도 필수
+- `actionAt`은 `null`이면 `Asia/Seoul` 기준 현재 시각으로 저장
+- `ActorType.SYSTEM`이면 `actorId`는 반드시 `null`
+- `ActorType.SYSTEM`이 아니면 `actorId`는 반드시 필요
+- 로그 생성은 Controller가 아닌 Service 내부 트랜잭션에서 수행
