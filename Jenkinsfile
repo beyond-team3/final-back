@@ -116,7 +116,13 @@ pipeline {
             """
             }
           }
-          echo "✅ Manifest updated in beyond-team3/final-manifests"
+          echo "✅ Manifest updated in beyond-team3/final-manifests backend"
+        }
+        // 빌드 성공,실패 여부 상관없이 무조건 임시 폴더 삭제
+        post {
+            always {
+                sh 'rm -rf temp-manifests'
+            }
         }
       }
     }
