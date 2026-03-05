@@ -1,5 +1,6 @@
-package com.monsoon.seedflowplus.domain.dashboard.sales.dto;
+package com.monsoon.seedflowplus.domain.dashboard.salesRep.dto;
 
+import com.monsoon.seedflowplus.domain.scoring.dto.AccountPriorityResponse;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -36,6 +37,12 @@ public class SalesDashboardResponse {
      * 최근 영업 히스토리 5건 (item.date / item.title / item.detail / item.state)
      */
     private List<ActivityResponse> timeline;
+
+    /**
+     * Vue: dashboard.value.priorityAccounts[]
+     * 우선 연락 필요 거래처 스코어링 목록
+     */
+    private List<AccountPriorityResponse> priorityAccounts;
 
     /**
      * Vue: dashboard.value.timelineFilters[]

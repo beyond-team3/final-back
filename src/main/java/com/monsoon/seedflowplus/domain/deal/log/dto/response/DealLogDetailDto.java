@@ -9,6 +9,7 @@ import lombok.Getter;
 public class DealLogDetailDto {
 
     private Long dealLogId;
+    private String targetCode;
     private String reason;
     private String diffJson;
     private LocalDateTime createdAt;

@@ -34,12 +34,8 @@ public class InvoiceController {
             @RequestBody @Valid InvoiceCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        if (userDetails == null || userDetails.getEmployeeId() == null) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
-
         return ApiResult.success(
-                invoiceService.createInvoice(request, userDetails.getEmployeeId())
+                invoiceService.createInvoice(request, requireEmployeeId(userDetails))
         );
     }
 
@@ -47,34 +43,40 @@ public class InvoiceController {
     @Operation(summary = "청구서 발행 확정", description = "DRAFT 상태의 청구서를 PUBLISHED로 변경합니다.")
     @PatchMapping("/{invoiceId}/publish")
     public ApiResult<InvoicePublishResponse> publishInvoice(
-            @PathVariable Long invoiceId
+            @PathVariable Long invoiceId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.publishInvoice(invoiceId));
+        requireEmployeeId(userDetails);
+        return ApiResult.success(invoiceService.publishInvoice(invoiceId, userDetails));
     }
 
     @Operation(summary = "명세서 포함/제외 토글", description = "청구서에 포함된 명세서를 포함/제외 처리합니다. DRAFT 상태에서만 가능합니다.")
     @PatchMapping("/{invoiceId}/statements/{statementId}/toggle")
     public ApiResult<InvoiceDetailResponse> toggleStatement(
             @PathVariable Long invoiceId,
-            @PathVariable Long statementId
+            @PathVariable Long statementId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.toggleStatement(invoiceId, statementId));
+        requireEmployeeId(userDetails);
+        return ApiResult.success(invoiceService.toggleStatement(invoiceId, statementId, userDetails));
     }
 
     @Operation(summary = "청구서 단건 조회 (공통)", description = "청구서를 조회합니다. memo는 포함되지 않습니다.")
     @GetMapping("/{invoiceId}")
     public ApiResult<InvoiceResponse> getInvoice(
-            @PathVariable Long invoiceId
+            @PathVariable Long invoiceId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.getInvoice(invoiceId));
+        return ApiResult.success(invoiceService.getInvoice(invoiceId, userDetails));
     }
 
     @Operation(summary = "청구서 단건 조회 (영업사원)", description = "memo를 포함한 청구서 상세를 조회합니다. 영업사원 전용입니다.")
     @GetMapping("/{invoiceId}/detail")
     public ApiResult<InvoiceDetailResponse> getInvoiceDetail(
-            @PathVariable Long invoiceId
+            @PathVariable Long invoiceId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(invoiceService.getInvoiceDetail(invoiceId));
+        return ApiResult.success(invoiceService.getInvoiceDetail(invoiceId, userDetails));
     }
 
     @Operation(summary = "청구서 목록 조회 (전체)", description = "전체 청구서 목록을 조회합니다.")

@@ -1,9 +1,10 @@
-package com.monsoon.seedflowplus.domain.dashboard.sales.service;
+package com.monsoon.seedflowplus.domain.dashboard.salesRep.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
-import com.monsoon.seedflowplus.domain.dashboard.sales.dto.*;
-import com.monsoon.seedflowplus.domain.dashboard.sales.repository.SalesDashboardRepository;
+import com.monsoon.seedflowplus.domain.dashboard.salesRep.dto.*;
+import com.monsoon.seedflowplus.domain.dashboard.salesRep.repository.SalesDashboardRepository;
+import com.monsoon.seedflowplus.domain.scoring.service.ScoringService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.util.*;
 public class SalesDashboardService {
 
     private final SalesDashboardRepository repo;
+    private final ScoringService scoringService;
 
     private static final int BAR_MAX_HEIGHT = 80;   // Vue .monthly-bar-chart height
     private static final int BAR_MONTHS = 6;         // 바 차트 표시 개월 수
@@ -91,7 +93,11 @@ public class SalesDashboardService {
                 .map(this::toActivityResponse)
                 .toList();
 
-        // ── 7. 조립 ───────────────────────────────
+        // ── 7. 우선 연락 거래처 스코어링 ──────────
+        List<com.monsoon.seedflowplus.domain.scoring.dto.AccountPriorityResponse> priorityAccounts =
+                scoringService.getRankedAccounts();
+
+        // ── 8. 조립 ───────────────────────────────
         return SalesDashboardResponse.builder()
                 .header(DashboardHeaderResponse.builder()
                         .title(employeeName + "님의 영업 현황")
@@ -107,6 +113,7 @@ public class SalesDashboardService {
                 .monthlyBars(monthlyBars)
                 .billings(billings)
                 .timeline(timeline)
+                .priorityAccounts(priorityAccounts)
                 .timelineFilters(TIMELINE_FILTERS)
                 .build();
     }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InvoiceStatementRepository extends JpaRepository<InvoiceStatement, Long> {
 
@@ -13,6 +14,8 @@ public interface InvoiceStatementRepository extends JpaRepository<InvoiceStateme
 
     // 특정 명세서가 포함된(included=true) 청구서 연결 조회
     List<InvoiceStatement> findAllByStatementIdAndIncludedTrue(Long statementId);
+
+    Optional<InvoiceStatement> findTopByStatementIdAndIncludedTrueOrderByIdDesc(Long statementId);
 
     // 청구 가능한 명세서 조회:
     // 1) InvoiceStatement에 없는 명세서

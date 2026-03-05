@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.dashboard.sales.dto;
+package com.monsoon.seedflowplus.domain.dashboard.salesRep.dto;
 
 
 import lombok.Builder;

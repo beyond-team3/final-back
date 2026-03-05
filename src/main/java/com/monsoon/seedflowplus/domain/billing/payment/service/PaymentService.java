@@ -7,6 +7,14 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
+import com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.request.PaymentCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListResponse;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentResponse;
@@ -29,6 +37,8 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
+    private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogQueryService dealLogQueryService;
 
     /**
      * 결제 처리
@@ -54,6 +64,9 @@ public class PaymentService {
         if (invoice.getClient() == null || !invoice.getClient().getId().equals(clientId)) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
+        if (invoice.getDeal() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
 
         // 4. 결제 저장 (invoice_id unique 제약으로 중복 결제 DB 레벨 차단 + paymentCode 충돌 재시도)
         int maxRetries = 3;
@@ -75,10 +88,47 @@ public class PaymentService {
             }
         }
 
+        dealPipelineFacade.validateTransitionOrThrow(
+                DealType.PAY,
+                PaymentStatus.PENDING.name(),
+                ActionType.PAY,
+                PaymentStatus.COMPLETED.name()
+        );
+
+        payment.complete();
+
         // 5. 청구서 상태 PAID로 변경
         invoice.paid();
 
-        return PaymentResponse.from(payment);
+        dealPipelineFacade.recordAndSync(
+                payment.getDeal(),
+                DealType.PAY,
+                payment.getId(),
+                payment.getPaymentCode(),
+                DealStage.IN_PROGRESS,
+                DealStage.PAID,
+                PaymentStatus.PENDING.name(),
+                PaymentStatus.COMPLETED.name(),
+                ActionType.PAY,
+                null,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("invoiceCode", "청구서 번호", null, invoice.getInvoiceCode(), "REFERENCE"),
+                        new DealLogWriteService.DiffField("paymentAmount", "결제 금액", null, payment.getPaymentAmount(), "MONEY"),
+                        new DealLogWriteService.DiffField("paymentMethod", "결제 수단", null, payment.getPaymentMethod().name(), "ENUM")
+                )
+        );
+
+        return PaymentResponse.from(
+                payment,
+                dealLogQueryService.getRecentDocumentLogs(
+                        payment.getDeal() != null ? payment.getDeal().getId() : null,
+                        DealType.PAY,
+                        payment.getId()
+                )
+        );
     }
 
     /**
@@ -89,7 +139,14 @@ public class PaymentService {
         Payment payment = paymentRepository.findByIdAndClientId(paymentId, clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND)); // 불일치도 동일하게 NOT_FOUND
 
-        return PaymentResponse.from(payment);
+        return PaymentResponse.from(
+                payment,
+                dealLogQueryService.getRecentDocumentLogs(
+                        payment.getDeal() != null ? payment.getDeal().getId() : null,
+                        DealType.PAY,
+                        payment.getId()
+                )
+        );
     }
 
     /**

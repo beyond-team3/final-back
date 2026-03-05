@@ -19,6 +19,7 @@ package com.monsoon.seedflowplus.domain.deal.common;
  */
 public enum ActionType {
     CREATE,     // 생성
+    UPDATE,     // 필드 변경 (상태 변화 없음)
     SUBMIT,     // 제출 (승인 요청)
     RESUBMIT,   // 재제출 (반려 후 다시 제출)
 

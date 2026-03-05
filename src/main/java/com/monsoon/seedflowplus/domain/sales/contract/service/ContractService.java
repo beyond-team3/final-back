@@ -7,10 +7,15 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
@@ -51,6 +56,8 @@ public class ContractService {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
+    private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogQueryService dealLogQueryService;
 
     /**
      * 특정 거래처의 계약 목록 조회 (드롭다운용)
@@ -137,7 +144,12 @@ public class ContractService {
                 contract.getSpecialTerms(),
                 contract.getMemo(),
                 contract.getCreatedAt(),
-                items);
+                items,
+                dealLogQueryService.getRecentDocumentLogs(
+                        contract.getDeal() != null ? contract.getDeal().getId() : null,
+                        DealType.CNT,
+                        contract.getId()
+                ));
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -321,13 +333,26 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
-        deal.updateSnapshot(
-                DealStage.PENDING_ADMIN,
-                ContractStatus.WAITING_ADMIN.name(),
+
+        dealPipelineFacade.recordAndSync(
+                deal,
                 DealType.CNT,
                 contract.getId(),
                 finalCode,
-                LocalDateTime.now()
+                deal.getCurrentStage(),
+                DealStage.PENDING_ADMIN,
+                ContractStatus.WAITING_ADMIN.name(),
+                ContractStatus.WAITING_ADMIN.name(),
+                ActionType.CREATE,
+                null,
+                ActorType.SALES_REP,
+                userDetails.getEmployeeId(),
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
+                        new DealLogWriteService.DiffField("billingCycle", "청구 주기", null, request.billingCycle().name(), "ENUM"),
+                        new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(), "COUNT")
+                )
         );
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
