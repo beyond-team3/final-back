@@ -15,6 +15,8 @@ import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -36,15 +38,26 @@ public class SalesNoteRagService {
     public void initIndex() {
         log.info("기존 영업 노트 벡터 인덱싱 시작...");
         try {
-            List<SalesNote> allNotes = salesNoteRepository.findAll();
-            allNotes.forEach(note -> {
-                try {
-                    this.indexNote(note);
-                } catch (Exception e) {
-                    log.error("[RAG] 노트 인덱싱 실패 (ID: {}): {}", note.getId(), e.getMessage());
+            int pageSize = 100;
+            int pageNumber = 0;
+            long totalIndexed = 0;
+            Page<SalesNote> page;
+
+            do {
+                page = salesNoteRepository.findAll(PageRequest.of(pageNumber, pageSize));
+                for (SalesNote note : page.getContent()) {
+                    try {
+                        this.indexNote(note);
+                        totalIndexed++;
+                    } catch (Exception e) {
+                        log.error("[RAG] 노트 인덱싱 실패 (ID: {}): {}", note.getId(), e.getMessage());
+                    }
                 }
-            });
-            log.info("기존 {}건의 노트 인덱싱 완료.", allNotes.size());
+                log.info("[RAG] 노트 인덱싱 진행 중... (현재까지: {}건)", totalIndexed);
+                pageNumber++;
+            } while (page.hasNext());
+
+            log.info("기존 {}건의 노트 인덱싱 완료.", totalIndexed);
         } catch (Exception e) {
             log.error("[RAG] 초기 노트 로딩 실패: {}", e.getMessage());
         }

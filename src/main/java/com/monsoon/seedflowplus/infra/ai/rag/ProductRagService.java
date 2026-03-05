@@ -14,6 +14,8 @@ import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -38,16 +40,27 @@ public class ProductRagService {
     public void indexAllProducts() {
         log.info("종자 카탈로그 벡터 인덱싱 시작...");
         try {
-            List<Product> products = productRepository.findAll();
-            products.forEach(product -> {
-                try {
-                    this.indexProduct(product);
-                } catch (Exception e) {
-                    log.error("[RAG] 품종 인덱싱 실패 (ID: {}, Name: {}): {}", 
-                            product.getId(), product.getProductName(), e.getMessage());
+            int pageSize = 50;
+            int pageNumber = 0;
+            long totalIndexed = 0;
+            Page<Product> page;
+
+            do {
+                page = productRepository.findAll(PageRequest.of(pageNumber, pageSize));
+                for (Product product : page.getContent()) {
+                    try {
+                        this.indexProduct(product);
+                        totalIndexed++;
+                    } catch (Exception e) {
+                        log.error("[RAG] 품종 인덱싱 실패 (ID: {}, Name: {}): {}", 
+                                product.getId(), product.getProductName(), e.getMessage());
+                    }
                 }
-            });
-            log.info("총 {}건의 품종 정보 인덱싱 완료.", products.size());
+                log.info("[RAG] 품종 인덱싱 진행 중... (현재까지: {}건)", totalIndexed);
+                pageNumber++;
+            } while (page.hasNext());
+
+            log.info("총 {}건의 품종 정보 인덱싱 완료.", totalIndexed);
         } catch (Exception e) {
             log.error("[RAG] 초기 품종 로딩 실패: {}", e.getMessage());
         }
