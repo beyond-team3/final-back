@@ -48,7 +48,63 @@ diffJson schema
       "label": "displayName",
       "before": "value",
       "after": "value",
-      "type": "TEXT|NUMBER|CURRENCY|DATE|STATUS|REFERENCE"
+      "type": "TEXT|NUMBER|CURRENCY|DATE|STATUS|REFERENCE|MONEY|ENUM|COUNT|BOOLEAN"
+    }
+  ]
+}
+```
+
+`fields[].type`은 구현에서 실제 사용하는 변경값 타입 문자열이다.
+
+- `TEXT`: 자유 텍스트
+- `NUMBER`: 일반 숫자
+- `CURRENCY` / `MONEY`: 금액(레거시/신규 표기 공존)
+- `DATE`: 날짜
+- `STATUS`: 상태 코드
+- `REFERENCE`: 연관 문서/식별자
+- `ENUM`: Enum 이름 문자열
+- `COUNT`: 개수형 숫자
+- `BOOLEAN`: true/false
+
+예시
+
+```json
+{
+  "fields": [
+    {
+      "field": "status",
+      "label": "청구서 상태",
+      "before": "DRAFT",
+      "after": "PUBLISHED",
+      "type": "STATUS"
+    },
+    {
+      "field": "paymentAmount",
+      "label": "결제 금액",
+      "before": null,
+      "after": 120000,
+      "type": "MONEY"
+    },
+    {
+      "field": "included",
+      "label": "명세서 포함 여부",
+      "before": true,
+      "after": false,
+      "type": "BOOLEAN"
+    },
+    {
+      "field": "itemCount",
+      "label": "품목 수",
+      "before": 2,
+      "after": 3,
+      "type": "COUNT"
+    },
+    {
+      "field": "paymentMethod",
+      "label": "결제 수단",
+      "before": null,
+      "after": "CARD",
+      "type": "ENUM"
     }
   ]
 }

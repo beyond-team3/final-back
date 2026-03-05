@@ -133,6 +133,57 @@ Step6 DealPipelineFacade 도입
 
 - `./gradlew compileJava -q` 통과
 
+## 2026-03-05 16:21
+
+### Step
+
+Step10 Deal-log policy/input hardening and docs sync
+
+### Purpose
+
+리뷰 지적 사항 기준으로 문서 스키마와 실제 구현을 일치시키고,
+인증 주체 누락/actorId 누락/전이 검증 누락/nullable 연관 NPE 경로를 표준 예외로 조기 차단한다.
+
+### Modified Files
+
+- PRE_RABBIT.md
+- docs/refactoring/deal-log-architecture.md
+- InvoiceController.java
+- InvoiceService.java
+- Payment.java
+- PaymentService.java
+- StatementService.java
+- DealErrorCode.java
+- DealLogPolicyValidator.java
+- DealLogQueryService.java
+- DealLogWriteService.java
+- DealPipelineFacade.java
+- OrderController.java
+- OrderService.java
+- pre-rabbit.md (deleted)
+
+### Key Changes
+
+- `deal-log-architecture.md` diffJson `fields[].type`에 `MONEY|ENUM|COUNT|BOOLEAN` 추가 및 예시/설명 동기화
+- `PRE_RABBIT.md`의 bare code fence를 `text` 지정 fence로 치환(MD040 대응)
+- `InvoiceController.publish/toggle`, `OrderController.confirm`에서 principal null/식별자 검증 추가
+- `InvoiceService.resolveActorId`, `OrderService.resolveActorId`에서 non-SYSTEM actorId null 시 `UNAUTHORIZED` 강제
+- `StatementService.cancelStatement`에 `statement.getDeal()` null 가드 추가(`DEAL_NOT_FOUND`)
+- `DealLogPolicyValidator`
+  - staff 권한을 `EnumSet.of(...)` 명시 화이트리스트로 전환
+  - non-SYSTEM actorId를 `null 또는 0 이하` 금지로 강화
+  - `IllegalArgumentException` 대신 `DealException(DealErrorCode)` 사용
+- `DealLogQueryService`
+  - `getRecentDocumentLogs(...)` null 입력 시 빈 리스트 반환 제거, `INVALID_INPUT_VALUE` 예외로 fail-fast
+  - `getLogDetail(...)`에서 ownerEmpId 계산 시 null-safe 가드 추가
+- `DealLogWriteService.buildDiffJson(...)` 직렬화 실패를 `DealException(DIFF_JSON_SERIALIZATION_FAILED)`로 표준화
+- `DealPipelineFacade.shouldValidateTransition(...)`에서 `UPDATE`도 전이 검증 수행하도록 조정(`CREATE`만 예외)
+- `Payment` 생성 상태를 `PENDING`으로 맞추고 `processPayment(...)`에서 `payment.complete()` 후 `PENDING→COMPLETED` 로그 일관화
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
+
 ## 2026-03-05 16:05
 
 ### Step
