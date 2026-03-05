@@ -85,6 +85,11 @@ public class AccountController {
         return ApiResult.success(accountService.getEmployeeDetail(employeeId));
     }
 
+    @GetMapping("/employees/{employeeId}/managed-clients")
+    public ApiResult<List<EmployeeManagedClientResponse>> getManagedClients(@PathVariable Long employeeId) {
+        return ApiResult.success(accountService.getManagedClientsByAdmin(employeeId));
+    }
+
     // 조회 - 거래처
     @GetMapping("/clients/for-document")
     public ApiResult<List<ClientListForDocumentResponse>> getClientsForDocument() {

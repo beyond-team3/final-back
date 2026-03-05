@@ -11,6 +11,7 @@ import com.monsoon.seedflowplus.domain.account.dto.response.ClientListResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.ClientProfileResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeManagedClientResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
@@ -449,6 +450,21 @@ public class AccountService {
 
         return employeeRepository.findAllNonAdmin(Role.ADMIN).stream()
                 .map(EmployeeSimpleResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeManagedClientResponse> getManagedClientsByAdmin(Long employeeId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        requireRole(userDetails, Role.ADMIN);
+
+        // 영업사원 존재 여부 확인
+        if (!employeeRepository.existsById(employeeId)) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_FOUND);
+        }
+
+        return clientRepository.findAllByManagerEmployeeId(employeeId).stream()
+                .map(EmployeeManagedClientResponse::from)
                 .toList();
     }
 
