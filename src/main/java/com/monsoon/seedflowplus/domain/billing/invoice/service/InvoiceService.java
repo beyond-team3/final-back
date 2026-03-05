@@ -2,10 +2,18 @@ package com.monsoon.seedflowplus.domain.billing.invoice.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceListResponse;
@@ -20,7 +28,6 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -31,10 +38,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class InvoiceService {
 
@@ -43,6 +50,8 @@ public class InvoiceService {
     private final ContractRepository contractHeaderRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogQueryService dealLogQueryService;
 
     /**
      * 청구서 수동 생성 (영업사원)
@@ -111,14 +120,22 @@ public class InvoiceService {
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoice.getId());
 
-        return InvoiceDetailResponse.of(invoice, invoiceStatements);
+        return InvoiceDetailResponse.of(
+                invoice,
+                invoiceStatements,
+                dealLogQueryService.getRecentDocumentLogs(
+                        invoice.getDeal() != null ? invoice.getDeal().getId() : null,
+                        DealType.INV,
+                        invoice.getId()
+                )
+        );
     }
 
     /**
      * 청구서 발행 확정 (DRAFT → PUBLISHED)
      */
     @Transactional
-    public InvoicePublishResponse publishInvoice(Long invoiceId) {
+    public InvoicePublishResponse publishInvoice(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
 
@@ -126,7 +143,33 @@ public class InvoiceService {
             throw new CoreException(ErrorType.INVOICE_ALREADY_PUBLISHED);
         }
 
+        String fromStatus = invoice.getStatus().name();
+        dealPipelineFacade.validateTransitionOrThrow(
+                DealType.INV,
+                fromStatus,
+                ActionType.ISSUE,
+                InvoiceStatus.PUBLISHED.name()
+        );
+
         invoice.publish();
+        ActorType actorType = resolveActorType(principal);
+        Long actorId = resolveActorId(actorType, principal);
+        dealPipelineFacade.recordAndSync(
+                invoice.getDeal(),
+                DealType.INV,
+                invoice.getId(),
+                invoice.getInvoiceCode(),
+                mapInvoiceStage(InvoiceStatus.valueOf(fromStatus)),
+                DealStage.ISSUED,
+                fromStatus,
+                InvoiceStatus.PUBLISHED.name(),
+                ActionType.ISSUE,
+                null,
+                actorType,
+                actorId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "청구서 상태", fromStatus, InvoiceStatus.PUBLISHED.name(), "STATUS"))
+        );
         return InvoicePublishResponse.from(invoice);
     }
 
@@ -136,7 +179,7 @@ public class InvoiceService {
      * - 금액 재계산
      */
     @Transactional
-    public InvoiceDetailResponse toggleStatement(Long invoiceId, Long statementId) {
+    public InvoiceDetailResponse toggleStatement(Long invoiceId, Long statementId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
 
@@ -151,7 +194,8 @@ public class InvoiceService {
                 .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
 
         // 포함/제외 토글
-        if (invoiceStatement.isIncluded()) {
+        boolean includedBefore = invoiceStatement.isIncluded();
+        if (includedBefore) {
             invoiceStatement.exclude();
         } else {
             invoiceStatement.include();
@@ -164,31 +208,90 @@ public class InvoiceService {
                 .filter(InvoiceStatement::isIncluded)
                 .map(is -> is.getStatement().getTotalAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal beforeAmount = invoice.getTotalAmount();
         invoice.updateAmount(totalAmount);
 
-        return InvoiceDetailResponse.of(invoice, allStatements);
+        ActorType actorType = resolveActorType(principal);
+        Long actorId = resolveActorId(actorType, principal);
+        String status = invoice.getStatus().name();
+        dealPipelineFacade.recordAndSync(
+                invoice.getDeal(),
+                DealType.INV,
+                invoice.getId(),
+                invoice.getInvoiceCode(),
+                mapInvoiceStage(invoice.getStatus()),
+                mapInvoiceStage(invoice.getStatus()),
+                status,
+                status,
+                ActionType.UPDATE,
+                null,
+                actorType,
+                actorId,
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("included", "명세서 포함 여부", includedBefore, !includedBefore, "BOOLEAN"),
+                        new DealLogWriteService.DiffField("statementId", "명세서 ID", null, statementId, "REFERENCE"),
+                        new DealLogWriteService.DiffField("totalAmount", "청구서 금액", beforeAmount, totalAmount, "MONEY")
+                )
+        );
+
+        return InvoiceDetailResponse.of(
+                invoice,
+                allStatements,
+                dealLogQueryService.getRecentDocumentLogs(
+                        invoice.getDeal() != null ? invoice.getDeal().getId() : null,
+                        DealType.INV,
+                        invoice.getId()
+                )
+        );
     }
 
     /**
      * 청구서 단건 조회 (공통 - memo 없음)
      */
     public InvoiceResponse getInvoice(Long invoiceId) {
+        return getInvoice(invoiceId, null);
+    }
+
+    public InvoiceResponse getInvoice(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
+        validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
-        return InvoiceResponse.of(invoice, invoiceStatements);
+        return InvoiceResponse.of(
+                invoice,
+                invoiceStatements,
+                dealLogQueryService.getRecentDocumentLogs(
+                        invoice.getDeal() != null ? invoice.getDeal().getId() : null,
+                        DealType.INV,
+                        invoice.getId()
+                )
+        );
     }
 
     /**
      * 청구서 단건 조회 (영업사원 전용 - memo 포함)
      */
     public InvoiceDetailResponse getInvoiceDetail(Long invoiceId) {
+        return getInvoiceDetail(invoiceId, null);
+    }
+
+    public InvoiceDetailResponse getInvoiceDetail(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
+        validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
-        return InvoiceDetailResponse.of(invoice, invoiceStatements);
+        return InvoiceDetailResponse.of(
+                invoice,
+                invoiceStatements,
+                dealLogQueryService.getRecentDocumentLogs(
+                        invoice.getDeal() != null ? invoice.getDeal().getId() : null,
+                        DealType.INV,
+                        invoice.getId()
+                )
+        );
     }
 
     /**
@@ -228,9 +331,7 @@ public class InvoiceService {
 
         String invoiceCode = generateCode("INV");
         if (contract.getDeal() == null) {
-            // TODO(BAC-70): legacy 계약 데이터 deal_id 백필 완료 후 제거
-            log.warn("Skip draft invoice creation because deal is missing. contractId={}", contract.getId());
-            return;
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=" + contract.getId());
         }
 
         Invoice invoice = Invoice.create(
@@ -292,5 +393,73 @@ public class InvoiceService {
                 .orElse(1);
 
         return todayPrefix + String.format("%03d", nextSeq);
+    }
+
+    private ActorType resolveActorType(CustomUserDetails principal) {
+        if (principal == null || principal.getRole() == null) {
+            return ActorType.SYSTEM;
+        }
+        return switch (principal.getRole()) {
+            case CLIENT -> ActorType.CLIENT;
+            case ADMIN -> ActorType.ADMIN;
+            case SALES_REP -> ActorType.SALES_REP;
+        };
+    }
+
+    private Long resolveActorId(ActorType actorType, CustomUserDetails principal) {
+        if (actorType == ActorType.SYSTEM) {
+            return null;
+        }
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        Long actorId = actorType == ActorType.CLIENT
+                ? principal.getClientId()
+                : principal.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return actorId;
+    }
+
+    private DealStage mapInvoiceStage(InvoiceStatus status) {
+        return switch (status) {
+            case DRAFT -> DealStage.CREATED;
+            case PUBLISHED -> DealStage.ISSUED;
+            case PAID -> DealStage.PAID;
+            case CANCELED -> DealStage.CANCELED;
+        };
+    }
+
+    private void validateInvoiceReadPermission(Invoice invoice, CustomUserDetails principal) {
+        if (principal == null || principal.getRole() == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+        if (principal.getRole() == Role.ADMIN) {
+            return;
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            Long principalClientId = principal.getClientId();
+            Long invoiceClientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
+            if (principalClientId == null || !principalClientId.equals(invoiceClientId)) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+        Long principalEmployeeId = principal.getEmployeeId();
+        if (principalEmployeeId == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+        Long invoiceEmployeeId = invoice.getEmployee() != null ? invoice.getEmployee().getId() : null;
+        Long ownerEmpId = invoice.getDeal() != null && invoice.getDeal().getOwnerEmp() != null
+                ? invoice.getDeal().getOwnerEmp().getId()
+                : null;
+        if (invoiceEmployeeId != null && principalEmployeeId.equals(invoiceEmployeeId)) {
+            return;
+        }
+        if (ownerEmpId != null && principalEmployeeId.equals(ownerEmpId)) {
+            return;
+        }
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 }

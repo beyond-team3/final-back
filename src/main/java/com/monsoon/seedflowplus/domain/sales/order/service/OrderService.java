@@ -7,6 +7,13 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractDetailRepository;
@@ -22,6 +29,7 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +50,8 @@ public class OrderService {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final StatementService statementService;
+    private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogQueryService dealLogQueryService;
 
 
     @Transactional
@@ -55,6 +65,9 @@ public class OrderService {
         LocalDate today = LocalDate.now();
         if (today.isBefore(contract.getStartDate()) || today.isAfter(contract.getEndDate())) {
             throw new CoreException(ErrorType.CONTRACT_EXPIRED);
+        }
+        if (contract.getDeal() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
 
         // 3. 거래처 / 영업사원 조회
@@ -136,7 +149,33 @@ public class OrderService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
+        String fromStatus = orderHeader.getStatus().name();
+        DealStage fromStage = mapOrderStage(orderHeader.getStatus());
+        dealPipelineFacade.validateTransitionOrThrow(
+                DealType.ORD,
+                fromStatus,
+                ActionType.CANCEL,
+                OrderStatus.CANCELED.name()
+        );
+
         orderHeader.cancel();
+
+        dealPipelineFacade.recordAndSync(
+                orderHeader.getDeal(),
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                fromStage,
+                DealStage.CANCELED,
+                fromStatus,
+                OrderStatus.CANCELED.name(),
+                ActionType.CANCEL,
+                null,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "주문 상태", fromStatus, OrderStatus.CANCELED.name(), "STATUS"))
+        );
 
         return OrderCancelResponse.builder()
                 .orderId(orderHeader.getId())
@@ -146,7 +185,7 @@ public class OrderService {
 
     // 주문 확정
     @Transactional
-    public OrderResponse confirmOrder(Long orderId) {
+    public OrderResponse confirmOrder(Long orderId, CustomUserDetails principal) {
         OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
 
@@ -154,8 +193,37 @@ public class OrderService {
             throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
         }
 
+        String fromStatus = orderHeader.getStatus().name();
+        DealStage fromStage = mapOrderStage(orderHeader.getStatus());
+        dealPipelineFacade.validateTransitionOrThrow(
+                DealType.ORD,
+                fromStatus,
+                ActionType.CONFIRM,
+                OrderStatus.CONFIRMED.name()
+        );
+
         orderHeader.confirm();
-        statementService.createStatement(orderHeader);
+
+        ActorType actorType = resolveActorType(principal);
+        Long actorId = resolveActorId(actorType, principal);
+        dealPipelineFacade.recordAndSync(
+                orderHeader.getDeal(),
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                fromStage,
+                DealStage.CONFIRMED,
+                fromStatus,
+                OrderStatus.CONFIRMED.name(),
+                ActionType.CONFIRM,
+                null,
+                actorType,
+                actorId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "주문 상태", fromStatus, OrderStatus.CONFIRMED.name(), "STATUS"))
+        );
+
+        statementService.createStatement(orderHeader, actorType, actorId);
 
         return toOrderResponse(orderHeader);
     }
@@ -190,6 +258,11 @@ public class OrderService {
                 .shippingAddressDetail(firstDetail.getShippingAddressDetail())
                 .deliveryRequest(firstDetail.getDeliveryRequest())
                 .items(items)
+                .recentLogs(dealLogQueryService.getRecentDocumentLogs(
+                        orderHeader.getDeal() != null ? orderHeader.getDeal().getId() : null,
+                        DealType.ORD,
+                        orderHeader.getId()
+                ))
                 .build();
     }
 
@@ -215,6 +288,41 @@ public class OrderService {
         // 오늘 생성된 주문 수 기반으로 번호 증가
         long count = orderHeaderRepository.countByOrderCodeStartingWith(todayPrefix);
         return todayPrefix + String.format("%03d", count + 1);
+    }
+
+    private DealStage mapOrderStage(OrderStatus status) {
+        return switch (status) {
+            case PENDING -> DealStage.IN_PROGRESS;
+            case CONFIRMED -> DealStage.CONFIRMED;
+            case CANCELED -> DealStage.CANCELED;
+        };
+    }
+
+    private ActorType resolveActorType(CustomUserDetails principal) {
+        if (principal == null || principal.getRole() == null) {
+            return ActorType.SYSTEM;
+        }
+        return switch (principal.getRole()) {
+            case CLIENT -> ActorType.CLIENT;
+            case ADMIN -> ActorType.ADMIN;
+            default -> ActorType.SALES_REP;
+        };
+    }
+
+    private Long resolveActorId(ActorType actorType, CustomUserDetails principal) {
+        if (actorType == ActorType.SYSTEM) {
+            return null;
+        }
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        Long actorId = actorType == ActorType.CLIENT
+                ? principal.getClientId()
+                : principal.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return actorId;
     }
 
 }

@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.sales.order.controller;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
@@ -63,8 +65,12 @@ public class OrderController {
     @Operation(summary = "주문 확정", description = "주문 상태를 CONFIRMED로 변경하고 명세서를 자동 발급합니다.")
     @PatchMapping("/{orderId}/confirm")
     public ApiResult<OrderResponse> confirmOrder(
-            @PathVariable Long orderId
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(orderService.confirmOrder(orderId));
+        if (userDetails == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return ApiResult.success(orderService.confirmOrder(orderId, userDetails));
     }
 }

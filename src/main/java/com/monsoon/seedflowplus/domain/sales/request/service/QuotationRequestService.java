@@ -6,10 +6,14 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
@@ -44,6 +48,7 @@ public class QuotationRequestService {
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
+    private final DealPipelineFacade dealPipelineFacade;
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
@@ -104,13 +109,37 @@ public class QuotationRequestService {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
-        deal.updateSnapshot(
-                DealStage.CREATED,
-                QuotationRequestStatus.PENDING.name(),
+
+        dealPipelineFacade.recordAndSyncWithPublicDiffs(
+                deal,
                 DealType.RFQ,
                 header.getId(),
                 requestCode,
-                LocalDateTime.now()
+                deal.getCurrentStage(),
+                DealStage.CREATED,
+                QuotationRequestStatus.PENDING.name(),
+                QuotationRequestStatus.PENDING.name(),
+                ActionType.CREATE,
+                null,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(
+                        new DealDiffField(
+                                "requirements",
+                                "요구사항",
+                                null,
+                                request.requirements(),
+                                "TEXT"
+                        ),
+                        new DealDiffField(
+                                "itemCount",
+                                "요청 품목 수",
+                                null,
+                                request.items().size(),
+                                "COUNT"
+                        )
+                )
         );
     }
 

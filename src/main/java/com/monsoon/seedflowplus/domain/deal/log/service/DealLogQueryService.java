@@ -11,6 +11,7 @@ import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.repository.DealLogDetailRepository;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +26,7 @@ public class DealLogQueryService {
 
     private static final int DEFAULT_PAGE = 0;
     private static final int DEFAULT_SIZE = 20;
+    private static final int DEFAULT_RECENT_LIMIT = 20;
 
     private final SalesDealLogRepository salesDealLogRepository;
     private final DealLogDetailRepository dealLogDetailRepository;
@@ -55,18 +57,53 @@ public class DealLogQueryService {
 
     public DealLogDetailDto getLogDetail(Long dealLogId, CustomUserDetails user) {
         CustomUserDetails requiredUser = requireUser(user);
-        DealLogDetail detail = dealLogDetailRepository.findByDealLogId(dealLogId)
+        SalesDealLog log = salesDealLogRepository.findById(dealLogId)
                 .orElseThrow(() -> new CoreException(
                         ErrorType.DEAL_LOG_DETAIL_NOT_FOUND,
-                        "DealLogDetail을 찾을 수 없습니다. dealLogId=" + dealLogId
+                        "DealLog을 찾을 수 없습니다. dealLogId=" + dealLogId
                 ));
+        DealLogDetail detail = dealLogDetailRepository.findByDealLogId(dealLogId).orElse(null);
 
-        SalesDealLog log = detail.getDealLog();
-        if (!canAccess(requiredUser, log.getDeal().getOwnerEmp().getId(), log.getClient().getId())) {
+        Long clientId = log.getClient() != null
+                ? log.getClient().getId()
+                : (log.getDeal() != null && log.getDeal().getClient() != null ? log.getDeal().getClient().getId() : null);
+        Long ownerEmpId = (log.getDeal() != null && log.getDeal().getOwnerEmp() != null)
+                ? log.getDeal().getOwnerEmp().getId()
+                : null;
+        if (!canAccess(requiredUser, ownerEmpId, clientId)) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        return toDetailDto(detail);
+        return toDetailDto(log, detail);
+    }
+
+    public List<DealLogSummaryDto> getRecentDocumentLogs(Long dealId, DealType docType, Long refId) {
+        return getRecentDocumentLogs(dealId, docType, refId, DEFAULT_RECENT_LIMIT);
+    }
+
+    public List<DealLogSummaryDto> getRecentDocumentLogs(Long dealId, DealType docType, Long refId, int limit) {
+        if (dealId == null || docType == null || refId == null) {
+            return List.of();
+        }
+        return getRecentDocumentLogsStrict(dealId, docType, refId, limit);
+    }
+
+    public List<DealLogSummaryDto> getRecentDocumentLogsStrict(Long dealId, DealType docType, Long refId, int limit) {
+        requireRecentLogParam("dealId", dealId);
+        requireRecentLogParam("docType", docType);
+        requireRecentLogParam("refId", refId);
+        int resolvedLimit = limit > 0 ? limit : DEFAULT_RECENT_LIMIT;
+        Pageable pageable = PageRequest.of(0, resolvedLimit);
+        return salesDealLogRepository.findRecentByDealIdAndDocTypeAndRefId(dealId, docType, refId, pageable)
+                .stream()
+                .map(this::toSummaryDto)
+                .toList();
+    }
+
+    private void requireRecentLogParam(String name, Object value) {
+        if (value == null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "getRecentDocumentLogs: " + name + " must not be null");
+        }
     }
 
     private Pageable resolveTimelinePageable(Pageable pageable) {
@@ -96,12 +133,13 @@ public class DealLogQueryService {
                 .build();
     }
 
-    private DealLogDetailDto toDetailDto(DealLogDetail detail) {
+    private DealLogDetailDto toDetailDto(SalesDealLog log, DealLogDetail detail) {
         return DealLogDetailDto.builder()
-                .dealLogId(detail.getDealLog().getId())
-                .reason(detail.getReason())
-                .diffJson(detail.getDiffJson())
-                .createdAt(detail.getCreatedAt())
+                .dealLogId(log.getId())
+                .targetCode(log.getTargetCode())
+                .reason(detail != null ? detail.getReason() : null)
+                .diffJson(detail != null ? detail.getDiffJson() : null)
+                .createdAt(detail != null ? detail.getCreatedAt() : null)
                 .build();
     }
 
