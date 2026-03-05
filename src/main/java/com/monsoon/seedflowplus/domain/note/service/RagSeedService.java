@@ -138,7 +138,7 @@ public class RagSeedService {
 
         // 3. 관련 컨텍스트 인출 (동적 필터 적용)
         List<TextSegment> noteContexts = salesNoteRagService.retrieveRelatedNotes(clientId, contractId, searchQuery, maxResults);
-        List<TextSegment> productContexts = (queryType.equals("MATCHING")) 
+        List<TextSegment> productContexts = (queryType.equalsIgnoreCase("MATCHING")) 
                 ? productRagService.retrieveRecommendedProducts(searchQuery, 5) 
                 : List.of();
 
