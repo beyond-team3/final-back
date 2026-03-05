@@ -7,21 +7,15 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
@@ -60,11 +54,8 @@ public class ContractService {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
-<<<<<<< HEAD
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -327,14 +318,6 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
-        deal.updateSnapshot(
-                DealStage.PENDING_ADMIN,
-                ContractStatus.WAITING_ADMIN.name(),
-                DealType.CNT,
-                contract.getId(),
-                finalCode,
-                LocalDateTime.now()
-        );
 
         dealPipelineFacade.recordAndSync(
                 deal,

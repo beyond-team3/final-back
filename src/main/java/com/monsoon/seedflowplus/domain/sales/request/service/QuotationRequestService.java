@@ -6,20 +6,14 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
@@ -54,10 +48,7 @@ public class QuotationRequestService {
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
-<<<<<<< HEAD
     private final DealPipelineFacade dealPipelineFacade;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
@@ -118,7 +109,6 @@ public class QuotationRequestService {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
-<<<<<<< HEAD
 
         dealPipelineFacade.recordAndSync(
                 deal,
@@ -150,15 +140,6 @@ public class QuotationRequestService {
                                 "COUNT"
                         )
                 )
-=======
-        deal.updateSnapshot(
-                DealStage.CREATED,
-                QuotationRequestStatus.PENDING.name(),
-                DealType.RFQ,
-                header.getId(),
-                requestCode,
-                LocalDateTime.now()
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
         );
     }
 

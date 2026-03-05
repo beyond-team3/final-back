@@ -7,21 +7,15 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-<<<<<<< HEAD
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
@@ -60,11 +54,8 @@ public class QuotationService {
     private final EmployeeRepository employeeRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
-<<<<<<< HEAD
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
-=======
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -165,7 +156,6 @@ public class QuotationService {
         String finalCode = "QUO-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + quotation.getId();
         quotation.updateQuotationCode(finalCode);
-<<<<<<< HEAD
 
         dealPipelineFacade.recordAndSync(
                 deal,
@@ -185,15 +175,6 @@ public class QuotationService {
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
                         new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(), "COUNT")
                 )
-=======
-        deal.updateSnapshot(
-                DealStage.PENDING_ADMIN,
-                QuotationStatus.WAITING_ADMIN.name(),
-                DealType.QUO,
-                quotation.getId(),
-                finalCode,
-                LocalDateTime.now()
->>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
         );
     }
 
