@@ -94,7 +94,7 @@ public class GeminiAiClient implements AiClient {
 
         } catch (Exception e) {
             log.error("RAGseed 타겟 전략 생성 중 오류: {}", e.getMessage());
-            return "전략 인출에 실패했습니다. 데이터를 다시 확인해주세요.";
+            throw new RuntimeException("RAGseed 타겟 전략 인출에 실패했습니다.", e);
         }
     }
 
