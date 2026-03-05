@@ -32,7 +32,7 @@ public class ClientDashboardService {
         Map<String, Object> clientInfo;
         try {
             clientInfo = repo.findClientInfo(clientId);
-        } catch (Exception e) {
+        } catch (java.util.NoSuchElementException e) {
             throw new CoreException(ErrorType.CLIENT_NOT_FOUND);
         }
         String clientName   = (String) clientInfo.get("client_name");
@@ -125,7 +125,7 @@ public class ClientDashboardService {
     // ──────────────────────────────────────────────
 
     private ClientOrderResponse toOrderResponse(Map<String, Object> row) {
-        String statusRaw = (String) row.get("status");
+        String statusRaw = row.get("status") != null ? (String) row.get("status") : "UNKNOWN";
         String status;
         String statusClass;
 
@@ -216,6 +216,7 @@ public class ClientDashboardService {
     private LocalDateTime toLocalDateTime(Object raw) {
         if (raw instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
         if (raw instanceof LocalDateTime ldt) return ldt;
-        return LocalDateTime.now();
+        throw new IllegalStateException("변환할 수 없는 날짜 타입: "
+                + (raw == null ? "null" : raw.getClass().getName()));
     }
 }

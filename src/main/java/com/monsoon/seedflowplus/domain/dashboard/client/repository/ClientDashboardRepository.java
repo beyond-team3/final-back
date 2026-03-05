@@ -23,7 +23,7 @@ public class ClientDashboardRepository {
 
     /**
      * 거래처 기본정보 + 최근 활성 계약의 청구 사이클
-     * 결과 없으면 빈 Map 반환 → Service에서 CoreException 변환
+     * 결과 없으면 NoSuchElementException → Service에서 CoreException 변환
      */
     public Map<String, Object> findClientInfo(Long clientId) {
         String sql = """

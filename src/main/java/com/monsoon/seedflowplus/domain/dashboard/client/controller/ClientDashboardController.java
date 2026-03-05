@@ -30,7 +30,9 @@ public class ClientDashboardController {
     public ResponseEntity<ClientDashboardResponse> getClientDashboard(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        if (userDetails == null || userDetails.getClientId() == null) {
+        if (userDetails == null
+                || userDetails.getClientId() == null
+                || userDetails.getUserId() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 

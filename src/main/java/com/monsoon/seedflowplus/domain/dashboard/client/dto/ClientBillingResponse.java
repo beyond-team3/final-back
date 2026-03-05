@@ -12,7 +12,7 @@ import lombok.Getter;
  * status → 상태 한글             "미결제" | "납부 완료"
  * type   → CSS 클래스
  *           invoice_date 7일 이내 → "due-soon"
- *           PAID                 → "paid"
+ *           PUBLISHED            → "paid"
  *           그 외                 → ""
  */
 @Getter
