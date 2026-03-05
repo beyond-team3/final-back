@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
 import com.monsoon.seedflowplus.infra.ai.dto.GeminiApiResponse;
 import com.monsoon.seedflowplus.infra.ai.dto.GeminiResponse;
+import dev.langchain4j.data.segment.TextSegment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -32,48 +34,55 @@ public class GeminiAiClient implements AiClient {
     private String apiUrl;
 
     @Override
-    public SalesBriefing analyzeSalesStrategy(Long clientId, String text) {
+    public SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts) {
         try {
-            String prompt = buildPromptWithCitation(text);
+            // 1. 컨텍스트 타입별 분류 및 텍스트 조립
+            String notesText = contexts.stream()
+                    .filter(s -> "SALES_NOTE".equals(s.metadata().get("type")))
+                    .map(s -> String.format("[영업노트 ID: %s] (%s) %s",
+                            s.metadata().get("id"),
+                            s.metadata().get("activityDate"),
+                            s.text()))
+                    .collect(Collectors.joining("\n"));
 
-            // 1. API 요청 바디 구성 (snake_case 규격 준수)
+            String productsText = contexts.stream()
+                    .filter(s -> "PRODUCT_CATALOG".equals(s.metadata().get("type")))
+                    .map(s -> String.format("[품종 ID: %s] (카테고리: %s) %s",
+                            s.metadata().get("productId"),
+                            s.metadata().get("category"),
+                            s.text()))
+                    .collect(Collectors.joining("\n"));
+
+            String augmentedPrompt = buildAugmentedPrompt(notesText, productsText);
+
+            // 2. API 요청 바디 구성
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(
-                            Map.of("parts", List.of(Map.of("text", prompt)))
+                            Map.of("parts", List.of(Map.of("text", augmentedPrompt)))
                     ),
                     "generationConfig", Map.of(
                             "temperature", 0.1,
-                            "response_mime_type", "application/json" // 필드명 수정
+                            "response_mime_type", "application/json"
                     )
             );
 
-            // 2. HTTP 헤더 설정 (보안 강화: x-goog-api-key 사용)
+            // 3. HTTP 호출 및 결과 처리 (기존 로직 유지)
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-goog-api-key", apiKey); // API 키를 헤더로 이동
+            headers.set("x-goog-api-key", apiKey);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
 
-            // 3. URI 생성 (쿼리 파라미터에서 키 제거)
-            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl)
-                    .build()
-                    .toUri();
-
-            // 4. Gemini API 호출
             ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.POST,
-                    entity,
-                    GeminiApiResponse.class
+                    uri, HttpMethod.POST, entity, GeminiApiResponse.class
             );
 
-            // 5. 응답 데이터 추출 (방어적 코드 적용)
             String jsonText = extractTextFromResponse(response.getBody())
-                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 응답을 받지 못했습니다."));
+                    .orElseThrow(() -> new RuntimeException("Gemini API 응답 추출 실패"));
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
-            // 6. 엔티티 생성 (camelCase 필드 및 JsonProperty 매핑 결과 반영)
             return SalesBriefing.builder()
                     .clientId(clientId)
                     .statusChange(aiResult.getStatusChange())
@@ -83,13 +92,38 @@ public class GeminiAiClient implements AiClient {
                     .version(aiResult.getVersion())
                     .build();
 
-        } catch (org.springframework.web.client.ResourceAccessException e) {
-            log.error("Gemini API 호출 타임아웃 발생: {}", e.getMessage());
-            throw new RuntimeException("AI 분석 서버 응답 시간이 초과되었습니다.", e);
         } catch (Exception e) {
-            log.error("Gemini 분석 중 알 수 없는 오류 발생: {}", e.getMessage());
+            log.error("RAG 기반 Gemini 분석 중 오류 발생: {}", e.getMessage());
             throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
         }
+    }
+
+    private String buildAugmentedPrompt(String notes, String products) {
+        return String.format("""
+        당신은 종자 회사 전문 전략 영업 컨설턴트입니다.
+        제공된 [과거 영업 기록]과 [최신 종자 카탈로그]를 분석하여 최적의 영업 전략을 수립하세요.
+
+        [지침]
+        1. [과거 영업 기록]을 바탕으로 고객의 최근 변화와 장기적인 패턴을 파악하세요.
+        2. [최신 종자 카탈로그] 정보 중에서 고객의 현재 상황이나 문제 해결에 가장 적합한 품종을 최소 1개 이상 추천하세요.
+        3. 'strategy_suggestion' 섹션에 추천 품종의 이름과 추천하는 구체적인 이유(예: 내병성, 수확량 등)를 포함하세요.
+        4. 분석의 근거가 된 영업 기록의 ID들을 'evidence_note_ids'에 리스트 형태로 포함하세요.
+
+        반드시 아래 JSON 구조로만 응답하세요:
+        {
+          "status_change": ["최근 변화 내용 리스트"],
+          "long_term_pattern": ["포착된 장기 패턴 리스트"],
+          "strategy_suggestion": "추천 품종 및 구체적 영업 전략 설명",
+          "evidence_note_ids": [101, 102],
+          "version": "v1.2-RAG"
+        }
+
+        [데이터: 과거 영업 기록]
+        %s
+
+        [데이터: 최신 종자 카탈로그]
+        %s
+        """, notes, products);
     }
 
     @Override

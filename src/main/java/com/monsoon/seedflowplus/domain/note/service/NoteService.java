@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
 import com.monsoon.seedflowplus.infra.ai.AiClient;
+import com.monsoon.seedflowplus.infra.ai.rag.SalesNoteRagService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class NoteService {
     private final ClientRepository clientRepository;
     private final BriefingService briefingService;
     private final AiClient aiClient;
+    private final SalesNoteRagService ragService;
 
     /**
      * 1. 영업 활동 기록 목록 조회 및 검색
@@ -89,6 +91,9 @@ public class NoteService {
         SalesNote note = dto.toEntity(currentEmployeeId);
         SalesNote savedNote = noteRepository.save(note);
 
+        // [RAG] 벡터 DB 인덱싱 수행
+        ragService.indexNote(savedNote);
+
         // [리팩토링] 비동기 분석 트리거
         triggerBriefingUpdate(savedNote.getClientId());
 
@@ -112,6 +117,9 @@ public class NoteService {
         // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
         List<String> summary = aiClient.summarizeNote(dto.getContent());
         note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
+
+        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (기존 InMemoryStore는 중복 저장을 방지하는 로직이 필요할 수 있으나 여기선 단순화)
+        ragService.indexNote(note);
 
         // [리팩토링] 데이터 수정 후 비동기 분석 요청
         triggerBriefingUpdate(note.getClientId());
