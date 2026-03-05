@@ -79,24 +79,41 @@ pipeline {
       }
       steps {
         script {
-          // 빌드 번호를 포함한 새 태그 생성 (0.0.${BUILD_ID})
+          def manifestRepoUrl = "github.com/beyond-team3/final-manifests.git"
+          def targetFile = "backend/deployment.yml"
+          def imageName = "21monsoon/monsoon-backend"
           def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
 
-          withCredentials([usernamePassword(credentialsId: 'github-access-token', passwordVariable: 'GIT_TOKEN', usernameVariable: 'GIT_USER')]) {
+          withCredentials([usernamePassword(credentialsId: 'github-access-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
 
-            sh "git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/beyond-team3/final-manifests.git manifest-repo"
+            sh """
+                set +x
+                # 기존 폴더 정리
+                rm -rf temp-manifests
 
-            dir('manifest-repo') {
-              sh """
-                git config user.email "jenkins@guntinue.com"
-                git config user.name "Jenkins-CI"
+                # Clone (이때는 비밀번호 사용)
+                git clone https://${GIT_USER}:${GIT_PASS}@${manifestRepoUrl} temp-manifests
 
-                sed -i "s|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${newTag}|g" backend/deployment.yml
+                cd temp-manifests
 
-                git add backend/deployment.yml
-                git commit -m "Deploy: Update ${IMAGE_NAME} image to ${newTag} [skip ci]"
-                git push origin main
-              """
+                # 로컬 설정 파일(.git/config)에서 비밀번호가 포함된 URL을 즉시 삭제
+                git remote set-url origin https://${manifestRepoUrl}
+
+                # 젠킨스 봇 계정 설정
+                git config user.email "jenkins-bot@monsoon.com"
+                git config user.name "Jenkins-CI-Bot"
+
+                # 파일 수정
+                sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
+
+                # 커밋 및 푸시
+                git add "${targetFile}"
+
+                git diff-index --quiet HEAD || (git commit -m "🚀 [CD] Update ${imageName} to ${newTag} [skip ci]"
+                && git push https://${GIT_USER}:${GIT_PASS}@${manifestRepoUrl} main)
+
+                set -x
+            """
             }
           }
           echo "✅ Manifest updated in beyond-team3/final-manifests"
