@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.http.HttpStatusCode;
 
 import java.net.URI;
+import java.time.Duration;
 
 @Slf4j
 @Service
@@ -55,6 +56,7 @@ public class GeocodingService {
                         })
                 )
                 .bodyToMono(KakaoGeoResponse.class)
+                .timeout(Duration.ofSeconds(5)) // 요청 타임아웃 추가
                 .block();
 
         if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
