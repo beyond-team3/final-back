@@ -157,9 +157,19 @@ public class RagSeedService {
         String aiResponse = aiClient.generateTargetedResponse(hiddenPrompt, combined, scopeDesc);
         
         List<Long> evidenceIds = combined.stream()
-                .map(s -> s.metadata().containsKey("id") 
-                        ? Long.valueOf(s.metadata().get("id").toString()) 
-                        : Long.valueOf(s.metadata().get("productId").toString()))
+                .map(s -> {
+                    String idStr = s.metadata().containsKey("id") 
+                            ? s.metadata().get("id").toString() 
+                            : (s.metadata().containsKey("productId") ? s.metadata().get("productId").toString() : null);
+                    if (idStr == null) return null;
+                    try {
+                        return Long.valueOf(idStr);
+                    } catch (NumberFormatException e) {
+                        log.warn("[RAGseed] 유효하지 않은 근거 ID 형식: {}", idStr);
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
