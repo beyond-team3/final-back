@@ -40,7 +40,7 @@ public class GeocodingService {
             throw new IllegalStateException("Kakao API Key가 설정되지 않았거나 유효하지 않습니다. application-local.yml 설정을 확인하세요.");
         }
 
-        log.info("Kakao Geocoding 요청 주소: {}", address);
+        log.debug("Kakao Geocoding 요청 주소: {}", address);
 
         // 가장 안정적인 템플릿 방식으로 호출 (자동 인코딩 지원)
         KakaoGeoResponse response = webClientBuilder.build()
