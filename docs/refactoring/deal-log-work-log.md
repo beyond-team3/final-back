@@ -595,3 +595,16 @@ Approval
 
 ### 다음 단계
 없음
+
+## [2026-03-05 19:52] deal-log HTTP S4 상세조회 오탐 보정
+
+### 작업 내용
+- 수정 파일: api-test/http/deal/deal-log.http — S4 상세조회 검증을 `200` 또는 `404(D001)` 허용으로 보정해 timeline 데이터 부재 환경의 오탐 실패 제거
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음

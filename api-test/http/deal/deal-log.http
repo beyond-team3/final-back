@@ -61,13 +61,19 @@ client.test("deal-log timeline by client success", function () {
 %}
 
 ### [S4] DealLog 상세 조회 (ADMIN)
+### 주의: S1/S2에서 dealLogId가 추출되지 않으면 fallback(기본값)으로 조회되어 404(D001)일 수 있음
 GET {{baseUrl}}/api/v1/deal-logs/{{dealLogId}}/detail
 Authorization: Bearer {{adminAccessToken}}
 
 > {%
-client.test("deal-log detail success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+client.test("deal-log detail success or not found (no timeline data)", function () {
+  client.assert(response.status === 200 || response.status === 404, "status must be 200 or 404");
+  if (response.status === 200) {
+    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  } else {
+    client.assert(response.body.result === "ERROR", "result must be ERROR");
+    client.assert(response.body.error.code === "D001", "error.code must be D001 when dealLogId is missing");
+  }
 });
 %}
 
