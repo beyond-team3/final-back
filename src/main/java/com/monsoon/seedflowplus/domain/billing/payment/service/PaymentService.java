@@ -61,7 +61,7 @@ public class PaymentService {
         for (int i = 0; i < maxRetries; i++) {
             try {
                 String paymentCode = generateCode("PAY");
-                payment = Payment.create(invoice, client, request.getPaymentMethod(), paymentCode);
+                payment = Payment.create(invoice, client, invoice.getDeal(), request.getPaymentMethod(), paymentCode);
                 paymentRepository.saveAndFlush(payment);
                 break;
             } catch (DataIntegrityViolationException e) {

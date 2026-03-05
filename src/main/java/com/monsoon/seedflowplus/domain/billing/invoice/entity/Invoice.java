@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.entity;
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -34,6 +36,10 @@ public class Invoice extends BaseCreateEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id")
@@ -65,13 +71,14 @@ public class Invoice extends BaseCreateEntity {
     private String memo;
 
     // 생성
-    public static Invoice create(Long contractId, Client client, Employee employee,
+    public static Invoice create(Long contractId, Client client, SalesDeal deal, Employee employee,
                                  LocalDate invoiceDate, LocalDate startDate, LocalDate endDate,
                                  String invoiceCode, String memo) {
         Invoice invoice = new Invoice();
         invoice.invoiceCode = invoiceCode;
         invoice.contractId = contractId;
         invoice.client = client;
+        invoice.deal = Objects.requireNonNull(deal, "deal must not be null");
         invoice.employee = employee;
         invoice.invoiceDate = invoiceDate;
         invoice.startDate = startDate;

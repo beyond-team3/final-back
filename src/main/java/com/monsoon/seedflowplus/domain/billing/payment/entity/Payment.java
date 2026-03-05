@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.billing.payment.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -9,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -32,6 +34,10 @@ public class Payment extends BaseCreateEntity {
     @JoinColumn(name = "client_id")
     private Client client;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
     @Column(name = "payment_amount")
     private BigDecimal paymentAmount;
 
@@ -43,11 +49,12 @@ public class Payment extends BaseCreateEntity {
     @Column(name = "status")
     private PaymentStatus status;
 
-    public static Payment create(Invoice invoice, Client client, PaymentMethod paymentMethod, String paymentCode) {
+    public static Payment create(Invoice invoice, Client client, SalesDeal deal, PaymentMethod paymentMethod, String paymentCode) {
         Payment payment = new Payment();
         payment.paymentCode = paymentCode;
         payment.invoice = invoice;
         payment.client = client;
+        payment.deal = Objects.requireNonNull(deal, "deal must not be null");
         payment.paymentAmount = invoice.getTotalAmount();
         payment.paymentMethod = paymentMethod;
         payment.status = PaymentStatus.COMPLETED;
