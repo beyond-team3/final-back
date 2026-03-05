@@ -20,6 +20,7 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class InvoiceService {
 
@@ -64,6 +66,9 @@ public class InvoiceService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
         Client client = contract.getClient();
+        if (contract.getDeal() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
 
         // 4. 청구서 생성
         String invoiceCode = generateCode("INV");
@@ -222,6 +227,11 @@ public class InvoiceService {
         LocalDate endDate = today.withDayOfMonth(today.lengthOfMonth());
 
         String invoiceCode = generateCode("INV");
+        if (contract.getDeal() == null) {
+            // TODO(BAC-70): legacy 계약 데이터 deal_id 백필 완료 후 제거
+            log.warn("Skip draft invoice creation because deal is missing. contractId={}", contract.getId());
+            return;
+        }
 
         Invoice invoice = Invoice.create(
                 contract.getId(),

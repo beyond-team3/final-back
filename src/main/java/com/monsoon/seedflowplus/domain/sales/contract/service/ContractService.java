@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -207,7 +210,9 @@ public class ContractService {
 
             client = quotation.getClient();
             author = quotation.getAuthor();
-            deal = quotation.getDeal();
+            deal = quotation.getDeal() != null
+                    ? quotation.getDeal()
+                    : resolveOrCreateOpenDeal(client, author);
         } else {
             // 1-2. 신규 작성 (견적서 없음)
             client = clientRepository.findById(request.clientId())
@@ -220,8 +225,7 @@ public class ContractService {
 
             author = employeeRepository.findById(userDetails.getEmployeeId())
                     .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
-            // TODO(BAC-70): QUO 없이 CNT를 시작하는 Deal 생성 정책 확정 전까지는 기존 Deal을 우선 사용한다.
-            deal = resolveDeal(client);
+            deal = resolveOrCreateOpenDeal(client, author);
         }
 
         // 2. 계약 기간 검증
@@ -302,6 +306,14 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
+        deal.updateSnapshot(
+                DealStage.PENDING_ADMIN,
+                ContractStatus.WAITING_ADMIN.name(),
+                DealType.CNT,
+                contract.getId(),
+                finalCode,
+                LocalDateTime.now()
+        );
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
@@ -330,13 +342,32 @@ public class ContractService {
         return userDetails;
     }
 
-    private SalesDeal resolveDeal(Client client) {
+    private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
         Long clientId = client.getId();
         if (clientId == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
         return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
-                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
+                .orElseGet(() -> createDealBootstrap(client, ownerEmp));
+    }
+
+    private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
+        if (ownerEmp == null) {
+            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+        SalesDeal newDeal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(ownerEmp)
+                .currentStage(DealStage.PENDING_ADMIN)
+                .currentStatus(ContractStatus.WAITING_ADMIN.name())
+                .latestDocType(DealType.CNT)
+                .latestRefId(0L)
+                .latestTargetCode(null)
+                .lastActivityAt(LocalDateTime.now())
+                .closedAt(null)
+                .summaryMemo(null)
+                .build();
+        return salesDealRepository.save(newDeal);
     }
 }

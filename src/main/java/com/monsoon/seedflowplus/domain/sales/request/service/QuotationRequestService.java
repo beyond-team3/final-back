@@ -3,8 +3,11 @@ package com.monsoon.seedflowplus.domain.sales.request.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
@@ -23,6 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -58,8 +62,10 @@ public class QuotationRequestService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
+        SalesDeal deal = resolveOrCreateOpenDeal(client);
+
         // 2. Header 생성
-        QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements(), resolveDeal(client));
+        QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements(), deal);
 
         // 3. 품목 배치 조회 처리 (N+1 방지)
         List<Long> productIds = request.items().stream()
@@ -98,6 +104,14 @@ public class QuotationRequestService {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
+        deal.updateSnapshot(
+                DealStage.CREATED,
+                QuotationRequestStatus.PENDING.name(),
+                DealType.RFQ,
+                header.getId(),
+                requestCode,
+                LocalDateTime.now()
+        );
     }
 
     public QuotationRequestResponse getQuotationRequest(Long id) {
@@ -194,14 +208,33 @@ public class QuotationRequestService {
         return userDetails;
     }
 
-    private SalesDeal resolveDeal(Client client) {
+    private SalesDeal resolveOrCreateOpenDeal(Client client) {
         Long clientId = client.getId();
         if (clientId == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
-        // TODO(BAC-70): RFQ 최초 생성 시 Deal bootstrap 정책이 확정되면 fallback 로직을 정책에 맞게 대체할 것.
         return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
-                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
+                .orElseGet(() -> createDealBootstrap(client));
+    }
+
+    private SalesDeal createDealBootstrap(Client client) {
+        Employee ownerEmp = client.getManagerEmployee();
+        if (ownerEmp == null) {
+            // TODO(BAC-70): 거래처 담당 영업사원 미배정 상태의 Deal bootstrap 정책 확정 필요
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+        SalesDeal newDeal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(ownerEmp)
+                .currentStage(DealStage.CREATED)
+                .currentStatus(QuotationRequestStatus.PENDING.name())
+                .latestDocType(DealType.RFQ)
+                .latestRefId(0L)
+                .latestTargetCode(null)
+                .lastActivityAt(LocalDateTime.now())
+                .closedAt(null)
+                .summaryMemo(null)
+                .build();
+        return salesDealRepository.save(newDeal);
     }
 }

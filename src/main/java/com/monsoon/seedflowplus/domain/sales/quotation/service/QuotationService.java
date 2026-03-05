@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
@@ -95,10 +98,11 @@ public class QuotationService {
 
             // 상태를 REVIEWING으로 변경
             quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
-            deal = quotationRequest.getDeal();
+            deal = quotationRequest.getDeal() != null
+                    ? quotationRequest.getDeal()
+                    : resolveOrCreateOpenDeal(client, author);
         } else {
-            // TODO(BAC-70): RFQ 없이 QUO를 시작하는 Deal 생성 정책 확정 전까지는 기존 Deal을 우선 사용한다.
-            deal = resolveDeal(client);
+            deal = resolveOrCreateOpenDeal(client, author);
         }
 
         // 4. 총액 계산
@@ -145,6 +149,14 @@ public class QuotationService {
         String finalCode = "QUO-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + quotation.getId();
         quotation.updateQuotationCode(finalCode);
+        deal.updateSnapshot(
+                DealStage.PENDING_ADMIN,
+                QuotationStatus.WAITING_ADMIN.name(),
+                DealType.QUO,
+                quotation.getId(),
+                finalCode,
+                LocalDateTime.now()
+        );
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -287,13 +299,32 @@ public class QuotationService {
         return userDetails;
     }
 
-    private SalesDeal resolveDeal(Client client) {
+    private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
         Long clientId = client.getId();
         if (clientId == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
         return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
-                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
+                .orElseGet(() -> createDealBootstrap(client, ownerEmp));
+    }
+
+    private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
+        if (ownerEmp == null) {
+            // TODO(BAC-70): RFQ 없이 QUO 시작 시 owner 정책 확정 필요
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+        SalesDeal newDeal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(ownerEmp)
+                .currentStage(DealStage.PENDING_ADMIN)
+                .currentStatus(QuotationStatus.WAITING_ADMIN.name())
+                .latestDocType(DealType.QUO)
+                .latestRefId(0L)
+                .latestTargetCode(null)
+                .lastActivityAt(LocalDateTime.now())
+                .closedAt(null)
+                .summaryMemo(null)
+                .build();
+        return salesDealRepository.save(newDeal);
     }
 }
