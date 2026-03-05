@@ -578,3 +578,46 @@ Approval
 - Actor+Action 정책은 현재 서비스 사용 케이스를 수용하도록 확장되어 있으며, 추후 권한 모델 확정 시 재조정 필요
 - Statement cancel API를 신규 추가했으므로 API 문서/테스트 케이스 동기화 필요
 - DealLogWriteService.validateRequired가 fromStatus/toStatus를 필수로 요구하므로 신규 경로 연결 시 null/blank 주의
+
+## [2026-03-05 19:35] deal/deal-log HTTP 테스트 코드 추가
+
+### 작업 내용
+- 수정 파일: api-test/http/deal/deal.http — Deal 목록 조회 성공/실패 시나리오와 전역 변수(dealId/clientId/docType/refId) 추출 로직 추가
+- 수정 파일: api-test/http/deal/deal-log.http — DealLog 타임라인/상세 성공 시나리오 및 인증/권한/파라미터/미존재 실패 시나리오 추가
+- 수정 파일: api-test/http/_common.http — Deal 목록 기반 전역 변수 추출 공통 요청 추가
+- 수정 파일: api-test/http/_env.http — deal/deal-log fallback 변수와 missingDealLogId 변수 추가
+- 수정 파일: api-test/http/run-checklist.md — deal/deal-log 실행 순서 및 확인 포인트 반영
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-05 19:52] deal-log HTTP S4 상세조회 오탐 보정
+
+### 작업 내용
+- 수정 파일: api-test/http/deal/deal-log.http — S4 상세조회 검증을 `200` 또는 `404(D001)` 허용으로 보정해 timeline 데이터 부재 환경의 오탐 실패 제거
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-05 20:17] deal-log S4 상세조회 분기 검증 강화
+
+### 작업 내용
+- 수정 파일: api-test/http/deal/deal-log.http — S4 테스트에서 `dealLogId` 입력값 존재 여부로 기대 상태코드를 분기하도록 수정(입력 없음: `404/D001`, 입력 있음: `200/SUCCESS`)
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
