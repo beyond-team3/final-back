@@ -65,6 +65,7 @@ public enum ErrorType implements ErrorCodeProvider {
     DUPLICATE_CLIENT_BRN(HttpStatus.BAD_REQUEST, ErrorCode.U003, "이미 등록된 사업자번호입니다.", LogLevel.WARN),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, ErrorCode.A004, "비활성화된 계정입니다. 관리자에게 문의하세요.", LogLevel.WARN),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, ErrorCode.A006, "비밀번호가 일치하지 않습니다.", LogLevel.WARN),
+    ADDRESS_NOT_FOUND(HttpStatus.BAD_REQUEST, ErrorCode.A103, "주소를 찾을 수 없거나 좌표 변환에 실패했습니다.", LogLevel.WARN),
     CROP_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.C101, "품종을 찾을 수 없습니다.", LogLevel.WARN),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, ErrorCode.A007, "기존과 동일한 비밀번호로 변경할 수 없습니다.", LogLevel.WARN),
     EMPLOYEE_NOT_LINKED(HttpStatus.FORBIDDEN, ErrorCode.A005, "계정에 연결된 직원 정보가 없습니다. 관리자에게 문의하세요.", LogLevel.WARN),

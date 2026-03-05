@@ -40,3 +40,7 @@ google:
 ncpms:
   api:
     key: this-is-dummy-ncpms-api-key
+
+kakao:
+  api:
+    key: "DUMMY_KAKAO_REST_API_KEY"
