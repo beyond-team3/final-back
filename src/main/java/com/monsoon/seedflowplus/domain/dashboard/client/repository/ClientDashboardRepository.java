@@ -74,10 +74,11 @@ public class ClientDashboardRepository {
     }
 
     // ──────────────────────────────────────────────
-    // 3. 미결제·최근 청구서 (DRAFT/PUBLISHED, 최근 5건)
+    // 3. 최근 청구서 (미결제 + 최근 납부 완료, 최근 5건)
+    //    DRAFT / PUBLISHED / PAID 포함
     // ──────────────────────────────────────────────
 
-    public List<Map<String, Object>> unpaidInvoices(Long clientId) {
+    public List<Map<String, Object>> recentInvoices(Long clientId) {
         String sql = """
                 SELECT i.invoice_code,
                        i.invoice_date,
@@ -85,8 +86,8 @@ public class ClientDashboardRepository {
                        i.status
                 FROM tbl_invoice i
                 WHERE i.client_id = :clientId
-                  AND i.status IN ('DRAFT', 'PUBLISHED')
-                ORDER BY i.invoice_date ASC
+                  AND i.status IN ('DRAFT', 'PUBLISHED', 'PAID')
+                ORDER BY i.invoice_date DESC
                 LIMIT 5
                 """;
         return jdbc.queryForList(sql,

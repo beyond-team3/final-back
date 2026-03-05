@@ -47,8 +47,8 @@ public class ClientDashboardService {
                 .map(this::toOrderResponse)
                 .toList();
 
-        // ── 3. 미결제 청구서 ────────────────────────
-        List<Map<String, Object>> rawBillings = repo.unpaidInvoices(clientId);
+        // ── 3. 최근 청구서 (미결제 + 납부 완료) ────────
+        List<Map<String, Object>> rawBillings = repo.recentInvoices(clientId);
         List<ClientBillingResponse> billings = rawBillings.stream()
                 .map(this::toBillingResponse)
                 .toList();
@@ -160,11 +160,11 @@ public class ClientDashboardService {
                 ((java.sql.Date) row.get("invoice_date")).toLocalDate();
         LocalDate today = LocalDate.now();
 
-        String status = "PUBLISHED".equals(statusRaw) ? "납부 완료" : "미결제";
+        String status = "PAID".equals(statusRaw) ? "납부 완료" : "미결제";
 
-        // 마감 7일 이내 → due-soon, PUBLISHED → paid
+        // 마감 7일 이내 → due-soon, PAID → paid
         String type;
-        if ("PUBLISHED".equals(statusRaw)) {
+        if ("PAID".equals(statusRaw)) {
             type = "paid";
         } else if (!invoiceDate.isBefore(today) && invoiceDate.isBefore(today.plusDays(8))) {
             type = "due-soon";
