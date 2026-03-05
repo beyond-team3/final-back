@@ -19,7 +19,7 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -38,8 +38,7 @@ public class StatementService {
     private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
-    @Lazy
-    private final StatementService self;
+    private final ObjectProvider<StatementService> selfProvider;
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
@@ -61,7 +60,7 @@ public class StatementService {
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                self.createAndRecordStatementRequiresNew(orderHeader, actorType, actorId);
+                selfProvider.getObject().createAndRecordStatementRequiresNew(orderHeader, actorType, actorId);
                 break;
             } catch (DataIntegrityViolationException e) {
                 // statement_code 유니크 충돌만 재시도, 그 외(FK 등)는 즉시 전파
