@@ -218,6 +218,40 @@ recentLogs strict 검증 회귀를 제거하고, invoice 상세 조회에서 pri
 - `./gradlew compileJava -q` 통과
 - `./gradlew test --tests "*DealPipelineFacadeTest" --tests "*DealLogPolicyValidatorTest" -q` 통과
 
+## 2026-03-05 17:30
+
+### Step
+
+Step14 Inline findings hardening (null-safe DTO / actorId / error taxonomy)
+
+### Purpose
+
+인라인 지적 사항 기준으로 DTO null 안정성, actorId 인증 강제, convert 경로 fail-fast, 예외 분류 체계를 코드/테스트에서 일치시킨다.
+
+### Modified Files
+
+- StatementResponse.java
+- StatementService.java
+- DealPipelineFacade.java
+- DealErrorType.java
+- DealErrorCode.java
+- DealLogPolicyValidatorTest.java
+- deal-log-architecture.md
+- deal-log-work-log.md
+
+### Key Changes
+
+- `StatementResponse.from(...)`의 `recentLogs`를 null-safe 빈 리스트로 정규화
+- `StatementService.resolveActorId(...)`에서 non-SYSTEM actorId null 시 `UNAUTHORIZED` throw
+- `DealPipelineFacade.recordConvertAndSync(...)` 진입부 null 체크(`Objects.requireNonNull`) 추가
+- `DealErrorType`에 `SYSTEM_ERROR` 추가 및 `DIFF_JSON_SERIALIZATION_FAILED` 분류 전환
+- `DealLogPolicyValidatorTest`에서 모든 `DealException` 케이스에 기대 `DealErrorCode` 단언 추가
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
+- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q` 통과
+
 ## 2026-03-05 16:21
 
 ### Step
