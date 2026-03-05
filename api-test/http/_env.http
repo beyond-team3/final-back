@@ -32,12 +32,18 @@
 @invoicePublishedId = 1
 @invoiceDraftId = 1
 @paymentId = 1
+@dealId = 1
+@dealClientId = 1
+@dealLatestDocType = ORD
+@dealLatestRefId = 1
+@dealLogId = 1
 
 ### 실패 케이스용 미존재 ID
 @missingOrderId = 99999991
 @missingStatementId = 99999992
 @missingInvoiceId = 99999993
 @missingPaymentId = 99999994
+@missingDealLogId = 99999995
 
 ### 청구 기간 샘플
 @invoiceStartDate = 2026-03-01

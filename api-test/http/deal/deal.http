@@ -1,0 +1,132 @@
+### Deal API Test
+### 실행 순서
+### 1) ../_env.http 로그인 3개(CLIENT #1 / SALES_REP / ADMIN) 실행
+### 2) [S1] 또는 [S2] 실행으로 dealId/clientId/docType/refId 확보
+### 3) SUCCESS -> FAILURE 순서로 실행
+
+@baseUrl = http://localhost:8080
+@dealId = 1
+@dealClientId = 1
+@dealLatestDocType = ORD
+@dealLatestRefId = 1
+
+### ============================================================
+### SUCCESS FLOW
+### ============================================================
+
+### [S1] 딜 목록 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/deals?page=0&size=20&sort=lastActivityAt,desc
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal list by sales success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data && response.body.data.content && response.body.data.content.length > 0) {
+  const first = response.body.data.content[0];
+  if (first.dealId) client.global.set("dealId", first.dealId);
+  if (first.clientId) client.global.set("dealClientId", first.clientId);
+  if (first.latestDocType) client.global.set("dealLatestDocType", first.latestDocType);
+  if (first.latestRefId) client.global.set("dealLatestRefId", first.latestRefId);
+}
+%}
+
+### [S2] 딜 목록 조회 (ADMIN, 필터 포함)
+GET {{baseUrl}}/api/v1/deals?isClosed=false&page=0&size=20&sort=lastActivityAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("deal list by admin success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data && response.body.data.content && response.body.data.content.length > 0) {
+  const first = response.body.data.content[0];
+  if (first.dealId) client.global.set("dealId", first.dealId);
+  if (first.clientId) client.global.set("dealClientId", first.clientId);
+  if (first.latestDocType) client.global.set("dealLatestDocType", first.latestDocType);
+  if (first.latestRefId) client.global.set("dealLatestRefId", first.latestRefId);
+}
+%}
+
+### ============================================================
+### FAILURE FLOW
+### ============================================================
+
+### [F1] 인증 실패: 토큰 없음
+### 기대: ErrorType.UNAUTHORIZED -> ErrorCode.A001
+GET {{baseUrl}}/api/v1/deals
+
+> {%
+client.test("deal list unauthorized -> A001", function () {
+  client.assert(response.status === 401, "status must be 401");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "A001", "error.code must be A001");
+});
+%}
+
+### [F2] Validation 오류: fromAt 포맷 오류
+### 기대: ResponseStatusException(BAD_REQUEST) -> ErrorCode.C002
+GET {{baseUrl}}/api/v1/deals?fromAt=2026-13-99T99:99:99
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal fromAt format invalid -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F3] Validation 오류: fromAt > toAt
+### 기대: ResponseStatusException(BAD_REQUEST) -> ErrorCode.C002
+GET {{baseUrl}}/api/v1/deals?fromAt=2026-03-31T23:59:59&toAt=2026-03-01T00:00:00
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal invalid date range -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F4] Validation/Type 오류: page 타입 불일치
+### 기대: ErrorType.INVALID_TYPE_VALUE -> ErrorCode.C004
+GET {{baseUrl}}/api/v1/deals?page=not-a-number
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal page type mismatch -> C004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C004", "error.code must be C004");
+});
+%}
+
+### [F5] Validation 오류: size=0
+### 기대: ResponseStatusException(BAD_REQUEST) -> ErrorCode.C002
+GET {{baseUrl}}/api/v1/deals?size=0
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal size invalid -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F6] Validation 오류: 허용되지 않은 sort property
+### 기대: ResponseStatusException(BAD_REQUEST) -> ErrorCode.C002
+GET {{baseUrl}}/api/v1/deals?sort=id,desc
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal invalid sort property -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}

@@ -1,0 +1,153 @@
+### Deal-Log API Test
+### 실행 순서
+### 1) ../_env.http 로그인 3개(CLIENT #1 / SALES_REP / ADMIN) 실행
+### 2) deal.http [S1] 또는 [S2]를 먼저 실행해 dealId/clientId/docType/refId를 확보
+### 3) 아래 SUCCESS -> FAILURE 순서 실행
+
+@baseUrl = http://localhost:8080
+@dealId = 1
+@dealClientId = 1
+@dealLatestDocType = ORD
+@dealLatestRefId = 1
+@dealLogId = 1
+@missingDealLogId = 99999995
+@otherClientId = 999999
+
+### ============================================================
+### SUCCESS FLOW
+### ============================================================
+
+### [S1] Deal 기준 타임라인 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=20&sort=actionAt,desc
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal-log timeline by deal success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data && response.body.data.content && response.body.data.content.length > 0) {
+  const first = response.body.data.content[0];
+  if (first.dealLogId) client.global.set("dealLogId", first.dealLogId);
+  if (first.docType) client.global.set("dealLatestDocType", first.docType);
+  if (first.refId) client.global.set("dealLatestRefId", first.refId);
+}
+%}
+
+### [S2] 문서 기준 타임라인 조회 (ADMIN)
+GET {{baseUrl}}/api/v1/deal-logs?docType={{dealLatestDocType}}&refId={{dealLatestRefId}}&page=0&size=20&sort=actionAt,desc
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("deal-log timeline by document success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data && response.body.data.content && response.body.data.content.length > 0) {
+  const first = response.body.data.content[0];
+  if (first.dealLogId) client.global.set("dealLogId", first.dealLogId);
+}
+%}
+
+### [S3] Client 기준 타임라인 조회 (ADMIN)
+GET {{baseUrl}}/api/v1/clients/{{dealClientId}}/logs?page=0&size=20
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("deal-log timeline by client success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [S4] DealLog 상세 조회 (ADMIN)
+GET {{baseUrl}}/api/v1/deal-logs/{{dealLogId}}/detail
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("deal-log detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### ============================================================
+### FAILURE FLOW
+### ============================================================
+
+### [F1] 인증 실패: 토큰 없음
+### 기대: ErrorType.UNAUTHORIZED -> ErrorCode.A001
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs
+
+> {%
+client.test("deal-log unauthorized -> A001", function () {
+  client.assert(response.status === 401, "status must be 401");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "A001", "error.code must be A001");
+});
+%}
+
+### [F2] Validation/Type 오류: dealId 타입 불일치
+### 기대: ErrorType.INVALID_TYPE_VALUE -> ErrorCode.C004
+GET {{baseUrl}}/api/v1/deals/not-a-number/logs
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal-log dealId type mismatch -> C004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C004", "error.code must be C004");
+});
+%}
+
+### [F3] Validation 오류: 필수 파라미터 누락(refId)
+### 기대: ErrorType.MISSING_REQUEST_PARAMETER -> ErrorCode.C005
+GET {{baseUrl}}/api/v1/deal-logs?docType=ORD
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal-log missing refId -> C005", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C005", "error.code must be C005");
+});
+%}
+
+### [F4] Validation/Type 오류: docType enum 불일치
+### 기대: ErrorType.INVALID_TYPE_VALUE -> ErrorCode.C004
+GET {{baseUrl}}/api/v1/deal-logs?docType=NOT_A_DEAL_TYPE&refId=1
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("deal-log docType type mismatch -> C004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "C004", "error.code must be C004");
+});
+%}
+
+### [F5] 권한 실패: CLIENT가 다른 clientId 타임라인 조회
+### 기대: ErrorType.ACCESS_DENIED -> ErrorCode.A002
+GET {{baseUrl}}/api/v1/clients/{{otherClientId}}/logs
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("deal-log client scope mismatch -> A002", function () {
+  client.assert(response.status === 403, "status must be 403");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "A002", "error.code must be A002");
+});
+%}
+
+### [F6] 리소스 없음: 존재하지 않는 DealLog 상세
+### 기대: ErrorType.DEAL_LOG_DETAIL_NOT_FOUND -> ErrorCode.D001
+GET {{baseUrl}}/api/v1/deal-logs/{{missingDealLogId}}/detail
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("deal-log detail not found -> D001", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+  client.assert(response.body.error.code === "D001", "error.code must be D001");
+});
+%}
