@@ -9,6 +9,19 @@
 - 코드 리뷰 참고
 - 장애 발생 시 원인 분석
 
+## [2026-03-05 18:41] StatementService 순환 참조 제거
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — `@Lazy StatementService self`를 `ObjectProvider<StatementService>`로 교체해 빈 생성 순환 참조 제거
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## 2026-03-05 18:16
 
 ### Step
@@ -565,16 +578,3 @@ Approval
 - Actor+Action 정책은 현재 서비스 사용 케이스를 수용하도록 확장되어 있으며, 추후 권한 모델 확정 시 재조정 필요
 - Statement cancel API를 신규 추가했으므로 API 문서/테스트 케이스 동기화 필요
 - DealLogWriteService.validateRequired가 fromStatus/toStatus를 필수로 요구하므로 신규 경로 연결 시 null/blank 주의
-
-## [2026-03-05 18:41] StatementService 순환 참조 제거
-
-### 작업 내용
-- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — `@Lazy StatementService self`를 `ObjectProvider<StatementService>`로 교체해 빈 생성 순환 참조 제거
-- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
-
-### 컴파일 결과
-- [x] 오류 없음
-- [ ] 오류 있음 → 없음
-
-### 다음 단계
-없음
