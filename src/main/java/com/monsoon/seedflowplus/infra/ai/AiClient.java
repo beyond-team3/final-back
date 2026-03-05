@@ -4,14 +4,22 @@ import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
 import dev.langchain4j.data.segment.TextSegment;
 import java.util.List;
 
+/**
+ * RAGseed 통합 AI 엔진 인터페이스입니다.
+ */
 public interface AiClient {
     /**
-     * 검색된 과거 노트(Context)를 바탕으로 전략 리포트 객체를 생성합니다.
+     * 표준 영업 브리핑 리포트를 생성합니다.
      */
-    SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts);
+    SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts, String scopeDescription);
 
     /**
-     * 단일 영업 활동 내용을 3문장 이내로 요약합니다.
+     * 특정 목적(Targeted)에 따른 맞춤형 전략을 인출합니다.
+     */
+    String generateTargetedResponse(String prompt, List<TextSegment> contexts, String scopeDescription);
+
+    /**
+     * 단일 영업 활동 내용을 요약합니다.
      */
     List<String> summarizeNote(String content);
 }

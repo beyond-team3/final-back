@@ -34,52 +34,15 @@ public class GeminiAiClient implements AiClient {
     private String apiUrl;
 
     @Override
-    public SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts) {
+    public SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts, String scopeDescription) {
         try {
-            // 1. 컨텍스트 타입별 분류 및 텍스트 조립
-            String notesText = contexts.stream()
-                    .filter(s -> "SALES_NOTE".equals(s.metadata().get("type")))
-                    .map(s -> String.format("[영업노트 ID: %s] (%s) %s",
-                            s.metadata().get("id"),
-                            s.metadata().get("activityDate"),
-                            s.text()))
-                    .collect(Collectors.joining("\n"));
+            String notesText = formatContexts(contexts, "SALES_NOTE");
+            String productsText = formatContexts(contexts, "PRODUCT_CATALOG");
 
-            String productsText = contexts.stream()
-                    .filter(s -> "PRODUCT_CATALOG".equals(s.metadata().get("type")))
-                    .map(s -> String.format("[품종 ID: %s] (카테고리: %s) %s",
-                            s.metadata().get("productId"),
-                            s.metadata().get("category"),
-                            s.text()))
-                    .collect(Collectors.joining("\n"));
+            String augmentedPrompt = buildAugmentedPrompt(notesText, productsText, scopeDescription);
 
-            String augmentedPrompt = buildAugmentedPrompt(notesText, productsText);
-
-            // 2. API 요청 바디 구성
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(Map.of("text", augmentedPrompt)))
-                    ),
-                    "generationConfig", Map.of(
-                            "temperature", 0.1,
-                            "response_mime_type", "application/json"
-                    )
-            );
-
-            // 3. HTTP 호출 및 결과 처리 (기존 로직 유지)
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-goog-api-key", apiKey);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
-
-            ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
-                    uri, HttpMethod.POST, entity, GeminiApiResponse.class
-            );
-
-            String jsonText = extractTextFromResponse(response.getBody())
-                    .orElseThrow(() -> new RuntimeException("Gemini API 응답 추출 실패"));
+            Map<String, Object> requestBody = createRequestBody(augmentedPrompt, 0.1);
+            String jsonText = callGemini(requestBody);
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
@@ -89,41 +52,115 @@ public class GeminiAiClient implements AiClient {
                     .longTermPattern(aiResult.getLongTermPattern())
                     .strategySuggestion(aiResult.getStrategySuggestion())
                     .evidenceNoteIds(aiResult.getEvidenceNoteIds())
-                    .version(aiResult.getVersion())
+                    .version("RAGseed-Standard-v1.3")
                     .build();
 
         } catch (Exception e) {
-            log.error("RAG 기반 Gemini 분석 중 오류 발생: {}", e.getMessage());
+            log.error("RAGseed 표준 분석 중 오류 발생: {}", e.getMessage());
             throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
         }
     }
 
-    private String buildAugmentedPrompt(String notes, String products) {
+    /**
+     * RAGseed 타겟팅 전략 생성
+     */
+    @Override
+    public String generateTargetedResponse(String userPrompt, List<TextSegment> contexts, String scopeDescription) {
+        try {
+            String contextText = contexts.stream()
+                    .map(s -> String.format("[%s] %s", s.metadata().get("type"), s.text()))
+                    .collect(Collectors.joining("\n"));
+
+            String fullPrompt = String.format("""
+                당신은 전략 인출 엔진 'RAGseed'입니다. 
+                현재 분석 범위는 [%s]입니다.
+                제공된 영업 데이터 자산(Seed)에서 사용자의 요청에 대한 가장 정확한 전략을 인출(Retrieval)하세요.
+                
+                [인출 데이터]
+                %s
+                
+                [사용자 요청]
+                %s
+                
+                [지침]
+                - 답변 서두에 반드시 "본 분석은 %s를 바탕으로 도출되었습니다."라는 문구를 포함하세요.
+                - 신뢰감 있고 전문적인 B2B 영업 어조를 유지하세요.
+                - 인출된 데이터에 기반하여 구체적인 수치나 사례가 있다면 반드시 언급하세요.
+                - 데이터에 없는 내용은 추측하지 마세요.
+                """, scopeDescription, contextText, userPrompt, scopeDescription);
+
+            Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2);
+            return callGemini(requestBody);
+
+        } catch (Exception e) {
+            log.error("RAGseed 타겟 전략 생성 중 오류: {}", e.getMessage());
+            return "전략 인출에 실패했습니다. 데이터를 다시 확인해주세요.";
+        }
+    }
+
+    private String formatContexts(List<TextSegment> contexts, String type) {
+        return contexts.stream()
+                .filter(s -> type.equals(s.metadata().get("type")))
+                .map(s -> {
+                    if ("SALES_NOTE".equals(type)) {
+                        return String.format("[ID: %s] (%s) %s", s.metadata().get("id"), s.metadata().get("activityDate"), s.text());
+                    } else {
+                        return String.format("[ID: %s] (%s) %s", s.metadata().get("productId"), s.metadata().get("category"), s.text());
+                    }
+                })
+                .collect(Collectors.joining("\n"));
+    }
+
+    private Map<String, Object> createRequestBody(String prompt, double temp) {
+        return Map.of(
+                "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                "generationConfig", Map.of("temperature", temp, "response_mime_type", "application/json")
+        );
+    }
+
+    private String callGemini(Map<String, Object> requestBody) throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-goog-api-key", apiKey);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
+
+        ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(uri, HttpMethod.POST, entity, GeminiApiResponse.class);
+        String text = extractTextFromResponse(response.getBody()).orElseThrow();
+        
+        if (text.startsWith("```")) {
+            text = text.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+        }
+        return text;
+    }
+
+    private String buildAugmentedPrompt(String notes, String products, String scope) {
         return String.format("""
-        당신은 종자 회사 전문 전략 영업 컨설턴트입니다.
-        제공된 [과거 영업 기록]과 [최신 종자 카탈로그]를 분석하여 최적의 영업 전략을 수립하세요.
+        당신은 전략 영업 인출 엔진 'RAGseed'입니다.
+        현재 분석 범위는 [%s]입니다.
+        과거 데이터(Seed)에서 최적의 전략을 인출하여 표준 영업 브리핑을 작성하세요.
 
         [지침]
-        1. [과거 영업 기록]을 바탕으로 고객의 최근 변화와 장기적인 패턴을 파악하세요.
-        2. [최신 종자 카탈로그] 정보 중에서 고객의 현재 상황이나 문제 해결에 가장 적합한 품종을 최소 1개 이상 추천하세요.
-        3. 'strategy_suggestion' 섹션에 추천 품종의 이름과 추천하는 구체적인 이유(예: 내병성, 수확량 등)를 포함하세요.
-        4. 분석의 근거가 된 영업 기록의 ID들을 'evidence_note_ids'에 리스트 형태로 포함하세요.
+        1. 답변의 첫 문장은 반드시 "본 분석은 %s를 바탕으로 도출되었습니다."로 시작하세요.
+        2. 과거 영업 기록을 분석하여 핵심 변화와 패턴을 도출하세요.
+        3. 종자 카탈로그를 참조하여 고객에게 가장 적합한 품종을 전략적으로 제안하세요.
 
         반드시 아래 JSON 구조로만 응답하세요:
         {
-          "status_change": ["최근 변화 내용 리스트"],
-          "long_term_pattern": ["포착된 장기 패턴 리스트"],
-          "strategy_suggestion": "추천 품종 및 구체적 영업 전략 설명",
+          "status_change": ["최근 변화 리스트"],
+          "long_term_pattern": ["장기 패턴 리스트"],
+          "strategy_suggestion": "전문적인 영업 전략 제안",
           "evidence_note_ids": [101, 102],
-          "version": "v1.2-RAG"
+          "version": "RAGseed-Standard-v1.3"
         }
 
-        [데이터: 과거 영업 기록]
+        [데이터: Seed - 영업 기록]
         %s
 
-        [데이터: 최신 종자 카탈로그]
+        [데이터: Seed - 종자 카탈로그]
         %s
-        """, notes, products);
+        """, scope, scope, notes, products);
     }
 
     @Override

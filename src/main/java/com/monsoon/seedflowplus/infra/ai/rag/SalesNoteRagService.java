@@ -49,9 +49,10 @@ public class SalesNoteRagService {
      */
     public void indexNote(SalesNote note) {
         Metadata metadata = new Metadata()
-                .add("type", "SALES_NOTE") // 데이터 타입 추가
-                .add("id", note.getId())
-                .add("clientId", note.getClientId())
+                .add("type", "SALES_NOTE")
+                .add("id", note.getId().toString())
+                .add("clientId", note.getClientId().toString())
+                .add("contractId", note.getContractId() != null ? note.getContractId() : "NONE") // [추가] 계약 ID 메타데이터
                 .add("activityDate", note.getActivityDate().toString());
 
         TextSegment segment = TextSegment.from(note.getContent(), metadata);
@@ -61,23 +62,31 @@ public class SalesNoteRagService {
     }
 
     /**
-     * 특정 고객의 질문(Query)과 가장 관련성이 높은 과거 노트를 검색합니다.
-     * @param clientId 검색 대상 고객 ID
-     * @param query 검색어 (예: "최근 고객 불만 사항")
-     * @param maxResults 최대 결과 개수
-     * @return 관련성 높은 텍스트 세그먼트 리스트
+     * 계층적 분석 범위를 지원하는 검색 메서드
+     * @param clientId (선택) 고객 ID
+     * @param contractId (선택) 계약 코드
+     * @param query 검색어
      */
-    public List<TextSegment> retrieveRelatedNotes(Long clientId, String query, int maxResults) {
+    public List<TextSegment> retrieveRelatedNotes(Long clientId, String contractId, String query, int maxResults) {
         Embedding queryEmbedding = embeddingModel.embed(query).content();
 
-        // 특정 고객(clientId) 데이터로만 한정하는 필터 생성
-        Filter filter = MetadataFilterBuilder.metadataKey("clientId").isEqualTo(clientId);
+        // [동적 필터 생성 로직]
+        Filter filter = null;
+        if (clientId != null && contractId != null && !contractId.isBlank() && !"NONE".equals(contractId)) {
+            // 1. 계약별 모드: 고객 ID와 계약 코드가 모두 일치해야 함
+            filter = MetadataFilterBuilder.metadataKey("clientId").isEqualTo(clientId.toString())
+                    .and(MetadataFilterBuilder.metadataKey("contractId").isEqualTo(contractId));
+        } else if (clientId != null) {
+            // 2. 고객별 모드: 해당 고객의 모든 데이터
+            filter = MetadataFilterBuilder.metadataKey("clientId").isEqualTo(clientId.toString());
+        }
+        // 3. 전사 모드: filter가 null인 상태 유지 (전체 검색)
 
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .filter(filter)
                 .maxResults(maxResults)
-                .minScore(0.6) // 관련성 점수 임계치 설정
+                .minScore(0.5)
                 .build();
 
         return embeddingStore.search(request).matches().stream()

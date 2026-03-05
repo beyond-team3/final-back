@@ -38,6 +38,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -49,6 +51,19 @@ public class ContractService {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
+
+    /**
+     * 특정 거래처의 계약 목록 조회 (드롭다운용)
+     */
+    public List<ContractSimpleResponse> getContractsByClient(Long clientId) {
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        return contractRepository.findByClientOrderByEndDateAsc(client).stream()
+                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 삭제된 계약 제외
+                .map(ContractSimpleResponse::from)
+                .toList();
+    }
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();

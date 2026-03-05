@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
 import com.monsoon.seedflowplus.infra.ai.AiClient;
@@ -32,7 +33,8 @@ public class NoteService {
 
     private final SalesNoteRepository noteRepository;
     private final ClientRepository clientRepository;
-    private final BriefingService briefingService;
+    private final ContractRepository contractRepository;
+    private final RagSeedService ragSeedService;
     private final AiClient aiClient;
     private final SalesNoteRagService ragService;
 
@@ -84,11 +86,21 @@ public class NoteService {
             throw new AccessDeniedException("노트 작성 권한이 없습니다.");
         }
 
+        // [추가] 계약 ID 유효성 검증: 해당 거래처의 계약인지 확인
+        validateContractOwnership(dto.getContractId(), dto.getClientId());
+
         // [자동화] 저장 전 실시간 AI 요약 생성
         List<String> summary = aiClient.summarizeNote(dto.getContent());
-        dto.setAiSummary(summary);
 
-        SalesNote note = dto.toEntity(currentEmployeeId);
+        SalesNote note = SalesNote.builder()
+                .clientId(dto.getClientId())
+                .authorId(currentEmployeeId)
+                .contractId(dto.getContractId())
+                .activityDate(dto.getDate())
+                .content(dto.getContent())
+                .aiSummary(summary) // AI 요약 결과 직접 주입
+                .build();
+        
         SalesNote savedNote = noteRepository.save(note);
 
         // [RAG] 벡터 DB 인덱싱 수행
@@ -114,6 +126,9 @@ public class NoteService {
             throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
+        // [추가] 계약 ID 유효성 검증: 해당 거래처의 계약인지 확인 (수정 시에도 체크)
+        validateContractOwnership(dto.getContractId(), dto.getClientId());
+
         // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
         List<String> summary = aiClient.summarizeNote(dto.getContent());
         note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
@@ -125,6 +140,19 @@ public class NoteService {
         triggerBriefingUpdate(note.getClientId());
 
         return note;
+    }
+
+    /**
+     * 계약 소유권 검증 헬퍼 메서드
+     */
+    private void validateContractOwnership(String contractCode, Long clientId) {
+        if (contractCode != null && !contractCode.isBlank()) {
+            boolean exists = contractRepository.existsByContractCodeAndClientId(contractCode, clientId);
+            if (!exists) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    String.format("해당 거래처(ID: %d)에 귀속된 계약 코드(%s)를 찾을 수 없습니다.", clientId, contractCode));
+            }
+        }
     }
 
     /**
@@ -160,13 +188,13 @@ public class NoteService {
                 @Override
                 public void afterCommit() {
                     // 실제 DB 커밋이 완료된 직후에만 비동기 호출 실행
-                    log.info("트랜잭션 커밋 완료 확인 - 비동기 분석 트리거: clientId={}", clientId);
-                    briefingService.refreshBriefingAsync(clientId);
+                    log.info("트랜잭션 커밋 완료 확인 - RAGseed 분석 트리거: clientId={}", clientId);
+                    ragSeedService.refreshStandardBriefingAsync(clientId);
                 }
             });
         } else {
             // 트랜잭션이 없는 환경(예: 테스트 코드 등)에서는 즉시 호출
-            briefingService.refreshBriefingAsync(clientId);
+            ragSeedService.refreshStandardBriefingAsync(clientId);
         }
     }
 
