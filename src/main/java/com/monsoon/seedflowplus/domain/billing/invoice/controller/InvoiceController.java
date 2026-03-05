@@ -34,12 +34,8 @@ public class InvoiceController {
             @RequestBody @Valid InvoiceCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        if (userDetails == null || userDetails.getEmployeeId() == null) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
-
         return ApiResult.success(
-                invoiceService.createInvoice(request, userDetails.getEmployeeId())
+                invoiceService.createInvoice(request, requireEmployeeId(userDetails))
         );
     }
 
@@ -50,6 +46,7 @@ public class InvoiceController {
             @PathVariable Long invoiceId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        requireEmployeeId(userDetails);
         return ApiResult.success(invoiceService.publishInvoice(invoiceId, userDetails));
     }
 
@@ -60,6 +57,7 @@ public class InvoiceController {
             @PathVariable Long statementId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        requireEmployeeId(userDetails);
         return ApiResult.success(invoiceService.toggleStatement(invoiceId, statementId, userDetails));
     }
 

@@ -321,8 +321,9 @@ public class DealLogWriteService {
         try {
             return objectMapper.writeValueAsString(Map.of("fields", fields));
         } catch (JsonProcessingException e) {
-            // TODO: 프로젝트 표준 예외(ErrorCode/ErrorType)로 치환
-            throw new IllegalArgumentException("diffJson 직렬화에 실패했습니다.", e);
+            DealException ex = new DealException(DealErrorCode.DIFF_JSON_SERIALIZATION_FAILED);
+            ex.initCause(e);
+            throw ex;
         }
     }
 

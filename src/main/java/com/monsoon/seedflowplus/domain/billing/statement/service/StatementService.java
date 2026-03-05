@@ -93,6 +93,9 @@ public class StatementService {
 
         Statement statement = statementRepository.findById(statementId)
                 .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
+        if (statement.getDeal() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
 
         String fromStatus = statement.getStatus().name();
         dealPipelineFacade.validateTransitionOrThrow(

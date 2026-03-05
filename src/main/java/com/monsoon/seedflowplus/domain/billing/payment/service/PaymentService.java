@@ -95,6 +95,8 @@ public class PaymentService {
                 PaymentStatus.COMPLETED.name()
         );
 
+        payment.complete();
+
         // 5. 청구서 상태 PAID로 변경
         invoice.paid();
 

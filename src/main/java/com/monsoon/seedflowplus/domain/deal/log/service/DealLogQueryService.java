@@ -67,7 +67,10 @@ public class DealLogQueryService {
         Long clientId = log.getClient() != null
                 ? log.getClient().getId()
                 : (log.getDeal() != null && log.getDeal().getClient() != null ? log.getDeal().getClient().getId() : null);
-        if (!canAccess(requiredUser, log.getDeal().getOwnerEmp().getId(), clientId)) {
+        Long ownerEmpId = (log.getDeal() != null && log.getDeal().getOwnerEmp() != null)
+                ? log.getDeal().getOwnerEmp().getId()
+                : null;
+        if (!canAccess(requiredUser, ownerEmpId, clientId)) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
@@ -79,15 +82,21 @@ public class DealLogQueryService {
     }
 
     public List<DealLogSummaryDto> getRecentDocumentLogs(Long dealId, DealType docType, Long refId, int limit) {
-        if (dealId == null || docType == null || refId == null) {
-            return List.of();
-        }
+        requireRecentLogParam("dealId", dealId);
+        requireRecentLogParam("docType", docType);
+        requireRecentLogParam("refId", refId);
         int resolvedLimit = limit > 0 ? limit : DEFAULT_RECENT_LIMIT;
         Pageable pageable = PageRequest.of(0, resolvedLimit);
         return salesDealLogRepository.findRecentByDealIdAndDocTypeAndRefId(dealId, docType, refId, pageable)
                 .stream()
                 .map(this::toSummaryDto)
                 .toList();
+    }
+
+    private void requireRecentLogParam(String name, Object value) {
+        if (value == null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "getRecentDocumentLogs: " + name + " must not be null");
+        }
     }
 
     private Pageable resolveTimelinePageable(Pageable pageable) {

@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.deal.log.policy;
 
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealErrorCode;
+import com.monsoon.seedflowplus.domain.deal.common.error.DealException;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -36,12 +38,10 @@ public class DealLogPolicyValidator {
         Objects.requireNonNull(actionType, "actionType은 null값이 될 수 없습니다.");
 
         if (actorType == ActorType.SYSTEM && actorId != null) {
-            // TODO: 프로젝트 표준 예외(ErrorCode/ErrorType)로 치환
-            throw new IllegalArgumentException("actorType이 SYSTEM이면 actorId는 null이어야 합니다.");
+            throw new DealException(DealErrorCode.SYSTEM_ACTOR_ID_MUST_BE_NULL);
         }
-        if (actorType != ActorType.SYSTEM && actorId == null) {
-            // TODO: 프로젝트 표준 예외(ErrorCode/ErrorType)로 치환
-            throw new IllegalArgumentException("actorType이 SYSTEM이 아니면 actorId는 null일 수 없습니다.");
+        if (actorType != ActorType.SYSTEM && (actorId == null || actorId <= 0)) {
+            throw new DealException(DealErrorCode.NON_SYSTEM_ACTOR_ID_MUST_BE_POSITIVE);
         }
 
         Set<ActionType> allowedActions = ALLOWED_ACTIONS_BY_ACTOR.getOrDefault(actorType, Set.of());
@@ -63,7 +63,20 @@ public class DealLogPolicyValidator {
     private static Map<ActorType, Set<ActionType>> createAllowedActionsByActor() {
         Map<ActorType, Set<ActionType>> map = new EnumMap<>(ActorType.class);
 
-        Set<ActionType> staffActions = EnumSet.allOf(ActionType.class);
+        Set<ActionType> staffActions = EnumSet.of(
+                ActionType.CREATE,
+                ActionType.UPDATE,
+                ActionType.SUBMIT,
+                ActionType.RESUBMIT,
+                ActionType.CONVERT,
+                ActionType.APPROVE,
+                ActionType.REJECT,
+                ActionType.CONFIRM,
+                ActionType.ISSUE,
+                ActionType.PAY,
+                ActionType.EXPIRE,
+                ActionType.CANCEL
+        );
         Set<ActionType> clientActions = EnumSet.of(
                 ActionType.CREATE,
                 ActionType.UPDATE,

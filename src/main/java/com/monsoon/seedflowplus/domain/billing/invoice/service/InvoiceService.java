@@ -403,10 +403,13 @@ public class InvoiceService {
         if (principal == null) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
-        if (actorType == ActorType.CLIENT) {
-            return principal.getClientId();
+        Long actorId = actorType == ActorType.CLIENT
+                ? principal.getClientId()
+                : principal.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
-        return principal.getEmployeeId();
+        return actorId;
     }
 
     private DealStage mapInvoiceStage(InvoiceStatus status) {

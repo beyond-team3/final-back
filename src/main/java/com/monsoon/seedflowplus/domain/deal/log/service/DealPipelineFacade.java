@@ -108,6 +108,6 @@ public class DealPipelineFacade {
         if (fromStatus.equals(toStatus)) {
             return false;
         }
-        return actionType != ActionType.CREATE && actionType != ActionType.UPDATE;
+        return actionType != ActionType.CREATE;
     }
 }

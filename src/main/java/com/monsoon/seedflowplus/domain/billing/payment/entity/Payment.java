@@ -57,7 +57,11 @@ public class Payment extends BaseCreateEntity {
         payment.deal = Objects.requireNonNull(deal, "deal must not be null");
         payment.paymentAmount = invoice.getTotalAmount();
         payment.paymentMethod = paymentMethod;
-        payment.status = PaymentStatus.COMPLETED;
+        payment.status = PaymentStatus.PENDING;
         return payment;
+    }
+
+    public void complete() {
+        this.status = PaymentStatus.COMPLETED;
     }
 }

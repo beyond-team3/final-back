@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.sales.order.controller;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
@@ -66,6 +68,9 @@ public class OrderController {
             @PathVariable Long orderId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        if (userDetails == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
         return ApiResult.success(orderService.confirmOrder(orderId, userDetails));
     }
 }
