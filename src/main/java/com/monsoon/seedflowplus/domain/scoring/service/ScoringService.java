@@ -124,10 +124,13 @@ public class ScoringService {
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // 중복 삽입 에러 발생 시(경합 상황), 다시 조회하여 업데이트 시도
             accountScoreRepository.findByClient_Id(clientId)
-                    .ifPresent(existingScore -> {
-                        existingScore.updateScore(total, cScore, oScore, vScore, reason, detail);
-                        accountScoreRepository.save(existingScore);
-                    });
+                    .ifPresentOrElse(
+                            existingScore -> {
+                                existingScore.updateScore(total, cScore, oScore, vScore, reason, detail);
+                                accountScoreRepository.save(existingScore);
+                            },
+                            () -> { throw e; }
+                    );
         }
     }
 
