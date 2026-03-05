@@ -49,7 +49,7 @@ public class RagSeedService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void refreshStandardBriefingAsync(Long clientId) {
         Lock lock = clientLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
-        lock.lock(); // [수정] 무시하지 않고 순차적으로 처리하도록 변경
+        lock.lock();
 
         try {
             log.info("[RAGseed] 표준 브리핑 갱신 시작: clientId={}", clientId);
@@ -90,6 +90,8 @@ public class RagSeedService {
 
         } finally {
             lock.unlock();
+            // 사용이 끝난 락을 맵에서 제거하여 메모리 누수 방지
+            clientLocks.remove(clientId, lock);
         }
     }
 
