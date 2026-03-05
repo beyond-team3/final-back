@@ -28,6 +28,7 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class InvoiceService {
 
@@ -321,7 +323,13 @@ public class InvoiceService {
 
         String invoiceCode = generateCode("INV");
         if (contract.getDeal() == null) {
+<<<<<<< HEAD
             throw new CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=" + contract.getId());
+=======
+            // TODO(BAC-70): legacy 계약 데이터 deal_id 백필 완료 후 제거
+            log.warn("Skip draft invoice creation because deal is missing. contractId={}", contract.getId());
+            return;
+>>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
         }
 
         Invoice invoice = Invoice.create(
@@ -384,6 +392,7 @@ public class InvoiceService {
 
         return todayPrefix + String.format("%03d", nextSeq);
     }
+<<<<<<< HEAD
 
     private ActorType resolveActorType(CustomUserDetails principal) {
         if (principal == null || principal.getRole() == null) {
@@ -417,4 +426,6 @@ public class InvoiceService {
             case CANCELED -> DealStage.CANCELED;
         };
     }
+=======
+>>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 }

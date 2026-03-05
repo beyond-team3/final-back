@@ -177,6 +177,7 @@ public class StatementService {
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
         return msg.contains("statement_code") || msg.contains("uk_") || msg.contains("unique");
     }
+<<<<<<< HEAD
 
     private DealStage mapStatementStage(StatementStatus status) {
         return switch (status) {
@@ -213,4 +214,6 @@ public class StatementService {
                 statement.getId()
         );
     }
+=======
+>>>>>>> 7018f7810fea2584d0d9fb9272c4b7c88a04cd15
 }
