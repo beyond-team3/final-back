@@ -37,9 +37,20 @@ public class ProductRagService {
     @PostConstruct
     public void indexAllProducts() {
         log.info("종자 카탈로그 벡터 인덱싱 시작...");
-        List<Product> products = productRepository.findAll();
-        products.forEach(this::indexProduct);
-        log.info("총 {}건의 품종 정보 인덱싱 완료.", products.size());
+        try {
+            List<Product> products = productRepository.findAll();
+            products.forEach(product -> {
+                try {
+                    this.indexProduct(product);
+                } catch (Exception e) {
+                    log.error("[RAG] 품종 인덱싱 실패 (ID: {}, Name: {}): {}", 
+                            product.getId(), product.getProductName(), e.getMessage());
+                }
+            });
+            log.info("총 {}건의 품종 정보 인덱싱 완료.", products.size());
+        } catch (Exception e) {
+            log.error("[RAG] 초기 품종 로딩 실패: {}", e.getMessage());
+        }
     }
 
     /**

@@ -32,15 +32,22 @@ public class SalesNoteRagService {
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final SalesNoteRepository salesNoteRepository;
 
-    /**
-     * 애플리케이션 시작 시 기존의 모든 노트를 벡터 DB에 인덱싱합니다.
-     */
     @PostConstruct
     public void initIndex() {
         log.info("기존 영업 노트 벡터 인덱싱 시작...");
-        List<SalesNote> allNotes = salesNoteRepository.findAll();
-        allNotes.forEach(this::indexNote);
-        log.info("기존 {}건의 노트 인덱싱 완료.", allNotes.size());
+        try {
+            List<SalesNote> allNotes = salesNoteRepository.findAll();
+            allNotes.forEach(note -> {
+                try {
+                    this.indexNote(note);
+                } catch (Exception e) {
+                    log.error("[RAG] 노트 인덱싱 실패 (ID: {}): {}", note.getId(), e.getMessage());
+                }
+            });
+            log.info("기존 {}건의 노트 인덱싱 완료.", allNotes.size());
+        } catch (Exception e) {
+            log.error("[RAG] 초기 노트 로딩 실패: {}", e.getMessage());
+        }
     }
 
     /**
