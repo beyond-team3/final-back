@@ -9,173 +9,71 @@
 - 코드 리뷰 참고
 - 장애 발생 시 원인 분석
 
-## 2026-03-05 12:39
+## 2026-03-05 17:51
 
 ### Step
 
-Step1 Policy Validator  
-Step2 DealLogWriteService Refactor  
-Step3 Approval Pipeline Fix  
-Step4 Document Create Logging  
-Step5 Status Change Logging
+Step15 timeline/order + statement retry determinism hardening
 
 ### Purpose
 
-DealLog 정책 검증을 중앙화하고, 문서 생성/상태 변경 경로 전체에서 로그 + 스냅샷 동기화를 같은 트랜잭션으로 강제한다.
+리뷰 지적 사항 기준으로 work-log 시간 정렬 규칙을 일관화하고,
+명세서 생성 재시도/연결 invoice 조회/Facade 입력 검증의 비결정성 및 후행 예외 위험을 제거한다.
 
 ### Modified Files
 
-- DealLogPolicyValidator.java
-- DealLogPolicyValidatorTest.java
-- ActionType.java
-- DealLogWriteService.java
-- ApprovalCommandService.java
-- ApprovalDealLogWriter.java
-- QuotationRequestService.java
-- QuotationService.java
-- ContractService.java
-- OrderService.java
-- OrderController.java
-- StatementService.java
-- StatementController.java
-- InvoiceService.java
-- InvoiceController.java
-- PaymentService.java
-
-### Key Changes
-
-- ActorType + ActionType 조합, targetCode, SYSTEM actorId 규칙을 DealLogPolicyValidator로 중앙 검증
-- DealLogWriteService를 write/writeConvertPair 중심으로 정리하고, diff fields 직렬화 및 fields=[] 상세 미생성 정책 적용
-- write 내부에서 SalesDeal.updateSnapshot 동기화 수행하도록 통합
-- Approval 경로에서 상태 변경 전 전이 검증 호출 및 actorId 매핑(ADMIN/SALES_REP=employeeId, CLIENT=clientId) 보강
-- RFQ/QUO/CNT 생성 트랜잭션에 CREATE 로그 연결
-- ORDER(confirm/cancel), STATEMENT(create/cancel), INVOICE(publish/toggle), PAYMENT(paid)에 전이 검증 + 로그 기록 추가
-
-### Snapshot Sync
-
-Applied
-
-- DealLogWriteService.write(...) 내부 syncSnapshot
-- ApprovalDealLogWriter 경유 write 호출 경로
-- QuotationRequestService.createQuotationRequest
-- QuotationService.createQuotation
-- ContractService.createContract
-- OrderService.confirmOrder
-- OrderService.cancelOrder
-- StatementService.createStatement
-- StatementService.cancelStatement
-- InvoiceService.publishInvoice
-- InvoiceService.toggleStatement
-- PaymentService.processPayment
-
-Not Applied
-
-- InvoiceService.createInvoice / createDraftInvoice 생성 로그 연결(이번 단계 범위 외)
-- Convert 실사용 도메인 연결(writeConvertPair 호출 실제 흐름)
-
-### Logging Coverage
-
-RFQ  
-Quotation  
-Contract  
-Order  
-Statement  
-Invoice  
-Payment  
-Approval
-
-### Remaining Tasks
-
-- Convert 실제 전환 시점(RFQ→QUO, QUO→CNT, CNT→ORD)에서 writeConvertPair 강제 연결
-- INVOICE create/createDraft 경로 로그 정책 확정 후 반영
-- 도메인별 로그 내용(diff fields) 표준화 및 통합 테스트 보강
-
-### Risk / Notes
-
-- Actor+Action 정책은 현재 서비스 사용 케이스를 수용하도록 확장되어 있으며, 추후 권한 모델 확정 시 재조정 필요
-- Statement cancel API를 신규 추가했으므로 API 문서/테스트 케이스 동기화 필요
-- DealLogWriteService.validateRequired가 fromStatus/toStatus를 필수로 요구하므로 신규 경로 연결 시 null/blank 주의
-
-## 2026-03-05 13:25
-
-### Step
-
-Step6 DealPipelineFacade 도입
-
-### Purpose
-
-상태 변경 유스케이스에서 validator + log write + SalesDeal snapshot sync를 하나의 진입점으로 묶어
-"로그만 기록" 또는 "스냅샷만 갱신"되는 분리 사고를 방지한다.
-
-### Modified Files
-
-- DealPipelineFacade.java
-- DealLogWriteService.java
-- QuotationRequestService.java
-- QuotationService.java
-- ContractService.java
-- OrderService.java
-- StatementService.java
-- InvoiceService.java
-- PaymentService.java
-- ApprovalDealLogWriter.java
+- deal-log-work-log.md
 - deal-log-architecture.md
+- InvoiceStatementRepository.java
+- StatementService.java
+- DealPipelineFacade.java
 
 ### Key Changes
 
-- `DealPipelineFacade.recordAndSync(...)` 추가: 상태 전이 검증 + 로그 기록 + `SalesDeal.updateSnapshot(...)` 일괄 수행
-- `DealPipelineFacade.recordConvertAndSync(...)` 추가: CONVERT/CREATE pair 기록 후 snapshot 1회 동기화
-- `DealPipelineFacade.validateTransitionOrThrow(...)` 추가: 상태 변경 전 선검증 진입점 통일
-- 도메인 서비스들이 `DealLogWriteService`/`DocStatusTransitionValidator`를 직접 호출하지 않고 Facade를 사용하도록 치환
-- `DealLogWriteService`는 로그/상세 기록 전담으로 축소 (snapshot 동기화 책임 제거)
+- `deal-log-work-log.md`의 타임라인을 전체 시간 내림차순(최신 우선)으로 재정렬
+- `InvoiceStatementRepository`에 `findTopByStatementIdAndIncludedTrueOrderByIdDesc(...)` 추가
+- `StatementService.resolveInvoiceId(...)`가 결정적 최신 행을 선택하도록 변경
+- `StatementService.createStatement(...)`의 저장 재시도를 `PROPAGATION_REQUIRES_NEW` 트랜잭션 템플릿으로 분리
+- `DealPipelineFacade.recordAndSync(...)` 시작부에 핵심 인자 fail-fast null 체크 추가
 
 ### Validation
 
 - `./gradlew compileJava -q` 통과
+- `./gradlew test --tests "*DealPipelineFacadeTest" --tests "*DealLogPolicyValidatorTest" -q` 통과
 
-## 2026-03-05 16:35
+## 2026-03-05 17:30
 
 ### Step
 
-Step12 Outside diff findings hardening
+Step14 Inline findings hardening (null-safe DTO / actorId / error taxonomy)
 
 ### Purpose
 
-outside diff 지적 사항을 현재 코드 기준으로 재검증하고,
-실제 누락된 매핑/예외 표준화/인덱스/테스트 회귀 범위만 최소 수정으로 반영한다.
+인라인 지적 사항 기준으로 DTO null 안정성, actorId 인증 강제, convert 경로 fail-fast, 예외 분류 체계를 코드/테스트에서 일치시킨다.
 
 ### Modified Files
 
 - StatementResponse.java
 - StatementService.java
-- DealDiffField.java
 - DealPipelineFacade.java
-- QuotationRequestService.java
-- SalesDealLog.java
+- DealErrorType.java
 - DealErrorCode.java
-- DealLogPolicyValidator.java
 - DealLogPolicyValidatorTest.java
-- DealPipelineFacadeTest.java
-- deal-log-work-log.md
 - deal-log-architecture.md
+- deal-log-work-log.md
 
 ### Key Changes
 
-- `StatementResponse`에 `from(statement, invoiceId, recentLogs)` 오버로드를 추가하고 `invoiceId` 빌더 매핑 보강
-- `StatementService`가 `InvoiceStatementRepository.findAllByStatementIdAndIncludedTrue(...)`로 invoiceId를 조회해 응답에 주입
-- `DealDiffField` 공개 DTO 추가 및 `DealPipelineFacade` 오버로드를 통한 내부 `DiffField` 변환 적용
-- `QuotationRequestService`의 `DealLogWriteService.DiffField` 직접 참조를 `DealDiffField`로 교체
-- `DealLogPolicyValidator`의 잔여 `IllegalArgumentException` 제거, `DealException(DealErrorCode)`로 통일
-- `DealErrorCode`에 `INVALID_ACTOR_ACTION_COMBINATION`, `TARGET_CODE_REQUIRED` 추가
-- `SalesDealLog`에 `(deal_id, doc_type, ref_id, action_at, deal_log_id)` 복합 인덱스 추가
-- `DealLogPolicyValidatorTest`를 ActorType×ActionType 전수 조합 기반으로 확장
-- `DealPipelineFacadeTest`에 `ErrorType.INVALID_DOC_STATUS_TRANSITION` 단언 추가
-- `deal-log-work-log.md`의 14:05/14:30/15:10/16:05/16:20 섹션을 일관된 시간 내림차순으로 재정렬
+- `StatementResponse.from(...)`의 `recentLogs`를 null-safe 빈 리스트로 정규화
+- `StatementService.resolveActorId(...)`에서 non-SYSTEM actorId null 시 `UNAUTHORIZED` throw
+- `DealPipelineFacade.recordConvertAndSync(...)` 진입부 null 체크(`Objects.requireNonNull`) 추가
+- `DealErrorType`에 `SYSTEM_ERROR` 추가 및 `DIFF_JSON_SERIALIZATION_FAILED` 분류 전환
+- `DealLogPolicyValidatorTest`에서 모든 `DealException` 케이스에 기대 `DealErrorCode` 단언 추가
 
 ### Validation
 
-- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q`
-- `./gradlew compileJava -q`
+- `./gradlew compileJava -q` 통과
+- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q` 통과
 
 ## 2026-03-05 16:47
 
@@ -218,39 +116,50 @@ recentLogs strict 검증 회귀를 제거하고, invoice 상세 조회에서 pri
 - `./gradlew compileJava -q` 통과
 - `./gradlew test --tests "*DealPipelineFacadeTest" --tests "*DealLogPolicyValidatorTest" -q` 통과
 
-## 2026-03-05 17:30
+## 2026-03-05 16:35
 
 ### Step
 
-Step14 Inline findings hardening (null-safe DTO / actorId / error taxonomy)
+Step12 Outside diff findings hardening
 
 ### Purpose
 
-인라인 지적 사항 기준으로 DTO null 안정성, actorId 인증 강제, convert 경로 fail-fast, 예외 분류 체계를 코드/테스트에서 일치시킨다.
+outside diff 지적 사항을 현재 코드 기준으로 재검증하고,
+실제 누락된 매핑/예외 표준화/인덱스/테스트 회귀 범위만 최소 수정으로 반영한다.
 
 ### Modified Files
 
 - StatementResponse.java
 - StatementService.java
+- DealDiffField.java
 - DealPipelineFacade.java
+- QuotationRequestService.java
+- SalesDealLog.java
 - DealErrorType.java
 - DealErrorCode.java
+- DealLogPolicyValidator.java
 - DealLogPolicyValidatorTest.java
+- DealPipelineFacadeTest.java
 - deal-log-architecture.md
 - deal-log-work-log.md
 
 ### Key Changes
 
-- `StatementResponse.from(...)`의 `recentLogs`를 null-safe 빈 리스트로 정규화
-- `StatementService.resolveActorId(...)`에서 non-SYSTEM actorId null 시 `UNAUTHORIZED` throw
-- `DealPipelineFacade.recordConvertAndSync(...)` 진입부 null 체크(`Objects.requireNonNull`) 추가
-- `DealErrorType`에 `SYSTEM_ERROR` 추가 및 `DIFF_JSON_SERIALIZATION_FAILED` 분류 전환
-- `DealLogPolicyValidatorTest`에서 모든 `DealException` 케이스에 기대 `DealErrorCode` 단언 추가
+- `StatementResponse`에 `from(statement, invoiceId, recentLogs)` 오버로드를 추가하고 `invoiceId` 빌더 매핑 보강
+- `StatementService`가 `InvoiceStatementRepository.findAllByStatementIdAndIncludedTrue(...)`로 invoiceId를 조회해 응답에 주입
+- `DealDiffField` 공개 DTO 추가 및 `DealPipelineFacade` 오버로드를 통한 내부 `DiffField` 변환 적용
+- `QuotationRequestService`의 `DealLogWriteService.DiffField` 직접 참조를 `DealDiffField`로 교체
+- `DealLogPolicyValidator`의 잔여 `IllegalArgumentException` 제거, `DealException(DealErrorCode)`로 통일
+- `DealErrorCode`에 `INVALID_ACTOR_ACTION_COMBINATION`, `TARGET_CODE_REQUIRED` 추가
+- `SalesDealLog`에 `(deal_id, doc_type, ref_id, action_at, deal_log_id)` 복합 인덱스 추가
+- `DealLogPolicyValidatorTest`를 ActorType×ActionType 전수 조합 기반으로 확장
+- `DealPipelineFacadeTest`에 `ErrorType.INVALID_DOC_STATUS_TRANSITION` 단언 추가
+- `deal-log-work-log.md`의 14:05/14:30/15:10/16:05/16:20 섹션을 일관된 시간 내림차순으로 재정렬
 
 ### Validation
 
-- `./gradlew compileJava -q` 통과
-- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q` 통과
+- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q`
+- `./gradlew compileJava -q`
 
 ## 2026-03-05 16:21
 
@@ -499,3 +408,127 @@ Step7 조회 응답 보강 (targetCode / recentLogs)
 ### Validation
 
 - `./gradlew compileJava -q` 통과
+
+## 2026-03-05 13:25
+
+### Step
+
+Step6 DealPipelineFacade 도입
+
+### Purpose
+
+상태 변경 유스케이스에서 validator + log write + SalesDeal snapshot sync를 하나의 진입점으로 묶어
+"로그만 기록" 또는 "스냅샷만 갱신"되는 분리 사고를 방지한다.
+
+### Modified Files
+
+- DealPipelineFacade.java
+- DealLogWriteService.java
+- QuotationRequestService.java
+- QuotationService.java
+- ContractService.java
+- OrderService.java
+- StatementService.java
+- InvoiceService.java
+- PaymentService.java
+- ApprovalDealLogWriter.java
+- deal-log-architecture.md
+
+### Key Changes
+
+- `DealPipelineFacade.recordAndSync(...)` 추가: 상태 전이 검증 + 로그 기록 + `SalesDeal.updateSnapshot(...)` 일괄 수행
+- `DealPipelineFacade.recordConvertAndSync(...)` 추가: CONVERT/CREATE pair 기록 후 snapshot 1회 동기화
+- `DealPipelineFacade.validateTransitionOrThrow(...)` 추가: 상태 변경 전 선검증 진입점 통일
+- 도메인 서비스들이 `DealLogWriteService`/`DocStatusTransitionValidator`를 직접 호출하지 않고 Facade를 사용하도록 치환
+- `DealLogWriteService`는 로그/상세 기록 전담으로 축소 (snapshot 동기화 책임 제거)
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
+
+## 2026-03-05 12:39
+
+### Step
+
+Step1 Policy Validator  
+Step2 DealLogWriteService Refactor  
+Step3 Approval Pipeline Fix  
+Step4 Document Create Logging  
+Step5 Status Change Logging
+
+### Purpose
+
+DealLog 정책 검증을 중앙화하고, 문서 생성/상태 변경 경로 전체에서 로그 + 스냅샷 동기화를 같은 트랜잭션으로 강제한다.
+
+### Modified Files
+
+- DealLogPolicyValidator.java
+- DealLogPolicyValidatorTest.java
+- ActionType.java
+- DealLogWriteService.java
+- ApprovalCommandService.java
+- ApprovalDealLogWriter.java
+- QuotationRequestService.java
+- QuotationService.java
+- ContractService.java
+- OrderService.java
+- OrderController.java
+- StatementService.java
+- StatementController.java
+- InvoiceService.java
+- InvoiceController.java
+- PaymentService.java
+
+### Key Changes
+
+- ActorType + ActionType 조합, targetCode, SYSTEM actorId 규칙을 DealLogPolicyValidator로 중앙 검증
+- DealLogWriteService를 write/writeConvertPair 중심으로 정리하고, diff fields 직렬화 및 fields=[] 상세 미생성 정책 적용
+- write 내부에서 SalesDeal.updateSnapshot 동기화 수행하도록 통합
+- Approval 경로에서 상태 변경 전 전이 검증 호출 및 actorId 매핑(ADMIN/SALES_REP=employeeId, CLIENT=clientId) 보강
+- RFQ/QUO/CNT 생성 트랜잭션에 CREATE 로그 연결
+- ORDER(confirm/cancel), STATEMENT(create/cancel), INVOICE(publish/toggle), PAYMENT(paid)에 전이 검증 + 로그 기록 추가
+
+### Snapshot Sync
+
+Applied
+
+- DealLogWriteService.write(...) 내부 syncSnapshot
+- ApprovalDealLogWriter 경유 write 호출 경로
+- QuotationRequestService.createQuotationRequest
+- QuotationService.createQuotation
+- ContractService.createContract
+- OrderService.confirmOrder
+- OrderService.cancelOrder
+- StatementService.createStatement
+- StatementService.cancelStatement
+- InvoiceService.publishInvoice
+- InvoiceService.toggleStatement
+- PaymentService.processPayment
+
+Not Applied
+
+- InvoiceService.createInvoice / createDraftInvoice 생성 로그 연결(이번 단계 범위 외)
+- Convert 실사용 도메인 연결(writeConvertPair 호출 실제 흐름)
+
+### Logging Coverage
+
+RFQ  
+Quotation  
+Contract  
+Order  
+Statement  
+Invoice  
+Payment  
+Approval
+
+### Remaining Tasks
+
+- Convert 실제 전환 시점(RFQ→QUO, QUO→CNT, CNT→ORD)에서 writeConvertPair 강제 연결
+- INVOICE create/createDraft 경로 로그 정책 확정 후 반영
+- 도메인별 로그 내용(diff fields) 표준화 및 통합 테스트 보강
+
+### Risk / Notes
+
+- Actor+Action 정책은 현재 서비스 사용 케이스를 수용하도록 확장되어 있으며, 추후 권한 모델 확정 시 재조정 필요
+- Statement cancel API를 신규 추가했으므로 API 문서/테스트 케이스 동기화 필요
+- DealLogWriteService.validateRequired가 fromStatus/toStatus를 필수로 요구하므로 신규 경로 연결 시 null/blank 주의
