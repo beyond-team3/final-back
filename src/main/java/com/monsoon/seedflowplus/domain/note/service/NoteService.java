@@ -103,8 +103,8 @@ public class NoteService {
         
         SalesNote savedNote = noteRepository.save(note);
 
-        // [RAG] 벡터 DB 인덱싱 수행
-        ragService.indexNote(savedNote);
+        // [RAG] 벡터 DB 인덱싱 수행 (트랜잭션 커밋 후 실행되도록 지연 호출)
+        triggerRagIndexingAfterCommit(savedNote);
 
         // [리팩토링] 비동기 분석 트리거
         triggerBriefingUpdate(savedNote.getClientId());
@@ -134,13 +134,31 @@ public class NoteService {
         List<String> summary = aiClient.summarizeNote(dto.getContent());
         note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
 
-        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (기존 InMemoryStore는 중복 저장을 방지하는 로직이 필요할 수 있으나 여기선 단순화)
-        ragService.indexNote(note);
+        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (트랜잭션 커밋 후 실행)
+        triggerRagIndexingAfterCommit(note);
 
         // [리팩토링] 데이터 수정 후 비동기 분석 요청
         triggerBriefingUpdate(note.getClientId());
 
         return note;
+    }
+
+    /**
+     * [리팩토링] RAG 인덱싱 비동기/지연 처리 헬퍼
+     * 트랜잭션이 성공적으로 커밋된 후에만 벡터 DB에 반영하여 정합성을 유지합니다.
+     */
+    private void triggerRagIndexingAfterCommit(SalesNote note) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("트랜잭션 커밋 완료 확인 - RAG 인덱싱 수행: Note ID={}", note.getId());
+                    ragService.indexNote(note);
+                }
+            });
+        } else {
+            ragService.indexNote(note);
+        }
     }
 
     /**
