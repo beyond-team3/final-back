@@ -66,12 +66,17 @@ public class GeocodingService {
         }
 
         KakaoGeoResponse.Document doc = response.getDocuments().get(0);
-        double lng = Double.parseDouble(doc.getLongitude());
-        double lat = Double.parseDouble(doc.getLatitude());
+        
+        try {
+            double lng = Double.parseDouble(doc.getLongitude());
+            double lat = Double.parseDouble(doc.getLatitude());
 
-        log.info("Geocoding 결과 lat={}, lng={}", lat, lng);
-
-        return new GeoPoint(lat, lng);
+            log.info("Geocoding 결과 lat={}, lng={}", lat, lng);
+            return new GeoPoint(lat, lng);
+        } catch (NullPointerException | NumberFormatException e) {
+            log.error("좌표 데이터 파싱 실패: longitude={}, latitude={}", doc.getLongitude(), doc.getLatitude());
+            throw new CoreException(ErrorType.ADDRESS_NOT_FOUND);
+        }
     }
 
     /**
