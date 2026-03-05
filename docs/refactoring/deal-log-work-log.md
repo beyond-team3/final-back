@@ -9,6 +9,19 @@
 - 코드 리뷰 참고
 - 장애 발생 시 원인 분석
 
+## [2026-03-05 18:41] StatementService 순환 참조 제거
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — `@Lazy StatementService self`를 `ObjectProvider<StatementService>`로 교체해 빈 생성 순환 참조 제거
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## 2026-03-05 18:16
 
 ### Step
