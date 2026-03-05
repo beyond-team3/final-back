@@ -34,9 +34,9 @@ public class GeocodingService {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
-        // API 키 유효성 체크 (더미 키일 경우 로깅)
+        // API 키 유효성 체크 (설정 오류 시 Fail-Fast)
         if (apiKey == null || apiKey.isBlank() || apiKey.contains("DUMMY")) {
-            log.error("Kakao API Key가 설정되지 않았거나 더미 키입니다. API 호출이 실패할 수 있습니다.");
+            throw new IllegalStateException("Kakao API Key가 설정되지 않았거나 유효하지 않습니다. application-local.yml 설정을 확인하세요.");
         }
 
         log.info("Kakao Geocoding 요청 주소: {}", address);
