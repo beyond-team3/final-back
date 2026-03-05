@@ -66,13 +66,22 @@ GET {{baseUrl}}/api/v1/deal-logs/{{dealLogId}}/detail
 Authorization: Bearer {{adminAccessToken}}
 
 > {%
-client.test("deal-log detail success or not found (no timeline data)", function () {
-  client.assert(response.status === 200 || response.status === 404, "status must be 200 or 404");
-  if (response.status === 200) {
-    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-  } else {
+client.test("deal-log detail expected branch by dealLogId input", function () {
+  const rawDealLogId = "{{dealLogId}}";
+  const trimmedDealLogId = rawDealLogId ? String(rawDealLogId).trim() : "";
+  const hasDealLogId =
+    trimmedDealLogId !== "" &&
+    trimmedDealLogId !== "null" &&
+    trimmedDealLogId !== "undefined" &&
+    trimmedDealLogId !== "{{dealLogId}}";
+
+  if (!hasDealLogId) {
+    client.assert(response.status === 404, "status must be 404 when dealLogId input is missing");
     client.assert(response.body.result === "ERROR", "result must be ERROR");
-    client.assert(response.body.error.code === "D001", "error.code must be D001 when dealLogId is missing");
+    client.assert(response.body.error.code === "D001", "error.code must be D001");
+  } else {
+    client.assert(response.status === 200, "status must be 200 when dealLogId input exists");
+    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
   }
 });
 %}

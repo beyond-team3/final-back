@@ -608,3 +608,16 @@ Approval
 
 ### 다음 단계
 없음
+
+## [2026-03-05 20:17] deal-log S4 상세조회 분기 검증 강화
+
+### 작업 내용
+- 수정 파일: api-test/http/deal/deal-log.http — S4 테스트에서 `dealLogId` 입력값 존재 여부로 기대 상태코드를 분기하도록 수정(입력 없음: `404/D001`, 입력 있음: `200/SUCCESS`)
+- 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
