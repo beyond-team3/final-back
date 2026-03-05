@@ -56,14 +56,28 @@ public class ClientDashboardRepository {
                        oh.created_at,
                        oh.status,
                        oh.total_amount,
-                       -- 품목 요약: 첫 번째 품목명 + 나머지 건수
+                       -- 품목 요약: order_detail_id 기준 첫 번째 품목명 + 나머지 건수
                        (SELECT CONCAT(
-                                   MIN(od2.delivery_request),
-                                   CASE WHEN COUNT(*) > 1
-                                        THEN CONCAT(' 외 ', COUNT(*) - 1, '건')
-                                        ELSE '' END)
-                        FROM tbl_order_detail od2
-                        WHERE od2.order_id = oh.order_id) AS summary
+                                   (
+                                       SELECT od_first.delivery_request
+                                       FROM tbl_order_detail od_first
+                                       WHERE od_first.order_id = oh.order_id
+                                       ORDER BY od_first.order_detail_id ASC
+                                       LIMIT 1
+                                   ),
+                                   CASE WHEN (
+                                       SELECT COUNT(*)
+                                       FROM tbl_order_detail od_cnt
+                                       WHERE od_cnt.order_id = oh.order_id
+                                   ) > 1
+                                   THEN CONCAT(
+                                       ' 외 ',
+                                       (SELECT COUNT(*) FROM tbl_order_detail od_cnt2
+                                        WHERE od_cnt2.order_id = oh.order_id) - 1,
+                                       '건'
+                                   )
+                                   ELSE '' END
+                               )) AS summary
                 FROM tbl_order_header oh
                 WHERE oh.client_id = :clientId
                 ORDER BY oh.created_at DESC

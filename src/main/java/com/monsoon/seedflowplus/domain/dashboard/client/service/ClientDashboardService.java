@@ -37,9 +37,7 @@ public class ClientDashboardService {
         }
         String clientName   = (String) clientInfo.get("client_name");
         String billingCycle = (String) clientInfo.get("billing_cycle");
-        LocalDate startDate = clientInfo.get("start_date") != null
-                ? ((java.sql.Date) clientInfo.get("start_date")).toLocalDate()
-                : LocalDate.now();
+        LocalDate startDate = toLocalDate(clientInfo.get("start_date"), LocalDate.now());
 
         // ── 2. 최근 주문 ───────────────────────────
         List<Map<String, Object>> rawOrders = repo.recentOrders(clientId);
@@ -155,9 +153,11 @@ public class ClientDashboardService {
     // ──────────────────────────────────────────────
 
     private ClientBillingResponse toBillingResponse(Map<String, Object> row) {
-        String statusRaw = (String) row.get("status");
-        LocalDate invoiceDate =
-                ((java.sql.Date) row.get("invoice_date")).toLocalDate();
+        String statusRaw = row.get("status") != null ? (String) row.get("status") : "DRAFT";
+        LocalDate invoiceDate = toLocalDate(row.get("invoice_date"), null);
+        if (invoiceDate == null) {
+            throw new IllegalStateException("invoice_date가 null입니다: " + row.get("invoice_code"));
+        }
         LocalDate today = LocalDate.now();
 
         String status = "PAID".equals(statusRaw) ? "납부 완료" : "미결제";
@@ -218,5 +218,18 @@ public class ClientDashboardService {
         if (raw instanceof LocalDateTime ldt) return ldt;
         throw new IllegalStateException("변환할 수 없는 날짜 타입: "
                 + (raw == null ? "null" : raw.getClass().getName()));
+    }
+
+    /**
+     * DB에서 반환되는 날짜 타입을 안전하게 LocalDate로 변환
+     * null이면 defaultValue 반환 (defaultValue가 null이면 명시적으로 null 반환)
+     */
+    private LocalDate toLocalDate(Object raw, LocalDate defaultValue) {
+        if (raw == null) return defaultValue;
+        if (raw instanceof java.sql.Date d) return d.toLocalDate();
+        if (raw instanceof java.sql.Timestamp ts) return ts.toLocalDateTime().toLocalDate();
+        if (raw instanceof LocalDate ld) return ld;
+        if (raw instanceof LocalDateTime ldt) return ldt.toLocalDate();
+        throw new IllegalStateException("변환할 수 없는 날짜 타입: " + raw.getClass().getName());
     }
 }
