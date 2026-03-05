@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
@@ -43,6 +45,7 @@ public class QuotationService {
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductRepository productRepository;
+    private final SalesDealRepository salesDealRepository;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -66,6 +69,7 @@ public class QuotationService {
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
         QuotationRequestHeader quotationRequest = null;
+        SalesDeal deal;
         if (request.requestId() != null) {
             // 3. 견적요청서 기반 작성 시 검증
             quotationRequest = quotationRequestRepository.findById(request.requestId())
@@ -91,6 +95,10 @@ public class QuotationService {
 
             // 상태를 REVIEWING으로 변경
             quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
+            deal = quotationRequest.getDeal();
+        } else {
+            // TODO(BAC-70): RFQ 없이 QUO를 시작하는 Deal 생성 정책 확정 전까지는 기존 Deal을 우선 사용한다.
+            deal = resolveDeal(client);
         }
 
         // 4. 총액 계산
@@ -104,6 +112,7 @@ public class QuotationService {
                 quotationRequest,
                 tempCode,
                 client,
+                deal,
                 author,
                 totalAmount,
                 request.memo());
@@ -276,5 +285,15 @@ public class QuotationService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
+    }
+
+    private SalesDeal resolveDeal(Client client) {
+        Long clientId = client.getId();
+        if (clientId == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
+                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
+                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
     }
 }

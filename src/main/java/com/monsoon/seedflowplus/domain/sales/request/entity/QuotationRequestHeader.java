@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Getter
@@ -41,7 +42,7 @@ public class QuotationRequestHeader extends BaseModifyEntity {
 
     private QuotationRequestHeader(Client client, String requirements, SalesDeal deal) {
         this.client = client;
-        this.deal = deal;
+        this.deal = Objects.requireNonNull(deal, "deal must not be null");
         this.requirements = requirements;
         this.status = QuotationRequestStatus.PENDING;
     }

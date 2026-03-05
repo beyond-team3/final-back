@@ -68,7 +68,7 @@ public class InvoiceService {
         // 4. 청구서 생성
         String invoiceCode = generateCode("INV");
         Invoice invoice = Invoice.create(
-                contract.getId(), client, employee,
+                contract.getId(), client, contract.getDeal(), employee,
                 LocalDate.now(), request.getStartDate(), request.getEndDate(),
                 invoiceCode, request.getMemo()
         );
@@ -226,6 +226,7 @@ public class InvoiceService {
         Invoice invoice = Invoice.create(
                 contract.getId(),
                 contract.getClient(),
+                contract.getDeal(),
                 null,
                 today,
                 startDate,

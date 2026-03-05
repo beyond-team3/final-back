@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
@@ -43,6 +45,7 @@ public class ContractService {
     private final ProductRepository productRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final SalesDealRepository salesDealRepository;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -184,6 +187,7 @@ public class ContractService {
         QuotationHeader quotation = null;
         Client client;
         Employee author;
+        SalesDeal deal;
 
         if (request.quotationId() != null) {
             // 1-1. 견적서 기반 작성
@@ -203,6 +207,7 @@ public class ContractService {
 
             client = quotation.getClient();
             author = quotation.getAuthor();
+            deal = quotation.getDeal();
         } else {
             // 1-2. 신규 작성 (견적서 없음)
             client = clientRepository.findById(request.clientId())
@@ -215,6 +220,8 @@ public class ContractService {
 
             author = employeeRepository.findById(userDetails.getEmployeeId())
                     .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+            // TODO(BAC-70): QUO 없이 CNT를 시작하는 Deal 생성 정책 확정 전까지는 기존 Deal을 우선 사용한다.
+            deal = resolveDeal(client);
         }
 
         // 2. 계약 기간 검증
@@ -263,6 +270,7 @@ public class ContractService {
                 tempCode,
                 quotation,
                 client,
+                deal,
                 author,
                 totalAmount,
                 request.startDate(),
@@ -320,5 +328,15 @@ public class ContractService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
+    }
+
+    private SalesDeal resolveDeal(Client client) {
+        Long clientId = client.getId();
+        if (clientId == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
+                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
+                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
     }
 }

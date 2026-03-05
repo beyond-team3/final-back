@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -55,7 +56,7 @@ public class Statement extends BaseCreateEntity {
         Statement statement = new Statement();
         statement.statementCode = statementCode;
         statement.orderHeader = orderHeader;
-        statement.deal = deal;
+        statement.deal = Objects.requireNonNull(deal, "deal must not be null");
         statement.totalAmount = totalAmount;
         statement.supplyAmount = totalAmount.divide(BigDecimal.valueOf(1.1), 2, RoundingMode.HALF_UP);
         statement.vatAmount = totalAmount.subtract(statement.supplyAmount);

@@ -5,6 +5,8 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
@@ -37,6 +39,7 @@ public class QuotationRequestService {
     private final QuotationRequestRepository quotationRequestRepository;
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
+    private final SalesDealRepository salesDealRepository;
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
@@ -56,7 +59,7 @@ public class QuotationRequestService {
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
         // 2. Header 생성
-        QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements());
+        QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements(), resolveDeal(client));
 
         // 3. 품목 배치 조회 처리 (N+1 방지)
         List<Long> productIds = request.items().stream()
@@ -189,5 +192,16 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
+    }
+
+    private SalesDeal resolveDeal(Client client) {
+        Long clientId = client.getId();
+        if (clientId == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        // TODO(BAC-70): RFQ 최초 생성 시 Deal bootstrap 정책이 확정되면 fallback 로직을 정책에 맞게 대체할 것.
+        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
+                .or(() -> salesDealRepository.findTopByClientIdOrderByLastActivityAtDesc(clientId))
+                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
     }
 }

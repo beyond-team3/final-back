@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -77,7 +78,7 @@ public class Invoice extends BaseCreateEntity {
         invoice.invoiceCode = invoiceCode;
         invoice.contractId = contractId;
         invoice.client = client;
-        invoice.deal = deal;
+        invoice.deal = Objects.requireNonNull(deal, "deal must not be null");
         invoice.employee = employee;
         invoice.invoiceDate = invoiceDate;
         invoice.startDate = startDate;

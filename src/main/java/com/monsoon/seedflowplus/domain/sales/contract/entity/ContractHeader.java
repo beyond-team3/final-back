@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Getter
@@ -76,7 +77,7 @@ public class ContractHeader extends BaseModifyEntity {
         this.contractCode = contractCode;
         this.quotation = quotation;
         this.client = client;
-        this.deal = deal;
+        this.deal = Objects.requireNonNull(deal, "deal must not be null");
         this.author = author;
         this.totalAmount = totalAmount;
         this.startDate = startDate;

@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -53,7 +54,7 @@ public class Payment extends BaseCreateEntity {
         payment.paymentCode = paymentCode;
         payment.invoice = invoice;
         payment.client = client;
-        payment.deal = deal;
+        payment.deal = Objects.requireNonNull(deal, "deal must not be null");
         payment.paymentAmount = invoice.getTotalAmount();
         payment.paymentMethod = paymentMethod;
         payment.status = PaymentStatus.COMPLETED;

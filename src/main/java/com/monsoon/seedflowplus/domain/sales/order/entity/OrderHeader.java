@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor
@@ -51,7 +52,7 @@ public class OrderHeader extends BaseCreateEntity {
         order.orderCode = orderCode;
         order.contract = contract;   // ← contractId 대신 contract로
         order.client = client;
-        order.deal = deal;
+        order.deal = Objects.requireNonNull(deal, "deal must not be null");
         order.employee = employee;
         order.totalAmount = BigDecimal.ZERO;
         order.status = OrderStatus.PENDING;

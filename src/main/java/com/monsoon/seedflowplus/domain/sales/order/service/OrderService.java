@@ -66,7 +66,7 @@ public class OrderService {
         String orderCode = generateCode("ORD");
 
         // 5. OrderHeader 생성
-        OrderHeader orderHeader = OrderHeader.create(contract, client, employee, orderCode);
+        OrderHeader orderHeader = OrderHeader.create(contract, client, contract.getDeal(), employee, orderCode);
         orderHeaderRepository.save(orderHeader);
 
         // 6. OrderDetail 생성 + 수량 검증 + total_amount 계산
