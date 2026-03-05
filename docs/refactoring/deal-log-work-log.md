@@ -9,6 +9,39 @@
 - 코드 리뷰 참고
 - 장애 발생 시 원인 분석
 
+## 2026-03-05 18:16
+
+### Step
+
+Step16 API naming sync + statement atomic retry hardening
+
+### Purpose
+
+문서/구현 API 명칭 불일치를 제거하고,
+명세서 생성-로그 기록의 원자성을 보장하는 트랜잭션 경계를 재구성해 재시도 시 일관성을 확보한다.
+
+### Modified Files
+
+- deal-log-architecture.md
+- deal-log-work-log.md
+- StatementService.java
+- DealPipelineFacade.java
+
+### Key Changes
+
+- `deal-log-architecture.md`에서 공개 API 명칭을 구현과 동일한 `recordAndSyncWithPublicDiffs(...)`로 정정
+- `StatementService.createStatement(...)`:
+  - `createAndSaveStatementRequiresNew(...) + recordAndSync(...)` 2단계를 제거
+  - `createAndRecordStatementRequiresNew(...)` 단일 `REQUIRES_NEW` 경계로 생성+로그를 원자적으로 수행
+  - self proxy(`@Lazy StatementService self`)로 프록시 경유 호출 보장
+- `DealPipelineFacade.recordAndSyncWithPublicDiffs(...)`:
+  - `diffFields` 컬렉션 내 null element를 명시적으로 검증하고 fail-fast 예외 반환
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
+- `./gradlew test --tests "*DealPipelineFacadeTest" --tests "*DealLogPolicyValidatorTest" -q` 통과
+
 ## 2026-03-05 17:51
 
 ### Step
