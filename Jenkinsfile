@@ -112,9 +112,15 @@ pipeline {
                             else
                                 # 동시 푸시 충돌 방지를 위한 rebase 전략 적용
                                 git commit -m "[CD] Update ${imageName} to ${newTag} [skip ci]"
-                                git pull --rebase origin main
-                                git push origin main
-                                echo "Manifest updated in beyond-team3/final-manifests backend"
+                                for attempt in 1 2 3; do
+                                    git pull --rebase origin main && git push origin main && break
+                                    if [ "$attempt" -eq 3 ]; then
+                                        echo "Push failed after 3 attempts."
+                                        exit 1
+                                    fi
+                                    sleep 2
+                                done
+                                echo "Manifest update stage completed for beyond-team3/final-manifests backend"
                             fi
                         """
                     }
