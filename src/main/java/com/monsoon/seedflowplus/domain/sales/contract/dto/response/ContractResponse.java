@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record ContractResponse(
-        Long id,
+        Long headerId, // reason: 계약 헤더 PK임을 detailId와 명확히 구분하기 위해 필드명을 headerId로 변경
         String contractCode,
         Long quotationId,
         String clientName,
@@ -23,6 +23,7 @@ public record ContractResponse(
         LocalDateTime createdAt,
         List<ItemResponse> items) {
     public record ItemResponse(
+            Long detailId, // reason: 주문 생성 시 참조하는 계약 상세 PK를 응답에 노출하기 위해 추가
             Long productId,
             String productName,
             String productCategory,

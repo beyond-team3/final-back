@@ -15,10 +15,11 @@ import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleRespon
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
 import com.monsoon.seedflowplus.domain.account.entity.*;
-import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
+import com.monsoon.seedflowplus.infra.kakao.GeocodingService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -40,9 +41,10 @@ public class AccountService {
     private final ClientCropRepository clientCropRepository;
     private final PasswordEncoder passwordEncoder;
     private final RedisTokenStore tokenStore;
+    private final GeocodingService geocodingService;
 
     @Transactional
-    public void registerClient(ClientRegisterRequest request) {
+    public ClientDetailResponse registerClient(ClientRegisterRequest request) {
         CustomUserDetails userDetails = getAuthenticatedUser();
         requireRole(userDetails, Role.ADMIN);
 
@@ -69,12 +71,18 @@ public class AccountService {
                 .totalCredit(request.totalCredit())
                 .build();
 
+        // 좌표 정보 추가 (Geocoding) - 서비스 코드 수정 최소화
+        geocodingService.fillCoordinates(client);
+
         clientRepository.save(client);
 
         // PK(client_id)를 포함한 최종 clientCode 생성 및 업데이트 (4자리 제로 패딩)
         String finalClientCode = String.format("CLNT-%04d", client.getId());
         client.updateClientCode(finalClientCode);
 
+        // 저장된 결과를 반환하기 위해 조회 (UserDetails는 없으므로 client 엔티티로부터 수동 변환 혹은 DTO 활용)
+        // ClientDetailResponse.from(client)가 User를 필요로 하는지 확인이 필요함
+        return ClientDetailResponse.from(client);
     }
 
     @Transactional

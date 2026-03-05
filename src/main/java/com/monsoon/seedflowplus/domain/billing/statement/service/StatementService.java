@@ -41,7 +41,7 @@ public class StatementService {
         for (int i = 0; i < maxRetries; i++) {
             try {
                 String code = generateCode("STMT");
-                Statement statement = Statement.create(orderHeader, orderHeader.getTotalAmount(), code);
+                Statement statement = Statement.create(orderHeader, orderHeader.getDeal(), orderHeader.getTotalAmount(), code);
                 statementRepository.saveAndFlush(statement);  // flush로 즉시 제약 검사
                 return;
             } catch (DataIntegrityViolationException e) {
