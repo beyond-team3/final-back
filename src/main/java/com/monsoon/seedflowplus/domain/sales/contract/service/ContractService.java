@@ -7,6 +7,10 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
@@ -29,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -43,6 +48,7 @@ public class ContractService {
     private final ProductRepository productRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final SalesDealRepository salesDealRepository;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -92,6 +98,7 @@ public class ContractService {
 
         List<ContractResponse.ItemResponse> items = contract.getItems().stream()
                 .map(detail -> new ContractResponse.ItemResponse(
+                        detail.getId(), // reason: detail 식별자가 있어야 주문 요청에서 정확한 contractDetailId 선택 가능
                         detail.getProduct() != null ? detail.getProduct().getId() : null,
                         detail.getProductName(),
                         detail.getProductCategory(),
@@ -183,6 +190,7 @@ public class ContractService {
         QuotationHeader quotation = null;
         Client client;
         Employee author;
+        SalesDeal deal;
 
         if (request.quotationId() != null) {
             // 1-1. 견적서 기반 작성
@@ -202,6 +210,9 @@ public class ContractService {
 
             client = quotation.getClient();
             author = quotation.getAuthor();
+            deal = quotation.getDeal() != null
+                    ? quotation.getDeal()
+                    : resolveOrCreateOpenDeal(client, author);
         } else {
             // 1-2. 신규 작성 (견적서 없음)
             client = clientRepository.findById(request.clientId())
@@ -214,6 +225,7 @@ public class ContractService {
 
             author = employeeRepository.findById(userDetails.getEmployeeId())
                     .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+            deal = resolveOrCreateOpenDeal(client, author);
         }
 
         // 2. 계약 기간 검증
@@ -262,6 +274,7 @@ public class ContractService {
                 tempCode,
                 quotation,
                 client,
+                deal,
                 author,
                 totalAmount,
                 request.startDate(),
@@ -293,6 +306,14 @@ public class ContractService {
         String finalCode = "CNT-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-"
                 + contract.getId();
         contract.updateContractCode(finalCode);
+        deal.updateSnapshot(
+                DealStage.PENDING_ADMIN,
+                ContractStatus.WAITING_ADMIN.name(),
+                DealType.CNT,
+                contract.getId(),
+                finalCode,
+                LocalDateTime.now()
+        );
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
@@ -319,5 +340,34 @@ public class ContractService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
+    }
+
+    private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
+        Long clientId = client.getId();
+        if (clientId == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
+                .orElseGet(() -> createDealBootstrap(client, ownerEmp));
+    }
+
+    private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
+        if (ownerEmp == null) {
+            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+        SalesDeal newDeal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(ownerEmp)
+                .currentStage(DealStage.PENDING_ADMIN)
+                .currentStatus(ContractStatus.WAITING_ADMIN.name())
+                .latestDocType(DealType.CNT)
+                .latestRefId(0L)
+                .latestTargetCode(null)
+                .lastActivityAt(LocalDateTime.now())
+                .closedAt(null)
+                .summaryMemo(null)
+                .build();
+        return salesDealRepository.save(newDeal);
     }
 }

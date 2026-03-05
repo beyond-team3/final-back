@@ -29,11 +29,18 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
 
+kakao:
+  api:
+    local-url: "https://dapi.kakao.com/v2/local/search/address.json"
+
 google:
   gemini:
     api:
       url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
+ncpms:
+  api:
+    url: "http://ncpms.rda.go.kr/npmsAPI/service"
 
 # --- 모니터링 (Actuator & Prometheus) 설정 ---
 management:
@@ -48,7 +55,3 @@ management:
   metrics:
     tags:
       application: monsoon-backend
-
-ncpms:
-  api:
-    url: "http://ncpms.rda.go.kr/npmsAPI/service"

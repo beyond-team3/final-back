@@ -87,6 +87,11 @@ public class Client extends BaseModifyEntity {
         this.usedCredit = usedCredit != null ? usedCredit : BigDecimal.ZERO;
     }
 
+    public void updateCoordinates(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
     public void updateClientCode(String clientCode) {
         this.clientCode = clientCode;
     }

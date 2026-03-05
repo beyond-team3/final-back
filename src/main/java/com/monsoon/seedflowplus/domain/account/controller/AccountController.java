@@ -17,9 +17,8 @@ public class AccountController {
     private final AccountService accountService;
 
     @PostMapping("/clients/register")
-    public ApiResult<?> registerClient(@RequestBody @Valid ClientRegisterRequest request) {
-        accountService.registerClient(request);
-        return ApiResult.success();
+    public ApiResult<ClientDetailResponse> registerClient(@RequestBody @Valid ClientRegisterRequest request) {
+        return ApiResult.success(accountService.registerClient(request));
     }
 
     @PostMapping("/employees/register")

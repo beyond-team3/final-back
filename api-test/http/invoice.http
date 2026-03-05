@@ -1,0 +1,254 @@
+### Invoice API Test
+### 실행 순서
+### 1) _env.http 로그인 실행
+### 2) 필요 시 _common.http 실행
+### 3) SUCCESS FLOW를 순서대로 실행해서 draft -> publish 상태 전이 확인
+### 4) FAILURE FLOW 실행
+
+@baseUrl = http://localhost:8080
+@testContractId = 7
+@invoiceStartDate = 2026-03-01
+@invoiceEndDate = 2026-03-31
+@missingInvoiceId = 99999993
+@invoiceToggleStatementId = 1
+
+### ============================================================
+### SUCCESS FLOW
+### ============================================================
+
+### [S1] 청구서 생성 (SALES_REP 전용)
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "contractId": {{testContractId}},
+  "startDate": "{{invoiceStartDate}}",
+  "endDate": "{{invoiceEndDate}}",
+  "memo": "invoice http test"
+}
+
+> {%
+client.test("invoice create success or already exists", function () {
+  client.assert(response.status === 200 || response.status === 400, "status must be 200 or 400");
+  if (response.status === 200) {
+    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  } else {
+    client.assert(response.body.error.code === "I004", "error.code must be I004 when already exists");
+  }
+});
+if (response.body && response.body.data) {
+  client.global.set("invoiceDraftId", response.body.data.invoiceId);
+  const statements = response.body.data.statements || [];
+  if (statements.length > 0) {
+    client.global.set("invoiceToggleStatementId", statements[0].statementId);
+  }
+}
+%}
+
+### [S1.5] 기존 DRAFT 청구서 조회(이미 존재하는 경우 대비)
+GET {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+if (response.status === 200 && response.body && response.body.result === "SUCCESS" && response.body.data) {
+  const draft = response.body.data.find(i => i.contractId === Number("{{testContractId}}") && i.status === "DRAFT");
+  if (draft) {
+    client.global.set("invoiceDraftId", draft.invoiceId);
+  }
+}
+%}
+
+### [S2] 청구서 상세 조회 (memo 포함)
+GET {{baseUrl}}/api/v1/invoices/{{invoiceDraftId}}/detail
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data) {
+  const statements = response.body.data.statements || [];
+  if (statements.length > 0) {
+    client.global.set("invoiceToggleStatementId", statements[0].statementId);
+  }
+}
+%}
+
+### [S3] 청구서 명세서 포함/제외 토글 (DRAFT 상태에서만)
+PATCH {{baseUrl}}/api/v1/invoices/{{invoiceDraftId}}/statements/{{invoiceToggleStatementId}}/toggle
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice toggle success or no-linked-statement", function () {
+  client.assert(response.status === 200 || response.status === 404 || response.status === 400, "status must be 200, 404 or 400");
+  if (response.status === 200) {
+    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  } else if (response.status === 400) {
+    client.assert(response.body.error.code === "I002", "error.code must be I002 when invoice already published");
+  } else {
+    client.assert(response.body.error.code === "S001", "error.code must be S001 when statement is not linked");
+  }
+});
+%}
+
+### [S4] 청구서 발행 (DRAFT -> PUBLISHED)
+PATCH {{baseUrl}}/api/v1/invoices/{{invoiceDraftId}}/publish
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice publish success or already published", function () {
+  client.assert(response.status === 200 || response.status === 400, "status must be 200 or 400");
+  if (response.status === 200) {
+    client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+    client.assert(response.body.data.status === "PUBLISHED", "status must be PUBLISHED");
+  } else {
+    client.assert(response.body.error.code === "I002", "error.code must be I002 when already published");
+  }
+});
+if (response.body && response.body.data) {
+  client.global.set("invoicePublishedId", response.body.data.invoiceId);
+} else {
+  client.global.set("invoicePublishedId", client.global.get("invoiceDraftId"));
+}
+%}
+
+### [S5] 거래처별 청구서 조회 (CLIENT)
+GET {{baseUrl}}/api/v1/invoices/clients/me
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("invoice list by client success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### ============================================================
+### FAILURE FLOW
+### ============================================================
+
+### [F1] Validation 오류: 필수값 누락(contractId/startDate/endDate)
+### 기대: ErrorType.INVALID_INPUT_VALUE -> ErrorCode.C002
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "memo": "missing required fields"
+}
+
+> {%
+client.test("invoice create missing fields -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F2] Validation 오류: 시작일 > 종료일
+### 기대: ErrorType.INVALID_INPUT_VALUE -> ErrorCode.C002
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "contractId": {{testContractId}},
+  "startDate": "2026-03-31",
+  "endDate": "2026-03-01",
+  "memo": "invalid date range"
+}
+
+> {%
+client.test("invoice date range invalid -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F3] 권한 실패: CLIENT가 청구서 생성 시도
+### 기대: ErrorType.ACCESS_DENIED -> ErrorCode.A002
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{
+  "contractId": {{testContractId}},
+  "startDate": "{{invoiceStartDate}}",
+  "endDate": "{{invoiceEndDate}}"
+}
+
+> {%
+client.test("invoice create by client denied -> A002", function () {
+  client.assert(response.status === 403, "status must be 403");
+  client.assert(response.body.error.code === "A002", "error.code must be A002");
+});
+%}
+
+### [F4] 리소스 없음: 존재하지 않는 청구서 조회
+### 기대: ErrorType.INVOICE_NOT_FOUND -> ErrorCode.I001
+GET {{baseUrl}}/api/v1/invoices/{{missingInvoiceId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice not found -> I001", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.error.code === "I001", "error.code must be I001");
+});
+%}
+
+### [F5] 상태 전이 위반: 이미 PUBLISHED 청구서 재발행
+### 기대: ErrorType.INVOICE_ALREADY_PUBLISHED -> ErrorCode.I002
+PATCH {{baseUrl}}/api/v1/invoices/{{invoicePublishedId}}/publish
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice republish -> I002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "I002", "error.code must be I002");
+});
+%}
+
+### [F6] 상태 전이 위반: PUBLISHED 상태에서 statement 토글 시도
+### 기대: ErrorType.INVOICE_ALREADY_PUBLISHED -> ErrorCode.I002
+PATCH {{baseUrl}}/api/v1/invoices/{{invoicePublishedId}}/statements/{{invoiceToggleStatementId}}/toggle
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice toggle after publish -> I002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "I002", "error.code must be I002");
+});
+%}
+
+### [F7] 중복/유니크 정책: 동일 계약에 DRAFT/PUBLISHED 존재 시 신규 생성 불가
+### 기대: ErrorType.INVOICE_ALREADY_EXISTS -> ErrorCode.I004
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "contractId": {{testContractId}},
+  "startDate": "{{invoiceStartDate}}",
+  "endDate": "{{invoiceEndDate}}",
+  "memo": "duplicate invoice check"
+}
+
+> {%
+client.test("invoice duplicate by contract -> I004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "I004", "error.code must be I004");
+});
+%}
+
+### [F8] Validation/Type 오류: path variable 타입 불일치
+### 기대: ErrorType.INVALID_TYPE_VALUE -> ErrorCode.C004
+GET {{baseUrl}}/api/v1/invoices/not-a-number
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("invoice path type mismatch -> C004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C004", "error.code must be C004");
+});
+%}
