@@ -51,10 +51,15 @@ public class ScoringService {
         Set<Long> clientsWithOrders = orderHeaderRepository.findAllClientIdsWithOrders();
         Map<Long, LocalDate> lastVisitsMap = salesNoteRepository.findAllLastActivityDates();
 
-        return clients.stream()
+        List<AccountPriorityResponse> responses = clients.stream()
                 .map(client -> calculateAndPersistScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
                 .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
                 .toList();
+
+        // N+1 최적화: 모든 클라이언트의 점수 계산 및 영속화 준비가 끝난 후 한 번에 DB 반영
+        accountScoreRepository.flush();
+
+        return responses;
     }
 
     private AccountPriorityResponse calculateAndPersistScore(Client client,
@@ -105,33 +110,19 @@ public class ScoringService {
 
     private void upsertScore(Client client, double total, double cScore, double oScore, double vScore, String reason, String detail) {
         Long clientId = client.getId();
-        try {
-            accountScoreRepository.findByClient_Id(clientId)
-                    .ifPresentOrElse(
-                            existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
-                            () -> accountScoreRepository.save(AccountScore.builder()
-                                    .client(client)
-                                    .totalScore(total)
-                                    .contractScore(cScore)
-                                    .orderScore(oScore)
-                                    .visitScore(vScore)
-                                    .primaryReason(reason)
-                                    .detailDescription(detail)
-                                    .build())
-                    );
-            // JPA 변경 감지가 동작하도록 flush 강제 (unique 제약 조건 위반 확인을 위해)
-            accountScoreRepository.flush();
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // 중복 삽입 에러 발생 시(경합 상황), 다시 조회하여 업데이트 시도
-            accountScoreRepository.findByClient_Id(clientId)
-                    .ifPresentOrElse(
-                            existingScore -> {
-                                existingScore.updateScore(total, cScore, oScore, vScore, reason, detail);
-                                accountScoreRepository.save(existingScore);
-                            },
-                            () -> { throw e; }
-                    );
-        }
+        accountScoreRepository.findByClient_Id(clientId)
+                .ifPresentOrElse(
+                        existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
+                        () -> accountScoreRepository.save(AccountScore.builder()
+                                .client(client)
+                                .totalScore(total)
+                                .contractScore(cScore)
+                                .orderScore(oScore)
+                                .visitScore(vScore)
+                                .primaryReason(reason)
+                                .detailDescription(detail)
+                                .build())
+                );
     }
 
     private double calculateContractScore(LocalDate expiry, LocalDate today) {
