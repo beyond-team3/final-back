@@ -24,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 @Slf4j
 @Service
@@ -208,12 +209,20 @@ public class NoteService {
                 public void afterCommit() {
                     // 실제 DB 커밋이 완료된 직후에만 비동기 호출 실행
                     log.info("트랜잭션 커밋 완료 확인 - RAGseed 분석 트리거: clientId={}", clientId);
-                    ragSeedService.refreshStandardBriefingAsync(clientId);
+                    try {
+                        ragSeedService.refreshStandardBriefingAsync(clientId);
+                    } catch (RejectedExecutionException e) {
+                        log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+                    }
                 }
             });
         } else {
             // 트랜잭션이 없는 환경(예: 테스트 코드 등)에서는 즉시 호출
-            ragSeedService.refreshStandardBriefingAsync(clientId);
+            try {
+                ragSeedService.refreshStandardBriefingAsync(clientId);
+            } catch (RejectedExecutionException e) {
+                log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+            }
         }
     }
 
