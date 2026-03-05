@@ -96,6 +96,9 @@ public class DealPipelineFacade {
             String reason,
             Collection<DealDiffField> diffFields
     ) {
+        if (diffFields != null && diffFields.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("diffFields contains null element");
+        }
         List<DealLogWriteService.DiffField> internalDiffFields = diffFields == null
                 ? null
                 : diffFields.stream()

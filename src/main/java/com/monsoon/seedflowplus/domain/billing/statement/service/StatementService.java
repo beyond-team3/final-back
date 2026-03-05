@@ -17,13 +17,13 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.StatementStatus;
 import com.monsoon.seedflowplus.domain.billing.statement.repository.StatementRepository;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -38,7 +38,8 @@ public class StatementService {
     private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
-    private final PlatformTransactionManager transactionManager;
+    @Lazy
+    private final StatementService self;
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
@@ -60,29 +61,8 @@ public class StatementService {
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                Statement statement = createAndSaveStatementRequiresNew(orderHeader);
-
-                dealPipelineFacade.recordAndSync(
-                        orderHeader.getDeal(),
-                        DealType.STMT,
-                        statement.getId(),
-                        statement.getStatementCode(),
-                        DealStage.ISSUED,
-                        DealStage.ISSUED,
-                        StatementStatus.ISSUED.name(),
-                        StatementStatus.ISSUED.name(),
-                        ActionType.CREATE,
-                        null,
-                        actorType,
-                        actorId,
-                        null,
-                        List.of(
-                                new DealLogWriteService.DiffField("isInitialCreate", "초기 생성 이벤트", null, true, "BOOLEAN"),
-                                new DealLogWriteService.DiffField("totalAmount", "명세서 금액", null, statement.getTotalAmount(), "MONEY"),
-                                new DealLogWriteService.DiffField("orderCode", "주문 번호", null, orderHeader.getOrderCode(), "REFERENCE")
-                        )
-                );
-                return;
+                self.createAndRecordStatementRequiresNew(orderHeader, actorType, actorId);
+                break;
             } catch (DataIntegrityViolationException e) {
                 // statement_code 유니크 충돌만 재시도, 그 외(FK 등)는 즉시 전파
                 if (!isStatementCodeViolation(e) || i == maxRetries - 1) throw e;
@@ -234,13 +214,36 @@ public class StatementService {
                 .orElse(null);
     }
 
-    private Statement createAndSaveStatementRequiresNew(OrderHeader orderHeader) {
-        TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
-        txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        return txTemplate.execute(status -> {
-            String code = generateCode("STMT");
-            Statement statement = Statement.create(orderHeader, orderHeader.getDeal(), orderHeader.getTotalAmount(), code);
-            return statementRepository.saveAndFlush(statement);
-        });
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Statement createAndRecordStatementRequiresNew(
+            OrderHeader orderHeader,
+            ActorType actorType,
+            @Nullable Long actorId
+    ) {
+        String code = generateCode("STMT");
+        Statement statement = Statement.create(orderHeader, orderHeader.getDeal(), orderHeader.getTotalAmount(), code);
+        statementRepository.saveAndFlush(statement);
+
+        dealPipelineFacade.recordAndSync(
+                orderHeader.getDeal(),
+                DealType.STMT,
+                statement.getId(),
+                statement.getStatementCode(),
+                DealStage.ISSUED,
+                DealStage.ISSUED,
+                StatementStatus.ISSUED.name(),
+                StatementStatus.ISSUED.name(),
+                ActionType.CREATE,
+                null,
+                actorType,
+                actorId,
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("isInitialCreate", "초기 생성 이벤트", null, true, "BOOLEAN"),
+                        new DealLogWriteService.DiffField("totalAmount", "명세서 금액", null, statement.getTotalAmount(), "MONEY"),
+                        new DealLogWriteService.DiffField("orderCode", "주문 번호", null, orderHeader.getOrderCode(), "REFERENCE")
+                )
+        );
+        return statement;
     }
 }
