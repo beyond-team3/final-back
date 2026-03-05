@@ -127,7 +127,8 @@ public class NoteService {
         }
 
         // [추가] 계약 ID 유효성 검증: 해당 거래처의 계약인지 확인 (수정 시에도 체크)
-        validateContractOwnership(dto.getContractId(), dto.getClientId());
+        // 기존 노트의 clientId를 기준으로 검증하여 데이터 변조 방지
+        validateContractOwnership(dto.getContractId(), note.getClientId());
 
         // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
         List<String> summary = aiClient.summarizeNote(dto.getContent());
