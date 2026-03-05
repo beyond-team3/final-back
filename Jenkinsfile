@@ -72,6 +72,37 @@ pipeline {
         }
       }
     }
+
+    stage('Update Manifest') {
+      when {
+        branch 'main' //
+      }
+      steps {
+        script {
+          // 빌드 번호를 포함한 새 태그 생성 (0.0.${BUILD_ID})
+          def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
+
+          withCredentials([usernamePassword(credentialsId: 'github-access-token', passwordVariable: 'GIT_TOKEN', usernameVariable: 'GIT_USER')]) {
+
+            sh "git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/beyond-team3/final-manifests.git manifest-repo"
+
+            dir('manifest-repo') {
+              sh """
+                git config user.email "jenkins@guntinue.com"
+                git config user.name "Jenkins-CI"
+
+                sed -i "s|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${newTag}|g" backend/deployment.yml
+
+                git add backend/deployment.yml
+                git commit -m "Deploy: Update ${IMAGE_NAME} image to ${newTag} [skip ci]"
+                git push origin main
+              """
+            }
+          }
+          echo "✅ Manifest updated in beyond-team3/final-manifests"
+        }
+      }
+    }
   }
 
   post {
