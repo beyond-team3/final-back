@@ -133,6 +133,91 @@ Step6 DealPipelineFacade 도입
 
 - `./gradlew compileJava -q` 통과
 
+## 2026-03-05 16:35
+
+### Step
+
+Step12 Outside diff findings hardening
+
+### Purpose
+
+outside diff 지적 사항을 현재 코드 기준으로 재검증하고,
+실제 누락된 매핑/예외 표준화/인덱스/테스트 회귀 범위만 최소 수정으로 반영한다.
+
+### Modified Files
+
+- StatementResponse.java
+- StatementService.java
+- DealDiffField.java
+- DealPipelineFacade.java
+- QuotationRequestService.java
+- SalesDealLog.java
+- DealErrorCode.java
+- DealLogPolicyValidator.java
+- DealLogPolicyValidatorTest.java
+- DealPipelineFacadeTest.java
+- deal-log-work-log.md
+- deal-log-architecture.md
+
+### Key Changes
+
+- `StatementResponse`에 `from(statement, invoiceId, recentLogs)` 오버로드를 추가하고 `invoiceId` 빌더 매핑 보강
+- `StatementService`가 `InvoiceStatementRepository.findAllByStatementIdAndIncludedTrue(...)`로 invoiceId를 조회해 응답에 주입
+- `DealDiffField` 공개 DTO 추가 및 `DealPipelineFacade` 오버로드를 통한 내부 `DiffField` 변환 적용
+- `QuotationRequestService`의 `DealLogWriteService.DiffField` 직접 참조를 `DealDiffField`로 교체
+- `DealLogPolicyValidator`의 잔여 `IllegalArgumentException` 제거, `DealException(DealErrorCode)`로 통일
+- `DealErrorCode`에 `INVALID_ACTOR_ACTION_COMBINATION`, `TARGET_CODE_REQUIRED` 추가
+- `SalesDealLog`에 `(deal_id, doc_type, ref_id, action_at, deal_log_id)` 복합 인덱스 추가
+- `DealLogPolicyValidatorTest`를 ActorType×ActionType 전수 조합 기반으로 확장
+- `DealPipelineFacadeTest`에 `ErrorType.INVALID_DOC_STATUS_TRANSITION` 단언 추가
+- `deal-log-work-log.md`의 14:05/14:30/15:10/16:05/16:20 섹션을 일관된 시간 내림차순으로 재정렬
+
+### Validation
+
+- `./gradlew test --tests "*DealLogPolicyValidatorTest" --tests "*DealPipelineFacadeTest" -q`
+- `./gradlew compileJava -q`
+
+## 2026-03-05 16:47
+
+### Step
+
+Step13 Unified fix prompt follow-up (recentLogs/read-permission)
+
+### Purpose
+
+recentLogs strict 검증 회귀를 제거하고, invoice 상세 조회에서 principal 기반 권한 검증을 적용해
+로그 메타데이터 노출 범위를 사용자 소유 범위로 제한한다.
+
+### Modified Files
+
+- DealLogQueryService.java
+- InvoiceController.java
+- InvoiceService.java
+- StatementService.java
+- deal-log-architecture.md
+- deal-log-work-log.md
+
+### Key Changes
+
+- `DealLogQueryService.getRecentDocumentLogs(...)`:
+  - null 입력(`dealId/docType/refId`) 시 `List.of()` 반환 (null-tolerant)
+  - strict 검증은 `getRecentDocumentLogsStrict(...)`로 분리
+- `InvoiceController`:
+  - `GET /api/v1/invoices/{invoiceId}`
+  - `GET /api/v1/invoices/{invoiceId}/detail`
+  - 두 엔드포인트에 `@AuthenticationPrincipal` 주입
+- `InvoiceService`:
+  - `validateInvoiceReadPermission(...)` 추가
+  - ADMIN 허용, CLIENT는 본인 `clientId` 소유만 허용
+  - SALES_REP/ADMIN 계열은 `invoice.employee` 또는 `deal.ownerEmp` 일치 시 허용
+- `StatementService.createStatement(...)`:
+  - CREATE 로그 diff에 `isInitialCreate=true` 추가 (from/to 동일 상태 해석 보완)
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
+- `./gradlew test --tests "*DealPipelineFacadeTest" --tests "*DealLogPolicyValidatorTest" -q` 통과
+
 ## 2026-03-05 16:21
 
 ### Step
@@ -184,39 +269,6 @@ Step10 Deal-log policy/input hardening and docs sync
 
 - `./gradlew compileJava -q` 통과
 
-## 2026-03-05 16:05
-
-### Step
-
-Step10 Deal Null Guard Re-Verification
-
-### Purpose
-
-요청된 4개 이슈(Invoice Scheduler silent drop, Payment/Statement/Order deal null guard)를
-재검증하여 코드 반영 상태를 확인하고 문서 이력을 `docs/refactoring` 기준으로 일원화한다.
-
-### Modified Files
-
-- deal-log-work-log.md
-- deal-log-architecture.md
-
-### Key Changes
-
-- 소스 코드 재검증 결과:
-  - `InvoiceService.createDraftInvoice`: `contract.getDeal() == null` 시 `CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=...")` throw
-  - `PaymentService.processPayment`: `invoice.getDeal()` null 선검증 후 `CoreException(ErrorType.DEAL_NOT_FOUND)` 처리
-  - `StatementService.createStatement`: 시작부 `orderHeader.getDeal()` null 가드 처리
-  - `OrderService.createOrder`: 계약 기간 검증 직후 `contract.getDeal()` null 가드 처리
-- 이번 턴에서는 대상 이슈 관련 애플리케이션 코드 추가 변경 없음(이미 적용 상태 확인)
-
-### Validation
-
-- 라인 단위 재확인:
-  - `InvoiceService.java:323`
-  - `PaymentService.java:67`
-  - `StatementService.java:43`
-  - `OrderService.java:69`
-
 ## 2026-03-05 16:20
 
 ### Step
@@ -253,8 +305,80 @@ Step11 Deal Null Guard Fix Request Re-check
   - Billing/Order 경로 deal null 처리 이슈 4건 수정
   - `InvoiceService.createDraftInvoice`: `warn + return` 제거, `CoreException(ErrorType.DEAL_NOT_FOUND)`로 표준화
   - `PaymentService.processPayment`: `invoice.deal` null 선검증 추가
-  - `StatementService.createStatement`: `orderHeader.deal` null 선검증 추가
-  - `OrderService.createOrder`: `contract.deal` null 선검증 추가
+- `StatementService.createStatement`: `orderHeader.deal` null 선검증 추가
+- `OrderService.createOrder`: `contract.deal` null 선검증 추가
+
+## 2026-03-05 16:05
+
+### Step
+
+Step10 Deal Null Guard Re-Verification
+
+### Purpose
+
+요청된 4개 이슈(Invoice Scheduler silent drop, Payment/Statement/Order deal null guard)를
+재검증하여 코드 반영 상태를 확인하고 문서 이력을 `docs/refactoring` 기준으로 일원화한다.
+
+### Modified Files
+
+- deal-log-work-log.md
+- deal-log-architecture.md
+
+### Key Changes
+
+- 소스 코드 재검증 결과:
+  - `InvoiceService.createDraftInvoice`: `contract.getDeal() == null` 시 `CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=...")` throw
+  - `PaymentService.processPayment`: `invoice.getDeal()` null 선검증 후 `CoreException(ErrorType.DEAL_NOT_FOUND)` 처리
+  - `StatementService.createStatement`: 시작부 `orderHeader.getDeal()` null 가드 처리
+  - `OrderService.createOrder`: 계약 기간 검증 직후 `contract.getDeal()` null 가드 처리
+- 이번 턴에서는 대상 이슈 관련 애플리케이션 코드 추가 변경 없음(이미 적용 상태 확인)
+
+### Validation
+
+- 라인 단위 재확인:
+  - `InvoiceService.java:323`
+  - `PaymentService.java:67`
+  - `StatementService.java:43`
+  - `OrderService.java:69`
+
+## 2026-03-05 15:10
+
+### Step
+
+Step9 Deal Null Guard Hardening
+
+### Purpose
+
+deal 연관이 비정상적으로 null인 레거시/이상 데이터 경로에서 런타임 500(`IllegalArgumentException`) 또는 silent drop이 발생하지 않도록,
+서비스 진입부에서 `CoreException(ErrorType.DEAL_NOT_FOUND)`로 실패를 표준화한다.
+
+### Modified Files
+
+- InvoiceService.java
+- PaymentService.java
+- StatementService.java
+- OrderService.java
+- deal-log-architecture.md
+
+### Key Changes
+
+- `InvoiceService.createDraftInvoice(...)`
+  - `contract.getDeal() == null` 시 `warn + return` 제거
+  - `CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=...")` 즉시 throw로 변경
+  - 스케줄러(`InvoiceScheduler`)의 기존 `try-catch`에 의해 실패 로그가 운영에서 명시적으로 관찰되도록 조정
+- `PaymentService.processPayment(...)`
+  - `invoice.getDeal()` null 선검증 추가 후 `ErrorType.DEAL_NOT_FOUND` throw
+  - `Payment.create(...)` 내부 `Objects.requireNonNull`에 의한 비표준 예외 노출 차단
+- `StatementService.createStatement(...)`
+  - 메서드 시작부에 `orderHeader.getDeal()` null 가드 추가
+  - `Statement.create(...)` 내부 `Objects.requireNonNull` 런타임 예외를 서비스 계층 표준 예외로 변환
+- `OrderService.createOrder(...)`
+  - 계약 기간 검증 직후 `contract.getDeal()` null 가드 추가
+  - `OrderHeader.create(...)` 내부 `Objects.requireNonNull` 예외를 `CoreException`으로 표준화
+
+### Validation
+
+- `./gradlew compileJava -q` 통과
 
 ## 2026-03-05 14:30
 
@@ -337,45 +461,6 @@ Step7 조회 응답 보강 (targetCode / recentLogs)
   - InvoiceDetailResponse
   - PaymentResponse
 - 각 문서 상세 서비스에서 `dealId + docType + refId` 기준 최근 로그를 응답에 포함
-
-### Validation
-
-- `./gradlew compileJava -q` 통과
-
-## 2026-03-05 15:10
-
-### Step
-
-Step9 Deal Null Guard Hardening
-
-### Purpose
-
-deal 연관이 비정상적으로 null인 레거시/이상 데이터 경로에서 런타임 500(`IllegalArgumentException`) 또는 silent drop이 발생하지 않도록,
-서비스 진입부에서 `CoreException(ErrorType.DEAL_NOT_FOUND)`로 실패를 표준화한다.
-
-### Modified Files
-
-- InvoiceService.java
-- PaymentService.java
-- StatementService.java
-- OrderService.java
-- deal-log-architecture.md
-
-### Key Changes
-
-- `InvoiceService.createDraftInvoice(...)`
-  - `contract.getDeal() == null` 시 `warn + return` 제거
-  - `CoreException(ErrorType.DEAL_NOT_FOUND, "contractId=...")` 즉시 throw로 변경
-  - 스케줄러(`InvoiceScheduler`)의 기존 `try-catch`에 의해 실패 로그가 운영에서 명시적으로 관찰되도록 조정
-- `PaymentService.processPayment(...)`
-  - `invoice.getDeal()` null 선검증 추가 후 `ErrorType.DEAL_NOT_FOUND` throw
-  - `Payment.create(...)` 내부 `Objects.requireNonNull`에 의한 비표준 예외 노출 차단
-- `StatementService.createStatement(...)`
-  - 메서드 시작부에 `orderHeader.getDeal()` null 가드 추가
-  - `Statement.create(...)` 내부 `Objects.requireNonNull` 런타임 예외를 서비스 계층 표준 예외로 변환
-- `OrderService.createOrder(...)`
-  - 계약 기간 검증 직후 `contract.getDeal()` null 가드 추가
-  - `OrderHeader.create(...)` 내부 `Objects.requireNonNull` 예외를 `CoreException`으로 표준화
 
 ### Validation
 
