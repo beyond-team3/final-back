@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.sales.contract.entity;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -36,6 +37,10 @@ public class ContractHeader extends BaseModifyEntity {
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
     private Employee author; // 작성자
 
@@ -65,12 +70,13 @@ public class ContractHeader extends BaseModifyEntity {
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
 
-    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, Employee author,
+    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal, Employee author,
                         BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
                         BillingCycle billingCycle, String specialTerms, String memo) {
         this.contractCode = contractCode;
         this.quotation = quotation;
         this.client = client;
+        this.deal = deal;
         this.author = author;
         this.totalAmount = totalAmount;
         this.startDate = startDate;
@@ -80,13 +86,14 @@ public class ContractHeader extends BaseModifyEntity {
         this.memo = memo;
     }
 
-    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, Employee author,
+    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal, Employee author,
                                         BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
                                         BillingCycle billingCycle, String specialTerms, String memo) {
         return new ContractHeader(
                 contractCode,
                 quotation,
                 client,
+                deal,
                 author,
                 totalAmount,
                 startDate,

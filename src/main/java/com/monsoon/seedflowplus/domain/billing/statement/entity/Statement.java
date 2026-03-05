@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.billing.statement.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import jakarta.persistence.Index;
 import jakarta.persistence.*;
@@ -32,6 +33,9 @@ public class Statement extends BaseCreateEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderHeader orderHeader;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
 
     @Column(name = "supply_amount")
     private BigDecimal supplyAmount;
@@ -47,10 +51,11 @@ public class Statement extends BaseCreateEntity {
     private StatementStatus status;
 
     // 생성
-    public static Statement create(OrderHeader orderHeader, BigDecimal totalAmount, String statementCode) {
+    public static Statement create(OrderHeader orderHeader, SalesDeal deal, BigDecimal totalAmount, String statementCode) {
         Statement statement = new Statement();
         statement.statementCode = statementCode;
         statement.orderHeader = orderHeader;
+        statement.deal = deal;
         statement.totalAmount = totalAmount;
         statement.supplyAmount = totalAmount.divide(BigDecimal.valueOf(1.1), 2, RoundingMode.HALF_UP);
         statement.vatAmount = totalAmount.subtract(statement.supplyAmount);

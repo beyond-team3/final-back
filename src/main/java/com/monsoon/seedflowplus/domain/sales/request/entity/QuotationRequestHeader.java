@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.sales.request.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,6 +25,10 @@ public class QuotationRequestHeader extends BaseModifyEntity {
     @JoinColumn(name = "client_id", nullable = false)
     private Client client; // 작성자
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
     @Column(name = "requirements")
     private String requirements; // 요구사항
 
@@ -34,14 +39,15 @@ public class QuotationRequestHeader extends BaseModifyEntity {
     @OneToMany(mappedBy = "quotationRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuotationRequestDetail> items = new ArrayList<>();
 
-    private QuotationRequestHeader(Client client, String requirements) {
+    private QuotationRequestHeader(Client client, String requirements, SalesDeal deal) {
         this.client = client;
+        this.deal = deal;
         this.requirements = requirements;
         this.status = QuotationRequestStatus.PENDING;
     }
 
-    public static QuotationRequestHeader create(Client client, String requirements) {
-        return new QuotationRequestHeader(client, requirements);
+    public static QuotationRequestHeader create(Client client, String requirements, SalesDeal deal) {
+        return new QuotationRequestHeader(client, requirements, deal);
     }
 
     public void updateRequestCode(String requestCode) {

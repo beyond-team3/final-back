@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.sales.quotation.entity;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -34,6 +35,10 @@ public class QuotationHeader extends BaseModifyEntity {
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
     private Employee author; // 작성자
 
@@ -54,10 +59,11 @@ public class QuotationHeader extends BaseModifyEntity {
     private List<QuotationDetail> items = new ArrayList<>();
 
     private QuotationHeader(QuotationRequestHeader quotationRequest, String quotationCode, Client client,
-                            Employee author, BigDecimal totalAmount, String memo) {
+                            SalesDeal deal, Employee author, BigDecimal totalAmount, String memo) {
         this.quotationRequest = quotationRequest;
         updateQuotationCode(quotationCode);
         this.client = Objects.requireNonNull(client, "거래처 정보는 필수입니다.");
+        this.deal = deal;
         this.author = author;
         this.totalAmount = totalAmount;
         this.memo = memo;
@@ -65,8 +71,8 @@ public class QuotationHeader extends BaseModifyEntity {
     }
 
     public static QuotationHeader create(QuotationRequestHeader quotationRequest, String tempCode, Client client,
-                                         Employee author, BigDecimal totalAmount, String memo) {
-        return new QuotationHeader(quotationRequest, tempCode, client, author, totalAmount, memo);
+                                         SalesDeal deal, Employee author, BigDecimal totalAmount, String memo) {
+        return new QuotationHeader(quotationRequest, tempCode, client, deal, author, totalAmount, memo);
     }
 
     public void updateQuotationCode(String quotationCode) {

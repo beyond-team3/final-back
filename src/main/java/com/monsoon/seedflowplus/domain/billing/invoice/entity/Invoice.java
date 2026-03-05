@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.entity;
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import jakarta.persistence.Index;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -36,6 +37,10 @@ public class Invoice extends BaseCreateEntity {
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id")
     private Employee employee;
 
@@ -65,13 +70,14 @@ public class Invoice extends BaseCreateEntity {
     private String memo;
 
     // 생성
-    public static Invoice create(Long contractId, Client client, Employee employee,
+    public static Invoice create(Long contractId, Client client, SalesDeal deal, Employee employee,
                                  LocalDate invoiceDate, LocalDate startDate, LocalDate endDate,
                                  String invoiceCode, String memo) {
         Invoice invoice = new Invoice();
         invoice.invoiceCode = invoiceCode;
         invoice.contractId = contractId;
         invoice.client = client;
+        invoice.deal = deal;
         invoice.employee = employee;
         invoice.invoiceDate = invoiceDate;
         invoice.startDate = startDate;
