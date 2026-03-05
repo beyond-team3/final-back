@@ -56,9 +56,6 @@ public class ScoringService {
                 .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
                 .toList();
 
-        // N+1 최적화: 모든 클라이언트의 점수 계산 및 영속화 준비가 끝난 후 한 번에 DB 반영
-        accountScoreRepository.flush();
-
         return responses;
     }
 
@@ -95,8 +92,8 @@ public class ScoringService {
         String reason = reasons[0];
         String detail = reasons[1];
 
-        // 4. DB 영속화 (AccountScore 엔티티 활용)
-        upsertScore(client, total, cScore, oScore, vScore, reason, detail);
+        // 4. DB 영속화 (Native Upsert 활용 - Race Condition 방지 및 성능 최적화)
+        accountScoreRepository.upsert(clientId, total, cScore, oScore, vScore, reason, detail);
 
         return AccountPriorityResponse.builder()
                 .accountId(client.getId())
@@ -106,23 +103,6 @@ public class ScoringService {
                 .detailDescription(detail)
                 .breakdown(new AccountPriorityResponse.ScoreBreakdown(cScore, oScore, vScore))
                 .build();
-    }
-
-    private void upsertScore(Client client, double total, double cScore, double oScore, double vScore, String reason, String detail) {
-        Long clientId = client.getId();
-        accountScoreRepository.findByClient_Id(clientId)
-                .ifPresentOrElse(
-                        existingScore -> existingScore.updateScore(total, cScore, oScore, vScore, reason, detail),
-                        () -> accountScoreRepository.save(AccountScore.builder()
-                                .client(client)
-                                .totalScore(total)
-                                .contractScore(cScore)
-                                .orderScore(oScore)
-                                .visitScore(vScore)
-                                .primaryReason(reason)
-                                .detailDescription(detail)
-                                .build())
-                );
     }
 
     private double calculateContractScore(LocalDate expiry, LocalDate today) {
