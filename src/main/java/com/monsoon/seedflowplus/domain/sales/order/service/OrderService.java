@@ -48,7 +48,7 @@ public class OrderService {
     public OrderResponse createOrder(OrderCreateRequest request, Long clientId) {
 
         // 1. 계약 조회
-        ContractHeader contract = contractHeaderRepository.findById(request.getContractId())
+        ContractHeader contract = contractHeaderRepository.findById(request.getHeaderId()) // reason: 주문 입력에서 계약 헤더 식별자 필드를 headerId로 명시적으로 사용
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
         // 2. 계약 기간 검증
@@ -178,7 +178,7 @@ public class OrderService {
         return OrderResponse.builder()
                 .orderId(orderHeader.getId())
                 .orderCode(orderHeader.getOrderCode())
-                .contractId(orderHeader.getContract().getId())
+                .headerId(orderHeader.getContract().getId()) // reason: 응답 필드명 변경(contractId->headerId)에 맞춰 매핑 동기화
                 .clientId(orderHeader.getClient().getId())
                 .employeeId(orderHeader.getEmployee().getId())
                 .totalAmount(orderHeader.getTotalAmount())

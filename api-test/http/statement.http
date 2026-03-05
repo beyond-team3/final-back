@@ -1,0 +1,116 @@
+### Statement API Test
+### 실행 순서
+### 1) _env.http 로그인 실행
+### 2) _common.http로 statementId 확보(또는 _env.http의 statementId 사용)
+### 3) SUCCESS -> FAILURE 순서 실행
+
+@baseUrl = http://localhost:8080
+@missingStatementId = 99999992
+
+### ============================================================
+### SUCCESS FLOW
+### ============================================================
+
+### [S1] 명세서 목록 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/statements
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data && response.body.data.length > 0) {
+  client.global.set("statementId", response.body.data[0].statementId);
+}
+%}
+
+### [S2] 명세서 단건 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/statements/{{statementId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement get success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### ============================================================
+### FAILURE FLOW
+### ============================================================
+
+### [F1] 인증 실패: 토큰 없음
+### 기대: ErrorType.UNAUTHORIZED -> ErrorCode.A001
+GET {{baseUrl}}/api/v1/statements/{{statementId}}
+
+> {%
+client.test("statement unauthorized -> A001", function () {
+  client.assert(response.status === 401, "status must be 401");
+  client.assert(response.body.error.code === "A001", "error.code must be A001");
+});
+%}
+
+### [F2] Validation/Type 오류: path variable 타입 불일치
+### 기대: ErrorType.INVALID_TYPE_VALUE -> ErrorCode.C004
+GET {{baseUrl}}/api/v1/statements/not-a-number
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement path type mismatch -> C004", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C004", "error.code must be C004");
+});
+%}
+
+### [F3] 리소스 없음: 존재하지 않는 명세서 ID
+### 기대: ErrorType.STATEMENT_NOT_FOUND -> ErrorCode.S001
+GET {{baseUrl}}/api/v1/statements/{{missingStatementId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement not found -> S001", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.error.code === "S001", "error.code must be S001");
+});
+%}
+
+### [F4] ADMIN 조회 동작 확인: 현 구현은 employeeId가 있으면 ADMIN도 조회 허용
+### 기대: 200 SUCCESS (권한 차단이 아니라 조회 허용 케이스)
+GET {{baseUrl}}/api/v1/statements/{{statementId}}
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+client.test("statement admin get success (current behavior)", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [F5] 메서드 위반: 지원하지 않는 HTTP 메서드
+### 기대: ErrorType.METHOD_NOT_ALLOWED -> ErrorCode.C003
+POST {{baseUrl}}/api/v1/statements
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{}
+
+> {%
+client.test("statement method not allowed -> C003", function () {
+  client.assert(response.status === 405, "status must be 405");
+  client.assert(response.body.error.code === "C003", "error.code must be C003");
+});
+%}
+
+### [F6] 상태 전이 보호(명세서 중복 발급 방지와 연관): 이미 CONFIRMED 주문 재확정
+### 기대: ErrorType.ORDER_ALREADY_CONFIRMED -> ErrorCode.O007
+### 이유: 명세서는 주문 확정 시 자동 생성되므로, 재확정 차단이 명세서 라이프사이클 보호 역할
+PATCH {{baseUrl}}/api/v1/orders/{{orderId}}/confirm
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement lifecycle guarded by order status -> O007", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "O007", "error.code must be O007");
+});
+%}

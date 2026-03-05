@@ -92,6 +92,7 @@ public class ContractService {
 
         List<ContractResponse.ItemResponse> items = contract.getItems().stream()
                 .map(detail -> new ContractResponse.ItemResponse(
+                        detail.getId(), // reason: detail 식별자가 있어야 주문 요청에서 정확한 contractDetailId 선택 가능
                         detail.getProduct() != null ? detail.getProduct().getId() : null,
                         detail.getProductName(),
                         detail.getProductCategory(),

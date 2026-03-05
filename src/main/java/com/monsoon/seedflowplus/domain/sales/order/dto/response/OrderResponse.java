@@ -14,7 +14,7 @@ public class OrderResponse {
 
     private Long orderId;
     private String orderCode;
-    private Long contractId;
+    private Long headerId; // reason: 응답에서도 계약 헤더 식별자 명칭을 headerId로 통일해 요청 필드와 일관성 유지
     private Long clientId;
     private Long employeeId;
 
