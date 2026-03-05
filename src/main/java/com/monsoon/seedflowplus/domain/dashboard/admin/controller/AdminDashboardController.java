@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.dashboard.admin.controller;
 
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.dashboard.admin.dto.AdminDashboardResponse;
 import com.monsoon.seedflowplus.domain.dashboard.admin.service.AdminDashboardService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
@@ -32,6 +33,9 @@ public class AdminDashboardController {
 
         if (userDetails == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (userDetails.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         return ResponseEntity.ok(service.getDashboard());

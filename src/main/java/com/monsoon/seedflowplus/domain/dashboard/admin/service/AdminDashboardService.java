@@ -25,7 +25,8 @@ public class AdminDashboardService {
     // doc_type → 한글
     private static final Map<String, String> DOC_LABEL = Map.of(
             "QUO", "견적", "CNT", "계약", "ORD", "주문",
-            "INV", "청구", "RFQ", "견적 요청", "STMT", "명세서"
+            "INV", "청구", "RFQ", "견적 요청", "STMT", "명세서",
+            "PAY", "결제"
     );
 
     public AdminDashboardResponse getDashboard() {
@@ -83,20 +84,22 @@ public class AdminDashboardService {
                                   double growthRate,
                                   List<Map<String, Object>> pendingRows) {
         // 승인 대기 유형별 집계
-        long quoCount  = 0, cntCount = 0, ordCount = 0, totalPending = 0;
+        long quoCount = 0, cntCount = 0, ordCount = 0, totalPending = 0;
         for (Map<String, Object> row : pendingRows) {
             String type = (String) row.get("doc_type");
             long   cnt  = ((Number) row.get("cnt")).longValue();
             totalPending += cnt;
             switch (type) {
-                case "QUO" -> quoCount  = cnt;
-                case "CNT" -> cntCount  = cnt;
-                case "ORD" -> ordCount  = cnt;
+                case "QUO" -> quoCount = cnt;
+                case "CNT" -> cntCount = cnt;
+                case "ORD" -> ordCount = cnt;
             }
         }
 
-        String pendingDetail = String.format("견적 %d / 계약 %d / 주문 %d",
-                quoCount, cntCount, ordCount);
+        long otherCount = totalPending - (quoCount + cntCount + ordCount);
+        String pendingDetail = otherCount > 0
+                ? String.format("견적 %d / 계약 %d / 주문 %d / 기타 %d", quoCount, cntCount, ordCount, otherCount)
+                : String.format("견적 %d / 계약 %d / 주문 %d", quoCount, cntCount, ordCount);
 
         return KpiResponse.builder()
                 .totalMonthlySales(formatEok(thisMonthSales))
@@ -226,6 +229,7 @@ public class AdminDashboardService {
     private java.time.LocalDateTime toLocalDateTime(Object raw) {
         if (raw instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
         if (raw instanceof java.time.LocalDateTime ldt) return ldt;
-        return java.time.LocalDateTime.now();
+        throw new IllegalStateException("변환할 수 없는 날짜 타입: "
+                + (raw == null ? "null" : raw.getClass().getName()));
     }
 }
