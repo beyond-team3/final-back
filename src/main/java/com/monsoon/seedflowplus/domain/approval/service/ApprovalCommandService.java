@@ -208,17 +208,17 @@ public class ApprovalCommandService {
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {
-        if (request.getDealType() == DealType.QUO && step.getStepOrder() != 1) {
+        if (step.getStepOrder() == 1) {
+            return;
+        }
+        if (step.getStepOrder() != 2) {
             throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
         }
-
-        if (request.getDealType() == DealType.CNT && step.getStepOrder() == 2) {
-            ApprovalStep adminStep = approvalStepRepository
-                    .findByApprovalRequestIdAndStepOrder(request.getId(), 1)
-                    .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_STEP_NOT_FOUND));
-            if (adminStep.getStatus() != ApprovalStepStatus.APPROVED) {
-                throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
-            }
+        ApprovalStep previousStep = approvalStepRepository
+                .findByApprovalRequestIdAndStepOrder(request.getId(), 1)
+                .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_STEP_NOT_FOUND));
+        if (previousStep.getStatus() != ApprovalStepStatus.APPROVED) {
+            throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
         }
     }
 
