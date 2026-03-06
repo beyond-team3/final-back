@@ -40,6 +40,23 @@ createApprovalRequest()의 QUO 2-step 생성 수정
 ### 다음 단계
 없음
 
+## [2026-03-06 15:00] approval submit 소유권 검증 및 로그 분리
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — SALES_REP submit 시 QUO/CNT 연결 deal 담당자 소유권 검증 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java — submit 로그를 snapshot 동기화 없는 DealLogWriteService 경로로 분리
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — SALES_REP/ADMIN submit 소유권 정상·예외 케이스 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriterTest.java — submit 로그가 sync 없이 기록되는 경로 테스트 추가
+- 수정 파일: docs/refactoring/approval-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/refactoring/approval-work-log.md — 작업 및 테스트 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
+
 ## [2026-03-06 14:03] 승인 접근 제어 및 stage mismatch 이슈 수정
 
 ### 작업 내용
