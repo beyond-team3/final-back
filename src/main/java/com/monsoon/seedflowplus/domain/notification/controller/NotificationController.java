@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.monsoon.seedflowplus.domain.notification.command.NotificationSseService;
 
 @Validated
 @RestController
@@ -35,6 +37,7 @@ public class NotificationController {
 
     private final NotificationQueryService notificationQueryService;
     private final NotificationCommandService notificationCommandService;
+    private final NotificationSseService notificationSseService;
     private final Clock clock;
 
     @GetMapping
@@ -99,6 +102,12 @@ public class NotificationController {
         Long userId = resolveUserId(principal);
         notificationCommandService.deleteAll(userId);
         return ApiResult.success();
+    }
+
+    @GetMapping("/subscribe")
+    public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails principal) {
+        Long userId = resolveUserId(principal);
+        return notificationSseService.connect(userId);
     }
 
     private Long resolveUserId(CustomUserDetails principal) {
