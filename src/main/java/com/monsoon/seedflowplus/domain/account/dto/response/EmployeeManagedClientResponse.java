@@ -16,7 +16,7 @@ public record EmployeeManagedClientResponse(
                 client.getId(),
                 client.getClientCode(),
                 client.getClientName(),
-                client.getAccount() != null ? client.getAccount().getStatus() : Status.DEACTIVATE,
+                client.getAccount() != null ? client.getAccount().getStatus() : null,
                 client.getAccount() != null ? client.getAccount().getLastLoginAt() : null);
     }
 }
