@@ -59,3 +59,20 @@ DealApprovalNotificationService는 사용자 row 락 + 당일 중복 체크 후 
 
 ### 변경 이유
 AGENTS.md Phase 3(6~9번) 요구사항 반영
+
+## [2026-03-06] Notification Phase 4 SSE 구독/워커 연동
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/controller/NotificationController.java
+- 클래스/메서드: NotificationController.subscribe
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java
+- 클래스/메서드: NotificationDeliveryWorkerService.dispatch
+
+### 변경 내용
+NotificationController에 `GET /api/v1/notifications/subscribe` 엔드포인트를 추가하고,
+인증 principal에서 userId를 해석해 `NotificationSseService.connect(userId)`가 반환한 `SseEmitter`를 직접 응답하도록 구성했다.
+NotificationDeliveryWorkerService는 IN_APP delivery 처리 시 `markSent` 직후
+`NotificationSseService.send(userId, NotificationListItemResponse)`를 호출해 예약 알림도 즉시 SSE로 전달한다.
+
+### 변경 이유
+AGENTS.md Phase 4(10~12번) 요구사항 반영

@@ -41,3 +41,18 @@ Phase 3 (Deal/Approval 이벤트 알림) 진행
 
 ### 다음 단계
 Phase 4 (SSE 구독 API 및 워커 연동) 진행
+
+## [2026-03-06 17:20] Notification Phase 4 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/controller/NotificationController.java — SSE 구독 API `GET /subscribe` 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java — IN_APP markSent 직후 NotificationSseService.send 연동
+- 수정 파일: docs/notification/notification-architecture.md — SSE 구독/워커 연동 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+Phase 5 테스트 추가
