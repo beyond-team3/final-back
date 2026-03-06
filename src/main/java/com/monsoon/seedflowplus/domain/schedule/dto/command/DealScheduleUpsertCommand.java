@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.dto.request;
+package com.monsoon.seedflowplus.domain.schedule.dto.command;
 
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;

@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.service;
+package com.monsoon.seedflowplus.domain.schedule.sync;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
@@ -8,7 +8,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.request.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
