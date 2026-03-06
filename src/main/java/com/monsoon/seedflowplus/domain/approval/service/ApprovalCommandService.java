@@ -79,7 +79,7 @@ public class ApprovalCommandService {
                 .status(ApprovalStepStatus.WAITING)
                 .build());
 
-        if (dto.dealType() == DealType.CNT) {
+        if (dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) {
             request.addStep(ApprovalStep.builder()
                     .stepOrder(2)
                     .actorType(ActorType.CLIENT)
