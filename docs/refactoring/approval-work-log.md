@@ -209,3 +209,16 @@ decideStep() 재구성
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:56] ApprovalCommandServiceTest totalElements 불일치 수정
+
+### 작업 내용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — CLIENT 검색 테스트의 PageImpl totalElements를 assertion과 동일하게 1로 조정
+- 수정 파일: docs/refactoring/approval-work-log.md — 테스트 수정 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

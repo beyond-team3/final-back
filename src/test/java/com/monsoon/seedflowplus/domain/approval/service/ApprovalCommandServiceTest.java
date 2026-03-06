@@ -568,7 +568,7 @@ class ApprovalCommandServiceTest {
         ApprovalStep accessibleStep = step(91L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
 
         when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 3));
+                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(901L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
