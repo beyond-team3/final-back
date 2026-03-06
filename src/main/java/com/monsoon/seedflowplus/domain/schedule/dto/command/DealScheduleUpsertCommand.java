@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.schedule.dto.command;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import java.time.LocalDateTime;
@@ -21,31 +23,31 @@ public record DealScheduleUpsertCommand(
 ) {
     public DealScheduleUpsertCommand {
         if (externalKey == null || externalKey.isBlank()) {
-            throw new IllegalArgumentException("externalKey must not be blank");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (dealId == null || dealId <= 0) {
-            throw new IllegalArgumentException("dealId must be positive");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (clientId == null || clientId <= 0) {
-            throw new IllegalArgumentException("clientId must be positive");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (assigneeUserId == null || assigneeUserId <= 0) {
-            throw new IllegalArgumentException("assigneeUserId must be positive");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (eventType == null) {
-            throw new IllegalArgumentException("eventType must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (docType == null) {
-            throw new IllegalArgumentException("docType must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (startAt == null || endAt == null) {
-            throw new IllegalArgumentException("startAt/endAt must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (!startAt.isBefore(endAt)) {
-            throw new IllegalArgumentException("startAt must be before endAt");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (lastSyncedAt == null) {
-            throw new IllegalArgumentException("lastSyncedAt must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
     }
 }

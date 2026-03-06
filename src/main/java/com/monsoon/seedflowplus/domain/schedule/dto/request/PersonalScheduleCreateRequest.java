@@ -15,7 +15,7 @@ public record PersonalScheduleCreateRequest(
         @NotNull LocalDateTime startAt,
         @NotNull LocalDateTime endAt,
         boolean allDay,
-        @NotNull ScheduleStatus status,
-        @NotNull ScheduleVisibility visibility
+        ScheduleStatus status,
+        ScheduleVisibility visibility
 ) {
 }

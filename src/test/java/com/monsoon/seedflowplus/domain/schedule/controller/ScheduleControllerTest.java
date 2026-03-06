@@ -75,11 +75,11 @@ class ScheduleControllerTest {
         when(personalScheduleCommandService.create(any(PersonalScheduleCreateRequest.class), any(CustomUserDetails.class)))
                 .thenReturn(101L);
 
-        mockMvc.perform(post("/api/schedules/personal")
+        mockMvc.perform(post("/api/v1/schedules/personal")
                         .with(authentication(auth(adminPrincipal(1L))))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.result").value("SUCCESS"))
                 .andExpect(jsonPath("$.data").value(101L));
     }
@@ -98,7 +98,7 @@ class ScheduleControllerTest {
 
         when(personalScheduleCommandService.getMySchedule(eq(11L), any(CustomUserDetails.class))).thenReturn(dto);
 
-        mockMvc.perform(get("/api/schedules/personal/11")
+        mockMvc.perform(get("/api/v1/schedules/personal/11")
                         .with(authentication(auth(adminPrincipal(1L)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value("SUCCESS"))
@@ -118,7 +118,7 @@ class ScheduleControllerTest {
                 null
         );
 
-        mockMvc.perform(put("/api/schedules/personal/55")
+        mockMvc.perform(put("/api/v1/schedules/personal/55")
                         .with(authentication(auth(adminPrincipal(1L))))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
@@ -131,7 +131,7 @@ class ScheduleControllerTest {
     @Test
     @DisplayName("개인 일정 삭제 API는 성공 응답을 반환한다")
     void deletePersonalSchedule() throws Exception {
-        mockMvc.perform(delete("/api/schedules/personal/77")
+        mockMvc.perform(delete("/api/v1/schedules/personal/77")
                         .with(authentication(auth(adminPrincipal(1L)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value("SUCCESS"));
@@ -144,7 +144,7 @@ class ScheduleControllerTest {
     void unifiedSchedulesForAdmin() throws Exception {
         when(scheduleQueryService.getUnifiedSchedules(any(ScheduleSearchCondition.class))).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/schedules")
+        mockMvc.perform(get("/api/v1/schedules")
                         .with(authentication(auth(adminPrincipal(10L))))
                         .param("from", "2026-03-01T00:00:00")
                         .param("to", "2026-03-31T23:59:59")
@@ -169,7 +169,7 @@ class ScheduleControllerTest {
     void unifiedSchedulesForSalesRep() throws Exception {
         when(scheduleQueryService.getUnifiedSchedules(any(ScheduleSearchCondition.class))).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/schedules")
+        mockMvc.perform(get("/api/v1/schedules")
                         .with(authentication(auth(salesRepPrincipal(21L, 301L))))
                         .param("from", "2026-03-01T00:00:00")
                         .param("to", "2026-03-31T23:59:59")
@@ -187,7 +187,7 @@ class ScheduleControllerTest {
     void unifiedSchedulesForClient() throws Exception {
         when(scheduleQueryService.getUnifiedSchedules(any(ScheduleSearchCondition.class))).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/schedules")
+        mockMvc.perform(get("/api/v1/schedules")
                         .with(authentication(auth(clientPrincipal(31L, 901L))))
                         .param("from", "2026-03-01T00:00:00")
                         .param("to", "2026-03-31T23:59:59"))

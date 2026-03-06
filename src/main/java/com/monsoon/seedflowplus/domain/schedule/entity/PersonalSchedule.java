@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.schedule.entity;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import jakarta.persistence.AttributeOverride;
@@ -112,22 +114,22 @@ public class PersonalSchedule extends BaseModifyEntity {
             ScheduleVisibility visibility
     ) {
         if (owner == null) {
-            throw new IllegalArgumentException("owner must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("title must not be blank");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (startAt == null || endAt == null) {
-            throw new IllegalArgumentException("startAt/endAt must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (!endAt.isAfter(startAt)) {
-            throw new IllegalArgumentException("endAt must be after startAt");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (status == null) {
-            throw new IllegalArgumentException("status must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (visibility == null) {
-            throw new IllegalArgumentException("visibility must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
     }
 }
