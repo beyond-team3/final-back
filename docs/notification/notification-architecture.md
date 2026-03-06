@@ -99,3 +99,32 @@ DealPipelineFacade 테스트는 생성자 의존성 변경(NotificationEventPubl
 
 ### 변경 이유
 AGENTS.md Phase 5(13~16번) 요구사항 반영
+
+## [2026-03-06] Notification 안정성 이슈 보완
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java
+- 클래스/메서드: NotificationEventPublisher.publishAfterCommit
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.publishApprovalRequestedForFirstApprovers, publishApprovalEventsAfterDecision, now
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacade.java
+- 클래스/메서드: DealPipelineFacade.publishDealStatusChangedEventIfNeeded
+- 파일: src/main/java/com/monsoon/seedflowplus/core/config/AsyncConfig.java
+- 클래스/메서드: AsyncConfig.notificationTaskExecutor
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: NotificationEventHandler.handleDealStatusChanged, handleApprovalRequested, handleApprovalCompleted, handleApprovalRejected
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java
+- 클래스/메서드: NotificationSseService.connect
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java
+- 클래스/메서드: NotificationDeliveryRepository.findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc, findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java
+- 클래스/메서드: NotificationDeliveryWorkerService.loadDueDeliveriesWithAssociations
+
+### 변경 내용
+NotificationEventPublisher에 트랜잭션 활성 시 `afterCommit` 시점 발행 메서드를 추가하고, Approval/Deal 발행 호출을 해당 메서드로 교체했다.
+ApprovalCommandService의 시간 생성을 `Clock` 주입 기반으로 통일해 직접 `LocalDateTime.now()` 호출을 제거했다.
+NotificationEventHandler는 `@Async("notificationTaskExecutor")`를 사용하도록 명시하고, AsyncConfig에 알림 전용 executor를 추가했다.
+SSE는 동일 user 재연결 시 기존 emitter를 complete 처리 후 교체하며, 워커는 SKIP LOCKED로 선점한 ID를 fetch join 재조회해 notification/user 지연로딩 N+1을 제거했다.
+
+### 변경 이유
+트랜잭션 일관성, 비동기 실행 안정성, Clock 정책 준수, SSE 연결 정리 및 배치 조회 성능 이슈 대응

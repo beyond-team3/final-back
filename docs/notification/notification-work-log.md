@@ -74,3 +74,24 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-06 18:24] Notification 안정성 이슈 6건 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java — 트랜잭션 커밋 후 발행용 `publishAfterCommit` 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 알림 이벤트 발행을 after-commit으로 전환, Clock 주입 기반 now 정책 통일
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacade.java — 딜 상태 변경 이벤트 발행을 after-commit으로 전환
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/core/config/AsyncConfig.java — notification 전용 `ThreadPoolTaskExecutor` 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — `@Async("notificationTaskExecutor")` 명시
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java — 동일 user 재연결 시 기존 emitter complete 후 교체
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java — SKIP LOCKED 선점 ID 조회 + fetch join 재조회 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java — 배치 처리 시 연관 엔티티 일괄 로딩으로 N+1 회피
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
