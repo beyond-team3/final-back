@@ -20,6 +20,9 @@ import com.monsoon.seedflowplus.domain.approval.repository.ApprovalStepRepositor
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +46,9 @@ public class ApprovalCommandService {
     private final ApprovalDecisionRepository approvalDecisionRepository;
     private final ApprovalDealLogWriter approvalDealLogWriter;
     private final SalesDealLogRepository salesDealLogRepository;
+    private final QuotationRepository quotationRepository;
+    private final ContractRepository contractRepository;
+    private final DocStatusTransitionValidator docStatusTransitionValidator;
 
     public CreateApprovalRequestResponse createApprovalRequest(
             CreateApprovalRequestRequest dto,
