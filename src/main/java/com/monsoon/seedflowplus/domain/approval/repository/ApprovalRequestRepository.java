@@ -55,6 +55,16 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
                                     where sdl.docType = ar.dealType
                                       and sdl.refId = ar.targetId
                                       and sdl.client.id = :clientId
+                                      and not exists (
+                                            select 1
+                                            from SalesDealLog newer
+                                            where newer.docType = ar.dealType
+                                              and newer.refId = ar.targetId
+                                              and (
+                                                    newer.actionAt > sdl.actionAt
+                                                    or (newer.actionAt = sdl.actionAt and newer.id > sdl.id)
+                                              )
+                                      )
                                 )
                             )
                       )
@@ -74,6 +84,16 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
                                     where sdl.docType = ar.dealType
                                       and sdl.refId = ar.targetId
                                       and sdl.client.id = :clientId
+                                      and not exists (
+                                            select 1
+                                            from SalesDealLog newer
+                                            where newer.docType = ar.dealType
+                                              and newer.refId = ar.targetId
+                                              and (
+                                                    newer.actionAt > sdl.actionAt
+                                                    or (newer.actionAt = sdl.actionAt and newer.id > sdl.id)
+                                              )
+                                      )
                                 )
                             )
                       )
@@ -100,6 +120,16 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
                             where sdl.docType = ar.dealType
                               and sdl.refId = ar.targetId
                               and sdl.deal.ownerEmp.id = :employeeId
+                              and not exists (
+                                    select 1
+                                    from SalesDealLog newer
+                                    where newer.docType = ar.dealType
+                                      and newer.refId = ar.targetId
+                                      and (
+                                            newer.actionAt > sdl.actionAt
+                                            or (newer.actionAt = sdl.actionAt and newer.id > sdl.id)
+                                      )
+                              )
                       )
                     """,
             countQuery = """
@@ -114,6 +144,16 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
                             where sdl.docType = ar.dealType
                               and sdl.refId = ar.targetId
                               and sdl.deal.ownerEmp.id = :employeeId
+                              and not exists (
+                                    select 1
+                                    from SalesDealLog newer
+                                    where newer.docType = ar.dealType
+                                      and newer.refId = ar.targetId
+                                      and (
+                                            newer.actionAt > sdl.actionAt
+                                            or (newer.actionAt = sdl.actionAt and newer.id > sdl.id)
+                                      )
+                              )
                       )
                     """
     )

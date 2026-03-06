@@ -94,7 +94,18 @@ public class ApprovalDealLogWriter {
         if (fromStage == null) {
             return actualFromStage;
         }
-        DealStage.valueOf(fromStage);
+        DealStage expectedFromStage = DealStage.valueOf(fromStage);
+        if (expectedFromStage != actualFromStage) {
+            throw new CoreException(
+                    ErrorType.INVALID_DOC_STATUS_TRANSITION,
+                    "approval decision fromStage mismatch. expected="
+                            + expectedFromStage
+                            + ", actual="
+                            + actualFromStage
+                            + ", dealId="
+                            + deal.getId()
+            );
+        }
         return actualFromStage;
     }
 

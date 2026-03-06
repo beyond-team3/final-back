@@ -368,7 +368,7 @@ public class ApprovalCommandService {
             }
             return ActorType.CLIENT;
         }
-        return ActorType.SYSTEM;
+        throw new CoreException(ErrorType.UNAUTHORIZED);
     }
 
     private void validateCreateAccess(
