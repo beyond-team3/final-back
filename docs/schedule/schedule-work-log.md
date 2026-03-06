@@ -182,3 +182,30 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-07 02:44] 리뷰 지적사항 검증 후 필요 항목만 보정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java — `cancel()`에서 `status=CANCELED`와 `isDeleted=true`를 함께 반영하도록 수정
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java — legacy enum(`DONE`, `TEAM`) 입력 차단 및 create/update 상태 해석 로직 정리, 단건 조회 책임 제거
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java — `getMySchedule` 조회 책임 추가, SALES_REP 조회를 `managerEmployeeId` 기반으로 변경
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java — 개인 일정 단건 조회를 `ScheduleQueryService`로 위임
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepository.java — managerEmployeeId 기반 조회 메서드 추가 및 기존 IN 기반 메서드 정리
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/account/repository/ClientRepository.java — `existsByIdAndManagerEmployeeId` 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java — `title/externalKey` trim 선반영 후 검증하도록 정규화
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java — 엔티티 검증 예외를 `IllegalArgumentException(필드명)`으로 변경
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/GlobalExceptionHandler.java — `IllegalArgumentException`을 `INVALID_INPUT_VALUE`로 매핑
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java — 단건 조회 mock 대상을 query service로 교체, `assertThat` static import 적용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandServiceTest.java — soft delete 플래그 검증 및 legacy enum 차단 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryServiceTest.java — `getMySchedule` 테스트 및 SALES_REP managerEmployeeId 조회 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/entity/DealScheduleTest.java — 엔티티 도메인 검증 예외 동작 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommandTest.java — trim 정규화 및 공백 externalKey 거부 테스트 추가
+- 수정 파일: docs/schedule/schedule-architecture.md — `fromDeal` null 필드/혼합 리스트 동작 문서화, Phase 6 날짜 정정, 이번 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 검증 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
