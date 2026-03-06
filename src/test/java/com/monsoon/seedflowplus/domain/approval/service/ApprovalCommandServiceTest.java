@@ -230,6 +230,107 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
+    @DisplayName("케이스 1-6: SALES_REP 생성자는 employeeId가 없으면 userId가 있어도 UNAUTHORIZED")
+    void createApprovalRequestFailsWhenSalesRepEmployeeIdMissing() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 506L, 77L, "Q-506");
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 506L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(
+                dto,
+                mockUserWithIds(Role.SALES_REP, 999L, null, null)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("케이스 1-7: SALES_REP는 자신이 담당하지 않은 QUO deal이면 submit할 수 없다")
+    void createApprovalRequestFailsWhenSalesRepDoesNotOwnQuotationDeal() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 507L, 77L, "Q-507");
+        QuotationHeader quotation = quotation(507L, QuotationStatus.WAITING_ADMIN, 77L, salesDeal(900L));
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 507L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(quotationRepository.findById(507L)).thenReturn(Optional.of(quotation));
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.SALES_REP, 501L, null)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.UNAUTHORIZED);
+
+        verify(approvalRequestRepository, never()).save(any(ApprovalRequest.class));
+    }
+
+    @Test
+    @DisplayName("케이스 1-8: SALES_REP는 자신이 담당한 QUO deal이면 submit할 수 있다")
+    void createApprovalRequestSucceedsWhenSalesRepOwnsQuotationDeal() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 508L, 77L, "Q-508");
+        QuotationHeader quotation = quotation(508L, QuotationStatus.WAITING_ADMIN, 77L, salesDeal(501L));
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 508L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(quotationRepository.findById(508L)).thenReturn(Optional.of(quotation));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 904L);
+            return saved;
+        });
+
+        CreateApprovalRequestResponse response = approvalCommandService.createApprovalRequest(
+                dto,
+                mockUser(Role.SALES_REP, 501L, null)
+        );
+
+        assertThat(response.approvalId()).isEqualTo(904L);
+        verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.SALES_REP), eq(501L));
+    }
+
+    @Test
+    @DisplayName("케이스 1-9: SALES_REP는 deal 담당자가 없으면 CNT submit할 수 없다")
+    void createApprovalRequestFailsWhenDealOwnerMissing() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.CNT, 509L, 77L, "C-509");
+        ContractHeader contract = contract(509L, ContractStatus.WAITING_ADMIN, 77L, salesDeal(null));
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.CNT, 509L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(contractRepository.findById(509L)).thenReturn(Optional.of(contract));
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.SALES_REP, 501L, null)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.UNAUTHORIZED);
+
+        verify(approvalRequestRepository, never()).save(any(ApprovalRequest.class));
+    }
+
+    @Test
+    @DisplayName("케이스 1-10: ADMIN은 deal 담당자와 무관하게 CNT submit이 가능하다")
+    void createApprovalRequestAllowsAdminRegardlessOfDealOwner() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.CNT, 510L, 77L, "C-510");
+        ContractHeader contract = contract(510L, ContractStatus.WAITING_ADMIN, 77L, salesDeal(999L));
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.CNT, 510L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(contractRepository.findById(510L)).thenReturn(Optional.of(contract));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 905L);
+            return saved;
+        });
+
+        CreateApprovalRequestResponse response = approvalCommandService.createApprovalRequest(
+                dto,
+                mockUser(Role.ADMIN, 10L, null)
+        );
+
+        assertThat(response.approvalId()).isEqualTo(905L);
+        verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.ADMIN), eq(10L));
+    }
+
+    @Test
     @DisplayName("케이스 2: QUO ADMIN approve")
     void approveQuotationByAdmin() {
         ApprovalRequest request = quoRequest(100L, 7000L, 77L);
@@ -547,13 +648,17 @@ class ApprovalCommandServiceTest {
     }
 
     private QuotationHeader quotation(Long id, QuotationStatus status, Long clientId) {
+        return quotation(id, status, clientId, org.mockito.Mockito.mock(SalesDeal.class));
+    }
+
+    private QuotationHeader quotation(Long id, QuotationStatus status, Long clientId, SalesDeal deal) {
         Client client = org.mockito.Mockito.mock(Client.class);
         lenient().when(client.getId()).thenReturn(clientId);
         QuotationHeader quotation = QuotationHeader.create(
                 null,
                 "Q-" + id,
                 client,
-                org.mockito.Mockito.mock(SalesDeal.class),
+                deal,
                 org.mockito.Mockito.mock(Employee.class),
                 BigDecimal.TEN,
                 "memo"
@@ -564,11 +669,21 @@ class ApprovalCommandServiceTest {
     }
 
     private ContractHeader contract(Long id, ContractStatus status) {
+        return contract(id, status, 1L, org.mockito.Mockito.mock(SalesDeal.class));
+    }
+
+    private ContractHeader contract(Long id, ContractStatus status, SalesDeal deal) {
+        return contract(id, status, 1L, deal);
+    }
+
+    private ContractHeader contract(Long id, ContractStatus status, Long clientId, SalesDeal deal) {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        lenient().when(client.getId()).thenReturn(clientId);
         ContractHeader contract = ContractHeader.create(
                 "C-" + id,
                 null,
-                org.mockito.Mockito.mock(Client.class),
-                org.mockito.Mockito.mock(SalesDeal.class),
+                client,
+                deal,
                 org.mockito.Mockito.mock(Employee.class),
                 BigDecimal.TEN,
                 null,
@@ -582,10 +697,32 @@ class ApprovalCommandServiceTest {
         return contract;
     }
 
+    private SalesDeal salesDeal(Long ownerEmployeeId) {
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        if (ownerEmployeeId == null) {
+            lenient().when(deal.getOwnerEmp()).thenReturn(null);
+            return deal;
+        }
+
+        Employee owner = org.mockito.Mockito.mock(Employee.class);
+        lenient().when(owner.getId()).thenReturn(ownerEmployeeId);
+        lenient().when(deal.getOwnerEmp()).thenReturn(owner);
+        return deal;
+    }
+
     private CustomUserDetails mockUser(Role role, Long employeeId, Long clientId) {
         CustomUserDetails user = org.mockito.Mockito.mock(CustomUserDetails.class);
         lenient().when(user.getRole()).thenReturn(role);
         lenient().when(user.getUserId()).thenReturn(employeeId);
+        lenient().when(user.getEmployeeId()).thenReturn(employeeId);
+        lenient().when(user.getClientId()).thenReturn(clientId);
+        return user;
+    }
+
+    private CustomUserDetails mockUserWithIds(Role role, Long userId, Long employeeId, Long clientId) {
+        CustomUserDetails user = org.mockito.Mockito.mock(CustomUserDetails.class);
+        lenient().when(user.getRole()).thenReturn(role);
+        lenient().when(user.getUserId()).thenReturn(userId);
         lenient().when(user.getEmployeeId()).thenReturn(employeeId);
         lenient().when(user.getClientId()).thenReturn(clientId);
         return user;
