@@ -21,3 +21,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 11:08] 월별 집계 category 필터 리포지토리 테스트 추가
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepositoryTest.java` — `invoice -> statement -> orderDetail -> contractDetail.productCategory` 연결 fixture를 구성해 월별 집계의 category 필터 및 공통 필터 유지 여부를 검증하는 `@DataJpaTest` 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/H2DateFormatFunctions.java` — H2 테스트 환경에서 `DATE_FORMAT` QueryDSL 표현식을 실행할 수 있도록 함수 alias용 헬퍼 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
