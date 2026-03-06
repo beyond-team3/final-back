@@ -65,19 +65,25 @@ public class SalesNoteRagService {
 
     /**
      * 개별 SalesNote를 벡터화하여 저장소에 인덱싱합니다.
-     * Metadata: id, clientId, activityDate를 포함합니다.
+     * [개선] 중복 방지를 위해 기존 정보를 삭제하되, 신규 임베딩이 성공한 후에만 삭제를 수행하여 데이터 유실을 방지합니다.
      */
     public void indexNote(SalesNote note) {
         Metadata metadata = new Metadata()
                 .add("type", "SALES_NOTE")
                 .add("id", note.getId().toString())
                 .add("clientId", note.getClientId().toString())
-                .add("contractId", note.getContractId() != null ? note.getContractId() : "NONE") // [추가] 계약 ID 메타데이터
+                .add("contractId", note.getContractId() != null ? note.getContractId() : "NONE")
                 .add("activityDate", note.getActivityDate().toString());
 
         TextSegment segment = TextSegment.from(note.getContent(), metadata);
+        
+        // 1. 임베딩 생성 (실패 시 예외 발생, 이후 삭제 로직 실행 안 됨)
         Embedding embedding = embeddingModel.embed(segment).content();
         
+        // 2. 임베딩 성공 시 기존 데이터 삭제 (Atomic-ish Update 효과)
+        this.deleteNote(note.getId());
+        
+        // 3. 신규 데이터 추가
         embeddingStore.add(embedding, segment);
     }
 
