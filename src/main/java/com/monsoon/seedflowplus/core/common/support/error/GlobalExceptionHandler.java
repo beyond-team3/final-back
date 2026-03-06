@@ -20,6 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final String INVALID_INPUT_MESSAGE = "Invalid input.";
+
     @ExceptionHandler(ErrorCodeRuntimeException.class)
     protected ResponseEntity<ApiResult<?>> handleErrorCodeException(ErrorCodeRuntimeException e) {
         log.warn("ErrorCodeException: {}", e.getMessage());
@@ -118,10 +120,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     protected ResponseEntity<ApiResult<?>> handleIllegalArgumentException(IllegalArgumentException e) {
-        log.warn("IllegalArgumentException: {}", e.getMessage());
+        log.warn("IllegalArgumentException: {}", e.getMessage(), e);
         return ResponseEntity
                 .status(ErrorType.INVALID_INPUT_VALUE.getStatus())
-                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE, e.getMessage()));
+                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE, INVALID_INPUT_MESSAGE));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

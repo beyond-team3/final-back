@@ -96,29 +96,26 @@ public class PersonalScheduleCommandService {
     }
 
     private ScheduleStatus resolveStatusForUpdate(ScheduleStatus requestedStatus, ScheduleStatus currentStatus) {
-        ScheduleStatus resolved = requestedStatus == null ? currentStatus : requestedStatus;
-        if (resolved == ScheduleStatus.DONE) {
+        if (requestedStatus != null && requestedStatus == ScheduleStatus.DONE) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
-        return resolved;
+        return requestedStatus == null ? currentStatus : requestedStatus;
     }
 
     private ScheduleVisibility resolveVisibilityForCreate(ScheduleVisibility requestedVisibility) {
-        ScheduleVisibility resolved = requestedVisibility == null ? ScheduleVisibility.PRIVATE : requestedVisibility;
-        if (resolved == ScheduleVisibility.TEAM) {
+        if (requestedVisibility != null && requestedVisibility == ScheduleVisibility.TEAM) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
-        return resolved;
+        return requestedVisibility == null ? ScheduleVisibility.PRIVATE : requestedVisibility;
     }
 
     private ScheduleVisibility resolveVisibilityForUpdate(
             ScheduleVisibility requestedVisibility,
             ScheduleVisibility currentVisibility
     ) {
-        ScheduleVisibility resolved = requestedVisibility == null ? currentVisibility : requestedVisibility;
-        if (resolved == ScheduleVisibility.TEAM) {
+        if (requestedVisibility != null && requestedVisibility == ScheduleVisibility.TEAM) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
-        return resolved;
+        return requestedVisibility == null ? currentVisibility : requestedVisibility;
     }
 }
