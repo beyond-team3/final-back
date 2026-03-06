@@ -34,7 +34,7 @@ public class BillingRevenueStatisticsRepository {
 
     private final JPAQueryFactory queryFactory;
 
-    public List<MonthlyBilledRevenueDto> findMonthlyRevenue(BillingRevenueStatisticsFilter filter) {
+    public List<MonthlyBilledRevenueDto> findMonthlyRevenue(BillingRevenueStatisticsFilter filter, Long employeeId) {
         StringExpression monthExpr = monthExpression();
         NumberExpression<BigDecimal> categoryAmountExpr = billedLineAmountExpression();
         NumberExpression<BigDecimal> groupedAmountExpr = categoryAmountExpr.sum().coalesce(BigDecimal.ZERO);
@@ -51,7 +51,8 @@ public class BillingRevenueStatisticsRepository {
                             invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
                             invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                             invoiceStatement.included.isTrue(),
-                            statement.status.eq(StatementStatus.ISSUED)
+                            statement.status.eq(StatementStatus.ISSUED),
+                            employeeIdEq(employeeId)
                     )
                     .groupBy(monthExpr, invoice.id)
                     .fetch();
@@ -84,6 +85,7 @@ public class BillingRevenueStatisticsRepository {
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                         invoiceStatement.included.isTrue(),
                         statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
                         categoryEq(filter.getCategory())
                 )
                 .groupBy(monthExpr, invoice.id)
@@ -105,7 +107,7 @@ public class BillingRevenueStatisticsRepository {
                 .toList();
     }
 
-    public List<CategoryBilledRevenueDto> findCategoryRevenue(BillingRevenueStatisticsFilter filter) {
+    public List<CategoryBilledRevenueDto> findCategoryRevenue(BillingRevenueStatisticsFilter filter, Long employeeId) {
         StringExpression categoryExpr = contractDetail.productCategory;
         NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
         NumberExpression<BigDecimal> groupedAmountExpr = lineAmountExpr.sum().coalesce(BigDecimal.ZERO);
@@ -122,6 +124,7 @@ public class BillingRevenueStatisticsRepository {
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                         invoiceStatement.included.isTrue(),
                         statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
                         categoryEq(filter.getCategory())
                 )
                 // invoice+category 단위로 1회만 집계되도록 중복 제거
@@ -144,7 +147,10 @@ public class BillingRevenueStatisticsRepository {
                 .toList();
     }
 
-    public List<MonthlyCategoryBilledRevenueDto> findMonthlyCategoryRevenue(BillingRevenueStatisticsFilter filter) {
+    public List<MonthlyCategoryBilledRevenueDto> findMonthlyCategoryRevenue(
+            BillingRevenueStatisticsFilter filter,
+            Long employeeId
+    ) {
         StringExpression monthExpr = monthExpression();
         StringExpression categoryExpr = contractDetail.productCategory;
         NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
@@ -162,6 +168,7 @@ public class BillingRevenueStatisticsRepository {
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                         invoiceStatement.included.isTrue(),
                         statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
                         categoryEq(filter.getCategory())
                 )
                 // invoice+month+category 단위로 1회만 집계되도록 중복 제거
@@ -190,6 +197,10 @@ public class BillingRevenueStatisticsRepository {
 
     private BooleanExpression categoryEq(String category) {
         return categoryEq(contractDetail.productCategory, category);
+    }
+
+    private BooleanExpression employeeIdEq(Long employeeId) {
+        return employeeId != null ? orderDetail.orderHeader.employee.id.eq(employeeId) : null;
     }
 
     private BooleanExpression categoryEq(StringExpression categoryExpr, String category) {
