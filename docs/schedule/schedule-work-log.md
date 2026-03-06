@@ -33,3 +33,18 @@ Phase 3 개인 일정 명령 API 구현
 
 ### 다음 단계
 Phase 4 통합 조회 API 정합성 점검 및 보정
+
+## [2026-03-06 18:07] Phase 4 통합 조회 서비스 패키지 정렬
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/ScheduleQueryService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java — query 패키지로 이동
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java — `ScheduleQueryService` import 경로 동기화
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+Phase 5 거래 일정 동기화 로직 정합성 점검 및 보정

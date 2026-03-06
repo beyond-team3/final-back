@@ -42,3 +42,20 @@ Phase 2 정책(엔티티 필드/soft delete/인덱스 규칙) 일치
 
 ### 변경 이유
 Phase 3 정책(패키지 구조 및 개인 일정 soft delete 도메인 메서드 사용) 일치
+
+## [2026-03-06] Phase 4 통합 조회 계층 패키지 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/ScheduleQueryService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java
+- 클래스/메서드: ScheduleQueryService
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController#getSchedules
+
+### 변경 내용
+통합 조회 서비스 `ScheduleQueryService`를 `service` 패키지에서 `query` 패키지로 이동해
+CQRS 성격의 조회 계층 구조를 명시했다.
+컨트롤러는 새 패키지 경로를 참조하도록 import를 동기화했고,
+기존 `GET /api/schedules` 동작 및 조건 생성 로직은 유지했다.
+
+### 변경 이유
+Phase 4 정책(통합 조회 서비스의 query 계층 분리) 일치
