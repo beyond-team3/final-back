@@ -21,6 +21,7 @@ import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
@@ -70,6 +71,7 @@ public class ApprovalCommandService {
         }
 
         ActorType submitActorType = determineActorTypeFromPrincipal(principal);
+        validateSubmitOwnership(dto.dealType(), dto.targetId(), submitActorType, principal);
         Long clientIdSnapshot = resolveClientIdSnapshot(dto);
         validateCreateAccess(clientIdSnapshot, principal, submitActorType);
 
@@ -351,7 +353,7 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         if (principal.getRole() == Role.SALES_REP) {
-            if (principal.getUserId() == null) {
+            if (principal.getEmployeeId() == null) {
                 throw new CoreException(ErrorType.UNAUTHORIZED);
             }
             return ActorType.SALES_REP;
@@ -391,6 +393,35 @@ public class ApprovalCommandService {
         }
         if (!Objects.equals(clientIdSnapshot, principal.getClientId())) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+        }
+    }
+
+    private void validateSubmitOwnership(
+            DealType dealType,
+            Long targetId,
+            ActorType submitActorType,
+            CustomUserDetails principal
+    ) {
+        if (submitActorType != ActorType.SALES_REP) {
+            return;
+        }
+
+        SalesDeal deal = switch (dealType) {
+            case QUO -> quotationRepository.findById(targetId)
+                    .map(QuotationHeader::getDeal)
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+            case CNT -> contractRepository.findById(targetId)
+                    .map(ContractHeader::getDeal)
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+
+        if (deal.getOwnerEmp() == null || deal.getOwnerEmp().getId() == null) {
+            // TODO: ErrorType.DEAL_NOT_ASSIGNED 추가 후 UNAUTHORIZED 임시 처리 교체
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        if (!Objects.equals(deal.getOwnerEmp().getId(), principal.getEmployeeId())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
     }
 

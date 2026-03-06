@@ -23,11 +23,12 @@ import org.springframework.stereotype.Component;
 public class ApprovalDealLogWriter {
 
     private final SalesDealLogRepository salesDealLogRepository;
+    private final DealLogWriteService dealLogWriteService;
     private final DealPipelineFacade dealPipelineFacade;
 
     public void writeSubmit(ApprovalRequest request, ActorType actorType, Long actorId) {
         SubmitLogContext context = buildSubmitContext(request);
-        dealPipelineFacade.recordAndSync(
+        dealLogWriteService.write(
                 context.deal(),
                 context.docType(),
                 context.refId(),
@@ -69,7 +70,7 @@ public class ApprovalDealLogWriter {
                 request.getTargetId(),
                 request.getTargetCodeSnapshot(),
                 actualFromStage,
-                DealStage.valueOf(toStage),
+                parseDealStageOrThrow(toStage),
                 fromStatus,
                 toStatus,
                 toActionType(decision),
@@ -94,7 +95,7 @@ public class ApprovalDealLogWriter {
         if (fromStage == null) {
             return actualFromStage;
         }
-        DealStage expectedFromStage = DealStage.valueOf(fromStage);
+        DealStage expectedFromStage = parseDealStageOrThrow(fromStage);
         if (expectedFromStage != actualFromStage) {
             throw new CoreException(
                     ErrorType.INVALID_DOC_STATUS_TRANSITION,
@@ -107,6 +108,17 @@ public class ApprovalDealLogWriter {
             );
         }
         return actualFromStage;
+    }
+
+    private DealStage parseDealStageOrThrow(String stageName) {
+        try {
+            return DealStage.valueOf(stageName);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new CoreException(
+                    ErrorType.INVALID_DOC_STATUS_TRANSITION,
+                    "invalid approval decision stage. stage=" + stageName
+            );
+        }
     }
 
     private SubmitLogContext buildSubmitContext(ApprovalRequest request) {
