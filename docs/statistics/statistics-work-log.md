@@ -153,3 +153,29 @@
 
 ### 다음 단계
 없음 (경로 정책 변경 세션 완료)
+
+## [2026-03-06 14:08] WebMvcTest 테스트 규칙 문서화
+
+### 작업 내용
+- 수정 파일: `AGENTS.md` — `@WebMvcTest` 기반 컨트롤러 테스트에서 `TestSecurityConfig`를 사용하고 `JpaAuditingConfig` 분리 전제를 유지하도록 규칙 추가
+- 수정 파일: `docs/statistics/statistics-work-log.md` — 테스트 규칙 문서화 작업 기록 추가
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [ ] 오류 있음 → 문서 수정 작업으로 컴파일 미실행
+
+### 다음 단계
+없음
+
+## [2026-03-06 14:25] Git 추적 대상에서 AGENTS 파일 제외
+
+### 작업 내용
+- 수정 파일: `.gitignore` — `AGENTS.md`를 Git 추적 제외 대상으로 추가
+- 수정 파일: `docs/statistics/statistics-work-log.md` — AGENTS 파일 추적 제외 작업 기록 추가
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [ ] 오류 있음 → 설정 파일 수정 작업으로 컴파일 미실행
+
+### 다음 단계
+`AGENTS.md`를 Git 인덱스에서만 제거하고 커밋
