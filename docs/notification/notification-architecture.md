@@ -128,3 +128,22 @@ SSE는 동일 user 재연결 시 기존 emitter를 complete 처리 후 교체하
 
 ### 변경 이유
 트랜잭션 일관성, 비동기 실행 안정성, Clock 정책 준수, SSE 연결 정리 및 배치 조회 성능 이슈 대응
+
+## [2026-03-06] Notification 예외/재연결 안정성 보완
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java
+- 클래스/메서드: NotificationSseService.connect, send, remove
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationService.java
+- 클래스/메서드: CultivationNotificationService.lockUser
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/controller/NotificationController.java
+- 클래스/메서드: NotificationController.resolveUserId
+
+### 변경 내용
+SSE 연결 교체 시 기존 emitter의 completion 콜백이 신규 emitter를 제거하지 않도록 `emitters.remove(userId, emitter)` compare-remove 방식으로 정리 로직을 변경했다.
+SSE send 실패 시에도 동일 compare-remove를 사용해 현재 연결과 실패 연결을 구분해 제거한다.
+재배적기 알림 사용자 잠금 조회 실패는 `NullPointerException` 대신 `CoreException(ErrorType.USER_NOT_FOUND)`로 통일했다.
+컨트롤러 인증 경계에서 `principal`뿐 아니라 `principal.userId` null도 `UNAUTHORIZED`로 정규화한다.
+
+### 변경 이유
+운영 장애 가능성이 있는 SSE 재연결 제거 경쟁 조건과 도메인 예외/인증 정책 불일치 이슈를 수정하기 위함
