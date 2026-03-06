@@ -52,13 +52,13 @@ public class ApprovalDealLogWriter {
             ApprovalRequest request,
             ApprovalStep step,
             DecisionType decision,
-            String reason,
-            ActorType actorType,
-            Long actorId,
             String fromStatus,
             String toStatus,
             String fromStage,
-            String toStage
+            String toStage,
+            String reason,
+            ActorType actorType,
+            Long actorId
     ) {
         dealPipelineFacade.recordAndSync(
                 resolveDeal(request),

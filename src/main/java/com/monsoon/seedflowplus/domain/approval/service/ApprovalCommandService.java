@@ -174,13 +174,13 @@ public class ApprovalCommandService {
                 request,
                 step,
                 dto.decision(),
-                trimmedReason,
-                step.getActorType(),
-                actorId,
                 documentDecisionResult.fromStatus(),
                 documentDecisionResult.toStatus(),
                 documentDecisionResult.fromStage(),
-                documentDecisionResult.toStage()
+                documentDecisionResult.toStage(),
+                trimmedReason,
+                step.getActorType(),
+                actorId
         );
 
         return toDetail(request);
