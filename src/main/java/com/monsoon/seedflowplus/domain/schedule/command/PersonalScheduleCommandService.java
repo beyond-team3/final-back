@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.service;
+package com.monsoon.seedflowplus.domain.schedule.command;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
@@ -6,7 +6,6 @@ import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleCreateRequest;
 import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleUpdateRequest;
-import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.PersonalSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleVisibility;
@@ -39,16 +38,11 @@ public class PersonalScheduleCommandService {
                 .startAt(request.startAt())
                 .endAt(request.endAt())
                 .allDay(request.allDay())
-                .status(request.status() == null ? ScheduleStatus.ACTIVE : request.status())
-                .visibility(request.visibility() == null ? ScheduleVisibility.PRIVATE : request.visibility())
+                .status(resolveStatusForCreate(request.status()))
+                .visibility(resolveVisibilityForCreate(request.visibility()))
                 .build();
 
         return personalScheduleRepository.save(schedule).getId();
-    }
-
-    public ScheduleItemDto getMySchedule(Long scheduleId, CustomUserDetails actor) {
-        PersonalSchedule schedule = getOwnedScheduleOrThrow(scheduleId, requireActorUserId(actor));
-        return ScheduleItemDto.fromPersonal(schedule);
     }
 
     @Transactional
@@ -63,8 +57,8 @@ public class PersonalScheduleCommandService {
                 request.startAt(),
                 request.endAt(),
                 request.allDay(),
-                request.status() == null ? schedule.getStatus() : request.status(),
-                request.visibility() == null ? schedule.getVisibility() : request.visibility()
+                resolveStatusForUpdate(request.status(), schedule.getStatus()),
+                resolveVisibilityForUpdate(request.visibility(), schedule.getVisibility())
         );
     }
 
@@ -72,15 +66,7 @@ public class PersonalScheduleCommandService {
     public void delete(Long scheduleId, CustomUserDetails actor) {
         Long actorUserId = requireActorUserId(actor);
         PersonalSchedule schedule = getOwnedScheduleOrThrow(scheduleId, actorUserId);
-        schedule.update(
-                schedule.getTitle(),
-                schedule.getDescription(),
-                schedule.getStartAt(),
-                schedule.getEndAt(),
-                schedule.isAllDay(),
-                ScheduleStatus.CANCELED,
-                schedule.getVisibility()
-        );
+        schedule.cancel();
     }
 
     private PersonalSchedule getOwnedScheduleOrThrow(Long scheduleId, Long actorUserId) {
@@ -99,5 +85,37 @@ public class PersonalScheduleCommandService {
         if (startAt == null || endAt == null || !startAt.isBefore(endAt)) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
+    }
+
+    private ScheduleStatus resolveStatusForCreate(ScheduleStatus requestedStatus) {
+        ScheduleStatus resolved = requestedStatus == null ? ScheduleStatus.ACTIVE : requestedStatus;
+        if (resolved == ScheduleStatus.DONE) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        return resolved;
+    }
+
+    private ScheduleStatus resolveStatusForUpdate(ScheduleStatus requestedStatus, ScheduleStatus currentStatus) {
+        if (requestedStatus != null && requestedStatus == ScheduleStatus.DONE) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        return requestedStatus == null ? currentStatus : requestedStatus;
+    }
+
+    private ScheduleVisibility resolveVisibilityForCreate(ScheduleVisibility requestedVisibility) {
+        if (requestedVisibility != null && requestedVisibility == ScheduleVisibility.TEAM) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        return requestedVisibility == null ? ScheduleVisibility.PRIVATE : requestedVisibility;
+    }
+
+    private ScheduleVisibility resolveVisibilityForUpdate(
+            ScheduleVisibility requestedVisibility,
+            ScheduleVisibility currentVisibility
+    ) {
+        if (requestedVisibility != null && requestedVisibility == ScheduleVisibility.TEAM) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        return requestedVisibility == null ? currentVisibility : requestedVisibility;
     }
 }

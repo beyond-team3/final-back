@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.dto.validation;
+package com.monsoon.seedflowplus.domain.schedule.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;

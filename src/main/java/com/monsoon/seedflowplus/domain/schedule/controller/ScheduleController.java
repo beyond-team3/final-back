@@ -5,10 +5,10 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleCreateRequest;
 import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleUpdateRequest;
-import com.monsoon.seedflowplus.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
-import com.monsoon.seedflowplus.domain.schedule.service.PersonalScheduleCommandService;
-import com.monsoon.seedflowplus.domain.schedule.service.ScheduleQueryService;
+import com.monsoon.seedflowplus.domain.schedule.command.PersonalScheduleCommandService;
+import com.monsoon.seedflowplus.domain.schedule.query.ScheduleSearchCondition;
+import com.monsoon.seedflowplus.domain.schedule.query.ScheduleQueryService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,12 +27,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/schedules")
+@RequestMapping({"/api/v1/schedules", "/api/schedules"})
 public class ScheduleController {
 
     private final ScheduleQueryService scheduleQueryService;
@@ -68,6 +70,7 @@ public class ScheduleController {
     }
 
     @PostMapping("/personal")
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<Long> createPersonalSchedule(
             @RequestBody @Valid PersonalScheduleCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails actor
@@ -80,7 +83,8 @@ public class ScheduleController {
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
-        return ApiResult.success(personalScheduleCommandService.getMySchedule(id, requireActor(actor)));
+        CustomUserDetails requiredActor = requireActor(actor);
+        return ApiResult.success(scheduleQueryService.getMySchedule(id, requiredActor.getUserId()));
     }
 
     @PutMapping("/personal/{id}")

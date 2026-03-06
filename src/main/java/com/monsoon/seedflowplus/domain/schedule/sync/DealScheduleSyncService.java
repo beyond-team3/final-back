@@ -1,14 +1,11 @@
-package com.monsoon.seedflowplus.domain.schedule.service;
+package com.monsoon.seedflowplus.domain.schedule.sync;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.User;
-import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
-import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.request.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
@@ -23,20 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class DealScheduleSyncService {
 
     private final DealScheduleRepository dealScheduleRepository;
-    private final SalesDealRepository salesDealRepository;
-    private final ClientRepository clientRepository;
-    private final UserRepository userRepository;
+    private final DealScheduleReferenceReader dealScheduleReferenceReader;
 
     @Transactional
     public Long upsertFromEvent(DealScheduleUpsertCommand command) {
         validateCommand(command);
 
-        SalesDeal deal = salesDealRepository.findById(command.dealId())
-                .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
-        Client client = clientRepository.findById(command.clientId())
-                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
-        User assignee = userRepository.findById(command.assigneeUserId())
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        DealScheduleReferenceReader.DealScheduleReferences references =
+                dealScheduleReferenceReader.loadForSync(command.dealId(), command.clientId(), command.assigneeUserId());
+        SalesDeal deal = references.deal();
+        Client client = references.client();
+        User assignee = references.assignee();
         validateDealClientMatch(deal, client);
 
         try {

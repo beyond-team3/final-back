@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.schedule.entity;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import jakarta.persistence.AttributeOverride;
@@ -17,11 +19,15 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@AttributeOverride(name = "id", column = @Column(name = "psked_id"))
+@AttributeOverride(name = "id", column = @Column(name = "personal_schedule_id"))
+@SQLDelete(sql = "UPDATE tbl_pers_sked SET is_deleted = true WHERE personal_schedule_id = ?")
+@SQLRestriction("is_deleted = false")
 @Table(
         name = "tbl_pers_sked",
         indexes = {
@@ -57,6 +63,9 @@ public class PersonalSchedule extends BaseModifyEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false, length = 20)
     private ScheduleVisibility visibility;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
 
     @Builder
     public PersonalSchedule(
@@ -99,6 +108,11 @@ public class PersonalSchedule extends BaseModifyEntity {
         this.visibility = visibility;
     }
 
+    public void cancel() {
+        this.status = ScheduleStatus.CANCELED;
+        this.isDeleted = true;
+    }
+
     private void validate(
             User owner,
             String title,
@@ -108,22 +122,25 @@ public class PersonalSchedule extends BaseModifyEntity {
             ScheduleVisibility visibility
     ) {
         if (owner == null) {
-            throw new IllegalArgumentException("owner must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("title must not be blank");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        if (title.trim().length() > 200) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (startAt == null || endAt == null) {
-            throw new IllegalArgumentException("startAt/endAt must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (!endAt.isAfter(startAt)) {
-            throw new IllegalArgumentException("endAt must be after startAt");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (status == null) {
-            throw new IllegalArgumentException("status must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (visibility == null) {
-            throw new IllegalArgumentException("visibility must not be null");
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
     }
 }

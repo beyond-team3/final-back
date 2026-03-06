@@ -31,9 +31,9 @@ import lombok.NoArgsConstructor;
                 @UniqueConstraint(name = "uk_deal_sked_external_key", columnNames = "external_key")
         },
         indexes = {
-                @Index(name = "idx_deal_sked_assignee_start_at", columnList = "assignee_user_id, start_at"),
-                @Index(name = "idx_deal_sked_client_start_at", columnList = "client_id, start_at"),
-                @Index(name = "idx_deal_sked_deal_start_at", columnList = "deal_id, start_at"),
+                @Index(name = "idx_deal_sked_assignee_start_end", columnList = "assignee_user_id, start_at, end_at"),
+                @Index(name = "idx_deal_sked_client_start_end", columnList = "client_id, start_at, end_at"),
+                @Index(name = "idx_deal_sked_deal_start_end", columnList = "deal_id, start_at, end_at"),
                 @Index(name = "idx_deal_sked_start_end", columnList = "start_at, end_at")
         }
 )
@@ -165,43 +165,43 @@ public class DealSchedule extends BaseModifyEntity {
             LocalDateTime lastSyncedAt
     ) {
         if (deal == null) {
-            throw new IllegalArgumentException("deal must not be null");
+            throw new IllegalArgumentException("deal");
         }
         if (client == null) {
-            throw new IllegalArgumentException("client must not be null");
+            throw new IllegalArgumentException("client");
         }
         if (assigneeUser == null) {
-            throw new IllegalArgumentException("assigneeUser must not be null");
+            throw new IllegalArgumentException("assigneeUser");
         }
         if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("title must not be blank");
+            throw new IllegalArgumentException("title");
         }
         if (title.trim().length() > TITLE_MAX_LENGTH) {
-            throw new IllegalArgumentException("title must not exceed 200 characters");
+            throw new IllegalArgumentException("title");
         }
         if (startAt == null || endAt == null) {
-            throw new IllegalArgumentException("startAt/endAt must not be null");
+            throw new IllegalArgumentException("startAt|endAt");
         }
         if (!endAt.isAfter(startAt)) {
-            throw new IllegalArgumentException("endAt must be after startAt");
+            throw new IllegalArgumentException("startAt|endAt");
         }
         if (eventType == null) {
-            throw new IllegalArgumentException("eventType must not be null");
+            throw new IllegalArgumentException("eventType");
         }
         if (docType == null) {
-            throw new IllegalArgumentException("docType must not be null");
+            throw new IllegalArgumentException("docType");
         }
         if (source == null) {
-            throw new IllegalArgumentException("source must not be null");
+            throw new IllegalArgumentException("source");
         }
         if (externalKey == null || externalKey.isBlank()) {
-            throw new IllegalArgumentException("externalKey must not be blank");
+            throw new IllegalArgumentException("externalKey");
         }
         if (externalKey.trim().length() > EXTERNAL_KEY_MAX_LENGTH) {
-            throw new IllegalArgumentException("externalKey must not exceed 180 characters");
+            throw new IllegalArgumentException("externalKey");
         }
         if (lastSyncedAt == null) {
-            throw new IllegalArgumentException("lastSyncedAt must not be null");
+            throw new IllegalArgumentException("lastSyncedAt");
         }
     }
 }
