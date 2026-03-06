@@ -28,7 +28,8 @@ public class AccountController {
     }
 
     @PatchMapping("/employees/{employeeId}")
-    public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId, @RequestBody @Valid EmployeeUpdateRequest request) {
+    public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId,
+                                            @RequestBody @Valid EmployeeUpdateRequest request) {
         accountService.updateEmployeeInfo(employeeId, request);
         return ApiResult.success();
     }
@@ -83,6 +84,11 @@ public class AccountController {
     @GetMapping("/employees/{employeeId}")
     public ApiResult<EmployeeDetailResponse> getEmployeeDetail(@PathVariable Long employeeId) {
         return ApiResult.success(accountService.getEmployeeDetail(employeeId));
+    }
+
+    @GetMapping("/employees/me")
+    public ApiResult<EmployeeProfileResponse> getMyEmployeeProfile() {
+        return ApiResult.success(accountService.getMyEmployeeProfile());
     }
 
     @GetMapping("/employees/{employeeId}/managed-clients")
