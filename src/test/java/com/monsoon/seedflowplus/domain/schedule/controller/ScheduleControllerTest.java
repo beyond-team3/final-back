@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.schedule.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -85,6 +86,30 @@ class ScheduleControllerTest {
     }
 
     @Test
+    @DisplayName("개인 일정 생성 API는 endAt이 startAt과 같으면 400을 반환한다")
+    void createPersonalScheduleRejectsEqualTimeRange() throws Exception {
+        PersonalScheduleCreateRequest request = new PersonalScheduleCreateRequest(
+                "방문 일정",
+                "설명",
+                LocalDateTime.of(2026, 3, 7, 10, 0),
+                LocalDateTime.of(2026, 3, 7, 10, 0),
+                false,
+                ScheduleStatus.ACTIVE,
+                ScheduleVisibility.PRIVATE
+        );
+
+        mockMvc.perform(post("/api/v1/schedules/personal")
+                        .with(authentication(auth(adminPrincipal(1L))))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.result").value("ERROR"));
+
+        verify(personalScheduleCommandService, never())
+                .create(any(PersonalScheduleCreateRequest.class), any(CustomUserDetails.class));
+    }
+
+    @Test
     @DisplayName("개인 일정 단건 조회 API는 내 일정 DTO를 반환한다")
     void getPersonalSchedule() throws Exception {
         ScheduleItemDto dto = ScheduleItemDto.builder()
@@ -126,6 +151,30 @@ class ScheduleControllerTest {
                 .andExpect(jsonPath("$.result").value("SUCCESS"));
 
         verify(personalScheduleCommandService).update(any(Long.class), any(PersonalScheduleUpdateRequest.class), any(CustomUserDetails.class));
+    }
+
+    @Test
+    @DisplayName("개인 일정 수정 API는 endAt이 startAt과 같으면 400을 반환한다")
+    void updatePersonalScheduleRejectsEqualTimeRange() throws Exception {
+        PersonalScheduleUpdateRequest request = new PersonalScheduleUpdateRequest(
+                "수정 일정",
+                "수정 설명",
+                LocalDateTime.of(2026, 3, 8, 14, 0),
+                LocalDateTime.of(2026, 3, 8, 14, 0),
+                false,
+                null,
+                null
+        );
+
+        mockMvc.perform(put("/api/v1/schedules/personal/55")
+                        .with(authentication(auth(adminPrincipal(1L))))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.result").value("ERROR"));
+
+        verify(personalScheduleCommandService, never())
+                .update(any(Long.class), any(PersonalScheduleUpdateRequest.class), any(CustomUserDetails.class));
     }
 
     @Test

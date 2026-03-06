@@ -175,12 +175,47 @@ class PersonalScheduleCommandServiceTest {
     }
 
     @Test
-    @DisplayName("getMySchedule/update/delete는 본인 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
-    void throwsWhenScheduleNotFound() {
+    @DisplayName("getMySchedule는 본인 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
+    void getMyScheduleThrowsWhenScheduleNotFound() {
         when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(404L, 1L, ScheduleStatus.CANCELED))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> personalScheduleCommandService.getMySchedule(404L, actor(1L)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("update는 본인 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
+    void updateThrowsWhenScheduleNotFound() {
+        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(404L, 1L, ScheduleStatus.CANCELED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> personalScheduleCommandService.update(
+                404L,
+                new PersonalScheduleUpdateRequest(
+                        "수정",
+                        "수정설명",
+                        LocalDateTime.of(2026, 3, 6, 12, 0),
+                        LocalDateTime.of(2026, 3, 6, 13, 0),
+                        false,
+                        null,
+                        null
+                ),
+                actor(1L)
+        )).isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("delete는 본인 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
+    void deleteThrowsWhenScheduleNotFound() {
+        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(404L, 1L, ScheduleStatus.CANCELED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> personalScheduleCommandService.delete(404L, actor(1L)))
                 .isInstanceOf(CoreException.class)
                 .extracting(ex -> ((CoreException) ex).getErrorType())
                 .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
