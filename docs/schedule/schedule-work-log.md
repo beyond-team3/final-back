@@ -130,3 +130,23 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-06 19:31] Phase 2 DTO/검증 리뷰 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/response/ScheduleItemDto.java — 거래 일정 응답에서 `externalKey`, `refDocId`, `refDealLogId` 제거
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java — canonical constructor에 `title`/`externalKey` 길이·공백 선검증 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/ScheduleSearchCondition.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleSearchCondition.java — 패키지/경로 정렬
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java — ScheduleSearchCondition import 경로 동기화
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java — ScheduleSearchCondition import 제거(동일 패키지)
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java — ScheduleSearchCondition import 경로 동기화
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryServiceTest.java — ScheduleSearchCondition import 제거(동일 패키지)
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 검증 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

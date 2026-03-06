@@ -151,3 +151,21 @@ Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지
 
 ### 변경 이유
 이슈 #1, #2 (soft delete 정책 누락 및 PK 컬럼명 규칙 불일치) 수정
+
+## [2026-03-06] Phase 2 DTO 보안 노출/선검증/패키지 경로 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/response/ScheduleItemDto.java
+- 클래스/메서드: ScheduleItemDto#fromDeal
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand (canonical constructor)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/ScheduleSearchCondition.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleSearchCondition.java
+- 클래스/메서드: ScheduleSearchCondition
+
+### 변경 내용
+거래 일정 통합 응답 DTO에서 내부 동기화 식별자(`externalKey`)와 내부 참조 ID(`refDocId`, `refDealLogId`) 필드를 제거해 외부 노출을 차단했다.
+`DealScheduleUpsertCommand` canonical constructor에 `title` 공백/길이(200), `externalKey` 길이(180) 선검증을 추가해 엔티티 검증 전 입력을 조기 차단하도록 보강했다.
+`ScheduleSearchCondition`를 `dto/request`에서 `query` 패키지로 이동해 Phase 패키지 규칙과 실제 경로를 정렬하고, controller/query/test import를 동기화했다.
+
+### 변경 이유
+Phase 2 리뷰 이슈(민감 식별자 노출, command 선검증 부족, 클래스 위치 불일치) 수정
