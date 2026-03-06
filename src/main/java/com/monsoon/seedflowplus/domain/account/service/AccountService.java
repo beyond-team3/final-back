@@ -12,6 +12,7 @@ import com.monsoon.seedflowplus.domain.account.dto.response.ClientProfileRespons
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeManagedClientResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeProfileResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
@@ -291,17 +292,34 @@ public class AccountService {
     @Transactional(readOnly = true)
     public EmployeeDetailResponse getEmployeeDetail(Long employeeId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
-
-        // 권한 체크: ADMIN이 아니고, 본인의 employeeId와 요청된 employeeId가 다른 경우 거부
-        if (userDetails.getRole() != Role.ADMIN &&
-                (userDetails.getEmployeeId() == null || !userDetails.getEmployeeId().equals(employeeId))) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        requireRole(userDetails, Role.ADMIN);
 
         User user = userRepository.findByEmployeeId(employeeId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
         return EmployeeDetailResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeProfileResponse getMyEmployeeProfile() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        if (userDetails.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        User user = userRepository.findByEmployeeId(userDetails.getEmployeeId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        return EmployeeProfileResponse.from(user);
     }
 
     @Transactional(readOnly = true)
