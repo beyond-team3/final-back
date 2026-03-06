@@ -42,3 +42,6 @@ out/
 ### .yml 설정파일 ###
 application-*.yml
 !application-test.yml
+
+### Local agent instructions ###
+AGENTS.md

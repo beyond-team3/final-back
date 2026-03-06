@@ -6,10 +6,8 @@ import static com.monsoon.seedflowplus.domain.billing.statement.entity.QStatemen
 import static com.monsoon.seedflowplus.domain.sales.contract.entity.QContractDetail.contractDetail;
 import static com.monsoon.seedflowplus.domain.sales.order.entity.QOrderDetail.orderDetail;
 
-import com.monsoon.seedflowplus.domain.billing.invoice.entity.QInvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.StatementStatus;
-import com.monsoon.seedflowplus.domain.billing.statement.entity.QStatement;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.CategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
@@ -19,7 +17,6 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.StringExpression;
-import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.math.BigDecimal;
 import java.util.Comparator;
@@ -37,37 +34,47 @@ public class BillingRevenueStatisticsRepository {
 
     private final JPAQueryFactory queryFactory;
 
-    public List<MonthlyBilledRevenueDto> findMonthlyRevenue(BillingRevenueStatisticsFilter filter) {
+    public List<MonthlyBilledRevenueDto> findMonthlyRevenue(BillingRevenueStatisticsFilter filter, Long employeeId) {
         StringExpression monthExpr = monthExpression();
-        NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
-        NumberExpression<BigDecimal> sumExpr = amountExpr.sum().coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> categoryAmountExpr = billedLineAmountExpression();
+        NumberExpression<BigDecimal> groupedAmountExpr = categoryAmountExpr.sum().coalesce(BigDecimal.ZERO);
+
+        if (!StringUtils.hasText(filter.getCategory())) {
+            List<Tuple> rows = queryFactory
+                    .select(monthExpr, invoice.id, groupedAmountExpr)
+                    .from(invoice)
+                    .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
+                    .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
+                    .join(orderDetail).on(orderDetail.orderHeader.id.eq(statement.orderHeader.id))
+                    .join(contractDetail).on(contractDetail.id.eq(orderDetail.contractDetail.id))
+                    .where(
+                            invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
+                            invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
+                            invoiceStatement.included.isTrue(),
+                            statement.status.eq(StatementStatus.ISSUED),
+                            employeeIdEq(employeeId)
+                    )
+                    .groupBy(monthExpr, invoice.id)
+                    .fetch();
+
+            Map<String, BigDecimal> grouped = rows.stream()
+                    .collect(Collectors.groupingBy(
+                            row -> row.get(monthExpr),
+                            Collectors.reducing(
+                                    BigDecimal.ZERO,
+                                    row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
+                                    BigDecimal::add
+                            )
+                    ));
+
+            return grouped.entrySet().stream()
+                    .map(entry -> new MonthlyBilledRevenueDto(entry.getKey(), entry.getValue()))
+                    .sorted(Comparator.comparing(MonthlyBilledRevenueDto::getMonth))
+                    .toList();
+        }
 
         List<Tuple> rows = queryFactory
-                .select(monthExpr, sumExpr)
-                .from(invoice)
-                .where(
-                        invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
-                        invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
-                        hasIncludedIssuedStatement()
-                )
-                .groupBy(monthExpr)
-                .orderBy(monthExpr.asc())
-                .fetch();
-
-        return rows.stream()
-                .map(row -> new MonthlyBilledRevenueDto(
-                        row.get(monthExpr),
-                        Objects.requireNonNullElse(row.get(sumExpr), BigDecimal.ZERO)
-                ))
-                .toList();
-    }
-
-    public List<CategoryBilledRevenueDto> findCategoryRevenue(BillingRevenueStatisticsFilter filter) {
-        StringExpression categoryExpr = contractDetail.productCategory;
-        NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
-
-        List<Tuple> rows = queryFactory
-                .select(categoryExpr, invoice.id, amountExpr)
+                .select(monthExpr, invoice.id, groupedAmountExpr)
                 .from(invoice)
                 .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
                 .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
@@ -78,6 +85,46 @@ public class BillingRevenueStatisticsRepository {
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                         invoiceStatement.included.isTrue(),
                         statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
+                        categoryEq(filter.getCategory())
+                )
+                .groupBy(monthExpr, invoice.id)
+                .fetch();
+
+        Map<String, BigDecimal> grouped = rows.stream()
+                .collect(Collectors.groupingBy(
+                        row -> row.get(monthExpr),
+                        Collectors.reducing(
+                                BigDecimal.ZERO,
+                                row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
+                                BigDecimal::add
+                        )
+                ));
+
+        return grouped.entrySet().stream()
+                .map(entry -> new MonthlyBilledRevenueDto(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparing(MonthlyBilledRevenueDto::getMonth))
+                .toList();
+    }
+
+    public List<CategoryBilledRevenueDto> findCategoryRevenue(BillingRevenueStatisticsFilter filter, Long employeeId) {
+        StringExpression categoryExpr = contractDetail.productCategory;
+        NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
+        NumberExpression<BigDecimal> groupedAmountExpr = lineAmountExpr.sum().coalesce(BigDecimal.ZERO);
+
+        List<Tuple> rows = queryFactory
+                .select(categoryExpr, invoice.id, groupedAmountExpr)
+                .from(invoice)
+                .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
+                .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
+                .join(orderDetail).on(orderDetail.orderHeader.id.eq(statement.orderHeader.id))
+                .join(contractDetail).on(contractDetail.id.eq(orderDetail.contractDetail.id))
+                .where(
+                        invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
+                        invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
+                        invoiceStatement.included.isTrue(),
+                        statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
                         categoryEq(filter.getCategory())
                 )
                 // invoice+category 단위로 1회만 집계되도록 중복 제거
@@ -89,7 +136,7 @@ public class BillingRevenueStatisticsRepository {
                         row -> row.get(categoryExpr),
                         Collectors.reducing(
                                 BigDecimal.ZERO,
-                                row -> Objects.requireNonNullElse(row.get(amountExpr), BigDecimal.ZERO),
+                                row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
                                 BigDecimal::add
                         )
                 ));
@@ -100,13 +147,17 @@ public class BillingRevenueStatisticsRepository {
                 .toList();
     }
 
-    public List<MonthlyCategoryBilledRevenueDto> findMonthlyCategoryRevenue(BillingRevenueStatisticsFilter filter) {
+    public List<MonthlyCategoryBilledRevenueDto> findMonthlyCategoryRevenue(
+            BillingRevenueStatisticsFilter filter,
+            Long employeeId
+    ) {
         StringExpression monthExpr = monthExpression();
         StringExpression categoryExpr = contractDetail.productCategory;
-        NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
+        NumberExpression<BigDecimal> groupedAmountExpr = lineAmountExpr.sum().coalesce(BigDecimal.ZERO);
 
         List<Tuple> rows = queryFactory
-                .select(monthExpr, categoryExpr, invoice.id, amountExpr)
+                .select(monthExpr, categoryExpr, invoice.id, groupedAmountExpr)
                 .from(invoice)
                 .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
                 .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
@@ -117,6 +168,7 @@ public class BillingRevenueStatisticsRepository {
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
                         invoiceStatement.included.isTrue(),
                         statement.status.eq(StatementStatus.ISSUED),
+                        employeeIdEq(employeeId),
                         categoryEq(filter.getCategory())
                 )
                 // invoice+month+category 단위로 1회만 집계되도록 중복 제거
@@ -128,7 +180,7 @@ public class BillingRevenueStatisticsRepository {
                         row -> new MonthCategoryKey(row.get(monthExpr), row.get(categoryExpr)),
                         Collectors.reducing(
                                 BigDecimal.ZERO,
-                                row -> Objects.requireNonNullElse(row.get(amountExpr), BigDecimal.ZERO),
+                                row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
                                 BigDecimal::add
                         )
                 ));
@@ -144,7 +196,15 @@ public class BillingRevenueStatisticsRepository {
     }
 
     private BooleanExpression categoryEq(String category) {
-        return StringUtils.hasText(category) ? contractDetail.productCategory.eq(category) : null;
+        return categoryEq(contractDetail.productCategory, category);
+    }
+
+    private BooleanExpression employeeIdEq(Long employeeId) {
+        return employeeId != null ? orderDetail.orderHeader.employee.id.eq(employeeId) : null;
+    }
+
+    private BooleanExpression categoryEq(StringExpression categoryExpr, String category) {
+        return StringUtils.hasText(category) ? categoryExpr.eq(category) : null;
     }
 
     private StringExpression monthExpression() {
@@ -152,20 +212,13 @@ public class BillingRevenueStatisticsRepository {
         return Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m')", invoice.invoiceDate);
     }
 
-    private BooleanExpression hasIncludedIssuedStatement() {
-        QInvoiceStatement isSub = new QInvoiceStatement("isSub");
-        QStatement stSub = new QStatement("stSub");
-
-        return JPAExpressions
-                .selectOne()
-                .from(isSub)
-                .join(isSub.statement, stSub)
-                .where(
-                        isSub.invoice.id.eq(invoice.id),
-                        isSub.included.isTrue(),
-                        stSub.status.eq(StatementStatus.ISSUED)
-                )
-                .exists();
+    private NumberExpression<BigDecimal> billedLineAmountExpression() {
+        return Expressions.numberTemplate(
+                BigDecimal.class,
+                "coalesce({0}, 0) * coalesce({1}, 0)",
+                contractDetail.unitPrice,
+                orderDetail.quantity
+        );
     }
 
     private record MonthCategoryKey(String month, String category) {
