@@ -484,6 +484,29 @@ class ApprovalCommandServiceTest {
         verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
     }
 
+    @Test
+    @DisplayName("케이스 11: SALES_REP search는 저장소 접근 제어 쿼리 결과를 그대로 사용한다")
+    void searchUsesSalesRepScopedRepositoryQuery() {
+        ApprovalRequest accessible = quoRequest(902L, 7200L, 88L);
+        ApprovalStep accessibleStep = step(92L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+
+        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(902L)).thenReturn(List.of(accessibleStep));
+
+        var result = approvalCommandService.search(
+                null,
+                DealType.QUO,
+                null,
+                PageRequest.of(0, 10),
+                mockUser(Role.SALES_REP, 501L, null)
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10));
+        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
+    }
+
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {
         ApprovalRequest request = ApprovalRequest.builder()
                 .dealType(DealType.QUO)
