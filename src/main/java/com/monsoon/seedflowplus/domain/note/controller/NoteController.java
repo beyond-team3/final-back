@@ -3,10 +3,8 @@ package com.monsoon.seedflowplus.domain.note.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
-import com.monsoon.seedflowplus.domain.note.dto.response.BriefingResponseDto;
 import com.monsoon.seedflowplus.domain.note.dto.response.NoteResponseDto;
 import com.monsoon.seedflowplus.domain.note.service.NoteService;
-import com.monsoon.seedflowplus.domain.note.service.BriefingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,14 +22,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Tag(name = "Sales Note & AI Briefing", description = "영업 활동 기록 관리 및 AI 전략 브리핑 API")
+@Tag(name = "Sales Note", description = "영업 활동 기록 관리 API")
 @RestController
 @RequestMapping("/api/v1/notes")
 @RequiredArgsConstructor
 public class NoteController {
 
     private final NoteService noteService;
-    private final BriefingService briefingService;
 
     /**
      * 1. 영업 노트 목록 조회 및 검색
@@ -99,22 +96,5 @@ public class NoteController {
     public ResponseEntity<Void> deleteNote(@Parameter(description = "영업 노트 ID") @PathVariable Long id) {
         noteService.deleteNote(id);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * 5. AI 영업 브리핑 조회
-     * NoteBriefingView.vue에서 고객 선택 시 전략 리포트를 반환합니다.
-     */
-    @Operation(summary = "고객별 AI 영업 브리핑 조회", description = "특정 고객사에 대한 AI 기반의 통합 영업 브리핑 및 전략 리포트를 조회합니다.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "404", description = "해당 고객의 브리핑 정보를 찾을 수 없습니다.",
-                    content = @Content(schema = @Schema(implementation = ApiResult.class)))
-    })
-    @GetMapping("/briefing/{clientId}")
-    public ResponseEntity<ApiResult<BriefingResponseDto>> getBriefing(@Parameter(description = "고객 ID") @PathVariable Long clientId) {
-        return briefingService.getBriefingByClient(clientId)
-                .map(entity -> ResponseEntity.ok(ApiResult.success(BriefingResponseDto.from(entity))))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 고객의 브리핑 정보를 찾을 수 없습니다."));
     }
 }

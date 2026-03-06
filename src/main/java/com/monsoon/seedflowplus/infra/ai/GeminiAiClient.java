@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monsoon.seedflowplus.domain.note.entity.SalesBriefing;
 import com.monsoon.seedflowplus.infra.ai.dto.GeminiApiResponse;
 import com.monsoon.seedflowplus.infra.ai.dto.GeminiResponse;
+import dev.langchain4j.data.segment.TextSegment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -32,64 +34,133 @@ public class GeminiAiClient implements AiClient {
     private String apiUrl;
 
     @Override
-    public SalesBriefing analyzeSalesStrategy(Long clientId, String text) {
+    public SalesBriefing analyzeSalesStrategy(Long clientId, List<TextSegment> contexts, String scopeDescription) {
         try {
-            String prompt = buildPromptWithCitation(text);
+            String notesText = formatContexts(contexts, "SALES_NOTE");
+            String productsText = formatContexts(contexts, "PRODUCT_CATALOG");
 
-            // 1. API 요청 바디 구성 (snake_case 규격 준수)
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(Map.of("text", prompt)))
-                    ),
-                    "generationConfig", Map.of(
-                            "temperature", 0.1,
-                            "response_mime_type", "application/json" // 필드명 수정
-                    )
-            );
+            String augmentedPrompt = buildAugmentedPrompt(notesText, productsText, scopeDescription);
 
-            // 2. HTTP 헤더 설정 (보안 강화: x-goog-api-key 사용)
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-goog-api-key", apiKey); // API 키를 헤더로 이동
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-            // 3. URI 생성 (쿼리 파라미터에서 키 제거)
-            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl)
-                    .build()
-                    .toUri();
-
-            // 4. Gemini API 호출
-            ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.POST,
-                    entity,
-                    GeminiApiResponse.class
-            );
-
-            // 5. 응답 데이터 추출 (방어적 코드 적용)
-            String jsonText = extractTextFromResponse(response.getBody())
-                    .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 응답을 받지 못했습니다."));
+            Map<String, Object> requestBody = createRequestBody(augmentedPrompt, 0.1);
+            String jsonText = callGemini(requestBody);
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
 
-            // 6. 엔티티 생성 (camelCase 필드 및 JsonProperty 매핑 결과 반영)
             return SalesBriefing.builder()
                     .clientId(clientId)
                     .statusChange(aiResult.getStatusChange())
                     .longTermPattern(aiResult.getLongTermPattern())
                     .strategySuggestion(aiResult.getStrategySuggestion())
                     .evidenceNoteIds(aiResult.getEvidenceNoteIds())
-                    .version(aiResult.getVersion())
+                    .version("RAGseed-Standard-v1.3")
                     .build();
 
-        } catch (org.springframework.web.client.ResourceAccessException e) {
-            log.error("Gemini API 호출 타임아웃 발생: {}", e.getMessage());
-            throw new RuntimeException("AI 분석 서버 응답 시간이 초과되었습니다.", e);
         } catch (Exception e) {
-            log.error("Gemini 분석 중 알 수 없는 오류 발생: {}", e.getMessage());
+            log.error("RAGseed 표준 분석 중 오류 발생: {}", e.getMessage());
             throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
         }
+    }
+
+    /**
+     * RAGseed 타겟팅 전략 생성
+     */
+    @Override
+    public String generateTargetedResponse(String userPrompt, List<TextSegment> contexts, String scopeDescription) {
+        try {
+            String contextText = contexts.stream()
+                    .map(s -> String.format("[%s] %s", s.metadata().get("type"), s.text()))
+                    .collect(Collectors.joining("\n"));
+
+            String fullPrompt = String.format("""
+                당신은 전략 인출 엔진 'RAGseed'입니다. 
+                현재 분석 범위는 [%s]입니다.
+                제공된 영업 데이터 자산(Seed)에서 사용자의 요청에 대한 가장 정확한 전략을 인출(Retrieval)하세요.
+                
+                [인출 데이터]
+                %s
+                
+                [사용자 요청]
+                %s
+                
+                [지침]
+                - 답변 서두에 반드시 "본 분석은 %s를 바탕으로 도출되었습니다."라는 문구를 포함하세요.
+                - 신뢰감 있고 전문적인 B2B 영업 어조를 유지하세요.
+                - 인출된 데이터에 기반하여 구체적인 수치나 사례가 있다면 반드시 언급하세요.
+                - 데이터에 없는 내용은 추측하지 마세요.
+                """, scopeDescription, contextText, userPrompt, scopeDescription);
+
+            Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2);
+            return callGemini(requestBody);
+
+        } catch (Exception e) {
+            log.error("RAGseed 타겟 전략 생성 중 오류: {}", e.getMessage());
+            throw new RuntimeException("RAGseed 타겟 전략 인출에 실패했습니다.", e);
+        }
+    }
+
+    private String formatContexts(List<TextSegment> contexts, String type) {
+        return contexts.stream()
+                .filter(s -> type.equals(s.metadata().get("type")))
+                .map(s -> {
+                    if ("SALES_NOTE".equals(type)) {
+                        return String.format("[ID: %s] (%s) %s", s.metadata().get("id"), s.metadata().get("activityDate"), s.text());
+                    } else {
+                        return String.format("[ID: %s] (%s) %s", s.metadata().get("productId"), s.metadata().get("category"), s.text());
+                    }
+                })
+                .collect(Collectors.joining("\n"));
+    }
+
+    private Map<String, Object> createRequestBody(String prompt, double temp) {
+        return Map.of(
+                "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                "generationConfig", Map.of("temperature", temp, "response_mime_type", "application/json")
+        );
+    }
+
+    private String callGemini(Map<String, Object> requestBody) throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-goog-api-key", apiKey);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl).build().toUri();
+
+        ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(uri, HttpMethod.POST, entity, GeminiApiResponse.class);
+        String text = extractTextFromResponse(response.getBody()).orElseThrow();
+        
+        if (text.startsWith("```")) {
+            text = text.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+        }
+        return text;
+    }
+
+    private String buildAugmentedPrompt(String notes, String products, String scope) {
+        return String.format("""
+        당신은 전략 영업 인출 엔진 'RAGseed'입니다.
+        현재 분석 범위는 [%s]입니다.
+        과거 데이터(Seed)에서 최적의 전략을 인출하여 표준 영업 브리핑을 작성하세요.
+
+        [지침]
+        1. 답변의 첫 문장은 반드시 "본 분석은 %s를 바탕으로 도출되었습니다."로 시작하세요.
+        2. 과거 영업 기록을 분석하여 핵심 변화와 패턴을 도출하세요.
+        3. 종자 카탈로그를 참조하여 고객에게 가장 적합한 품종을 전략적으로 제안하세요.
+
+        반드시 아래 JSON 구조로만 응답하세요:
+        {
+          "status_change": ["최근 변화 리스트"],
+          "long_term_pattern": ["장기 패턴 리스트"],
+          "strategy_suggestion": "전문적인 영업 전략 제안",
+          "evidence_note_ids": [101, 102],
+          "version": "RAGseed-Standard-v1.3"
+        }
+
+        [데이터: Seed - 영업 기록]
+        %s
+
+        [데이터: Seed - 종자 카탈로그]
+        %s
+        """, scope, scope, notes, products);
     }
 
     @Override

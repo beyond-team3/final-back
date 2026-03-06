@@ -43,6 +43,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -56,6 +58,48 @@ public class ContractService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+
+    /**
+     * 특정 거래처의 계약 목록 조회 (드롭다운용)
+     */
+    public List<ContractSimpleResponse> getContractsByClient(Long clientId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        // 권한 체크: 해당 거래처의 데이터에 접근할 권한이 있는지 확인
+        validateClientAccess(client, userDetails);
+
+        return contractRepository.findByClientOrderByEndDateAsc(client).stream()
+                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 삭제된 계약 제외
+                .map(ContractSimpleResponse::from)
+                .toList();
+    }
+
+    private void validateClientAccess(Client client, CustomUserDetails user) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        if (user.getRole() == Role.SALES_REP) {
+            // 해당 거래처의 담당 영업사원인지 확인
+            if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(user.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        if (user.getRole() == Role.CLIENT) {
+            // 본인 거래처인지 확인
+            if (!client.getId().equals(user.getClientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            return;
+        }
+
+        throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();

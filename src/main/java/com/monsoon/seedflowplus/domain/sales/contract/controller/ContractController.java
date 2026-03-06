@@ -11,6 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
+import java.util.List;
+
 @Tag(name = "Contract", description = "계약 API")
 @RestController
 @RequestMapping("/api/v1/contracts")
@@ -18,6 +21,12 @@ import org.springframework.web.bind.annotation.*;
 public class ContractController {
 
     private final ContractService contractService;
+
+    @Operation(summary = "거래처별 계약 목록 조회 (드롭다운용)", description = "특정 거래처 ID에 귀속된 계약 목록을 조회합니다.")
+    @GetMapping
+    public ApiResult<List<ContractSimpleResponse>> getContractsByClient(@RequestParam("clientId") Long clientId) {
+        return ApiResult.success(contractService.getContractsByClient(clientId));
+    }
 
     @Operation(summary = "계약서 작성을 위한 견적 데이터 불러오기", description = "견적서 ID를 통해 계약서 작성에 필요한 기본 정보를 조회합니다.")
     @GetMapping("/prefill")

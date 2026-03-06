@@ -73,6 +73,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
+    // [LangChain4j] RAG (Retrieval-Augmented Generation) 구현을 위한 의존성
+    implementation 'dev.langchain4j:langchain4j-spring-boot-starter:0.35.0'
+    implementation 'dev.langchain4j:langchain4j-google-ai-gemini:0.35.0'
+    implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.35.0'
+
     // 취약점이 있는 라이브러리 강제 업데이트 예시
     constraints {
         implementation('org.apache.commons:commons-lang3:3.17.0') {
