@@ -254,3 +254,30 @@ ApprovalCommandService의 신규 의존성(`Clock`, `UserRepository`, `Notificat
 
 ### 변경 이유
 서비스 생성자 의존성 확장 이후 단위 테스트 주입 구성이 최신 구조를 반영하지 못해 Jenkins 빌드가 실패하던 이슈를 수정하기 위함
+
+## [2026-03-07] Notification 발송 정합성/보존 정책 결함 수정
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java
+- 클래스/메서드: NotificationSseService.send
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java
+- 클래스/메서드: NotificationDeliveryWorkerService.dispatch, loadDueDeliveriesWithAssociations
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: NotificationEventHandler.sendIfPresent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java
+- 클래스/메서드: createDealStatusChangedNotification, createIfNotDuplicated, isDuplicatedToday
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java
+- 클래스/메서드: markAllAsRead, deleteByUser_Id, deleteByCreatedAtBefore, existsBy...CreatedAtGreaterThanEqualAndCreatedAtLessThan
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java
+- 클래스/메서드: deleteByNotification_Id, deleteByNotification_User_Id, deleteByNotification_CreatedAtBefore
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/scheduler/NotificationDeliveryScheduler.java
+- 클래스/메서드: deleteExpiredNotifications
+
+### 변경 내용
+SSE send 결과를 boolean으로 반환해 전송 예외(IO/IllegalState) 시 워커가 실패 처리할 수 있게 했고, 워커는 send 성공 시에만 markSent 하도록 조정했다.
+SKIP LOCKED 조회 실패 fallback은 비원자 non-locking 선점 경로를 중단하도록 빈 목록 반환으로 변경해 중복 발송 가능성을 차단했다.
+이벤트 핸들러의 SSE 전송은 트랜잭션 afterCommit 콜백에서 수행되도록 이동했고, Deal 상태 변경 dedup은 전이별 content 키를 포함해 당일 전이 누락을 방지했다.
+알림/딜리버리 벌크 삭제는 물리 DELETE 대신 is_deleted=true UPDATE로 교체하고, retention day는 프로퍼티(`notification.retention-days`) 주입 방식으로 전환했다.
+
+### 변경 이유
+리뷰 이슈 [1]~[9] 중 수정 제외 항목을 제외한 발송 원자성/중복 전송/소프트삭제 우회/설정 하드코딩 결함을 수정하기 위함

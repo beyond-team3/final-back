@@ -214,3 +214,24 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-07 02:25] Notification 리뷰 이슈 [1]~[9] 보완 반영
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java — send 실패를 boolean으로 반환하고 실패 시 compare-remove 후 false 반환
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java — non-atomic fallback 비활성화, send 성공 시에만 markSent
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — SSE send를 afterCommit 콜백으로 이동
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java — deal 상태 전이 dedup 분리, 당일 범위 upper bound exclusive, 즉시 알림 delivery SENT 처리
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — bulk DELETE 메서드를 소프트딜리트 UPDATE로 교체, 리포지토리 @Transactional 제거
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java — 연관 delivery bulk DELETE를 native soft-delete UPDATE로 교체
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/scheduler/NotificationDeliveryScheduler.java — retentionDays를 설정 주입으로 변경
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/scheduler/NotificationDeliverySchedulerTest.java — retentionDays 주입 필드 반영 테스트 보정
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
