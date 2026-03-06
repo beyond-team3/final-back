@@ -19,6 +19,8 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 
     List<Client> findAllByManagerEmployeeId(Long employeeId);
 
+    boolean existsByIdAndManagerEmployeeId(Long id, Long managerEmployeeId);
+
     @Query("SELECT c FROM Client c WHERE NOT EXISTS (SELECT 1 FROM User u WHERE u.client = c)")
     List<Client> findAllUnregistered();
 
