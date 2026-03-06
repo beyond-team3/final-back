@@ -47,3 +47,19 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 11:49] 청구 매출 통계 품종 집계 및 기간 경계 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepository.java` — 품종별/월별+품종별 집계와 월별 category 분기에서 `invoice.totalAmount` 및 `contractDetail.amount` 대신 `unitPrice * quantity` 기준 품목 금액을 `invoice + category` 또는 `invoice + month + category` 단위로 합산하도록 수정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/service/BillingRevenueStatisticsQueryService.java` — 조회 기간 검증을 포함 구간 기준 월 수로 계산해 정책상 최대 24개월까지만 허용하도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — `by-category`, `monthly-by-category` 엔드포인트의 응답 래퍼 및 필터 바인딩 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/service/BillingRevenueStatisticsQueryServiceTest.java` — 24개월/25개월 경계값 테스트 기대값을 정책 기준으로 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepositoryTest.java` — 혼합 품종 invoice의 품종별/월별+품종별 중복 집계 회귀 테스트와 실제 청구 산식 기반 fixture 보정 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
