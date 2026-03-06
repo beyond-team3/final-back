@@ -82,3 +82,18 @@ applyContractDecision() 구현
 
 ### 다음 단계
 resolveAndApplyDocumentDecision() 구현
+
+## [2026-03-06 11:50] resolveAndApplyDocumentDecision 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — dealType 기반 문서 상태 적용 분기 helper 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/ErrorType.java — 미지원 승인 문서 타입 예외 추가
+- 수정 파일: docs/refactoring/approval-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/refactoring/approval-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+decideStep() 재구성

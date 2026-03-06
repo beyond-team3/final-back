@@ -81,3 +81,17 @@ QUO도 ADMIN 승인 후 CLIENT 승인 단계가 필요한 승인 정책 반영
 
 ### 변경 이유
 CNT 승인 처리도 QUO와 동일한 패턴으로 실문서 상태 변경을 수행하기 위함
+
+## [2026-03-06] 문서 결정 분기 helper 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.resolveAndApplyDocumentDecision
+
+### 변경 내용
+승인 요청의 `dealType`에 따라 QUO/CNT 문서 상태 적용 helper를 분기 호출하는
+`resolveAndApplyDocumentDecision(...)` 메서드를 추가했다.
+지원하지 않는 문서 타입은 승인 전용 예외로 즉시 중단하도록 에러 타입도 보강했다.
+
+### 변경 이유
+decideStep()에서 문서 타입별 상태 적용을 한 진입점으로 통합하기 위함
