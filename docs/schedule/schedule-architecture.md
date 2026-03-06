@@ -59,3 +59,19 @@ CQRS 성격의 조회 계층 구조를 명시했다.
 
 ### 변경 이유
 Phase 4 정책(통합 조회 서비스의 query 계층 분리) 일치
+
+## [2026-03-06] Phase 5 거래 일정 동기화 패키지 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/DealScheduleUpsertCommand.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/DealScheduleSyncService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java
+- 클래스/메서드: DealScheduleSyncService#upsertFromEvent
+
+### 변경 내용
+`DealScheduleUpsertCommand`를 `dto/request`에서 `dto/command`로 이동해 명령 모델 경계를 명확히 했다.
+`DealScheduleSyncService`를 `service`에서 `sync` 패키지로 이동하고 import 경로를 동기화했다.
+`upsertFromEvent(...)`의 externalKey 기반 upsert와 `DataIntegrityViolationException` 단일 재시도 구조는 기존 구현을 유지했다.
+
+### 변경 이유
+Phase 5 정책(동기화 전용 계층/명령 DTO 패키지 분리) 일치

@@ -48,3 +48,18 @@ Phase 4 통합 조회 API 정합성 점검 및 보정
 
 ### 다음 단계
 Phase 5 거래 일정 동기화 로직 정합성 점검 및 보정
+
+## [2026-03-06 18:11] Phase 5 거래 일정 동기화 계층 정렬
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/DealScheduleUpsertCommand.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java — 명령 DTO 패키지 이동
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/DealScheduleSyncService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java — sync 패키지 이동 및 command import 경로 정리
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+Phase 6 테스트 구현
