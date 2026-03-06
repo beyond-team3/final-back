@@ -209,3 +209,19 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-07 03:03] 리뷰 코멘트 재검증 및 필요 수정 반영
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/GlobalExceptionHandler.java — `IllegalArgumentException` 응답에서 내부 메시지 노출 제거, 고정 사용자 메시지 반환 및 warn 로그에 stack trace 포함
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java — `DONE`/`TEAM` 금지 검증을 resolved 값 기준에서 요청값 명시 기준으로 변경해 레거시 current 값 업데이트 차단 해소
+- 확인 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java — `@MockitoBean` 전환 필요성 검증(현재 Spring Boot 3.3.5 / spring-test 6.1.14 환경에서 미지원으로 미적용)
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조/정책 변경 이력 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

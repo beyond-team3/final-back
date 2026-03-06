@@ -233,3 +233,20 @@ SALES_REP 통합 조회는 `clientId IN (...)` 대신 `managerEmployeeId` 조건
 
 ### 변경 이유
 리뷰 지적 반영(soft delete 누락, CQRS 경계 혼재, SALES_REP 조회 성능, 레거시 enum 입력 허용, 엔티티-HTTP 예외 결합)
+
+## [2026-03-07] 예외 응답 메시지 비노출 및 개인 일정 업데이트 레거시 허용 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/GlobalExceptionHandler.java
+- 클래스/메서드: GlobalExceptionHandler#handleIllegalArgumentException
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java
+- 클래스/메서드: PersonalScheduleCommandService#resolveStatusForUpdate, resolveVisibilityForCreate, resolveVisibilityForUpdate
+
+### 변경 내용
+`IllegalArgumentException` 처리 응답이 내부 예외 메시지를 그대로 노출하지 않도록 고정 사용자 메시지(`Invalid input.`)를 반환하도록 변경했다.
+진단 목적 로그는 예외 메시지와 stack trace를 남기도록 강화했다.
+개인 일정 update/create 시 `DONE`/`TEAM` 금지 검증은 "요청값이 명시된 경우"에만 적용되도록 조정해,
+기존 DB 레거시 값이 현재값으로 존재하는 경우에는 null 요청(update 무변경) 흐름이 차단되지 않게 했다.
+
+### 변경 이유
+리뷰 지적 반영(내부 예외 정보 노출 방지, 레거시 데이터 업데이트 호환성 보장)
