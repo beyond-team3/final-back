@@ -22,9 +22,9 @@ public class NotificationSseService {
             previousEmitter.complete();
         }
 
-        emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
-        emitter.onError(ex -> remove(userId, emitter));
+        emitter.onCompletion(() -> removeIfMatch(userId, emitter));
+        emitter.onTimeout(() -> removeIfMatch(userId, emitter));
+        emitter.onError(ex -> removeIfMatch(userId, emitter));
 
         return emitter;
     }
@@ -39,15 +39,11 @@ public class NotificationSseService {
             emitter.send(SseEmitter.event().name("notification").data(payload));
         } catch (IOException | IllegalStateException e) {
             log.warn("SSE send failed. userId={}, reason={}", userId, e.getMessage(), e);
-            remove(userId, emitter);
+            removeIfMatch(userId, emitter);
         }
     }
 
-    public void remove(Long userId) {
-        emitters.remove(userId);
-    }
-
-    private void remove(Long userId, SseEmitter emitter) {
+    private void removeIfMatch(Long userId, SseEmitter emitter) {
         emitters.remove(userId, emitter);
     }
 }
