@@ -19,11 +19,15 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@AttributeOverride(name = "id", column = @Column(name = "psked_id"))
+@AttributeOverride(name = "id", column = @Column(name = "personal_schedule_id"))
+@SQLDelete(sql = "UPDATE tbl_pers_sked SET is_deleted = true WHERE personal_schedule_id = ?")
+@SQLRestriction("is_deleted = false")
 @Table(
         name = "tbl_pers_sked",
         indexes = {
@@ -59,6 +63,9 @@ public class PersonalSchedule extends BaseModifyEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false, length = 20)
     private ScheduleVisibility visibility;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
 
     @Builder
     public PersonalSchedule(
