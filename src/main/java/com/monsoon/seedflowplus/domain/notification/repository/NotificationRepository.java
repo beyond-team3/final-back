@@ -32,4 +32,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Notification n set n.readAt = :now where n.user.id = :userId and n.readAt is null")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    long deleteByUser_Id(Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    long deleteByCreatedAtBefore(LocalDateTime cutoff);
 }

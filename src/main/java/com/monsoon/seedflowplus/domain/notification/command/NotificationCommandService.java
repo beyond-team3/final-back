@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.notification.command;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import com.monsoon.seedflowplus.domain.notification.service.CultivationNotificationService;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationCommandService {
 
     private final NotificationRepository notificationRepository;
+    private final NotificationDeliveryRepository notificationDeliveryRepository;
     private final CultivationNotificationService cultivationNotificationService;
 
     public void markAsRead(Long userId, Long notificationId, LocalDateTime now) {
@@ -33,6 +35,31 @@ public class NotificationCommandService {
         Objects.requireNonNull(now, "now must not be null");
 
         notificationRepository.markAllAsRead(userId, now);
+    }
+
+    public void deleteOne(Long userId, Long notificationId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        Objects.requireNonNull(notificationId, "notificationId must not be null");
+
+        var notification = notificationRepository.findByIdAndUser_Id(notificationId, userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOTIFICATION_NOT_FOUND));
+
+        notificationDeliveryRepository.deleteByNotification_Id(notification.getId());
+        notificationRepository.delete(notification);
+    }
+
+    public void deleteAll(Long userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+
+        notificationDeliveryRepository.deleteByNotification_User_Id(userId);
+        notificationRepository.deleteByUser_Id(userId);
+    }
+
+    public long deleteOlderThan(LocalDateTime cutoff) {
+        Objects.requireNonNull(cutoff, "cutoff must not be null");
+
+        notificationDeliveryRepository.deleteByNotification_CreatedAtBefore(cutoff);
+        return notificationRepository.deleteByCreatedAtBefore(cutoff);
     }
 
     public void createCultivationSowingPromotion(

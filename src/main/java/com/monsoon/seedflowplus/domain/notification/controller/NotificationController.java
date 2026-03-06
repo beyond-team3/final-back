@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -78,6 +79,25 @@ public class NotificationController {
         Long userId = resolveUserId(principal);
         notificationCommandService.markAllAsRead(userId, LocalDateTime.now(clock));
 
+        return ApiResult.success();
+    }
+
+    @DeleteMapping("/{notificationId}")
+    public ApiResult<?> deleteOne(
+            @PathVariable @Positive Long notificationId,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        Long userId = resolveUserId(principal);
+        notificationCommandService.deleteOne(userId, notificationId);
+        return ApiResult.success();
+    }
+
+    @DeleteMapping
+    public ApiResult<?> deleteAll(
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        Long userId = resolveUserId(principal);
+        notificationCommandService.deleteAll(userId);
         return ApiResult.success();
     }
 
