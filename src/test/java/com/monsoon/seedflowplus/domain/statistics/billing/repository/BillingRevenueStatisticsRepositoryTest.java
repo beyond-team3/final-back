@@ -63,7 +63,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateAllQualifiedMonthlyRevenueWhenCategoryIsNull() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter(null));
+        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter(null), null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
@@ -75,7 +75,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateOnlyTomatoMonthlyRevenueWhenCategoryIsTomato() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("tomato"));
+        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("tomato"), null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
@@ -87,7 +87,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateOnlyCabbageMonthlyRevenueWhenCategoryIsCabbage() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("cabbage"));
+        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("cabbage"), null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
@@ -99,7 +99,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldReturnEmptyResultWhenCategoryDoesNotExist() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("pepper"));
+        List<MonthlyBilledRevenueDto> result = repository.findMonthlyRevenue(filter("pepper"), null);
 
         assertThat(result).isEmpty();
         assertThat(sumRevenue(result)).isEqualByComparingTo("0");
@@ -110,8 +110,8 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateOnlyMatchedCategoryAmountForMixedCategoryInvoice() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyBilledRevenueDto> tomatoResult = repository.findMonthlyRevenue(filter("tomato"));
-        List<MonthlyBilledRevenueDto> cabbageResult = repository.findMonthlyRevenue(filter("cabbage"));
+        List<MonthlyBilledRevenueDto> tomatoResult = repository.findMonthlyRevenue(filter("tomato"), null);
+        List<MonthlyBilledRevenueDto> cabbageResult = repository.findMonthlyRevenue(filter("cabbage"), null);
 
         assertThat(tomatoResult).hasSize(1);
         assertThat(tomatoResult.get(0).getMonth()).isEqualTo("2024-01");
@@ -127,7 +127,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateCategoryRevenueWithoutDuplicatingMixedInvoiceTotal() {
         seedMonthlyRevenueFixtures();
 
-        List<CategoryBilledRevenueDto> result = repository.findCategoryRevenue(filter(null));
+        List<CategoryBilledRevenueDto> result = repository.findCategoryRevenue(filter(null), null);
         Map<String, BigDecimal> revenueMap = toCategoryRevenueMap(result);
 
         assertThat(revenueMap).containsKeys("tomato", "cabbage");
@@ -140,7 +140,7 @@ class BillingRevenueStatisticsRepositoryTest {
     void shouldAggregateMonthlyCategoryRevenueWithoutDuplicatingMixedInvoiceTotal() {
         seedMonthlyRevenueFixtures();
 
-        List<MonthlyCategoryBilledRevenueDto> result = repository.findMonthlyCategoryRevenue(filter(null));
+        List<MonthlyCategoryBilledRevenueDto> result = repository.findMonthlyCategoryRevenue(filter(null), null);
         Map<String, BigDecimal> revenueMap = toMonthlyCategoryRevenueMap(result);
 
         assertThat(revenueMap).containsKeys("2024-01|tomato", "2024-01|cabbage");
@@ -165,14 +165,65 @@ class BillingRevenueStatisticsRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<MonthlyBilledRevenueDto> monthlyResult = repository.findMonthlyRevenue(filter(null));
-        List<CategoryBilledRevenueDto> categoryResult = repository.findCategoryRevenue(filter(null));
+        List<MonthlyBilledRevenueDto> monthlyResult = repository.findMonthlyRevenue(filter(null), null);
+        List<CategoryBilledRevenueDto> categoryResult = repository.findCategoryRevenue(filter(null), null);
 
         assertThat(monthlyResult).hasSize(1);
         assertThat(monthlyResult.get(0).getMonth()).isEqualTo("2024-01");
         assertThat(monthlyResult.get(0).getBilledRevenue()).isEqualByComparingTo("400");
         assertThat(sumRevenue(monthlyResult)).isEqualByComparingTo("400");
         assertThat(sumCategoryRevenue(categoryResult)).isEqualByComparingTo("400");
+    }
+
+    @Test
+    @DisplayName("employeeId가 주어지면 해당 영업사원 담당 주문의 통계만 조회한다")
+    void shouldAggregateOnlyScopedSalesRepRevenueWhenEmployeeIdProvided() {
+        Employee scopedEmployee = persistEmployee("SCOPE-001");
+        Employee otherEmployee = persistEmployee("SCOPE-002");
+
+        createInvoiceGraphForEmployee(
+                scopedEmployee,
+                List.of(detailSpec("tomato", "120")),
+                "120",
+                InvoiceStatus.PUBLISHED,
+                true,
+                StatementStatus.ISSUED,
+                "INV-SCOPE-001",
+                "STMT-SCOPE-001",
+                "ORD-SCOPE-001",
+                "CT-SCOPE-001"
+        );
+        createInvoiceGraphForEmployee(
+                otherEmployee,
+                List.of(detailSpec("tomato", "80"), detailSpec("cabbage", "220")),
+                "300",
+                InvoiceStatus.PUBLISHED,
+                true,
+                StatementStatus.ISSUED,
+                "INV-SCOPE-002",
+                "STMT-SCOPE-002",
+                "ORD-SCOPE-002",
+                "CT-SCOPE-002"
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        List<MonthlyBilledRevenueDto> monthlyResult = repository.findMonthlyRevenue(filter(null), scopedEmployee.getId());
+        List<CategoryBilledRevenueDto> categoryResult = repository.findCategoryRevenue(filter(null), scopedEmployee.getId());
+        List<MonthlyCategoryBilledRevenueDto> monthlyCategoryResult =
+                repository.findMonthlyCategoryRevenue(filter(null), scopedEmployee.getId());
+
+        assertThat(monthlyResult).hasSize(1);
+        assertThat(monthlyResult.get(0).getBilledRevenue()).isEqualByComparingTo("120");
+
+        assertThat(categoryResult).hasSize(1);
+        assertThat(categoryResult.get(0).getCategory()).isEqualTo("tomato");
+        assertThat(categoryResult.get(0).getBilledRevenue()).isEqualByComparingTo("120");
+
+        assertThat(monthlyCategoryResult).hasSize(1);
+        assertThat(monthlyCategoryResult.get(0).getMonth()).isEqualTo("2024-01");
+        assertThat(monthlyCategoryResult.get(0).getCategory()).isEqualTo("tomato");
+        assertThat(monthlyCategoryResult.get(0).getBilledRevenue()).isEqualByComparingTo("120");
     }
 
     private void seedMonthlyRevenueFixtures() {
@@ -211,6 +262,32 @@ class BillingRevenueStatisticsRepositoryTest {
             String contractCode
     ) {
         Employee employee = persistEmployee(invoiceCode);
+        createInvoiceGraphForEmployee(
+                employee,
+                detailSpecs,
+                amount,
+                invoiceStatus,
+                included,
+                statementStatus,
+                invoiceCode,
+                statementCode,
+                orderCode,
+                contractCode
+        );
+    }
+
+    private void createInvoiceGraphForEmployee(
+            Employee employee,
+            List<DetailSpec> detailSpecs,
+            String amount,
+            InvoiceStatus invoiceStatus,
+            boolean included,
+            StatementStatus statementStatus,
+            String invoiceCode,
+            String statementCode,
+            String orderCode,
+            String contractCode
+    ) {
         Client client = persistClient(invoiceCode, employee);
         SalesDeal deal = persistDeal(client, employee, invoiceCode);
         ContractHeader contract = persistContractHeader(contractCode, client, deal, employee);
