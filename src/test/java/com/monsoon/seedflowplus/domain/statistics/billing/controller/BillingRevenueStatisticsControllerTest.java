@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.statistics.billing.api;
+package com.monsoon.seedflowplus.domain.statistics.billing.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;

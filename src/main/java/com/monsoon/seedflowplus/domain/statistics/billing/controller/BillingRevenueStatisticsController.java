@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.statistics.billing.api;
+package com.monsoon.seedflowplus.domain.statistics.billing.controller;
 
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
