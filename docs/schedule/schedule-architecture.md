@@ -137,3 +137,17 @@ Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지
 
 ### 변경 이유
 운영 데이터/클라이언트 하위호환 및 표준 예외 정책 준수
+
+## [2026-03-06] PersonalSchedule soft delete/PK 컬럼명 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule (@AttributeOverride, @SQLDelete, @SQLRestriction)
+
+### 변경 내용
+`PersonalSchedule` PK 컬럼 매핑을 `psked_id`에서 `personal_schedule_id`로 정렬했다.
+엔티티에 `is_deleted` 컬럼과 Hibernate soft delete 어노테이션을 추가해 물리 삭제 대신 논리 삭제 정책을 따르도록 수정했다.
+`cancel()` 메서드는 기존과 동일하게 상태 전이(`CANCELED`) 책임만 유지한다.
+
+### 변경 이유
+이슈 #1, #2 (soft delete 정책 누락 및 PK 컬럼명 규칙 불일치) 수정

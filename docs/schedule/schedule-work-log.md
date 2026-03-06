@@ -116,3 +116,17 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-06 19:16] PersonalSchedule soft delete 정책/PK 컬럼명 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java — `@AttributeOverride`를 `personal_schedule_id`로 정렬, `@SQLDelete/@SQLRestriction` 및 `is_deleted` 필드 추가
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
