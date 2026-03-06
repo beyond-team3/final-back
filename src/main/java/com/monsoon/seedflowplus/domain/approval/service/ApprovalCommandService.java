@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.approval.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.response.ApprovalDetailResponse;
@@ -24,6 +25,10 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
+import com.monsoon.seedflowplus.domain.notification.event.ApprovalCompletedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ApprovalRejectedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
@@ -31,6 +36,7 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -55,6 +61,9 @@ public class ApprovalCommandService {
     private final QuotationRepository quotationRepository;
     private final ContractRepository contractRepository;
     private final DocStatusTransitionValidator docStatusTransitionValidator;
+    private final NotificationEventPublisher notificationEventPublisher;
+    private final UserRepository userRepository;
+    private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
             CreateApprovalRequestRequest dto,
@@ -106,6 +115,7 @@ public class ApprovalCommandService {
 
         Long actorId = resolveActorIdByActorType(submitActorType, principal);
         approvalDealLogWriter.writeSubmit(saved, submitActorType, actorId);
+        publishApprovalRequestedForFirstApprovers(saved, now());
 
         return new CreateApprovalRequestResponse(
                 saved.getId(),
@@ -143,7 +153,7 @@ public class ApprovalCommandService {
         validateStepOrder(step, request);
         validateRejectReason(dto);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
         DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
@@ -180,6 +190,7 @@ public class ApprovalCommandService {
                 step.getActorType(),
                 actorId
         );
+        publishApprovalEventsAfterDecision(request, step, dto.decision(), now);
 
         return toDetail(request);
     }
@@ -597,5 +608,103 @@ public class ApprovalCommandService {
             String fromStage,
             String toStage
     ) {
+    }
+
+    private void publishApprovalRequestedForFirstApprovers(ApprovalRequest request, LocalDateTime occurredAt) {
+        resolveApproverUserIds(ActorType.ADMIN, request.getClientIdSnapshot()).forEach(userId ->
+                notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
+                        userId,
+                        request.getId(),
+                        request.getDealType(),
+                        request.getTargetId(),
+                        occurredAt
+                ))
+        );
+    }
+
+    private void publishApprovalEventsAfterDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision,
+            LocalDateTime occurredAt
+    ) {
+        if (decision == DecisionType.REJECT) {
+            resolveRequesterUserId(request).ifPresent(userId ->
+                    notificationEventPublisher.publishAfterCommit(new ApprovalRejectedEvent(
+                            userId,
+                            request.getId(),
+                            request.getDealType(),
+                            request.getTargetId(),
+                            occurredAt
+                    ))
+            );
+            return;
+        }
+
+        if (request.getStatus() == ApprovalStatus.APPROVED) {
+            resolveRequesterUserId(request).ifPresent(userId ->
+                    notificationEventPublisher.publishAfterCommit(new ApprovalCompletedEvent(
+                            userId,
+                            request.getId(),
+                            request.getDealType(),
+                            request.getTargetId(),
+                            occurredAt
+                    ))
+            );
+            return;
+        }
+
+        approvalStepRepository
+                .findByApprovalRequestIdAndStepOrder(request.getId(), step.getStepOrder() + 1)
+                .filter(nextStep -> nextStep.getStatus() == ApprovalStepStatus.WAITING)
+                .ifPresent(nextStep -> resolveApproverUserIds(nextStep.getActorType(), request.getClientIdSnapshot())
+                        .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
+                                userId,
+                                request.getId(),
+                                request.getDealType(),
+                                request.getTargetId(),
+                                occurredAt
+                        ))));
+    }
+
+    private List<Long> resolveApproverUserIds(ActorType actorType, Long clientIdSnapshot) {
+        if (actorType == ActorType.ADMIN) {
+            return userRepository.findAllByRole(Role.ADMIN).stream()
+                    .map(user -> user.getId())
+                    .toList();
+        }
+        if (actorType == ActorType.CLIENT && clientIdSnapshot != null) {
+            return userRepository.findByClientId(clientIdSnapshot)
+                    .map(user -> List.of(user.getId()))
+                    .orElseGet(List::of);
+        }
+        return List.of();
+    }
+
+    private java.util.Optional<Long> resolveRequesterUserId(ApprovalRequest request) {
+        if (request.getDealType() == DealType.QUO) {
+            return quotationRepository.findById(request.getTargetId())
+                    .map(QuotationHeader::getDeal)
+                    .map(SalesDeal::getOwnerEmp)
+                    .map(owner -> owner == null ? null : owner.getId())
+                    .flatMap(userRepository::findByEmployeeId)
+                    .map(user -> user.getId());
+        }
+        if (request.getDealType() == DealType.CNT) {
+            return contractRepository.findById(request.getTargetId())
+                    .map(ContractHeader::getDeal)
+                    .map(SalesDeal::getOwnerEmp)
+                    .map(owner -> owner == null ? null : owner.getId())
+                    .flatMap(userRepository::findByEmployeeId)
+                    .map(user -> user.getId());
+        }
+        if (request.getClientIdSnapshot() != null) {
+            return userRepository.findByClientId(request.getClientIdSnapshot()).map(user -> user.getId());
+        }
+        return java.util.Optional.empty();
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }

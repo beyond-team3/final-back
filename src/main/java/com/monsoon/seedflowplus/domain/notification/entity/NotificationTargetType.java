@@ -10,5 +10,7 @@ public enum NotificationTargetType {
     INVOICE,
     STATEMENT,
     INVENTORY,
-    PRODUCT
+    PRODUCT,
+    DEAL,
+    APPROVAL
 }

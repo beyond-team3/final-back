@@ -17,6 +17,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,6 +32,8 @@ import lombok.NoArgsConstructor;
         }
 )
 @AttributeOverride(name = "id", column = @Column(name = "notification_id"))
+@SQLDelete(sql = "UPDATE tbl_notification SET is_deleted = true WHERE notification_id = ?")
+@SQLRestriction("is_deleted = false")
 public class Notification extends BaseCreateEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -55,6 +59,9 @@ public class Notification extends BaseCreateEntity {
 
     @Column(name = "read_at")
     private LocalDateTime readAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
 
     @Builder
     public Notification(

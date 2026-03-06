@@ -10,5 +10,9 @@ public enum NotificationType {
     STATEMENT_ISSUED,               // 명세서 발행
     STOCK_CHANGED,                  // 재고 변경
     CULTIVATION_SOWING_PROMOTION,   // 품종 추천(파종기 기반)
-    CULTIVATION_HARVEST_FEEDBACK    // 품종 피드백(수확기 기반)
+    CULTIVATION_HARVEST_FEEDBACK,   // 품종 피드백(수확기 기반)
+    DEAL_STATUS_CHANGED,            // 딜 상태 변경
+    APPROVAL_REQUESTED,             // 승인 요청
+    APPROVAL_COMPLETED,             // 승인 완료
+    APPROVAL_REJECTED               // 승인 반려
 }

@@ -21,14 +21,19 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,12 +86,26 @@ class ApprovalCommandServiceTest {
     @Mock
     private DocStatusTransitionValidator docStatusTransitionValidator;
 
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private Clock clock;
+
     @InjectMocks
     private ApprovalCommandService approvalCommandService;
 
     @BeforeEach
     void setUp() {
         lenient().when(approvalDecisionRepository.findByApprovalStepId(any())).thenReturn(Optional.empty());
+        lenient().when(userRepository.findAllByRole(any())).thenReturn(List.of());
+        lenient().when(userRepository.findByClientId(any())).thenReturn(Optional.empty());
+        lenient().when(userRepository.findByEmployeeId(any())).thenReturn(Optional.empty());
+        lenient().when(clock.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
+        lenient().when(clock.instant()).thenReturn(Instant.parse("2026-01-01T00:00:00Z"));
     }
 
     @Test
