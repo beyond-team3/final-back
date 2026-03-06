@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.service;
+package com.monsoon.seedflowplus.domain.schedule.query;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
