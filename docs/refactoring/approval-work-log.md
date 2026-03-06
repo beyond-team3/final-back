@@ -97,3 +97,18 @@ resolveAndApplyDocumentDecision() 구현
 
 ### 다음 단계
 decideStep() 재구성
+
+## [2026-03-06 11:55] decideStep 재구성
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 문서 상태 선변경 기준으로 decideStep 순서 재배치
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java — 서비스에서 계산한 상태/단계를 그대로 기록하도록 writeDecision 변경
+- 수정 파일: docs/refactoring/approval-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/refactoring/approval-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
