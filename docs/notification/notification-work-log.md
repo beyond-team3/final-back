@@ -129,3 +129,18 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-06 19:21] Notification 트랜잭션 readOnly 정책 정렬
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java — 클래스 기본 트랜잭션을 readOnly로 전환하고 쓰기 메서드에 `@Transactional` 재선언
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationService.java — 클래스 기본 트랜잭션을 readOnly로 전환하고 생성 메서드에 `@Transactional` 재선언
+- 수정 파일: docs/notification/notification-architecture.md — 트랜잭션 정책 정렬 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

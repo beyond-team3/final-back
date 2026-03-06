@@ -170,3 +170,19 @@ SKIP LOCKED 쿼리에 MariaDB 10.6+ 전제 조건을 명시하고, 미지원/실
 
 ### 변경 이유
 리뷰에서 식별된 Critical/Major/Minor 결함([1]~[4])을 기존 비즈니스 흐름 변경 없이 정확히 보완하기 위함
+
+## [2026-03-06] Notification 트랜잭션 기본 정책 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java
+- 클래스/메서드: NotificationCommandService, markAsRead, markAllAsRead, deleteOne, deleteAll, deleteOlderThan, createCultivationSowingPromotion, createCultivationHarvestFeedback
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationService.java
+- 클래스/메서드: CultivationNotificationService, createSowingPromotionNotification, createHarvestFeedbackNotification
+
+### 변경 내용
+두 서비스의 클래스 레벨 트랜잭션을 `@Transactional(readOnly = true)`로 변경했다.
+데이터 변경이 발생하는 공개 메서드에만 `@Transactional`을 재선언해 쓰기 경계를 명시했다.
+비즈니스 로직과 입출력 계약은 유지하고 트랜잭션 선언 정책만 정렬했다.
+
+### 변경 이유
+프로젝트 트랜잭션 컨벤션(클래스 기본 readOnly, 쓰기 메서드 재선언) 준수
