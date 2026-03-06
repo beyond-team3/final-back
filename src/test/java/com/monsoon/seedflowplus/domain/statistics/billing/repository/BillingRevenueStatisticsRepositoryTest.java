@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.statistics.billing.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.monsoon.seedflowplus.config.JpaAuditingConfig;
 import com.monsoon.seedflowplus.core.config.QuerydslConfig;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
@@ -39,7 +40,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({QuerydslConfig.class, BillingRevenueStatisticsRepository.class})
+@Import({QuerydslConfig.class, BillingRevenueStatisticsRepository.class, JpaAuditingConfig.class})
 class BillingRevenueStatisticsRepositoryTest {
 
     @Autowired
