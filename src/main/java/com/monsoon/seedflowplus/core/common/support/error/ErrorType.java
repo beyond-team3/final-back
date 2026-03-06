@@ -91,7 +91,8 @@ public enum ErrorType implements ErrorCodeProvider {
     APPROVAL_REASON_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP006, "반려 사유는 필수입니다.", LogLevel.WARN),
     APPROVAL_ROLE_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP007, "해당 단계의 승인 권한이 없습니다.", LogLevel.WARN),
     APPROVAL_CLIENT_MISMATCH(HttpStatus.FORBIDDEN, ErrorCode.AP008, "승인 요청의 거래처 정보와 로그인 사용자가 일치하지 않습니다.", LogLevel.WARN),
-    APPROVAL_CLIENT_SNAPSHOT_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP009, "계약서 승인 요청에는 clientIdSnapshot이 필요합니다.", LogLevel.WARN),
+    APPROVAL_CLIENT_SNAPSHOT_REQUIRED(HttpStatus.BAD_REQUEST, ErrorCode.AP009, "승인 요청에는 clientIdSnapshot이 필요합니다.", LogLevel.WARN),
+    APPROVAL_UNSUPPORTED_DEAL_TYPE(HttpStatus.BAD_REQUEST, ErrorCode.AP010, "지원하지 않는 승인 문서 타입입니다.", LogLevel.WARN),
     ;
 
     private final HttpStatus status;

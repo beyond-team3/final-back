@@ -102,4 +102,4 @@
 - 예: controller 초안 작성
 
 ### example
-> BAC-13 feat(user): AuthController 메소드 추가
+> [BAC-13] feat(user): AuthController 메소드 추가

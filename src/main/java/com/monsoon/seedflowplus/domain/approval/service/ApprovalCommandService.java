@@ -17,16 +17,25 @@ import com.monsoon.seedflowplus.domain.approval.entity.DecisionType;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalRequestRepository;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalStepRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
+import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -43,6 +52,9 @@ public class ApprovalCommandService {
     private final ApprovalDecisionRepository approvalDecisionRepository;
     private final ApprovalDealLogWriter approvalDealLogWriter;
     private final SalesDealLogRepository salesDealLogRepository;
+    private final QuotationRepository quotationRepository;
+    private final ContractRepository contractRepository;
+    private final DocStatusTransitionValidator docStatusTransitionValidator;
 
     public CreateApprovalRequestResponse createApprovalRequest(
             CreateApprovalRequestRequest dto,
@@ -58,18 +70,16 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_REQUEST_DUPLICATED);
         }
 
-        if (dto.dealType() == DealType.CNT && dto.clientIdSnapshot() == null) {
-            throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
-        }
-
         ActorType submitActorType = determineActorTypeFromPrincipal(principal);
-        validateCreateAccess(dto, principal, submitActorType);
+        validateSubmitOwnership(dto.dealType(), dto.targetId(), submitActorType, principal);
+        Long clientIdSnapshot = resolveClientIdSnapshot(dto);
+        validateCreateAccess(clientIdSnapshot, principal, submitActorType);
 
         ApprovalRequest request = ApprovalRequest.builder()
                 .dealType(dto.dealType())
                 .targetId(dto.targetId())
                 .status(ApprovalStatus.PENDING)
-                .clientIdSnapshot(dto.clientIdSnapshot())
+                .clientIdSnapshot(clientIdSnapshot)
                 .targetCodeSnapshot(dto.targetCodeSnapshot())
                 .build();
 
@@ -79,7 +89,7 @@ public class ApprovalCommandService {
                 .status(ApprovalStepStatus.WAITING)
                 .build());
 
-        if (dto.dealType() == DealType.CNT) {
+        if (dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) {
             request.addStep(ApprovalStep.builder()
                     .stepOrder(2)
                     .actorType(ActorType.CLIENT)
@@ -125,23 +135,18 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_ALREADY_DECIDED);
         }
 
+        if (request.getStatus() != ApprovalStatus.PENDING) {
+            throw new CoreException(ErrorType.APPROVAL_ALREADY_DECIDED);
+        }
+
         validateStepActor(step, request, principal);
         validateStepOrder(step, request);
-
-        if (dto.decision() == DecisionType.REJECT && !StringUtils.hasText(dto.reason())) {
-            throw new CoreException(ErrorType.APPROVAL_REASON_REQUIRED);
-        }
+        validateRejectReason(dto);
 
         LocalDateTime now = LocalDateTime.now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
-
-        approvalDealLogWriter.validateDecisionTransitionBeforeStatusChange(
-                request,
-                step,
-                dto.decision(),
-                step.getActorType()
-        );
+        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
 
         try {
             approvalDecisionRepository.save(ApprovalDecision.builder()
@@ -157,18 +162,20 @@ public class ApprovalCommandService {
 
         if (dto.decision() == DecisionType.REJECT) {
             step.reject(now);
-            request.reject();
         } else {
             step.approve(now);
-            if (request.getDealType() == DealType.QUO || step.getStepOrder() == 2) {
-                request.approve();
-            }
         }
+
+        updateRequestStatus(request, step, dto.decision());
 
         approvalDealLogWriter.writeDecision(
                 request,
                 step,
                 dto.decision(),
+                documentDecisionResult.fromStatus(),
+                documentDecisionResult.toStatus(),
+                documentDecisionResult.fromStage(),
+                documentDecisionResult.toStage(),
                 trimmedReason,
                 step.getActorType(),
                 actorId
@@ -193,12 +200,8 @@ public class ApprovalCommandService {
             Pageable pageable,
             CustomUserDetails principal
     ) {
-        Page<ApprovalRequest> page = approvalRequestRepository.search(status, dealType, targetId, pageable);
-        List<ApprovalDetailResponse> content = page.getContent().stream()
-                .filter(request -> canAccess(request, principal))
-                .map(this::toDetail)
-                .toList();
-        return new PageImpl<>(content, pageable, page.getTotalElements());
+        Page<ApprovalRequest> page = searchAccessibleRequests(status, dealType, targetId, pageable, principal);
+        return page.map(this::toDetail);
     }
 
     private void validateSupportedDealType(DealType dealType) {
@@ -207,18 +210,102 @@ public class ApprovalCommandService {
         }
     }
 
+    private DocumentDecisionResult applyQuotationDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        QuotationHeader quotation = quotationRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        String fromStatus = quotation.getStatus().name();
+        String toStatus = switch (step.getActorType()) {
+            case ADMIN -> decision == DecisionType.APPROVE
+                    ? QuotationStatus.WAITING_CLIENT.name()
+                    : QuotationStatus.REJECTED_ADMIN.name();
+            case CLIENT -> decision == DecisionType.APPROVE
+                    ? QuotationStatus.FINAL_APPROVED.name()
+                    : QuotationStatus.REJECTED_CLIENT.name();
+            default -> throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+        };
+
+        docStatusTransitionValidator.validateOrThrow(
+                DealType.QUO,
+                fromStatus,
+                toActionType(decision),
+                toStatus
+        );
+
+        quotation.updateStatus(QuotationStatus.valueOf(toStatus));
+
+        return new DocumentDecisionResult(
+                fromStatus,
+                toStatus,
+                toDealStageName(fromStatus),
+                toDealStageName(toStatus)
+        );
+    }
+
+    private DocumentDecisionResult applyContractDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        ContractHeader contract = contractRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        String fromStatus = contract.getStatus().name();
+        String toStatus = switch (step.getActorType()) {
+            case ADMIN -> decision == DecisionType.APPROVE
+                    ? ContractStatus.WAITING_CLIENT.name()
+                    : ContractStatus.REJECTED_ADMIN.name();
+            case CLIENT -> decision == DecisionType.APPROVE
+                    ? ContractStatus.COMPLETED.name()
+                    : ContractStatus.REJECTED_CLIENT.name();
+            default -> throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+        };
+
+        docStatusTransitionValidator.validateOrThrow(
+                DealType.CNT,
+                fromStatus,
+                toActionType(decision),
+                toStatus
+        );
+
+        contract.updateStatus(ContractStatus.valueOf(toStatus));
+
+        return new DocumentDecisionResult(
+                fromStatus,
+                toStatus,
+                toDealStageName(fromStatus),
+                toDealStageName(toStatus)
+        );
+    }
+
+    private DocumentDecisionResult resolveAndApplyDocumentDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        return switch (request.getDealType()) {
+            case QUO -> applyQuotationDecision(request, step, decision);
+            case CNT -> applyContractDecision(request, step, decision);
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+    }
+
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {
-        if (request.getDealType() == DealType.QUO && step.getStepOrder() != 1) {
+        if (step.getStepOrder() == 1) {
+            return;
+        }
+        if (step.getStepOrder() != 2) {
             throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
         }
-
-        if (request.getDealType() == DealType.CNT && step.getStepOrder() == 2) {
-            ApprovalStep adminStep = approvalStepRepository
-                    .findByApprovalRequestIdAndStepOrder(request.getId(), 1)
-                    .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_STEP_NOT_FOUND));
-            if (adminStep.getStatus() != ApprovalStepStatus.APPROVED) {
-                throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
-            }
+        ApprovalStep previousStep = approvalStepRepository
+                .findByApprovalRequestIdAndStepOrder(request.getId(), 1)
+                .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_STEP_NOT_FOUND));
+        if (previousStep.getStatus() != ApprovalStepStatus.APPROVED) {
+            throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
         }
     }
 
@@ -245,21 +332,49 @@ public class ApprovalCommandService {
         throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
     }
 
+    private void validateRejectReason(DecideApprovalRequest dto) {
+        if (dto.decision() == DecisionType.REJECT && !StringUtils.hasText(dto.reason())) {
+            throw new CoreException(ErrorType.APPROVAL_REASON_REQUIRED);
+        }
+    }
+
+    private void updateRequestStatus(ApprovalRequest request, ApprovalStep step, DecisionType decision) {
+        if (decision == DecisionType.REJECT) {
+            request.reject();
+            return;
+        }
+        if (step.getStepOrder() == 2) {
+            request.approve();
+        }
+    }
+
     private ActorType determineActorTypeFromPrincipal(CustomUserDetails principal) {
         if (principal == null || principal.getRole() == null) {
-            return ActorType.SYSTEM;
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         if (principal.getRole() == Role.SALES_REP) {
-            if (principal.getUserId() == null) {
+            if (principal.getEmployeeId() == null) {
                 throw new CoreException(ErrorType.UNAUTHORIZED);
             }
             return ActorType.SALES_REP;
         }
-        return ActorType.SYSTEM;
+        if (principal.getRole() == Role.ADMIN) {
+            if (principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return ActorType.ADMIN;
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            if (principal.getClientId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return ActorType.CLIENT;
+        }
+        throw new CoreException(ErrorType.UNAUTHORIZED);
     }
 
     private void validateCreateAccess(
-            CreateApprovalRequestRequest dto,
+            Long clientIdSnapshot,
             CustomUserDetails principal,
             ActorType submitActorType
     ) {
@@ -273,12 +388,62 @@ public class ApprovalCommandService {
         if (principal.getClientId() == null) {
             return;
         }
-        if (dto.clientIdSnapshot() == null) {
+        if (clientIdSnapshot == null) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
         }
-        if (!Objects.equals(dto.clientIdSnapshot(), principal.getClientId())) {
+        if (!Objects.equals(clientIdSnapshot, principal.getClientId())) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
         }
+    }
+
+    private void validateSubmitOwnership(
+            DealType dealType,
+            Long targetId,
+            ActorType submitActorType,
+            CustomUserDetails principal
+    ) {
+        if (submitActorType != ActorType.SALES_REP) {
+            return;
+        }
+
+        SalesDeal deal = switch (dealType) {
+            case QUO -> quotationRepository.findById(targetId)
+                    .map(QuotationHeader::getDeal)
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+            case CNT -> contractRepository.findById(targetId)
+                    .map(ContractHeader::getDeal)
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+
+        if (deal.getOwnerEmp() == null || deal.getOwnerEmp().getId() == null) {
+            // TODO: ErrorType.DEAL_NOT_ASSIGNED 추가 후 UNAUTHORIZED 임시 처리 교체
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        if (!Objects.equals(deal.getOwnerEmp().getId(), principal.getEmployeeId())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    private Long resolveClientIdSnapshot(CreateApprovalRequestRequest dto) {
+        if (dto.dealType() != DealType.QUO && dto.dealType() != DealType.CNT) {
+            return dto.clientIdSnapshot();
+        }
+
+        Long actualClientId = switch (dto.dealType()) {
+            case QUO -> quotationRepository.findById(dto.targetId())
+                    .map(quotation -> quotation.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+            case CNT -> contractRepository.findById(dto.targetId())
+                    .map(contract -> contract.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+
+        if (dto.clientIdSnapshot() != null && !Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
+            throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+        }
+        return actualClientId;
     }
 
     private Long resolveActorIdByActorType(ActorType actorType, CustomUserDetails principal) {
@@ -339,6 +504,46 @@ public class ApprovalCommandService {
         }
     }
 
+    private Page<ApprovalRequest> searchAccessibleRequests(
+            ApprovalStatus status,
+            DealType dealType,
+            Long targetId,
+            Pageable pageable,
+            CustomUserDetails principal
+    ) {
+        if (principal == null || principal.getRole() == null) {
+            return Page.empty(pageable);
+        }
+        if (principal.getRole() == Role.ADMIN) {
+            return approvalRequestRepository.search(status, dealType, targetId, pageable);
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            if (principal.getClientId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return approvalRequestRepository.searchForClient(
+                    status,
+                    dealType,
+                    targetId,
+                    principal.getClientId(),
+                    pageable
+            );
+        }
+        if (principal.getRole() == Role.SALES_REP) {
+            if (principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return approvalRequestRepository.searchForSalesRep(
+                    status,
+                    dealType,
+                    targetId,
+                    principal.getEmployeeId(),
+                    pageable
+            );
+        }
+        return Page.empty(pageable);
+    }
+
     private boolean canAccess(ApprovalRequest request, CustomUserDetails principal) {
         if (principal == null || principal.getRole() == null) {
             return false;
@@ -369,5 +574,28 @@ public class ApprovalCommandService {
                     .orElse(false);
         }
         return false;
+    }
+
+    private ActionType toActionType(DecisionType decision) {
+        return decision == DecisionType.REJECT ? ActionType.REJECT : ActionType.APPROVE;
+    }
+
+    private String toDealStageName(String status) {
+        return switch (status) {
+            case "WAITING_ADMIN" -> DealStage.PENDING_ADMIN.name();
+            case "WAITING_CLIENT" -> DealStage.PENDING_CLIENT.name();
+            case "REJECTED_ADMIN" -> DealStage.REJECTED_ADMIN.name();
+            case "REJECTED_CLIENT" -> DealStage.REJECTED_CLIENT.name();
+            case "FINAL_APPROVED", "COMPLETED" -> DealStage.APPROVED.name();
+            default -> throw new CoreException(ErrorType.INVALID_DOC_STATUS_TRANSITION, "unsupported approval status=" + status);
+        };
+    }
+
+    private record DocumentDecisionResult(
+            String fromStatus,
+            String toStatus,
+            String fromStage,
+            String toStage
+    ) {
     }
 }

@@ -23,11 +23,12 @@ import org.springframework.stereotype.Component;
 public class ApprovalDealLogWriter {
 
     private final SalesDealLogRepository salesDealLogRepository;
+    private final DealLogWriteService dealLogWriteService;
     private final DealPipelineFacade dealPipelineFacade;
 
     public void writeSubmit(ApprovalRequest request, ActorType actorType, Long actorId) {
         SubmitLogContext context = buildSubmitContext(request);
-        dealPipelineFacade.recordAndSync(
+        dealLogWriteService.write(
                 context.deal(),
                 context.docType(),
                 context.refId(),
@@ -52,27 +53,33 @@ public class ApprovalDealLogWriter {
             ApprovalRequest request,
             ApprovalStep step,
             DecisionType decision,
+            String fromStatus,
+            String toStatus,
+            String fromStage,
+            String toStage,
             String reason,
             ActorType actorType,
             Long actorId
     ) {
-        DecisionLogContext context = buildDecisionContext(request, step, decision, actorType);
+        SalesDeal deal = resolveDeal(request);
+        DealStage actualFromStage = resolveDecisionFromStage(deal, fromStage);
+
         dealPipelineFacade.recordAndSync(
-                context.deal(),
-                context.docType(),
-                context.refId(),
-                context.targetCode(),
-                context.fromStage(),
-                context.toStage(),
-                context.fromStatus(),
-                context.toStatus(),
-                context.actionType(),
+                deal,
+                request.getDealType(),
+                request.getTargetId(),
+                request.getTargetCodeSnapshot(),
+                actualFromStage,
+                parseDealStageOrThrow(toStage),
+                fromStatus,
+                toStatus,
+                toActionType(decision),
                 null,
                 actorType,
                 actorId,
                 reason,
                 List.of(
-                        diffField("status", "문서 상태", context.fromStatus(), context.toStatus(), "STATUS"),
+                        diffField("status", "문서 상태", fromStatus, toStatus, "STATUS"),
                         diffField("approvalRequestId", "Approval Request ID", null, request.getId(), "REFERENCE"),
                         diffField("stepOrder", "Approval Step Order", null, step.getStepOrder(), "REFERENCE"),
                         diffField("decision", "Approval Decision", null, decision.name(), "ACTION")
@@ -80,22 +87,38 @@ public class ApprovalDealLogWriter {
         );
     }
 
-    public void validateDecisionTransitionBeforeStatusChange(
-            ApprovalRequest request,
-            ApprovalStep step,
-            DecisionType decision,
-            ActorType actorType
-    ) {
-        DecisionLogContext context = buildDecisionContext(request, step, decision, actorType);
-        boolean rejected = decision == DecisionType.REJECT;
-        ActionType actionType = rejected ? ActionType.REJECT : ActionType.APPROVE;
-        // 상태 변경 전(ApprovalStep/ApprovalRequest mutate 이전) 문서 상태 전이 정책을 먼저 검증한다.
-        dealPipelineFacade.validateTransitionOrThrow(
-                context.docType(),
-                context.fromStatus(),
-                actionType,
-                context.toStatus()
-        );
+    private DealStage resolveDecisionFromStage(SalesDeal deal, String fromStage) {
+        DealStage actualFromStage = deal.getCurrentStage();
+        if (actualFromStage == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND, "deal currentStage가 존재하지 않습니다. dealId=" + deal.getId());
+        }
+        if (fromStage == null) {
+            return actualFromStage;
+        }
+        DealStage expectedFromStage = parseDealStageOrThrow(fromStage);
+        if (expectedFromStage != actualFromStage) {
+            throw new CoreException(
+                    ErrorType.INVALID_DOC_STATUS_TRANSITION,
+                    "approval decision fromStage mismatch. expected="
+                            + expectedFromStage
+                            + ", actual="
+                            + actualFromStage
+                            + ", dealId="
+                            + deal.getId()
+            );
+        }
+        return actualFromStage;
+    }
+
+    private DealStage parseDealStageOrThrow(String stageName) {
+        try {
+            return DealStage.valueOf(stageName);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new CoreException(
+                    ErrorType.INVALID_DOC_STATUS_TRANSITION,
+                    "invalid approval decision stage. stage=" + stageName
+            );
+        }
     }
 
     private SubmitLogContext buildSubmitContext(ApprovalRequest request) {
@@ -112,69 +135,6 @@ public class ApprovalDealLogWriter {
         );
     }
 
-    private DecisionLogContext buildDecisionContext(
-            ApprovalRequest request,
-            ApprovalStep step,
-            DecisionType decision,
-            ActorType actorType
-    ) {
-        SalesDeal deal = resolveDeal(request);
-        String fromStatus = fromStatus(request, step);
-        boolean rejected = decision == DecisionType.REJECT;
-        if (rejected) {
-            if (actorType == ActorType.ADMIN) {
-                return new DecisionLogContext(
-                        deal,
-                        request.getDealType(),
-                        request.getTargetId(),
-                        request.getTargetCodeSnapshot(),
-                        deal.getCurrentStage(),
-                        DealStage.REJECTED_ADMIN,
-                        fromStatus,
-                        rejectedAdminStatus(request),
-                        ActionType.REJECT
-                );
-            }
-            return new DecisionLogContext(
-                    deal,
-                    request.getDealType(),
-                    request.getTargetId(),
-                    request.getTargetCodeSnapshot(),
-                    deal.getCurrentStage(),
-                    DealStage.REJECTED_CLIENT,
-                    fromStatus,
-                    rejectedClientStatus(request),
-                    ActionType.REJECT
-            );
-        }
-
-        if (request.getDealType() == DealType.QUO || step.getStepOrder() == 2) {
-            return new DecisionLogContext(
-                    deal,
-                    request.getDealType(),
-                    request.getTargetId(),
-                    request.getTargetCodeSnapshot(),
-                    deal.getCurrentStage(),
-                    DealStage.APPROVED,
-                    fromStatus,
-                    approvedStatus(request),
-                    ActionType.APPROVE
-            );
-        }
-
-        return new DecisionLogContext(
-                deal,
-                request.getDealType(),
-                request.getTargetId(),
-                request.getTargetCodeSnapshot(),
-                deal.getCurrentStage(),
-                DealStage.PENDING_CLIENT,
-                fromStatus,
-                waitingClientStatus(request),
-                ActionType.APPROVE
-        );
-    }
-
     private SalesDeal resolveDeal(ApprovalRequest request) {
         SalesDealLog latestLog = salesDealLogRepository
                 .findTopByDocTypeAndRefIdOrderByActionAtDescIdDesc(request.getDealType(), request.getTargetId())
@@ -185,31 +145,12 @@ public class ApprovalDealLogWriter {
         return latestLog.getDeal();
     }
 
-    private String fromStatus(ApprovalRequest request, ApprovalStep step) {
-        if (step.getStepOrder() == 1) {
-            return waitingAdminStatus(request);
-        }
-        return waitingClientStatus(request);
-    }
-
     private String waitingAdminStatus(ApprovalRequest request) {
         return "WAITING_ADMIN";
     }
 
-    private String waitingClientStatus(ApprovalRequest request) {
-        return "WAITING_CLIENT";
-    }
-
-    private String rejectedAdminStatus(ApprovalRequest request) {
-        return "REJECTED_ADMIN";
-    }
-
-    private String rejectedClientStatus(ApprovalRequest request) {
-        return "REJECTED_CLIENT";
-    }
-
-    private String approvedStatus(ApprovalRequest request) {
-        return request.getDealType() == DealType.QUO ? "FINAL_APPROVED" : "COMPLETED";
+    private ActionType toActionType(DecisionType decision) {
+        return decision == DecisionType.REJECT ? ActionType.REJECT : ActionType.APPROVE;
     }
 
     private DealLogWriteService.DiffField diffField(String field, String label, Object before, Object after, String type) {
@@ -228,16 +169,4 @@ public class ApprovalDealLogWriter {
     ) {
     }
 
-    private record DecisionLogContext(
-            SalesDeal deal,
-            DealType docType,
-            Long refId,
-            String targetCode,
-            DealStage fromStage,
-            DealStage toStage,
-            String fromStatus,
-            String toStatus,
-            ActionType actionType
-    ) {
-    }
 }
