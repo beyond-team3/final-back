@@ -70,7 +70,7 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_REQUEST_DUPLICATED);
         }
 
-        if (dto.dealType() == DealType.CNT && dto.clientIdSnapshot() == null) {
+        if ((dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) && dto.clientIdSnapshot() == null) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
         }
 
@@ -207,7 +207,7 @@ public class ApprovalCommandService {
                 .filter(request -> canAccess(request, principal))
                 .map(this::toDetail)
                 .toList();
-        return new PageImpl<>(content, pageable, page.getTotalElements());
+        return new PageImpl<>(content, pageable, content.size());
     }
 
     private void validateSupportedDealType(DealType dealType) {
@@ -356,13 +356,25 @@ public class ApprovalCommandService {
 
     private ActorType determineActorTypeFromPrincipal(CustomUserDetails principal) {
         if (principal == null || principal.getRole() == null) {
-            return ActorType.SYSTEM;
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         if (principal.getRole() == Role.SALES_REP) {
             if (principal.getUserId() == null) {
                 throw new CoreException(ErrorType.UNAUTHORIZED);
             }
             return ActorType.SALES_REP;
+        }
+        if (principal.getRole() == Role.ADMIN) {
+            if (principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return ActorType.ADMIN;
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            if (principal.getClientId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return ActorType.CLIENT;
         }
         return ActorType.SYSTEM;
     }
