@@ -18,7 +18,6 @@ import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
-import com.monsoon.seedflowplus.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;

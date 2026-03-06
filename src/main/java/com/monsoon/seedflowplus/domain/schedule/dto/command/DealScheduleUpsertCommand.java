@@ -21,8 +21,14 @@ public record DealScheduleUpsertCommand(
         LocalDateTime endAt,
         LocalDateTime lastSyncedAt
 ) {
+    private static final int TITLE_MAX_LENGTH = 200;
+    private static final int EXTERNAL_KEY_MAX_LENGTH = 180;
+
     public DealScheduleUpsertCommand {
         if (externalKey == null || externalKey.isBlank()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        if (externalKey.trim().length() > EXTERNAL_KEY_MAX_LENGTH) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (dealId == null || dealId <= 0) {
@@ -38,6 +44,12 @@ public record DealScheduleUpsertCommand(
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (docType == null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        if (title == null || title.isBlank()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        if (title.trim().length() > TITLE_MAX_LENGTH) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
         if (startAt == null || endAt == null) {

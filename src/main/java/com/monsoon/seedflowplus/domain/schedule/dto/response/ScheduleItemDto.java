@@ -27,9 +27,6 @@ public class ScheduleItemDto {
 
     private String eventType;
     private String docType;
-    private Long refDocId;
-    private Long refDealLogId;
-    private String externalKey;
 
     public static ScheduleItemDto fromPersonal(PersonalSchedule schedule) {
         return ScheduleItemDto.builder()
@@ -60,9 +57,6 @@ public class ScheduleItemDto {
                 .dealId(schedule.getDeal().getId())
                 .eventType(schedule.getEventType().name())
                 .docType(schedule.getDocType().name())
-                .refDocId(schedule.getRefDocId())
-                .refDealLogId(schedule.getRefDealLogId())
-                .externalKey(schedule.getExternalKey())
                 .build();
     }
 }

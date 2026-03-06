@@ -7,7 +7,6 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.PersonalSchedule;
