@@ -31,9 +31,9 @@ import lombok.NoArgsConstructor;
                 @UniqueConstraint(name = "uk_deal_sked_external_key", columnNames = "external_key")
         },
         indexes = {
-                @Index(name = "idx_deal_sked_assignee_start_at", columnList = "assignee_user_id, start_at"),
-                @Index(name = "idx_deal_sked_client_start_at", columnList = "client_id, start_at"),
-                @Index(name = "idx_deal_sked_deal_start_at", columnList = "deal_id, start_at"),
+                @Index(name = "idx_deal_sked_assignee_start_end", columnList = "assignee_user_id, start_at, end_at"),
+                @Index(name = "idx_deal_sked_client_start_end", columnList = "client_id, start_at, end_at"),
+                @Index(name = "idx_deal_sked_deal_start_end", columnList = "deal_id, start_at, end_at"),
                 @Index(name = "idx_deal_sked_start_end", columnList = "start_at, end_at")
         }
 )

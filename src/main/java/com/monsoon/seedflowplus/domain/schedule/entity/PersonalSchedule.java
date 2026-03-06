@@ -99,6 +99,10 @@ public class PersonalSchedule extends BaseModifyEntity {
         this.visibility = visibility;
     }
 
+    public void cancel() {
+        this.status = ScheduleStatus.CANCELED;
+    }
+
     private void validate(
             User owner,
             String title,
