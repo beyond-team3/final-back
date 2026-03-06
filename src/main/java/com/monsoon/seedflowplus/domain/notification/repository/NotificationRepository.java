@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
@@ -30,6 +31,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Optional<Notification> findByIdAndUser_Id(Long id, Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update Notification n set n.readAt = :now where n.user.id = :userId and n.readAt is null")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 

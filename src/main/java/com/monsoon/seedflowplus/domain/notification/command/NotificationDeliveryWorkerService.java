@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,12 +70,25 @@ public class NotificationDeliveryWorkerService {
     }
 
     private List<NotificationDelivery> loadDueDeliveriesWithAssociations(String status, LocalDateTime now) {
-        List<Long> deliveryIds =
-                notificationDeliveryRepository
-                        .findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
-                                status,
-                                now
-                        );
+        List<Long> deliveryIds;
+        try {
+            deliveryIds =
+                    notificationDeliveryRepository
+                            .findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                                    status,
+                                    now
+                            );
+        } catch (DataAccessException e) {
+            log.warn(
+                    "SKIP LOCKED query failed. Falling back to non-locking due delivery lookup. status={}",
+                    status,
+                    e
+            );
+            return notificationDeliveryRepository.findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                    DeliveryStatus.PENDING,
+                    now
+            );
+        }
         if (deliveryIds.isEmpty()) {
             return List.of();
         }

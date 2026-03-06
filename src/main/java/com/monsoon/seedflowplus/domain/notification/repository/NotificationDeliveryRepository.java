@@ -23,6 +23,10 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
             LocalDateTime now
     );
 
+    /**
+     * MariaDB 10.6+ 환경에서만 {@code FOR UPDATE SKIP LOCKED}를 사용해 due delivery를 선점한다.
+     * 하위 버전 호환은 서비스 계층 fallback 조회 경로로 보완한다.
+     */
     @Query(
             value = """
                     SELECT delivery_id
