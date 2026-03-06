@@ -110,6 +110,7 @@ public class PersonalSchedule extends BaseModifyEntity {
 
     public void cancel() {
         this.status = ScheduleStatus.CANCELED;
+        this.isDeleted = true;
     }
 
     private void validate(

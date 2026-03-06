@@ -116,6 +116,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    protected ResponseEntity<ApiResult<?>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("IllegalArgumentException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorType.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE, e.getMessage()));
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     protected ResponseEntity<ApiResult<?>> handleHttpRequestMethodNotSupportedException(
             HttpRequestMethodNotSupportedException e) {

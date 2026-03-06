@@ -1,7 +1,5 @@
 package com.monsoon.seedflowplus.domain.schedule.entity;
 
-import com.monsoon.seedflowplus.core.common.support.error.CoreException;
-import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.entity.BaseModifyEntity;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.User;
@@ -167,43 +165,43 @@ public class DealSchedule extends BaseModifyEntity {
             LocalDateTime lastSyncedAt
     ) {
         if (deal == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("deal");
         }
         if (client == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("client");
         }
         if (assigneeUser == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("assigneeUser");
         }
         if (title == null || title.trim().isEmpty()) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("title");
         }
         if (title.trim().length() > TITLE_MAX_LENGTH) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("title");
         }
         if (startAt == null || endAt == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("startAt|endAt");
         }
         if (!endAt.isAfter(startAt)) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("startAt|endAt");
         }
         if (eventType == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("eventType");
         }
         if (docType == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("docType");
         }
         if (source == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("source");
         }
         if (externalKey == null || externalKey.isBlank()) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("externalKey");
         }
         if (externalKey.trim().length() > EXTERNAL_KEY_MAX_LENGTH) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("externalKey");
         }
         if (lastSyncedAt == null) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+            throw new IllegalArgumentException("lastSyncedAt");
         }
     }
 }

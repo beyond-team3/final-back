@@ -2,7 +2,6 @@ package com.monsoon.seedflowplus.domain.schedule.query;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
-import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -30,6 +29,17 @@ public class ScheduleQueryService {
     private final DealScheduleRepository dealScheduleRepository;
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
+
+    public ScheduleItemDto getMySchedule(Long scheduleId, Long actorUserId) {
+        if (scheduleId == null || actorUserId == null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+
+        PersonalSchedule schedule = personalScheduleRepository
+                .findByIdAndOwnerIdAndStatusNot(scheduleId, actorUserId, ScheduleStatus.CANCELED)
+                .orElseThrow(() -> new CoreException(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND));
+        return ScheduleItemDto.fromPersonal(schedule);
+    }
 
     public List<ScheduleItemDto> getUnifiedSchedules(ScheduleSearchCondition condition) {
         if (condition == null || condition.getActorUserId() == null) {
@@ -137,33 +147,33 @@ public class ScheduleQueryService {
         if (condition.getAssigneeUserId() != null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
-
-        List<Long> managedClientIds = clientRepository.findAllByManagerEmployeeId(actor.getEmployee().getId())
-                .stream()
-                .map(Client::getId)
-                .toList();
-
-        if (managedClientIds.isEmpty()) {
-            return List.of();
-        }
+        Long managerEmployeeId = actor.getEmployee().getId();
 
         Long clientId = condition.getClientId();
         Long dealId = condition.getDealId();
 
-        if (clientId != null && !managedClientIds.contains(clientId)) {
+        if (clientId != null && !clientRepository.existsByIdAndManagerEmployeeId(clientId, managerEmployeeId)) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        List<Long> scopeClientIds = clientId == null ? managedClientIds : List.of(clientId);
-
         if (dealId != null) {
+            if (clientId != null) {
+                return dealScheduleRepository
+                        .findByClientIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                                clientId, dealId, condition.getRangeEnd(), condition.getRangeStart());
+            }
             return dealScheduleRepository
-                    .findByDealIdAndClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            dealId, scopeClientIds, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByDealIdAndClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            dealId, managerEmployeeId, condition.getRangeEnd(), condition.getRangeStart());
+        }
+        if (clientId != null) {
+            return dealScheduleRepository
+                    .findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            clientId, condition.getRangeEnd(), condition.getRangeStart());
         }
         return dealScheduleRepository
-                .findByClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                        scopeClientIds, condition.getRangeEnd(), condition.getRangeStart());
+                .findByClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                        managerEmployeeId, condition.getRangeEnd(), condition.getRangeStart());
     }
 
     private List<DealSchedule> findForClient(ScheduleSearchCondition condition, User actor) {

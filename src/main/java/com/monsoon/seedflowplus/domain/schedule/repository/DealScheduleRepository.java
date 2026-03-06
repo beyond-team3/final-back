@@ -72,33 +72,16 @@ public interface DealScheduleRepository extends JpaRepository<DealSchedule, Long
     );
 
     @EntityGraph(attributePaths = {"assigneeUser", "client", "deal"})
-    List<DealSchedule> findByClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-            List<Long> clientIds,
+    List<DealSchedule> findByClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+            Long managerEmployeeId,
             LocalDateTime rangeEnd,
             LocalDateTime rangeStart
     );
 
     @EntityGraph(attributePaths = {"assigneeUser", "client", "deal"})
-    List<DealSchedule> findByAssigneeUserIdAndClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-            Long assigneeUserId,
-            List<Long> clientIds,
-            LocalDateTime rangeEnd,
-            LocalDateTime rangeStart
-    );
-
-    @EntityGraph(attributePaths = {"assigneeUser", "client", "deal"})
-    List<DealSchedule> findByDealIdAndClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+    List<DealSchedule> findByDealIdAndClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
             Long dealId,
-            List<Long> clientIds,
-            LocalDateTime rangeEnd,
-            LocalDateTime rangeStart
-    );
-
-    @EntityGraph(attributePaths = {"assigneeUser", "client", "deal"})
-    List<DealSchedule> findByAssigneeUserIdAndDealIdAndClientIdInAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-            Long assigneeUserId,
-            Long dealId,
-            List<Long> clientIds,
+            Long managerEmployeeId,
             LocalDateTime rangeEnd,
             LocalDateTime rangeStart
     );

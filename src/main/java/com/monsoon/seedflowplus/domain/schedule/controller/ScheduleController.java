@@ -83,7 +83,8 @@ public class ScheduleController {
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
-        return ApiResult.success(personalScheduleCommandService.getMySchedule(id, requireActor(actor)));
+        CustomUserDetails requiredActor = requireActor(actor);
+        return ApiResult.success(scheduleQueryService.getMySchedule(id, requiredActor.getUserId()));
     }
 
     @PutMapping("/personal/{id}")
