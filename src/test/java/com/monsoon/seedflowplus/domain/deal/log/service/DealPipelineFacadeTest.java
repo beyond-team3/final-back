@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -20,6 +21,7 @@ import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.policy.DealLogPolicyValidator;
 import com.monsoon.seedflowplus.domain.deal.log.repository.DealLogDetailRepository;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,12 @@ class DealPipelineFacadeTest {
     @Mock
     private DocStatusTransitionValidator docStatusTransitionValidator;
 
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
+
+    @Mock
+    private UserRepository userRepository;
+
     private DealPipelineFacade dealPipelineFacade;
 
     @BeforeEach
@@ -51,7 +59,12 @@ class DealPipelineFacadeTest {
                 new DealLogPolicyValidator(),
                 new ObjectMapper()
         );
-        dealPipelineFacade = new DealPipelineFacade(dealLogWriteService, docStatusTransitionValidator);
+        dealPipelineFacade = new DealPipelineFacade(
+                dealLogWriteService,
+                docStatusTransitionValidator,
+                notificationEventPublisher,
+                userRepository
+        );
     }
 
     @Test
