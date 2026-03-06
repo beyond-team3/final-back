@@ -39,6 +39,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -113,6 +115,88 @@ class ApprovalCommandServiceTest {
         assertThat(savedRequest.getSteps().get(0).getStatus()).isEqualTo(ApprovalStepStatus.WAITING);
         assertThat(savedRequest.getSteps().get(1).getActorType()).isEqualTo(ActorType.CLIENT);
         assertThat(savedRequest.getSteps().get(1).getStatus()).isEqualTo(ApprovalStepStatus.WAITING);
+    }
+
+    @Test
+    @DisplayName("케이스 1-1: QUO approval 생성 시 clientIdSnapshot이 없으면 예외")
+    void createApprovalRequestRequiresClientIdSnapshotForQuotation() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 501L, null, "Q-501");
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 501L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.ADMIN, 10L, null)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
+
+        verify(approvalRequestRepository, never()).save(any(ApprovalRequest.class));
+    }
+
+    @Test
+    @DisplayName("케이스 1-2: ADMIN 생성자는 submit log에 ADMIN actor와 employeeId가 기록된다")
+    void createApprovalRequestWritesAdminSubmitLog() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 502L, 77L, "Q-502");
+        CustomUserDetails principal = mockUser(Role.ADMIN, 321L, null);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 502L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 902L);
+            return saved;
+        });
+
+        approvalCommandService.createApprovalRequest(dto, principal);
+
+        verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.ADMIN), eq(321L));
+    }
+
+    @Test
+    @DisplayName("케이스 1-3: CLIENT 생성자는 submit log에 CLIENT actor와 clientId가 기록된다")
+    void createApprovalRequestWritesClientSubmitLog() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 503L, 88L, "Q-503");
+        CustomUserDetails principal = mockUser(Role.CLIENT, null, 88L);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 503L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 903L);
+            return saved;
+        });
+
+        approvalCommandService.createApprovalRequest(dto, principal);
+
+        verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.CLIENT), eq(88L));
+    }
+
+    @Test
+    @DisplayName("케이스 1-4: ADMIN 생성자에 employeeId가 없으면 UNAUTHORIZED")
+    void createApprovalRequestFailsWhenAdminEmployeeIdMissing() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 504L, 77L, "Q-504");
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 504L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.ADMIN, null, null)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("케이스 1-5: CLIENT 생성자에 clientId가 없으면 UNAUTHORIZED")
+    void createApprovalRequestFailsWhenClientIdMissing() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 505L, 77L, "Q-505");
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 505L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.CLIENT, null, null)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.UNAUTHORIZED);
     }
 
     @Test
@@ -344,6 +428,29 @@ class ApprovalCommandServiceTest {
                 .isEqualTo(ErrorType.INVALID_DOC_STATUS_TRANSITION);
 
         verify(approvalDealLogWriter, never()).writeDecision(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("케이스 10: search totalElements는 접근 제어 후 결과 수와 일치한다")
+    void searchUsesFilteredContentSizeAsTotalElements() {
+        ApprovalRequest accessible = quoRequest(901L, 7100L, 77L);
+        ApprovalRequest inaccessible = quoRequest(902L, 7101L, 88L);
+        ApprovalStep accessibleStep = step(91L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+
+        when(approvalRequestRepository.search(null, DealType.QUO, null, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(accessible, inaccessible), PageRequest.of(0, 10), 2));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(901L)).thenReturn(List.of(accessibleStep));
+
+        var result = approvalCommandService.search(
+                null,
+                DealType.QUO,
+                null,
+                PageRequest.of(0, 10),
+                mockUser(Role.CLIENT, null, 77L)
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {

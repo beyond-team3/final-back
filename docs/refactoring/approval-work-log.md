@@ -142,3 +142,17 @@ decideStep() 재구성
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:28] ApprovalCommandService 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — QUO clientIdSnapshot 필수화, submit actorType/actorId 매핑 보정, search totalElements 안전화
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/ErrorType.java — clientIdSnapshot 필수 메시지를 승인 공통 문구로 정리
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — snapshot 필수, submit log actor 매핑, 접근 제어 후 totalElements 검증 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
