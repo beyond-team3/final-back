@@ -64,7 +64,7 @@ class BillingRevenueStatisticsRepositoryTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
-        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("600");
+        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("900");
     }
 
     @Test
@@ -76,7 +76,7 @@ class BillingRevenueStatisticsRepositoryTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
-        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("300");
+        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("350");
     }
 
     @Test
@@ -88,7 +88,7 @@ class BillingRevenueStatisticsRepositoryTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getMonth()).isEqualTo("2024-01");
-        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("300");
+        assertThat(result.get(0).getBilledRevenue()).isEqualByComparingTo("550");
     }
 
     @Test
@@ -102,21 +102,49 @@ class BillingRevenueStatisticsRepositoryTest {
         assertThat(sumRevenue(result)).isEqualByComparingTo("0");
     }
 
-    private void seedMonthlyRevenueFixtures() {
-        createInvoiceGraph("tomato", "100", InvoiceStatus.PUBLISHED, true, StatementStatus.ISSUED, "INV-OK-001", "STMT-OK-001", "ORD-OK-001", "CT-OK-001");
-        createInvoiceGraph("tomato", "200", InvoiceStatus.PAID, true, StatementStatus.ISSUED, "INV-OK-002", "STMT-OK-002", "ORD-OK-002", "CT-OK-002");
-        createInvoiceGraph("cabbage", "300", InvoiceStatus.PUBLISHED, true, StatementStatus.ISSUED, "INV-OK-003", "STMT-OK-003", "ORD-OK-003", "CT-OK-003");
+    @Test
+    @DisplayName("혼합 품종 invoice가 있어도 category 월별 조회는 해당 품종 금액만 집계한다")
+    void shouldAggregateOnlyMatchedCategoryAmountForMixedCategoryInvoice() {
+        seedMonthlyRevenueFixtures();
 
-        createInvoiceGraph("tomato", "400", InvoiceStatus.CANCELED, true, StatementStatus.ISSUED, "INV-EX-001", "STMT-EX-001", "ORD-EX-001", "CT-EX-001");
-        createInvoiceGraph("tomato", "500", InvoiceStatus.PUBLISHED, false, StatementStatus.ISSUED, "INV-EX-002", "STMT-EX-002", "ORD-EX-002", "CT-EX-002");
-        createInvoiceGraph("cabbage", "600", InvoiceStatus.PUBLISHED, true, StatementStatus.CANCELED, "INV-EX-003", "STMT-EX-003", "ORD-EX-003", "CT-EX-003");
+        List<MonthlyBilledRevenueDto> tomatoResult = repository.findMonthlyRevenue(filter("tomato"));
+        List<MonthlyBilledRevenueDto> cabbageResult = repository.findMonthlyRevenue(filter("cabbage"));
+
+        assertThat(tomatoResult).hasSize(1);
+        assertThat(tomatoResult.get(0).getMonth()).isEqualTo("2024-01");
+        assertThat(tomatoResult.get(0).getBilledRevenue()).isEqualByComparingTo("350");
+
+        assertThat(cabbageResult).hasSize(1);
+        assertThat(cabbageResult.get(0).getMonth()).isEqualTo("2024-01");
+        assertThat(cabbageResult.get(0).getBilledRevenue()).isEqualByComparingTo("550");
+    }
+
+    private void seedMonthlyRevenueFixtures() {
+        createInvoiceGraph(List.of(detailSpec("tomato", "100")), "100", InvoiceStatus.PUBLISHED, true, StatementStatus.ISSUED, "INV-OK-001", "STMT-OK-001", "ORD-OK-001", "CT-OK-001");
+        createInvoiceGraph(List.of(detailSpec("tomato", "200")), "200", InvoiceStatus.PAID, true, StatementStatus.ISSUED, "INV-OK-002", "STMT-OK-002", "ORD-OK-002", "CT-OK-002");
+        createInvoiceGraph(List.of(detailSpec("cabbage", "300")), "300", InvoiceStatus.PUBLISHED, true, StatementStatus.ISSUED, "INV-OK-003", "STMT-OK-003", "ORD-OK-003", "CT-OK-003");
+        createInvoiceGraph(
+                List.of(detailSpec("tomato", "50"), detailSpec("cabbage", "250")),
+                "300",
+                InvoiceStatus.PUBLISHED,
+                true,
+                StatementStatus.ISSUED,
+                "INV-MIX-001",
+                "STMT-MIX-001",
+                "ORD-MIX-001",
+                "CT-MIX-001"
+        );
+
+        createInvoiceGraph(List.of(detailSpec("tomato", "400")), "400", InvoiceStatus.CANCELED, true, StatementStatus.ISSUED, "INV-EX-001", "STMT-EX-001", "ORD-EX-001", "CT-EX-001");
+        createInvoiceGraph(List.of(detailSpec("tomato", "500")), "500", InvoiceStatus.PUBLISHED, false, StatementStatus.ISSUED, "INV-EX-002", "STMT-EX-002", "ORD-EX-002", "CT-EX-002");
+        createInvoiceGraph(List.of(detailSpec("cabbage", "600")), "600", InvoiceStatus.PUBLISHED, true, StatementStatus.CANCELED, "INV-EX-003", "STMT-EX-003", "ORD-EX-003", "CT-EX-003");
 
         entityManager.flush();
         entityManager.clear();
     }
 
     private void createInvoiceGraph(
-            String productCategory,
+            List<DetailSpec> detailSpecs,
             String amount,
             InvoiceStatus invoiceStatus,
             boolean included,
@@ -130,9 +158,11 @@ class BillingRevenueStatisticsRepositoryTest {
         Client client = persistClient(invoiceCode, employee);
         SalesDeal deal = persistDeal(client, employee, invoiceCode);
         ContractHeader contract = persistContractHeader(contractCode, client, deal, employee);
-        ContractDetail contractDetail = persistContractDetail(contract, productCategory);
         OrderHeader orderHeader = persistOrderHeader(orderCode, contract, client, deal, employee, amount);
-        persistOrderDetail(orderHeader, contractDetail);
+        for (DetailSpec detailSpec : detailSpecs) {
+            ContractDetail contractDetail = persistContractDetail(contract, detailSpec.productCategory(), detailSpec.amount());
+            persistOrderDetail(orderHeader, contractDetail);
+        }
         Statement statement = persistStatement(statementCode, orderHeader, deal, amount, statementStatus);
         Invoice invoice = persistInvoice(invoiceCode, contract, client, deal, employee, amount, invoiceStatus);
         persistInvoiceStatement(invoice, statement, included);
@@ -198,7 +228,7 @@ class BillingRevenueStatisticsRepositoryTest {
         return entityManager.persist(contract);
     }
 
-    private ContractDetail persistContractDetail(ContractHeader contract, String productCategory) {
+    private ContractDetail persistContractDetail(ContractHeader contract, String productCategory, String amount) {
         ContractDetail contractDetail = new ContractDetail(
                 null,
                 productCategory + "-name",
@@ -206,7 +236,7 @@ class BillingRevenueStatisticsRepositoryTest {
                 10,
                 "BOX",
                 new BigDecimal("100"),
-                new BigDecimal("1000")
+                new BigDecimal(amount)
         );
         contract.addItem(contractDetail);
         return entityManager.persist(contractDetail);
@@ -306,5 +336,12 @@ class BillingRevenueStatisticsRepositoryTest {
         return rows.stream()
                 .map(MonthlyBilledRevenueDto::getBilledRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private DetailSpec detailSpec(String productCategory, String amount) {
+        return new DetailSpec(productCategory, amount);
+    }
+
+    private record DetailSpec(String productCategory, String amount) {
     }
 }
