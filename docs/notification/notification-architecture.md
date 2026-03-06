@@ -241,3 +241,16 @@ SSE 구독 엔드포인트 매핑을 `@GetMapping(value = "/subscribe", produces
 
 ### 변경 이유
 Phase 6 리뷰 이슈 [Major] SSE 구독 `produces` 미선언 보완
+
+## [2026-03-07] Approval 테스트 의존성 주입 보강
+
+### 변경 대상
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java
+- 클래스/메서드: ApprovalCommandServiceTest.setUp
+
+### 변경 내용
+ApprovalCommandService의 신규 의존성(`Clock`, `UserRepository`, `NotificationEventPublisher`)이 테스트에서 누락되어 `NullPointerException(clock)`가 발생하던 문제를 수정했다.
+테스트에 누락된 mock 필드를 추가하고, `setUp`에서 시간/사용자 조회 기본 스텁을 설정해 이벤트 발행 경로까지 안전하게 실행되도록 보완했다.
+
+### 변경 이유
+서비스 생성자 의존성 확장 이후 단위 테스트 주입 구성이 최신 구조를 반영하지 못해 Jenkins 빌드가 실패하던 이슈를 수정하기 위함

@@ -200,3 +200,17 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-07 01:53] ApprovalCommandServiceTest Jenkins 실패 수정
+
+### 작업 내용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — 신규 생성자 의존성(`Clock`, `UserRepository`, `NotificationEventPublisher`) mock/stub 추가
+- 수정 파일: docs/notification/notification-architecture.md — 테스트 의존성 주입 보강 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
