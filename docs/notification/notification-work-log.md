@@ -186,3 +186,17 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-07 01:34] Notification SSE subscribe produces 명시
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/controller/NotificationController.java — `GET /subscribe`에 `produces = MediaType.TEXT_EVENT_STREAM_VALUE` 선언 추가 및 import 정리
+- 수정 파일: docs/notification/notification-architecture.md — SSE subscribe content-type 명시 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
