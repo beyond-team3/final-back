@@ -370,4 +370,12 @@ public class ApprovalCommandService {
         }
         return false;
     }
+
+    private record DocumentDecisionResult(
+            String fromStatus,
+            String toStatus,
+            String fromStage,
+            String toStage
+    ) {
+    }
 }
