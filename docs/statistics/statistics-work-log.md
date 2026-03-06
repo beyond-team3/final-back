@@ -63,3 +63,17 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:02] 통계 API 접근 제어 및 월별 총매출 기준 정합성 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — `/statistics/billing/revenue/**` 경로를 `SALES_REP`, `ADMIN` 역할로 제한해 다른 인증 사용자의 통계 조회를 차단
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepository.java` — category 미지정 월별 집계도 `included=true`, `statement.status=ISSUED`인 statement 라인 금액을 `invoice + month` 단위로 합산한 뒤 Java에서 재집계하도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepositoryTest.java` — invoice 총액과 statement 라인 합계가 어긋나는 fixture를 추가해 월별 총매출이 품종 집계와 같은 기준을 사용하는지 검증
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
