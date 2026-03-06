@@ -56,3 +56,21 @@ Phase 4 (SSE 구독 API 및 워커 연동) 진행
 
 ### 다음 단계
 Phase 5 테스트 추가
+
+## [2026-03-06 18:10] Notification Phase 5 테스트 구현
+
+### 작업 내용
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/controller/NotificationControllerTest.java — Notification API(WebMvcTest)와 SSE 구독 asyncDispatch 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandServiceTest.java — 삭제 로직/소유 검증/NOTIFICATION_NOT_FOUND 테스트 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 이벤트 수신 시 생성 위임 및 SSE 전송 흐름 테스트 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/scheduler/NotificationDeliverySchedulerTest.java — dispatchDueDeliveries/보존 정책 삭제 메서드 호출 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacadeTest.java — 생성자 의존성 변경에 맞춘 테스트 초기화 보정
+- 수정 파일: docs/notification/notification-architecture.md — 테스트 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
