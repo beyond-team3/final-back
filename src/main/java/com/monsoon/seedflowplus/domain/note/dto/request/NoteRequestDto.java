@@ -27,12 +27,8 @@ public class NoteRequestDto {
     @Schema(description = "미팅/활동 내용 원문")
     private String content;
 
-    @Schema(description = "AI 요약 내용 (3문장 권장)")
-    private List<String> aiSummary;
-
     /**
      * 서비스 로직(updateNote)에서 요구하는 날짜 반환 메서드
-     *
      */
     public LocalDate getActivityDate() {
         return this.date;
@@ -48,7 +44,7 @@ public class NoteRequestDto {
                 .contractId(this.contractId)
                 .activityDate(this.date)
                 .content(this.content)
-                .aiSummary(this.aiSummary)
+                .aiSummary(null) // 서비스에서 채워질 예정
                 .build();
     }
 }

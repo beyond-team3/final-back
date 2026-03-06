@@ -48,6 +48,8 @@ ORDER BY d.cnt_detail_id;
 2. `statement.http`
 3. `invoice.http`
 4. `payment.http`
+5. `deal/deal.http`
+6. `deal/deal-log.http`
 
 ## 6) 파일별 최소 확인 포인트
 - `order.http`
@@ -62,6 +64,12 @@ ORDER BY d.cnt_detail_id;
 - `payment.http`
   - 성공: process(201) -> get/list
   - 실패: `C002`, `A002`, `I001`, `I003`, `P101`, `A001`
+- `deal/deal.http`
+  - 성공: deal 목록 조회(sales/admin) + `dealId/clientId/docType/refId` 전역 변수 추출
+  - 실패: `A001`, `C002`, `C004`
+- `deal/deal-log.http`
+  - 성공: deal/client/document 기준 타임라인 + 상세 조회
+  - 실패: `A001`, `A002`, `C004`, `C005`, `D001`
 
 ## 7) 주의사항
 - 테스트 데이터는 local/dev 전용 계정/계약만 사용

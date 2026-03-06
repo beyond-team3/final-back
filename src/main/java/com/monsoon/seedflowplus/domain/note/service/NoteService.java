@@ -5,9 +5,11 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
 import com.monsoon.seedflowplus.domain.note.repository.SalesNoteRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.note.dto.request.NoteRequestDto;
 import com.monsoon.seedflowplus.domain.note.dto.NoteSearchCondition;
 import com.monsoon.seedflowplus.infra.ai.AiClient;
+import com.monsoon.seedflowplus.infra.ai.rag.SalesNoteRagService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 @Slf4j
 @Service
@@ -31,8 +34,10 @@ public class NoteService {
 
     private final SalesNoteRepository noteRepository;
     private final ClientRepository clientRepository;
-    private final BriefingService briefingService;
+    private final ContractRepository contractRepository;
+    private final RagSeedService ragSeedService;
     private final AiClient aiClient;
+    private final SalesNoteRagService ragService;
 
     /**
      * 1. 영업 활동 기록 목록 조회 및 검색
@@ -63,14 +68,12 @@ public class NoteService {
         Long currentEmployeeId = userDetails.getEmployeeId();
         Role role = userDetails.getRole();
 
-        // [리팩토링] 역할별 권한 검증 (AccountService 패턴 적용)
+        // 역할별 권한 검증
         if (role == Role.ADMIN) {
-            // 관리자는 모든 거래처에 대해 노트 작성이 가능하며, 거래처 존재 여부만 확인
             if (!clientRepository.existsById(dto.getClientId())) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다.");
             }
         } else if (role == Role.SALES_REP) {
-            // 영업사원은 본인이 담당하는 거래처인지 확인
             Client client = clientRepository.findById(dto.getClientId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 거래처입니다."));
 
@@ -78,18 +81,28 @@ public class NoteService {
                 throw new AccessDeniedException("본인이 담당하는 거래처의 노트만 작성할 수 있습니다.");
             }
         } else {
-            // 그 외 역할(CLIENT 등)은 영업 활동 기록 작성 불가
             throw new AccessDeniedException("노트 작성 권한이 없습니다.");
         }
 
-        // [자동화] 저장 전 실시간 AI 요약 생성
-        List<String> summary = aiClient.summarizeNote(dto.getContent());
-        dto.setAiSummary(summary);
+        validateContractOwnership(dto.getContractId(), dto.getClientId());
 
-        SalesNote note = dto.toEntity(currentEmployeeId);
+        List<String> summary = aiClient.summarizeNote(dto.getContent());
+
+        SalesNote note = SalesNote.builder()
+                .clientId(dto.getClientId())
+                .authorId(currentEmployeeId)
+                .contractId(dto.getContractId())
+                .activityDate(dto.getDate())
+                .content(dto.getContent())
+                .aiSummary(summary)
+                .build();
+        
         SalesNote savedNote = noteRepository.save(note);
 
-        // [리팩토링] 비동기 분석 트리거
+        // [RAG] 벡터 DB 인덱싱 수행 (트랜잭션 커밋 후)
+        triggerRagIndexingAfterCommit(savedNote);
+
+        // 비동기 분석 트리거
         triggerBriefingUpdate(savedNote.getClientId());
 
         return savedNote;
@@ -104,16 +117,19 @@ public class NoteService {
         SalesNote note = noteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 노트를 찾을 수 없습니다. ID: " + id));
 
-        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
             throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
-        // [자동화] 수정 시 내용이 바뀌었을 수 있으므로 AI 요약 재신청
+        validateContractOwnership(dto.getContractId(), note.getClientId());
+
         List<String> summary = aiClient.summarizeNote(dto.getContent());
         note.updateNote(dto.getContent(), dto.getContractId(), dto.getActivityDate(), summary);
 
-        // [리팩토링] 데이터 수정 후 비동기 분석 요청
+        // [RAG] 변경된 내용 벡터 DB 재인덱싱 (트랜잭션 커밋 후)
+        triggerRagIndexingAfterCommit(note);
+
+        // 비동기 분석 요청
         triggerBriefingUpdate(note.getClientId());
 
         return note;
@@ -128,37 +144,100 @@ public class NoteService {
         SalesNote note = noteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 노트를 찾을 수 없습니다."));
 
-        // 본인 작성 노트가 아닌 경우 거부 (ADMIN 포함 모든 역할 적용)
         if (!note.getAuthorId().equals(userDetails.getEmployeeId())) {
             throw new AccessDeniedException("작성자만 수정/삭제할 수 있습니다.");
         }
 
         Long clientId = note.getClientId();
+        Long noteId = note.getId();
+        
         noteRepository.delete(note);
 
-        // [리팩토링] 데이터 삭제 후 비동기 분석 요청
+        // [RAG] 벡터 DB에서 정보 삭제 (트랜잭션 커밋 후)
+        triggerRagDeletionAfterCommit(noteId);
+
+        // 비동기 분석 요청
         triggerBriefingUpdate(clientId);
     }
 
     /**
-     * [리팩토링] 내부 헬퍼 메서드: 진정한 비동기 호출 수행
-     * 메서드명을 의도에 맞게 'trigger'로 변경하고 실제 비동기 메서드를 호출함
+     * [리팩토링] RAG 인덱싱 비동기/지연 처리 헬퍼
+     * 트랜잭션이 성공적으로 커밋된 후에만 벡터 DB에 반영하여 정합성을 유지합니다.
      */
-    private void triggerBriefingUpdate(Long clientId) {
-        // 현재 실행 중인 스레드가 트랜잭션 상태인지 확인
+    private void triggerRagIndexingAfterCommit(SalesNote note) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            // 트랜잭션 동기화 매니저에 '커밋 후 실행' 콜백 등록
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 실제 DB 커밋이 완료된 직후에만 비동기 호출 실행
-                    log.info("트랜잭션 커밋 완료 확인 - 비동기 분석 트리거: clientId={}", clientId);
-                    briefingService.refreshBriefingAsync(clientId);
+                    try {
+                        log.info("트랜잭션 커밋 완료 확인 - RAG 인덱싱 수행: Note ID={}", note.getId());
+                        ragService.indexNote(note); // 내부적으로 삭제 후 등록 처리됨
+                    } catch (Exception e) {
+                        log.error("[RAG] 트랜잭션 후 인덱싱 실패 (Note ID: {}): {}", note.getId(), e.getMessage());
+                    }
                 }
             });
         } else {
-            // 트랜잭션이 없는 환경(예: 테스트 코드 등)에서는 즉시 호출
-            briefingService.refreshBriefingAsync(clientId);
+            try {
+                ragService.indexNote(note);
+            } catch (Exception e) {
+                log.error("[RAG] 인덱싱 실패 (Note ID: {}): {}", note.getId(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * [리팩토링] RAG 삭제 비동기/지연 처리 헬퍼
+     */
+    private void triggerRagDeletionAfterCommit(Long noteId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("트랜잭션 커밋 완료 확인 - RAG 데이터 삭제: Note ID={}", noteId);
+                    ragService.deleteNote(noteId);
+                }
+            });
+        } else {
+            ragService.deleteNote(noteId);
+        }
+    }
+
+    /**
+     * 계약 소유권 검증 헬퍼 메서드
+     */
+    private void validateContractOwnership(String contractCode, Long clientId) {
+        if (contractCode != null && !contractCode.isBlank()) {
+            boolean exists = contractRepository.existsByContractCodeAndClientId(contractCode, clientId);
+            if (!exists) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    String.format("해당 거래처(ID: %d)에 귀속된 계약 코드(%s)를 찾을 수 없습니다.", clientId, contractCode));
+            }
+        }
+    }
+
+    /**
+     * 비동기 분석 트리거
+     */
+    private void triggerBriefingUpdate(Long clientId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("트랜잭션 커밋 완료 확인 - RAGseed 분석 트리거: clientId={}", clientId);
+                    try {
+                        ragSeedService.refreshStandardBriefingAsync(clientId);
+                    } catch (RejectedExecutionException e) {
+                        log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+                    }
+                }
+            });
+        } else {
+            try {
+                ragSeedService.refreshStandardBriefingAsync(clientId);
+            } catch (RejectedExecutionException e) {
+                log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+            }
         }
     }
 
