@@ -77,3 +77,21 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:22] 청구 매출 통계 SALES_REP 조회 범위 제한
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsController.java` — 인증 사용자 principal을 받아 통계 조회 서비스로 전달하도록 수정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/service/BillingRevenueStatisticsQueryService.java` — 역할별 조회 스코프를 해석해 `ADMIN`은 전체 조회, `SALES_REP`는 `employeeId` 기준 조회만 허용하도록 수정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepository.java` — 기존 공통 집계 조건에 선택적 `employeeId` 필터를 추가해 담당 영업사원 범위만 조회하도록 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — principal 전달 및 기존 바인딩 검증을 서비스 시그니처에 맞게 보강
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/service/BillingRevenueStatisticsQueryServiceTest.java` — `ADMIN`/`SALES_REP`/비허용 역할/직원 미연결 케이스를 검증하는 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepositoryTest.java` — `employeeId` 스코프가 월별/품종별/월별+품종별 집계에 공통 적용되는지 검증 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 통계 조회 주체 전달 구조 변경을 기록하기 위해 문서 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
