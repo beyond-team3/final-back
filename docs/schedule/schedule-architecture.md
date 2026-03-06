@@ -117,3 +117,23 @@ Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지
 
 ### 변경 이유
 예외 처리/REST 경로 정책 일관성 확보
+
+## [2026-03-06] Schedule 하위호환성 및 선검증 보강
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleStatus.java
+- 클래스/메서드: ScheduleStatus
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleVisibility.java
+- 클래스/메서드: ScheduleVisibility
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController(@RequestMapping)
+
+### 변경 내용
+기존 DB 문자열 로딩 호환을 위해 일정 상태 enum에 `DONE`, 공개 범위 enum에 `TEAM` 레거시 값을 `@Deprecated`로 복구했다.
+개인 일정 엔티티 검증에 `title.trim().length() > 200` 선검증을 추가해 DB 제약 위반 전에 `INVALID_INPUT_VALUE`를 반환하도록 정렬했다.
+컨트롤러 base path는 기존 `/api/v1/schedules`를 유지하면서 `/api/schedules` alias를 추가해 구 클라이언트 요청도 수용하도록 확장했다.
+
+### 변경 이유
+운영 데이터/클라이언트 하위호환 및 표준 예외 정책 준수

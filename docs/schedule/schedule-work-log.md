@@ -99,3 +99,20 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-06 18:46] 일정 하위호환성 및 title 선검증 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleStatus.java — `DONE` 레거시 enum 값을 `@Deprecated`로 복구해 기존 DB 문자열 로딩 호환성 보강
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleVisibility.java — `TEAM` 레거시 enum 값을 `@Deprecated`로 복구해 기존 DB 문자열 로딩 호환성 보강
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java — `validate()`에 제목 길이(최대 200자) 선검증 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java — `/api/schedules` 구경로 alias 추가(기존 `/api/v1/schedules` 유지)
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조/호환성 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
