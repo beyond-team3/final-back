@@ -291,6 +291,18 @@ public class ApprovalCommandService {
         );
     }
 
+    private DocumentDecisionResult resolveAndApplyDocumentDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        return switch (request.getDealType()) {
+            case QUO -> applyQuotationDecision(request, step, decision);
+            case CNT -> applyContractDecision(request, step, decision);
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+    }
+
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {
         if (step.getStepOrder() == 1) {
             return;
