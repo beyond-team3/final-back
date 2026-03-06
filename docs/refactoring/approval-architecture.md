@@ -51,3 +51,17 @@ QUO도 ADMIN 승인 후 CLIENT 승인 단계가 필요한 승인 정책 반영
 
 ### 변경 이유
 승인 처리 공통 순서의 문서 조회와 상태 전이 검증을 ApprovalCommandService 내부에서 수행하기 위한 구조 변경
+
+## [2026-03-06] QUO 문서 승인 적용 helper 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.applyQuotationDecision
+
+### 변경 내용
+견적서 승인/반려 시 실제 `QuotationHeader`를 조회하고, 현재 상태를 기준으로
+상태 전이 검증과 `updateStatus(...)` 호출을 수행하는 helper를 추가했다.
+문서 상태값을 `DocumentDecisionResult`로 반환할 수 있도록 공통 action/stage 변환 helper도 함께 추가했다.
+
+### 변경 이유
+승인 처리 시 실문서 상태 변경을 ApprovalCommandService 내부에서 직접 수행하기 위한 구조 반영
