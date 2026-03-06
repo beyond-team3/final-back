@@ -169,3 +169,22 @@ Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지
 
 ### 변경 이유
 Phase 2 리뷰 이슈(민감 식별자 노출, command 선검증 부족, 클래스 위치 불일치) 수정
+
+## [2026-03-06] DealScheduleSyncService 조회 포트 분리
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java
+- 클래스/메서드: DealScheduleSyncService#upsertFromEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReader.java
+- 클래스/메서드: DealScheduleReferenceReader#loadForSync
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReaderImpl.java
+- 클래스/메서드: DealScheduleReferenceReaderImpl#loadForSync
+
+### 변경 내용
+거래 일정 동기화 서비스가 `SalesDealRepository`, `ClientRepository`, `UserRepository`를 직접 주입하지 않도록
+`DealScheduleReferenceReader` 조회 포트를 도입했다.
+`DealScheduleSyncService`는 포트를 통해 deal/client/assignee 참조를 조회하고,
+실제 repository 접근 및 not found 예외 매핑은 `DealScheduleReferenceReaderImpl`에 캡슐화했다.
+
+### 변경 이유
+도메인 경계 결합 완화(타 도메인 Repository 직접 의존 제거)

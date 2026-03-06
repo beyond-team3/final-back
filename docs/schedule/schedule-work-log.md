@@ -150,3 +150,20 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-06 19:48] DealScheduleSyncService 도메인 의존 경계 분리
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java — 타 도메인 Repository 직접 주입 제거, 조회 포트 의존으로 교체
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReader.java — deal/client/assignee 조회 포트 인터페이스 및 결과 record 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReaderImpl.java — 기존 repository 조회/예외 매핑을 구현체로 캡슐화
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncServiceTest.java — 포트 mock 기반으로 테스트 의존 구조 정렬
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 검증 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
