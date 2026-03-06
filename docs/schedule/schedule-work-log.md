@@ -80,3 +80,22 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-06 18:33] 일정 예외 정책 및 API prefix 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java — canonical constructor 예외를 `CoreException(INVALID_INPUT_VALUE)`로 통일
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java — 엔티티 validate 예외를 `CoreException(INVALID_INPUT_VALUE)`로 통일
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java — 엔티티 validate 예외를 `CoreException(INVALID_INPUT_VALUE)`로 통일
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/PersonalScheduleCreateRequest.java — `status/visibility`를 nullable로 조정해 서비스 기본값 분기와 정책 일치
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java — 생성 API 201 적용 및 base path `/api/v1/schedules`로 정렬
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java — 컨트롤러 경로/생성 상태코드 기대값 정렬
+- 수정 파일: docs/schedule/schedule-architecture.md — 구조/정책 변경 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 컴파일/테스트 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

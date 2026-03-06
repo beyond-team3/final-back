@@ -96,3 +96,24 @@ Phase 5 정책(동기화 전용 계층/명령 DTO 패키지 분리) 일치
 
 ### 변경 이유
 Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지) 반영
+
+## [2026-03-06] Schedule 예외 정책 및 API 경로 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand (canonical constructor)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java
+- 클래스/메서드: DealSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController#createPersonalSchedule, ScheduleController(@RequestMapping)
+
+### 변경 내용
+일정 도메인 명령/엔티티 내부 검증에서 `IllegalArgumentException` 대신
+`CoreException(ErrorType.INVALID_INPUT_VALUE)`를 사용하도록 통일했다.
+개인 일정 생성 API는 `@ResponseStatus(HttpStatus.CREATED)`를 적용했고,
+컨트롤러 base path를 프로젝트 공통 정책에 맞춰 `/api/v1/schedules`로 정렬했다.
+
+### 변경 이유
+예외 처리/REST 경로 정책 일관성 확보
