@@ -23,6 +23,8 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
@@ -244,6 +246,42 @@ public class ApprovalCommandService {
         );
 
         quotation.updateStatus(QuotationStatus.valueOf(toStatus));
+
+        return new DocumentDecisionResult(
+                fromStatus,
+                toStatus,
+                toDealStageName(fromStatus),
+                toDealStageName(toStatus)
+        );
+    }
+
+    private DocumentDecisionResult applyContractDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        ContractHeader contract = contractRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        String fromStatus = contract.getStatus().name();
+        String toStatus = switch (step.getActorType()) {
+            case ADMIN -> decision == DecisionType.APPROVE
+                    ? ContractStatus.WAITING_CLIENT.name()
+                    : ContractStatus.REJECTED_ADMIN.name();
+            case CLIENT -> decision == DecisionType.APPROVE
+                    ? ContractStatus.COMPLETED.name()
+                    : ContractStatus.REJECTED_CLIENT.name();
+            default -> throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+        };
+
+        docStatusTransitionValidator.validateOrThrow(
+                DealType.CNT,
+                fromStatus,
+                toActionType(decision),
+                toStatus
+        );
+
+        contract.updateStatus(ContractStatus.valueOf(toStatus));
 
         return new DocumentDecisionResult(
                 fromStatus,
