@@ -297,6 +297,10 @@ public class AccountService {
         User user = userRepository.findByEmployeeId(employeeId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
         return EmployeeDetailResponse.from(user);
     }
 
@@ -310,6 +314,10 @@ public class AccountService {
 
         User user = userRepository.findByEmployeeId(userDetails.getEmployeeId())
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
 
         return EmployeeProfileResponse.from(user);
     }
