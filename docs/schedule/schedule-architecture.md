@@ -75,3 +75,24 @@ Phase 4 정책(통합 조회 서비스의 query 계층 분리) 일치
 
 ### 변경 이유
 Phase 5 정책(동기화 전용 계층/명령 DTO 패키지 분리) 일치
+
+## [2026-03-06] Phase 6 일정 도메인 테스트 추가
+
+### 변경 대상
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java
+- 클래스/메서드: ScheduleControllerTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandServiceTest.java
+- 클래스/메서드: PersonalScheduleCommandServiceTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryServiceTest.java
+- 클래스/메서드: ScheduleQueryServiceTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncServiceTest.java
+- 클래스/메서드: DealScheduleSyncServiceTest
+
+### 변경 내용
+`@WebMvcTest + TestSecurityConfig` 기반 컨트롤러 테스트로 개인 일정 CRUD와 통합 조회(ADMIN/SALES_REP/CLIENT) 요청 바인딩을 검증했다.
+개인 일정 명령 서비스 테스트에 create/update/delete 흐름과 `USER_NOT_FOUND`, `PERSONAL_SCHEDULE_NOT_FOUND`, 시간 검증 예외를 추가했다.
+통합 조회 서비스 테스트에 역할별 접근 제어(`ACCESS_DENIED`, `EMPLOYEE_NOT_LINKED`) 및 include flag 검증을 추가했다.
+거래 일정 동기화 테스트에 신규 생성, externalKey update, `DataIntegrityViolationException` 재시도, deal-client 불일치 검증을 추가했다.
+
+### 변경 이유
+Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지) 반영
