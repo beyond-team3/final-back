@@ -20,10 +20,7 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractDetailR
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderDetailRequest;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderDetailResponse;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListResponse;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.*;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderDetail;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
@@ -36,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -323,6 +321,55 @@ public class OrderService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return actorId;
+    }
+
+    // ----------------------------------------------------------------
+    // 거래처 거래 요약 조회 (영업사원/관리자 - 거래처 상세 페이지)
+    // ----------------------------------------------------------------
+
+    /**
+     * 특정 거래처의 이번달 거래 요약 + 여신 정보를 조회합니다.
+     * - 영업사원/관리자만 호출 가능 (Controller 레이어에서 권한 검증)
+     *
+     * @param clientId 조회 대상 거래처 ID
+     * @return 이번달 주문 집계 + 여신 한도/미수금/잔여여신
+     */
+    public OrderTradeSummaryResponse getTradeSummary(Long clientId) {
+        // 1. 거래처 조회 (여신 정보 포함)
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        // 2. 이번달 시작 / 다음달 시작 계산
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfMonth = today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime startOfNextMonth = startOfMonth.plusMonths(1);
+
+        // 3. 이번달 주문 집계
+        BigDecimal thisMonthTotal = orderHeaderRepository.sumThisMonthTotalAmount(
+                clientId, startOfMonth, startOfNextMonth
+        );
+        long inProgressCount = orderHeaderRepository.countThisMonthByStatus(
+                clientId, OrderStatus.PENDING, startOfMonth, startOfNextMonth
+        );
+        long completedCount = orderHeaderRepository.countThisMonthByStatus(
+                clientId, OrderStatus.CONFIRMED, startOfMonth, startOfNextMonth
+        );
+
+        // 4. 여신 정보 (null-safe)
+        BigDecimal totalCredit = client.getTotalCredit() != null ? client.getTotalCredit() : BigDecimal.ZERO;
+        BigDecimal usedCredit = client.getUsedCredit() != null ? client.getUsedCredit() : BigDecimal.ZERO;
+        BigDecimal remainingCredit = totalCredit.subtract(usedCredit);
+
+        return OrderTradeSummaryResponse.builder()
+                .thisMonth(OrderTradeSummaryResponse.ThisMonth.builder()
+                        .totalAmount(thisMonthTotal)
+                        .inProgressCount(inProgressCount)
+                        .completedCount(completedCount)
+                        .build())
+                .totalCredit(totalCredit)
+                .usedCredit(usedCredit)
+                .remainingCredit(remainingCredit)
+                .build();
     }
 
 }

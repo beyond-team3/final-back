@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateReques
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListResponse;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
+import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderTradeSummaryResponse;
 import com.monsoon.seedflowplus.domain.sales.order.service.OrderService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,5 +73,16 @@ public class OrderController {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return ApiResult.success(orderService.confirmOrder(orderId, userDetails));
+    }
+
+    @Operation(
+            summary = "거래처 거래 요약 조회",
+            description = "영업사원/관리자가 특정 거래처의 이번달 거래 요약 및 여신 정보를 조회합니다."
+    )
+    @GetMapping("/clients/{clientId}/trade-summary")
+    public ApiResult<OrderTradeSummaryResponse> getTradeSummary(
+            @PathVariable Long clientId
+    ) {
+        return ApiResult.success(orderService.getTradeSummary(clientId));
     }
 }
