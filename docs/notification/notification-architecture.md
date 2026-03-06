@@ -22,3 +22,40 @@ NotificationType에 Deal/Approval 알림 타입 4종을 추가했다.
 
 ### 변경 이유
 AGENTS.md Phase 2(3~5번) 요구사항 반영
+
+## [2026-03-06] Notification Phase 3 이벤트 기반 알림 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/DealStatusChangedEvent.java
+- 클래스/메서드: DealStatusChangedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java
+- 클래스/메서드: ApprovalRequestedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java
+- 클래스/메서드: ApprovalCompletedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java
+- 클래스/메서드: ApprovalRejectedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java
+- 클래스/메서드: NotificationEventPublisher.publish
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java
+- 클래스/메서드: DealApprovalNotificationService.createDealStatusChangedNotification, createApprovalRequestedNotification, createApprovalCompletedNotification, createApprovalRejectedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: NotificationEventHandler.handleDealStatusChanged, handleApprovalRequested, handleApprovalCompleted, handleApprovalRejected
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacade.java
+- 클래스/메서드: DealPipelineFacade.recordAndSync, recordConvertAndSync
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.createApprovalRequest, decideStep
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/account/repository/UserRepository.java
+- 클래스/메서드: UserRepository.findByClientId, findAllByRole
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationTargetType.java
+- 클래스/메서드: NotificationTargetType
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java
+- 클래스/메서드: NotificationSseService.connect, send, remove
+
+### 변경 내용
+Deal/Approval 알림을 동기 호출 대신 Spring ApplicationEvent 기반으로 분리하기 위해 이벤트 4종과 퍼블리셔를 추가했다.
+이벤트 핸들러는 `@EventListener + @Async`로 저장을 위임하고, 저장 성공 시 SSE 서비스를 통해 사용자별 실시간 전송을 시도한다.
+DealPipelineFacade와 ApprovalCommandService는 기존 로직 후단에서 이벤트만 발행하도록 연결해 직접 NotificationCommandService 의존을 피했다.
+DealApprovalNotificationService는 사용자 row 락 + 당일 중복 체크 후 Notification/NotificationDelivery(IN_APP, scheduledAt=event 발생시각)를 생성한다.
+
+### 변경 이유
+AGENTS.md Phase 3(6~9번) 요구사항 반영

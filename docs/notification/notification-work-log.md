@@ -16,3 +16,28 @@
 
 ### 다음 단계
 Phase 3 (Deal/Approval 이벤트 알림) 진행
+
+## [2026-03-06 17:11] Notification Phase 3 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacade.java — 딜 상태 변경 시 담당자 대상 NotificationEvent 발행 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 승인 요청/완료/반려 시 NotificationEvent 발행 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/account/repository/UserRepository.java — 이벤트 수신자 해석용 조회 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationTargetType.java — DEAL, APPROVAL targetType 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/DealStatusChangedEvent.java — 딜 상태 변경 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java — 승인 요청 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java — 승인 완료 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java — 승인 반려 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java — ApplicationEventPublisher 래퍼 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java — 이벤트 기반 알림 생성 및 중복 방지 로직 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — @Async 이벤트 수신 및 저장 후 SSE 전송 연결
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java — 사용자별 emitter 관리/전송/제거 기본 구현
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+Phase 4 (SSE 구독 API 및 워커 연동) 진행
