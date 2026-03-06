@@ -186,3 +186,17 @@ SKIP LOCKED 쿼리에 MariaDB 10.6+ 전제 조건을 명시하고, 미지원/실
 
 ### 변경 이유
 프로젝트 트랜잭션 컨벤션(클래스 기본 readOnly, 쓰기 메서드 재선언) 준수
+
+## [2026-03-06] Notification afterCommit 발행 예외 격리
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java
+- 클래스/메서드: NotificationEventPublisher.publishAfterCommit, publish
+
+### 변경 내용
+`afterCommit` 콜백 내부 이벤트 발행을 try-catch로 감싸 예외를 로깅하고 전파하지 않도록 변경했다.
+즉시 발행 메서드 `publish(Object)`의 접근 범위를 package-private로 축소해 외부 정책 우회 가능성을 낮췄다.
+기존 `publishAfterCommit` 동작 경로와 이벤트 payload 계약은 유지했다.
+
+### 변경 이유
+after-commit 예외가 API 실패로 오인되지 않도록 소스 트랜잭션 결과와 이벤트 발행 실패를 분리하고, 발행 정책 우회를 방지하기 위함

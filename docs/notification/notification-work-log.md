@@ -144,3 +144,17 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-06 19:57] NotificationEventPublisher afterCommit 예외 전파 방지
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventPublisher.java — afterCommit 내부 publish 예외를 로깅 후 삼키도록 변경, `publish(Object)` 접근 범위를 package-private로 축소
+- 수정 파일: docs/notification/notification-architecture.md — 구조/정책 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
