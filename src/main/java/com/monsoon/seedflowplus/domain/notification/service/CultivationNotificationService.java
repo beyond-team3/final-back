@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class CultivationNotificationService {
 
     private static final LocalTime DEFAULT_SCHEDULE_TIME = LocalTime.of(9, 0);
@@ -36,6 +36,7 @@ public class CultivationNotificationService {
     private final NotificationDeliveryRepository notificationDeliveryRepository;
     private final EntityManager entityManager;
 
+    @Transactional
     public void createSowingPromotionNotification(
             Long userId,
             Long productId,
@@ -74,6 +75,7 @@ public class CultivationNotificationService {
         notificationDeliveryRepository.save(delivery);
     }
 
+    @Transactional
     public void createHarvestFeedbackNotification(
             Long userId,
             Long productId,

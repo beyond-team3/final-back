@@ -13,13 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class NotificationCommandService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationDeliveryRepository notificationDeliveryRepository;
     private final CultivationNotificationService cultivationNotificationService;
 
+    @Transactional
     public void markAsRead(Long userId, Long notificationId, LocalDateTime now) {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(notificationId, "notificationId must not be null");
@@ -30,6 +31,7 @@ public class NotificationCommandService {
         notification.markAsRead(now);
     }
 
+    @Transactional
     public void markAllAsRead(Long userId, LocalDateTime now) {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(now, "now must not be null");
@@ -37,6 +39,7 @@ public class NotificationCommandService {
         notificationRepository.markAllAsRead(userId, now);
     }
 
+    @Transactional
     public void deleteOne(Long userId, Long notificationId) {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(notificationId, "notificationId must not be null");
@@ -48,6 +51,7 @@ public class NotificationCommandService {
         notificationRepository.delete(notification);
     }
 
+    @Transactional
     public void deleteAll(Long userId) {
         Objects.requireNonNull(userId, "userId must not be null");
 
@@ -55,6 +59,7 @@ public class NotificationCommandService {
         notificationRepository.deleteByUser_Id(userId);
     }
 
+    @Transactional
     public long deleteOlderThan(LocalDateTime cutoff) {
         Objects.requireNonNull(cutoff, "cutoff must not be null");
 
@@ -62,6 +67,7 @@ public class NotificationCommandService {
         return notificationRepository.deleteByCreatedAtBefore(cutoff);
     }
 
+    @Transactional
     public void createCultivationSowingPromotion(
             Long userId,
             Long productId,
@@ -78,6 +84,7 @@ public class NotificationCommandService {
         );
     }
 
+    @Transactional
     public void createCultivationHarvestFeedback(
             Long userId,
             Long productId,
