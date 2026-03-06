@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.deal.log.service;
 
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -7,6 +8,8 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
 import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
+import com.monsoon.seedflowplus.domain.notification.event.DealStatusChangedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +26,8 @@ public class DealPipelineFacade {
 
     private final DealLogWriteService dealLogWriteService;
     private final DocStatusTransitionValidator docStatusTransitionValidator;
+    private final NotificationEventPublisher notificationEventPublisher;
+    private final UserRepository userRepository;
 
     @Transactional
     public SalesDealLog recordAndSync(
@@ -76,6 +81,7 @@ public class DealPipelineFacade {
                 targetCode,
                 savedLog.getActionAt()
         );
+        publishDealStatusChangedEventIfNeeded(deal, fromStatus, toStatus, savedLog.getActionAt());
         return savedLog;
     }
 
@@ -160,6 +166,12 @@ public class DealPipelineFacade {
                 created.targetCode(),
                 pair.createdLog().getActionAt()
         );
+        publishDealStatusChangedEventIfNeeded(
+                created.deal(),
+                original.fromStatus(),
+                created.toStatus(),
+                pair.createdLog().getActionAt()
+        );
         return pair;
     }
 
@@ -182,5 +194,30 @@ public class DealPipelineFacade {
             return false;
         }
         return actionType != ActionType.CREATE;
+    }
+
+    private void publishDealStatusChangedEventIfNeeded(
+            SalesDeal deal,
+            String fromStatus,
+            String toStatus,
+            java.time.LocalDateTime occurredAt
+    ) {
+        if (!StringUtils.hasText(fromStatus) || !StringUtils.hasText(toStatus) || fromStatus.equals(toStatus)) {
+            return;
+        }
+        if (deal.getOwnerEmp() == null || deal.getOwnerEmp().getId() == null) {
+            return;
+        }
+        userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                .map(user -> user.getId())
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(
+                        new DealStatusChangedEvent(
+                                userId,
+                                deal.getId(),
+                                fromStatus,
+                                toStatus,
+                                occurredAt
+                        )
+                ));
     }
 }

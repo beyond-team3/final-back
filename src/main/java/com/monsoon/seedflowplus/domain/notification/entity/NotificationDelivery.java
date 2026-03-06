@@ -41,6 +41,9 @@ import lombok.NoArgsConstructor;
 @AttributeOverride(name = "id", column = @Column(name = "delivery_id"))
 public class NotificationDelivery extends BaseModifyEntity {
 
+    private static final int FAIL_REASON_MAX_LENGTH = 500;
+    private static final String DEFAULT_FAIL_REASON = "dispatch failed";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "notification_id", nullable = false)
     private Notification notification;
@@ -100,6 +103,20 @@ public class NotificationDelivery extends BaseModifyEntity {
     public void markFailed(LocalDateTime now, String reason) {
         this.status = DeliveryStatus.FAILED;
         this.lastAttemptAt = now;
-        this.failReason = reason;
+        this.failReason = normalizeReason(reason);
+    }
+
+    private String normalizeReason(String reason) {
+        if (reason == null) {
+            return DEFAULT_FAIL_REASON;
+        }
+        String normalized = reason.trim();
+        if (normalized.isEmpty()) {
+            return DEFAULT_FAIL_REASON;
+        }
+        if (normalized.length() > FAIL_REASON_MAX_LENGTH) {
+            return normalized.substring(0, FAIL_REASON_MAX_LENGTH);
+        }
+        return normalized;
     }
 }
