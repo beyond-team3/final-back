@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationDeliverySchedulerTest {
@@ -50,6 +51,7 @@ class NotificationDeliverySchedulerTest {
         Instant nowInstant = Instant.parse("2026-03-06T08:00:00Z");
         when(clock.instant()).thenReturn(nowInstant);
         when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+        ReflectionTestUtils.setField(notificationDeliveryScheduler, "retentionDays", 30L);
 
         notificationDeliveryScheduler.deleteExpiredNotifications();
 
