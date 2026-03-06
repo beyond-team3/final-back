@@ -113,6 +113,13 @@ public class ContractHeader extends BaseModifyEntity {
         this.status = ContractStatus.DELETED;
     }
 
+    public void updateStatus(ContractStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("변경할 상태 값이 존재하지 않습니다.");
+        }
+        this.status = status;
+    }
+
     public void updateContractCode(String contractCode) {
         this.contractCode = contractCode;
     }
