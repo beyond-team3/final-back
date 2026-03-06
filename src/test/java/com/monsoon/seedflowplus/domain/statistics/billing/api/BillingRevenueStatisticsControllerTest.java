@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.CategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyCategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.service.BillingRevenueStatisticsQueryService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -58,6 +60,47 @@ class BillingRevenueStatisticsControllerTest {
         ArgumentCaptor<BillingRevenueStatisticsFilter> captor =
                 ArgumentCaptor.forClass(BillingRevenueStatisticsFilter.class);
         verify(queryService).getMonthlyRevenue(captor.capture());
+        BillingRevenueStatisticsFilter captured = captor.getValue();
+
+        org.assertj.core.api.Assertions.assertThat(captured.getFromDate().toString()).isEqualTo("2026-01-01");
+        org.assertj.core.api.Assertions.assertThat(captured.getToDate().toString()).isEqualTo("2026-12-31");
+        org.assertj.core.api.Assertions.assertThat(captured.getCategory()).isEqualTo("수박");
+    }
+
+    @Test
+    @DisplayName("품종별 API는 success 래퍼로 응답한다")
+    void shouldWrapCategoryRevenueWithSuccessResponse() throws Exception {
+        when(queryService.getCategoryRevenue(any(BillingRevenueStatisticsFilter.class)))
+                .thenReturn(List.of(new CategoryBilledRevenueDto("수박", new BigDecimal("700"))));
+
+        mockMvc.perform(get("/statistics/billing/revenue/by-category")
+                        .param("from", "2026-01-01")
+                        .param("to", "2026-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").value("SUCCESS"))
+                .andExpect(jsonPath("$.data[0].category").value("수박"))
+                .andExpect(jsonPath("$.data[0].billedRevenue").value(700));
+    }
+
+    @Test
+    @DisplayName("월별 품종별 API는 from/to/category를 필터에 바인딩해 QueryService에 전달한다")
+    void shouldBindParamsForMonthlyCategoryApi() throws Exception {
+        when(queryService.getMonthlyCategoryRevenue(any(BillingRevenueStatisticsFilter.class)))
+                .thenReturn(List.of(new MonthlyCategoryBilledRevenueDto("2026-01", "수박", new BigDecimal("700"))));
+
+        mockMvc.perform(get("/statistics/billing/revenue/monthly-by-category")
+                        .param("from", "2026-01-01")
+                        .param("to", "2026-12-31")
+                        .param("category", "수박"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").value("SUCCESS"))
+                .andExpect(jsonPath("$.data[0].month").value("2026-01"))
+                .andExpect(jsonPath("$.data[0].category").value("수박"))
+                .andExpect(jsonPath("$.data[0].billedRevenue").value(700));
+
+        ArgumentCaptor<BillingRevenueStatisticsFilter> captor =
+                ArgumentCaptor.forClass(BillingRevenueStatisticsFilter.class);
+        verify(queryService).getMonthlyCategoryRevenue(captor.capture());
         BillingRevenueStatisticsFilter captured = captor.getValue();
 
         org.assertj.core.api.Assertions.assertThat(captured.getFromDate().toString()).isEqualTo("2026-01-01");

@@ -20,11 +20,14 @@ import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderDetail;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.CategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
+import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyCategoryBilledRevenueDto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -117,6 +120,32 @@ class BillingRevenueStatisticsRepositoryTest {
         assertThat(cabbageResult).hasSize(1);
         assertThat(cabbageResult.get(0).getMonth()).isEqualTo("2024-01");
         assertThat(cabbageResult.get(0).getBilledRevenue()).isEqualByComparingTo("550");
+    }
+
+    @Test
+    @DisplayName("혼합 품종 invoice가 있어도 품종별 조회는 각 품종 금액만 집계한다")
+    void shouldAggregateCategoryRevenueWithoutDuplicatingMixedInvoiceTotal() {
+        seedMonthlyRevenueFixtures();
+
+        List<CategoryBilledRevenueDto> result = repository.findCategoryRevenue(filter(null));
+        Map<String, BigDecimal> revenueMap = toCategoryRevenueMap(result);
+
+        assertThat(revenueMap).containsKeys("tomato", "cabbage");
+        assertThat(revenueMap.get("tomato")).isEqualByComparingTo("350");
+        assertThat(revenueMap.get("cabbage")).isEqualByComparingTo("550");
+    }
+
+    @Test
+    @DisplayName("혼합 품종 invoice가 있어도 월별 품종 조회는 각 품종 금액만 집계한다")
+    void shouldAggregateMonthlyCategoryRevenueWithoutDuplicatingMixedInvoiceTotal() {
+        seedMonthlyRevenueFixtures();
+
+        List<MonthlyCategoryBilledRevenueDto> result = repository.findMonthlyCategoryRevenue(filter(null));
+        Map<String, BigDecimal> revenueMap = toMonthlyCategoryRevenueMap(result);
+
+        assertThat(revenueMap).containsKeys("2024-01|tomato", "2024-01|cabbage");
+        assertThat(revenueMap.get("2024-01|tomato")).isEqualByComparingTo("350");
+        assertThat(revenueMap.get("2024-01|cabbage")).isEqualByComparingTo("550");
     }
 
     private void seedMonthlyRevenueFixtures() {
@@ -229,14 +258,15 @@ class BillingRevenueStatisticsRepositoryTest {
     }
 
     private ContractDetail persistContractDetail(ContractHeader contract, String productCategory, String amount) {
+        BigDecimal lineAmount = new BigDecimal(amount);
         ContractDetail contractDetail = new ContractDetail(
                 null,
                 productCategory + "-name",
                 productCategory,
-                10,
+                1,
                 "BOX",
-                new BigDecimal("100"),
-                new BigDecimal(amount)
+                lineAmount,
+                lineAmount
         );
         contract.addItem(contractDetail);
         return entityManager.persist(contractDetail);
@@ -336,6 +366,22 @@ class BillingRevenueStatisticsRepositoryTest {
         return rows.stream()
                 .map(MonthlyBilledRevenueDto::getBilledRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Map<String, BigDecimal> toCategoryRevenueMap(List<CategoryBilledRevenueDto> rows) {
+        return rows.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        CategoryBilledRevenueDto::getCategory,
+                        CategoryBilledRevenueDto::getBilledRevenue
+                ));
+    }
+
+    private Map<String, BigDecimal> toMonthlyCategoryRevenueMap(List<MonthlyCategoryBilledRevenueDto> rows) {
+        return rows.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> row.getMonth() + "|" + row.getCategory(),
+                        MonthlyCategoryBilledRevenueDto::getBilledRevenue
+                ));
     }
 
     private DetailSpec detailSpec(String productCategory, String amount) {

@@ -48,11 +48,11 @@ class BillingRevenueStatisticsQueryServiceTest {
     }
 
     @Test
-    @DisplayName("조회 기간이 정확히 24개월이면 현재 구현 기준 허용된다")
+    @DisplayName("조회 기간이 포함 기준 정확히 24개월이면 허용된다")
     void shouldAllowWhenDateRangeIsExactly24Months() {
         BillingRevenueStatisticsFilter filter = filter(
                 LocalDate.of(2024, 1, 1),
-                LocalDate.of(2026, 1, 31),
+                LocalDate.of(2025, 12, 31),
                 null
         );
 
@@ -65,11 +65,11 @@ class BillingRevenueStatisticsQueryServiceTest {
     }
 
     @Test
-    @DisplayName("조회 기간이 24개월 초과면 INVALID_INPUT_VALUE 예외가 발생한다")
+    @DisplayName("조회 기간이 포함 기준 25개월이면 INVALID_INPUT_VALUE 예외가 발생한다")
     void shouldThrowWhenDateRangeExceeds24Months() {
         BillingRevenueStatisticsFilter filter = filter(
                 LocalDate.of(2024, 1, 1),
-                LocalDate.of(2026, 2, 1),
+                LocalDate.of(2026, 1, 31),
                 null
         );
 
