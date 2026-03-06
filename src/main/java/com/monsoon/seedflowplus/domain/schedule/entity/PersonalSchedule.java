@@ -119,6 +119,9 @@ public class PersonalSchedule extends BaseModifyEntity {
         if (title == null || title.trim().isEmpty()) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
+        if (title.trim().length() > 200) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
         if (startAt == null || endAt == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }

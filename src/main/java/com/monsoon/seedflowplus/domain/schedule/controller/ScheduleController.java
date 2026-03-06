@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/schedules")
+@RequestMapping({"/api/v1/schedules", "/api/schedules"})
 public class ScheduleController {
 
     private final ScheduleQueryService scheduleQueryService;
