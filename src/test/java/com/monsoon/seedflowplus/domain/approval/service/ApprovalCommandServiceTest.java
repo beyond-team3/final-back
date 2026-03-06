@@ -41,7 +41,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,14 +90,16 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 1: QUO approval 생성 시 step 2개를 생성한다")
+    @DisplayName("케이스 1: QUO approval 생성 시 문서 기준 client snapshot과 step 2개를 생성한다")
     void createApprovalRequestCreatesTwoStepsForQuotation() {
         CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 500L, 77L, "Q-500");
         CustomUserDetails principal = mockUser(Role.ADMIN, 10L, null);
         ArgumentCaptor<ApprovalRequest> requestCaptor = ArgumentCaptor.forClass(ApprovalRequest.class);
+        QuotationHeader quotation = quotation(500L, QuotationStatus.WAITING_ADMIN, 77L);
 
         when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 500L, ApprovalStatus.PENDING))
                 .thenReturn(false);
+        when(quotationRepository.findById(500L)).thenReturn(Optional.of(quotation));
         when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
             ApprovalRequest saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 900L);
@@ -110,6 +111,7 @@ class ApprovalCommandServiceTest {
         verify(approvalRequestRepository).save(requestCaptor.capture());
         ApprovalRequest savedRequest = requestCaptor.getValue();
         assertThat(response.approvalId()).isEqualTo(900L);
+        assertThat(savedRequest.getClientIdSnapshot()).isEqualTo(77L);
         assertThat(savedRequest.getSteps()).hasSize(2);
         assertThat(savedRequest.getSteps().get(0).getActorType()).isEqualTo(ActorType.ADMIN);
         assertThat(savedRequest.getSteps().get(0).getStatus()).isEqualTo(ApprovalStepStatus.WAITING);
@@ -118,17 +120,41 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 1-1: QUO approval 생성 시 clientIdSnapshot이 없으면 예외")
-    void createApprovalRequestRequiresClientIdSnapshotForQuotation() {
+    @DisplayName("케이스 1-1: QUO approval 생성 시 clientIdSnapshot이 없어도 문서 기준으로 채운다")
+    void createApprovalRequestFillsClientIdSnapshotFromQuotation() {
         CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 501L, null, "Q-501");
+        QuotationHeader quotation = quotation(501L, QuotationStatus.WAITING_ADMIN, 701L);
+        ArgumentCaptor<ApprovalRequest> requestCaptor = ArgumentCaptor.forClass(ApprovalRequest.class);
 
         when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 501L, ApprovalStatus.PENDING))
                 .thenReturn(false);
+        when(quotationRepository.findById(501L)).thenReturn(Optional.of(quotation));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 901L);
+            return saved;
+        });
+
+        approvalCommandService.createApprovalRequest(dto, mockUser(Role.ADMIN, 10L, null));
+
+        verify(approvalRequestRepository).save(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().getClientIdSnapshot()).isEqualTo(701L);
+    }
+
+    @Test
+    @DisplayName("케이스 1-1-1: QUO approval 생성 시 요청 snapshot과 문서 거래처가 다르면 예외")
+    void createApprovalRequestFailsWhenSnapshotDiffersFromQuotationClient() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 501L, 999L, "Q-501");
+        QuotationHeader quotation = quotation(501L, QuotationStatus.WAITING_ADMIN, 701L);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 501L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(quotationRepository.findById(501L)).thenReturn(Optional.of(quotation));
 
         assertThatThrownBy(() -> approvalCommandService.createApprovalRequest(dto, mockUser(Role.ADMIN, 10L, null)))
                 .isInstanceOf(CoreException.class)
                 .extracting(ex -> ((CoreException) ex).getErrorType())
-                .isEqualTo(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
+                .isEqualTo(ErrorType.APPROVAL_CLIENT_MISMATCH);
 
         verify(approvalRequestRepository, never()).save(any(ApprovalRequest.class));
     }
@@ -138,9 +164,11 @@ class ApprovalCommandServiceTest {
     void createApprovalRequestWritesAdminSubmitLog() {
         CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 502L, 77L, "Q-502");
         CustomUserDetails principal = mockUser(Role.ADMIN, 321L, null);
+        QuotationHeader quotation = quotation(502L, QuotationStatus.WAITING_ADMIN, 77L);
 
         when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 502L, ApprovalStatus.PENDING))
                 .thenReturn(false);
+        when(quotationRepository.findById(502L)).thenReturn(Optional.of(quotation));
         when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
             ApprovalRequest saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 902L);
@@ -157,9 +185,11 @@ class ApprovalCommandServiceTest {
     void createApprovalRequestWritesClientSubmitLog() {
         CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 503L, 88L, "Q-503");
         CustomUserDetails principal = mockUser(Role.CLIENT, null, 88L);
+        QuotationHeader quotation = quotation(503L, QuotationStatus.WAITING_ADMIN, 88L);
 
         when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 503L, ApprovalStatus.PENDING))
                 .thenReturn(false);
+        when(quotationRepository.findById(503L)).thenReturn(Optional.of(quotation));
         when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
             ApprovalRequest saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 903L);
@@ -431,14 +461,13 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 10: search totalElements는 접근 제어 후 결과 수와 일치한다")
-    void searchUsesFilteredContentSizeAsTotalElements() {
+    @DisplayName("케이스 10: CLIENT search는 저장소 접근 제어 쿼리 결과를 그대로 사용한다")
+    void searchUsesClientScopedRepositoryQuery() {
         ApprovalRequest accessible = quoRequest(901L, 7100L, 77L);
-        ApprovalRequest inaccessible = quoRequest(902L, 7101L, 88L);
         ApprovalStep accessibleStep = step(91L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
 
-        when(approvalRequestRepository.search(null, DealType.QUO, null, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible, inaccessible), PageRequest.of(0, 10), 2));
+        when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 3));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(901L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
@@ -451,6 +480,8 @@ class ApprovalCommandServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10));
+        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {
@@ -489,10 +520,16 @@ class ApprovalCommandServiceTest {
     }
 
     private QuotationHeader quotation(Long id, QuotationStatus status) {
+        return quotation(id, status, 1L);
+    }
+
+    private QuotationHeader quotation(Long id, QuotationStatus status, Long clientId) {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        lenient().when(client.getId()).thenReturn(clientId);
         QuotationHeader quotation = QuotationHeader.create(
                 null,
                 "Q-" + id,
-                org.mockito.Mockito.mock(Client.class),
+                client,
                 org.mockito.Mockito.mock(SalesDeal.class),
                 org.mockito.Mockito.mock(Employee.class),
                 BigDecimal.TEN,
