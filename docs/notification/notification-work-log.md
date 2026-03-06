@@ -75,6 +75,20 @@ Phase 5 테스트 추가
 ### 다음 단계
 없음
 
+## [2026-03-07 01:12] NotificationSseService compare-remove 경계 보강
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java — key-only 제거 메서드 삭제, compare-remove(`removeIfMatch`) 단일 경로로 통일
+- 수정 파일: docs/notification/notification-architecture.md — SSE remove 오용 경계 차단 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
+
 ## [2026-03-06 19:15] Notification 결함 이슈 4건 수정
 
 ### 작업 내용

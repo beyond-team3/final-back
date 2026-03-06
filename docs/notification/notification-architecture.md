@@ -200,3 +200,17 @@ SKIP LOCKED 쿼리에 MariaDB 10.6+ 전제 조건을 명시하고, 미지원/실
 
 ### 변경 이유
 after-commit 예외가 API 실패로 오인되지 않도록 소스 트랜잭션 결과와 이벤트 발행 실패를 분리하고, 발행 정책 우회를 방지하기 위함
+
+## [2026-03-07] Notification SSE remove 오용 경계 차단
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java
+- 클래스/메서드: NotificationSseService.connect, send, removeIfMatch
+
+### 변경 내용
+SSE emitter 정리 메서드를 compare-remove 전용 `removeIfMatch(userId, emitter)`로 통일했다.
+key-only 삭제를 수행하던 `remove(userId)` 공개 메서드를 제거해 stale 컨텍스트에서 신규 emitter 오삭제가 발생할 경로를 차단했다.
+completion/timeout/error 콜백과 send 실패 경로 모두 동일한 compare-remove 메서드를 사용하도록 정리했다.
+
+### 변경 이유
+Phase 4 SSE 동시성 리뷰 지적사항(잘못된 emitter 삭제 경쟁 조건) 보완
