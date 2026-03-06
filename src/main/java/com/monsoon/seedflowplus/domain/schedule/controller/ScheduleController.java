@@ -7,7 +7,7 @@ import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleCrea
 import com.monsoon.seedflowplus.domain.schedule.dto.request.PersonalScheduleUpdateRequest;
 import com.monsoon.seedflowplus.domain.schedule.dto.request.ScheduleSearchCondition;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
-import com.monsoon.seedflowplus.domain.schedule.service.PersonalScheduleCommandService;
+import com.monsoon.seedflowplus.domain.schedule.command.PersonalScheduleCommandService;
 import com.monsoon.seedflowplus.domain.schedule.service.ScheduleQueryService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;

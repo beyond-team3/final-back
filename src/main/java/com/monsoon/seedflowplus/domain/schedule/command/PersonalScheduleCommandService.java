@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.service;
+package com.monsoon.seedflowplus.domain.schedule.command;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
@@ -72,15 +72,7 @@ public class PersonalScheduleCommandService {
     public void delete(Long scheduleId, CustomUserDetails actor) {
         Long actorUserId = requireActorUserId(actor);
         PersonalSchedule schedule = getOwnedScheduleOrThrow(scheduleId, actorUserId);
-        schedule.update(
-                schedule.getTitle(),
-                schedule.getDescription(),
-                schedule.getStartAt(),
-                schedule.getEndAt(),
-                schedule.isAllDay(),
-                ScheduleStatus.CANCELED,
-                schedule.getVisibility()
-        );
+        schedule.cancel();
     }
 
     private PersonalSchedule getOwnedScheduleOrThrow(Long scheduleId, Long actorUserId) {
