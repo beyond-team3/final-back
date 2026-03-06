@@ -14,12 +14,9 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
-import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
-import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
@@ -44,13 +41,7 @@ class DealScheduleSyncServiceTest {
     private DealScheduleRepository dealScheduleRepository;
 
     @Mock
-    private SalesDealRepository salesDealRepository;
-
-    @Mock
-    private ClientRepository clientRepository;
-
-    @Mock
-    private UserRepository userRepository;
+    private DealScheduleReferenceReader dealScheduleReferenceReader;
 
     @InjectMocks
     private DealScheduleSyncService dealScheduleSyncService;
@@ -61,9 +52,7 @@ class DealScheduleSyncServiceTest {
         Fixture fixture = fixture(100L, 200L, 300L);
         DealScheduleUpsertCommand command = command("ext-new", fixture.deal.getId(), fixture.client.getId(), fixture.assignee.getId());
 
-        when(salesDealRepository.findById(fixture.deal.getId())).thenReturn(Optional.of(fixture.deal));
-        when(clientRepository.findById(fixture.client.getId())).thenReturn(Optional.of(fixture.client));
-        when(userRepository.findById(fixture.assignee.getId())).thenReturn(Optional.of(fixture.assignee));
+        mockReferences(fixture);
         when(dealScheduleRepository.findByExternalKey("ext-new")).thenReturn(Optional.empty());
         when(dealScheduleRepository.saveAndFlush(any(DealSchedule.class))).thenAnswer(invocation -> {
             DealSchedule saved = invocation.getArgument(0);
@@ -83,9 +72,7 @@ class DealScheduleSyncServiceTest {
         DealSchedule existing = existingSchedule("ext-exists", fixture);
         DealScheduleUpsertCommand command = command("ext-exists", fixture.deal.getId(), fixture.client.getId(), fixture.assignee.getId());
 
-        when(salesDealRepository.findById(fixture.deal.getId())).thenReturn(Optional.of(fixture.deal));
-        when(clientRepository.findById(fixture.client.getId())).thenReturn(Optional.of(fixture.client));
-        when(userRepository.findById(fixture.assignee.getId())).thenReturn(Optional.of(fixture.assignee));
+        mockReferences(fixture);
         when(dealScheduleRepository.findByExternalKey("ext-exists")).thenReturn(Optional.of(existing));
         when(dealScheduleRepository.saveAndFlush(existing)).thenReturn(existing);
 
@@ -103,9 +90,7 @@ class DealScheduleSyncServiceTest {
         DealSchedule existing = existingSchedule("ext-race", fixture);
         DealScheduleUpsertCommand command = command("ext-race", fixture.deal.getId(), fixture.client.getId(), fixture.assignee.getId());
 
-        when(salesDealRepository.findById(fixture.deal.getId())).thenReturn(Optional.of(fixture.deal));
-        when(clientRepository.findById(fixture.client.getId())).thenReturn(Optional.of(fixture.client));
-        when(userRepository.findById(fixture.assignee.getId())).thenReturn(Optional.of(fixture.assignee));
+        mockReferences(fixture);
         when(dealScheduleRepository.findByExternalKey("ext-race"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
@@ -126,9 +111,8 @@ class DealScheduleSyncServiceTest {
         Client anotherClient = client(999L, fixture.owner);
         DealScheduleUpsertCommand command = command("ext-mismatch", fixture.deal.getId(), anotherClient.getId(), fixture.assignee.getId());
 
-        when(salesDealRepository.findById(fixture.deal.getId())).thenReturn(Optional.of(fixture.deal));
-        when(clientRepository.findById(anotherClient.getId())).thenReturn(Optional.of(anotherClient));
-        when(userRepository.findById(fixture.assignee.getId())).thenReturn(Optional.of(fixture.assignee));
+        when(dealScheduleReferenceReader.loadForSync(fixture.deal.getId(), anotherClient.getId(), fixture.assignee.getId()))
+                .thenReturn(new DealScheduleReferenceReader.DealScheduleReferences(fixture.deal, anotherClient, fixture.assignee));
 
         assertThatThrownBy(() -> dealScheduleSyncService.upsertFromEvent(command))
                 .isInstanceOf(CoreException.class)
@@ -231,6 +215,11 @@ class DealScheduleSyncServiceTest {
                 .build();
         ReflectionTestUtils.setField(client, "id", id);
         return client;
+    }
+
+    private void mockReferences(Fixture fixture) {
+        when(dealScheduleReferenceReader.loadForSync(fixture.deal.getId(), fixture.client.getId(), fixture.assignee.getId()))
+                .thenReturn(new DealScheduleReferenceReader.DealScheduleReferences(fixture.deal, fixture.client, fixture.assignee));
     }
 
     private record Fixture(SalesDeal deal, Client client, User assignee, Employee owner) {
