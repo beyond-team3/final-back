@@ -60,12 +60,15 @@ public class ApprovalDealLogWriter {
             ActorType actorType,
             Long actorId
     ) {
+        SalesDeal deal = resolveDeal(request);
+        DealStage actualFromStage = resolveDecisionFromStage(deal, fromStage);
+
         dealPipelineFacade.recordAndSync(
-                resolveDeal(request),
+                deal,
                 request.getDealType(),
                 request.getTargetId(),
                 request.getTargetCodeSnapshot(),
-                DealStage.valueOf(fromStage),
+                actualFromStage,
                 DealStage.valueOf(toStage),
                 fromStatus,
                 toStatus,
@@ -81,6 +84,18 @@ public class ApprovalDealLogWriter {
                         diffField("decision", "Approval Decision", null, decision.name(), "ACTION")
                 )
         );
+    }
+
+    private DealStage resolveDecisionFromStage(SalesDeal deal, String fromStage) {
+        DealStage actualFromStage = deal.getCurrentStage();
+        if (actualFromStage == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND, "deal currentStage가 존재하지 않습니다. dealId=" + deal.getId());
+        }
+        if (fromStage == null) {
+            return actualFromStage;
+        }
+        DealStage.valueOf(fromStage);
+        return actualFromStage;
     }
 
     private SubmitLogContext buildSubmitContext(ApprovalRequest request) {

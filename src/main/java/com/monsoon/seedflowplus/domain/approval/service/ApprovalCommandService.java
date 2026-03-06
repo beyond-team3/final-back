@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -70,18 +69,15 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_REQUEST_DUPLICATED);
         }
 
-        if ((dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) && dto.clientIdSnapshot() == null) {
-            throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
-        }
-
         ActorType submitActorType = determineActorTypeFromPrincipal(principal);
-        validateCreateAccess(dto, principal, submitActorType);
+        Long clientIdSnapshot = resolveClientIdSnapshot(dto);
+        validateCreateAccess(clientIdSnapshot, principal, submitActorType);
 
         ApprovalRequest request = ApprovalRequest.builder()
                 .dealType(dto.dealType())
                 .targetId(dto.targetId())
                 .status(ApprovalStatus.PENDING)
-                .clientIdSnapshot(dto.clientIdSnapshot())
+                .clientIdSnapshot(clientIdSnapshot)
                 .targetCodeSnapshot(dto.targetCodeSnapshot())
                 .build();
 
@@ -202,12 +198,8 @@ public class ApprovalCommandService {
             Pageable pageable,
             CustomUserDetails principal
     ) {
-        Page<ApprovalRequest> page = approvalRequestRepository.search(status, dealType, targetId, pageable);
-        List<ApprovalDetailResponse> content = page.getContent().stream()
-                .filter(request -> canAccess(request, principal))
-                .map(this::toDetail)
-                .toList();
-        return new PageImpl<>(content, pageable, content.size());
+        Page<ApprovalRequest> page = searchAccessibleRequests(status, dealType, targetId, pageable, principal);
+        return page.map(this::toDetail);
     }
 
     private void validateSupportedDealType(DealType dealType) {
@@ -380,7 +372,7 @@ public class ApprovalCommandService {
     }
 
     private void validateCreateAccess(
-            CreateApprovalRequestRequest dto,
+            Long clientIdSnapshot,
             CustomUserDetails principal,
             ActorType submitActorType
     ) {
@@ -394,12 +386,33 @@ public class ApprovalCommandService {
         if (principal.getClientId() == null) {
             return;
         }
-        if (dto.clientIdSnapshot() == null) {
+        if (clientIdSnapshot == null) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_SNAPSHOT_REQUIRED);
         }
-        if (!Objects.equals(dto.clientIdSnapshot(), principal.getClientId())) {
+        if (!Objects.equals(clientIdSnapshot, principal.getClientId())) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
         }
+    }
+
+    private Long resolveClientIdSnapshot(CreateApprovalRequestRequest dto) {
+        if (dto.dealType() != DealType.QUO && dto.dealType() != DealType.CNT) {
+            return dto.clientIdSnapshot();
+        }
+
+        Long actualClientId = switch (dto.dealType()) {
+            case QUO -> quotationRepository.findById(dto.targetId())
+                    .map(quotation -> quotation.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+            case CNT -> contractRepository.findById(dto.targetId())
+                    .map(contract -> contract.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
+        };
+
+        if (dto.clientIdSnapshot() != null && !Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
+            throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+        }
+        return actualClientId;
     }
 
     private Long resolveActorIdByActorType(ActorType actorType, CustomUserDetails principal) {
@@ -458,6 +471,46 @@ public class ApprovalCommandService {
         if (!canAccess(request, principal)) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
+    }
+
+    private Page<ApprovalRequest> searchAccessibleRequests(
+            ApprovalStatus status,
+            DealType dealType,
+            Long targetId,
+            Pageable pageable,
+            CustomUserDetails principal
+    ) {
+        if (principal == null || principal.getRole() == null) {
+            return Page.empty(pageable);
+        }
+        if (principal.getRole() == Role.ADMIN) {
+            return approvalRequestRepository.search(status, dealType, targetId, pageable);
+        }
+        if (principal.getRole() == Role.CLIENT) {
+            if (principal.getClientId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return approvalRequestRepository.searchForClient(
+                    status,
+                    dealType,
+                    targetId,
+                    principal.getClientId(),
+                    pageable
+            );
+        }
+        if (principal.getRole() == Role.SALES_REP) {
+            if (principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED);
+            }
+            return approvalRequestRepository.searchForSalesRep(
+                    status,
+                    dealType,
+                    targetId,
+                    principal.getEmployeeId(),
+                    pageable
+            );
+        }
+        return Page.empty(pageable);
     }
 
     private boolean canAccess(ApprovalRequest request, CustomUserDetails principal) {
