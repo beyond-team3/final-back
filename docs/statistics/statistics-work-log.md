@@ -179,3 +179,17 @@
 
 ### 다음 단계
 `AGENTS.md`를 Git 인덱스에서만 제거하고 커밋
+
+## [2026-03-06 14:41] 청구 매출 통계 컨트롤러 패키지명 변경
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/controller/BillingRevenueStatisticsController.java` — 패키지 선언을 `api`에서 `controller`로 변경하고 컨트롤러 파일 경로를 이동
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/controller/BillingRevenueStatisticsControllerTest.java` — `@WebMvcTest` 대상 테스트를 동일한 `controller` 패키지로 이동하고 선언 경로를 정리
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 컨트롤러 패키지 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

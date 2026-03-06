@@ -63,3 +63,19 @@ WebMvcTest 슬라이스에서 JPA 컨텍스트 분리 필요
 
 ### 변경 이유
 WebMvcTest 슬라이스 격리 요건
+
+## [2026-03-06] 청구 매출 통계 컨트롤러 패키지명 정리
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/controller/BillingRevenueStatisticsController.java`
+- 클래스/메서드: `BillingRevenueStatisticsController`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/controller/BillingRevenueStatisticsControllerTest.java`
+- 클래스/메서드: `BillingRevenueStatisticsControllerTest`
+
+### 변경 내용
+청구 매출 통계 웹 계층 패키지를 `api`에서 `controller`로 이동해
+프로젝트 내 Spring MVC 명명 규칙과 일치시켰다.
+패키지 이동에 맞춰 컨트롤러와 `@WebMvcTest` 대상 테스트의 선언 경로를 함께 정리했다.
+
+### 변경 이유
+웹 어댑터 패키지 명명 규칙 일관성 유지
