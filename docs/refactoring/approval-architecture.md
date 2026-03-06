@@ -11,3 +11,16 @@
 
 ### 변경 이유
 문서 상태 변경 결과를 서비스 내부에서 일관되게 다루기 위한 구조 준비
+
+## [2026-03-06] validateStepOrder 2단계 공통화
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.validateStepOrder
+
+### 변경 내용
+step 1은 항상 허용하고, step 2는 step 1이 `APPROVED`일 때만 처리하도록 검증 로직을 단순화했다.
+문서 타입별 분기를 제거하고 승인 요청의 step order 자체를 기준으로 활성 step 여부를 판단하도록 바꿨다.
+
+### 변경 이유
+QUO/CNT 모두 ADMIN 이후 CLIENT step을 동일한 규칙으로 처리하기 위한 구조 정리
