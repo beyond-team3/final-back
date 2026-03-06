@@ -72,9 +72,10 @@ public class ProductRagService {
      * Metadata: type(PRODUCT_CATALOG), productId, category
      */
     public void indexProduct(Product product) {
+        String description = (product.getProductDescription() == null) ? "" : product.getProductDescription();
         String combinedText = String.format("[%s] %s", 
                 product.getProductName(), 
-                product.getProductDescription());
+                description);
 
         Metadata metadata = new Metadata()
                 .add("type", "PRODUCT_CATALOG")
