@@ -1,7 +1,5 @@
 package com.monsoon.seedflowplus.domain.account.dto.response;
 
-import com.monsoon.seedflowplus.core.common.support.error.CoreException;
-import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.util.AddressParser;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
@@ -19,9 +17,6 @@ public record EmployeeProfileResponse(
         String addressDetail,
         String addressZip) {
     public static EmployeeProfileResponse from(User user) {
-        if (user.getEmployee() == null) {
-            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
-        }
         AddressParser.AddressInfo addressInfo = AddressParser.parse(user.getEmployee().getAddress());
 
         return new EmployeeProfileResponse(
