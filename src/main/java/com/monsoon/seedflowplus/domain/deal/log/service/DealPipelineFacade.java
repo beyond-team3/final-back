@@ -210,7 +210,7 @@ public class DealPipelineFacade {
         }
         userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
                 .map(user -> user.getId())
-                .ifPresent(userId -> notificationEventPublisher.publish(
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(
                         new DealStatusChangedEvent(
                                 userId,
                                 deal.getId(),

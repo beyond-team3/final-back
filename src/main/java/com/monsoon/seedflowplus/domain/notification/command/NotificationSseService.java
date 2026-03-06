@@ -17,7 +17,10 @@ public class NotificationSseService {
 
     public SseEmitter connect(Long userId) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
-        emitters.put(userId, emitter);
+        SseEmitter previousEmitter = emitters.put(userId, emitter);
+        if (previousEmitter != null) {
+            previousEmitter.complete();
+        }
 
         emitter.onCompletion(() -> remove(userId));
         emitter.onTimeout(() -> remove(userId));

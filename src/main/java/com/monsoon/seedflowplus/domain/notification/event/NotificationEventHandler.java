@@ -17,7 +17,7 @@ public class NotificationEventHandler {
     private final DealApprovalNotificationService dealApprovalNotificationService;
     private final NotificationSseService notificationSseService;
 
-    @Async
+    @Async("notificationTaskExecutor")
     @EventListener
     @Transactional
     public void handleDealStatusChanged(DealStatusChangedEvent event) {
@@ -25,7 +25,7 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
-    @Async
+    @Async("notificationTaskExecutor")
     @EventListener
     @Transactional
     public void handleApprovalRequested(ApprovalRequestedEvent event) {
@@ -33,7 +33,7 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
-    @Async
+    @Async("notificationTaskExecutor")
     @EventListener
     @Transactional
     public void handleApprovalCompleted(ApprovalCompletedEvent event) {
@@ -41,7 +41,7 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
-    @Async
+    @Async("notificationTaskExecutor")
     @EventListener
     @Transactional
     public void handleApprovalRejected(ApprovalRejectedEvent event) {

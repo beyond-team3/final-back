@@ -36,6 +36,7 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -62,6 +63,7 @@ public class ApprovalCommandService {
     private final DocStatusTransitionValidator docStatusTransitionValidator;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
             CreateApprovalRequestRequest dto,
@@ -151,7 +153,7 @@ public class ApprovalCommandService {
         validateStepOrder(step, request);
         validateRejectReason(dto);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
         DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
@@ -610,7 +612,7 @@ public class ApprovalCommandService {
 
     private void publishApprovalRequestedForFirstApprovers(ApprovalRequest request, LocalDateTime occurredAt) {
         resolveApproverUserIds(ActorType.ADMIN, request.getClientIdSnapshot()).forEach(userId ->
-                notificationEventPublisher.publish(new ApprovalRequestedEvent(
+                notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
                         userId,
                         request.getId(),
                         request.getDealType(),
@@ -628,7 +630,7 @@ public class ApprovalCommandService {
     ) {
         if (decision == DecisionType.REJECT) {
             resolveRequesterUserId(request).ifPresent(userId ->
-                    notificationEventPublisher.publish(new ApprovalRejectedEvent(
+                    notificationEventPublisher.publishAfterCommit(new ApprovalRejectedEvent(
                             userId,
                             request.getId(),
                             request.getDealType(),
@@ -641,7 +643,7 @@ public class ApprovalCommandService {
 
         if (request.getStatus() == ApprovalStatus.APPROVED) {
             resolveRequesterUserId(request).ifPresent(userId ->
-                    notificationEventPublisher.publish(new ApprovalCompletedEvent(
+                    notificationEventPublisher.publishAfterCommit(new ApprovalCompletedEvent(
                             userId,
                             request.getId(),
                             request.getDealType(),
@@ -656,7 +658,7 @@ public class ApprovalCommandService {
                 .findByApprovalRequestIdAndStepOrder(request.getId(), step.getStepOrder() + 1)
                 .filter(nextStep -> nextStep.getStatus() == ApprovalStepStatus.WAITING)
                 .ifPresent(nextStep -> resolveApproverUserIds(nextStep.getActorType(), request.getClientIdSnapshot())
-                        .forEach(userId -> notificationEventPublisher.publish(new ApprovalRequestedEvent(
+                        .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
                                 userId,
                                 request.getId(),
                                 request.getDealType(),
@@ -703,6 +705,6 @@ public class ApprovalCommandService {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now();
+        return LocalDateTime.now(clock);
     }
 }

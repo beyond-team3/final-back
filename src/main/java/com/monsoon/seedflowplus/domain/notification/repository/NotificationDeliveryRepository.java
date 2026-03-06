@@ -25,7 +25,7 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
 
     @Query(
             value = """
-                    SELECT *
+                    SELECT delivery_id
                     FROM tbl_notification_delivery
                     WHERE status = :status
                       AND scheduled_at <= :now
@@ -35,9 +35,21 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
                     """,
             nativeQuery = true
     )
-    List<NotificationDelivery> findTop100ForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+    List<Long> findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
             @Param("status") String status,
             @Param("now") LocalDateTime now
+    );
+
+    @Query("""
+            SELECT d
+            FROM NotificationDelivery d
+            JOIN FETCH d.notification n
+            JOIN FETCH n.user u
+            WHERE d.id IN :deliveryIds
+            ORDER BY d.scheduledAt ASC
+            """)
+    List<NotificationDelivery> findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc(
+            @Param("deliveryIds") List<Long> deliveryIds
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

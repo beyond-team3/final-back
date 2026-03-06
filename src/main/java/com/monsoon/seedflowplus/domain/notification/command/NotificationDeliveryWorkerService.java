@@ -28,8 +28,7 @@ public class NotificationDeliveryWorkerService {
         Objects.requireNonNull(now, "now must not be null");
 
         List<NotificationDelivery> dueDeliveries =
-                notificationDeliveryRepository
-                        .findTop100ForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                loadDueDeliveriesWithAssociations(
                         DeliveryStatus.PENDING.name(),
                         now
                 );
@@ -67,6 +66,19 @@ public class NotificationDeliveryWorkerService {
         }
 
         throw new IllegalStateException("Unsupported delivery channel: " + delivery.getChannel());
+    }
+
+    private List<NotificationDelivery> loadDueDeliveriesWithAssociations(String status, LocalDateTime now) {
+        List<Long> deliveryIds =
+                notificationDeliveryRepository
+                        .findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                                status,
+                                now
+                        );
+        if (deliveryIds.isEmpty()) {
+            return List.of();
+        }
+        return notificationDeliveryRepository.findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc(deliveryIds);
     }
 
     private String normalizeReason(Exception e) {
