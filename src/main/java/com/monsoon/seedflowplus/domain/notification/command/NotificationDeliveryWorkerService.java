@@ -84,10 +84,15 @@ public class NotificationDeliveryWorkerService {
                     status,
                     e
             );
-            return notificationDeliveryRepository.findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
-                    DeliveryStatus.PENDING,
-                    now
-            );
+            deliveryIds =
+                    notificationDeliveryRepository
+                            .findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                                    DeliveryStatus.PENDING,
+                                    now
+                            )
+                            .stream()
+                            .map(NotificationDelivery::getId)
+                            .toList();
         }
         if (deliveryIds.isEmpty()) {
             return List.of();

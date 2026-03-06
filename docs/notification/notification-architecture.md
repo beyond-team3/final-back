@@ -214,3 +214,17 @@ completion/timeout/error 콜백과 send 실패 경로 모두 동일한 compare-r
 
 ### 변경 이유
 Phase 4 SSE 동시성 리뷰 지적사항(잘못된 emitter 삭제 경쟁 조건) 보완
+
+## [2026-03-07] Notification fallback 조회 N+1 위험 제거
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java
+- 클래스/메서드: NotificationDeliveryWorkerService.loadDueDeliveriesWithAssociations
+
+### 변경 내용
+SKIP LOCKED 실패 fallback에서 `NotificationDelivery` 엔티티를 즉시 반환하던 경로를 제거했다.
+fallback에서도 먼저 due delivery ID 목록을 확보한 뒤, 공통 경로인 `findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc`로 재조회하도록 정렬했다.
+이를 통해 fallback 처리 시에도 `notification/user` 연관을 fetch join으로 일괄 로딩해 배치 루프의 지연 로딩 N+1 위험을 없앴다.
+
+### 변경 이유
+리뷰 이슈 [Major] fallback fetch join 누락 보완

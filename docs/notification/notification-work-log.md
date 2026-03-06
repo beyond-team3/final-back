@@ -172,3 +172,17 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-07 01:30] Notification 배치 fallback 조회 경로 N+1 제거
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java — SKIP LOCKED 실패 fallback에서도 due delivery ID를 먼저 수집한 뒤 fetch join 재조회 경로로 통일
+- 수정 파일: docs/notification/notification-architecture.md — fallback 조회 경로 보강 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
