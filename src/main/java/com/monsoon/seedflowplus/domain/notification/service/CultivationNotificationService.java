@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.notification.service;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
@@ -112,7 +114,10 @@ public class CultivationNotificationService {
 
     private User lockUser(Long userId) {
         User user = entityManager.find(User.class, userId, LockModeType.PESSIMISTIC_WRITE);
-        return Objects.requireNonNull(user, "user must not be null");
+        if (user == null) {
+            throw new CoreException(ErrorType.USER_NOT_FOUND);
+        }
+        return user;
     }
 
     private boolean isDuplicatedToday(

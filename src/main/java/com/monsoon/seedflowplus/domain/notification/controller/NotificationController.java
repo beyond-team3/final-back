@@ -111,7 +111,7 @@ public class NotificationController {
     }
 
     private Long resolveUserId(CustomUserDetails principal) {
-        if (principal == null) {
+        if (principal == null || principal.getUserId() == null) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return principal.getUserId();
