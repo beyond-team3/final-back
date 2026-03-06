@@ -11,6 +11,8 @@ import com.monsoon.seedflowplus.domain.product.entity.ProductBookmark;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.scoring.entity.AccountScore;
+import com.monsoon.seedflowplus.domain.scoring.repository.AccountScoreRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -18,10 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +32,7 @@ public class PestMapService {
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
     private final ProductBookmarkRepository bookmarkRepository;
+    private final AccountScoreRepository accountScoreRepository;
 
     public PestMapSearchResponse getPestMapData(PestMapSearchRequest request) {
 
@@ -87,6 +87,15 @@ public class PestMapService {
     }
 
     public List<SalesOfficeResponse> getAllSalesOffices() {
+        // 모든 점수를 가져와 맵으로 변환 (Client ID -> Score)
+        Map<Long, Integer> clientScores = accountScoreRepository.findAll().stream()
+                .filter(score -> score.getClient() != null)
+                .collect(Collectors.toMap(
+                        score -> score.getClient().getId(),
+                        score -> (int) Math.round(score.getTotalScore()),
+                        (existing, replacement) -> existing
+                ));
+
         return clientRepository.findAll().stream()
                 .filter(client -> client.getLatitude() != null && client.getLongitude() != null)
                 .map(client -> SalesOfficeResponse.builder()
@@ -94,7 +103,7 @@ public class PestMapService {
                         .name(client.getClientName())
                         .lat(client.getLatitude())
                         .lng(client.getLongitude())
-//                        .score(calculateVisitScore(client))
+                        .score(clientScores.getOrDefault(client.getId(), 0))
                         .handledCrops(
                                 Optional.ofNullable(client.getCrops())
                                         .orElse(Collections.emptyList())
