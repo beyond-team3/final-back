@@ -75,6 +75,24 @@ Phase 5 테스트 추가
 ### 다음 단계
 없음
 
+## [2026-03-06 19:15] Notification 결함 이슈 4건 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/Notification.java — 소프트 삭제(@SQLDelete/@SQLRestriction)와 `is_deleted` 컬럼 매핑 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationDelivery.java — `markFailed` 내부 failReason 정규화(trim/blank fallback/500자 제한) 캡슐화
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java — SKIP LOCKED 쿼리의 MariaDB 10.6+ 전제 및 fallback 경로 문서화
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationDeliveryWorkerService.java — SKIP LOCKED 실패 시 non-locking 조회 fallback 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — `markAllAsRead`에 `@Transactional` 명시
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
+
 ## [2026-03-06 18:24] Notification 안정성 이슈 6건 수정
 
 ### 작업 내용
