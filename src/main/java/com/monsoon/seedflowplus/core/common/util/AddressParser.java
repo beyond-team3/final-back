@@ -18,8 +18,9 @@ public class AddressParser {
         } else if (parts.length == 2) {
             return new AddressInfo(parts[0].trim(), parts[1].trim(), "");
         } else {
-            // 슬래시가 없거나 하나만 있는 경우 기존 주소로 간주하여 sido에 전체 저장
-            return new AddressInfo(address.trim(), "", "");
+            // 슬래시가 없는 경우, sido와 detail 모두에 전체 주소를 저장하여 모든 뷰에서 보이도록 함
+            String trimmedAddress = address.trim();
+            return new AddressInfo(trimmedAddress, trimmedAddress, "");
         }
     }
 
