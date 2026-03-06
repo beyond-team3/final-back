@@ -137,23 +137,18 @@ public class ApprovalCommandService {
             throw new CoreException(ErrorType.APPROVAL_ALREADY_DECIDED);
         }
 
+        if (request.getStatus() != ApprovalStatus.PENDING) {
+            throw new CoreException(ErrorType.APPROVAL_ALREADY_DECIDED);
+        }
+
         validateStepActor(step, request, principal);
         validateStepOrder(step, request);
-
-        if (dto.decision() == DecisionType.REJECT && !StringUtils.hasText(dto.reason())) {
-            throw new CoreException(ErrorType.APPROVAL_REASON_REQUIRED);
-        }
+        validateRejectReason(dto);
 
         LocalDateTime now = LocalDateTime.now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
-
-        approvalDealLogWriter.validateDecisionTransitionBeforeStatusChange(
-                request,
-                step,
-                dto.decision(),
-                step.getActorType()
-        );
+        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
 
         try {
             approvalDecisionRepository.save(ApprovalDecision.builder()
@@ -169,13 +164,11 @@ public class ApprovalCommandService {
 
         if (dto.decision() == DecisionType.REJECT) {
             step.reject(now);
-            request.reject();
         } else {
             step.approve(now);
-            if (request.getDealType() == DealType.QUO || step.getStepOrder() == 2) {
-                request.approve();
-            }
         }
+
+        updateRequestStatus(request, step, dto.decision());
 
         approvalDealLogWriter.writeDecision(
                 request,
@@ -183,7 +176,11 @@ public class ApprovalCommandService {
                 dto.decision(),
                 trimmedReason,
                 step.getActorType(),
-                actorId
+                actorId,
+                documentDecisionResult.fromStatus(),
+                documentDecisionResult.toStatus(),
+                documentDecisionResult.fromStage(),
+                documentDecisionResult.toStage()
         );
 
         return toDetail(request);
@@ -339,6 +336,22 @@ public class ApprovalCommandService {
         }
 
         throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+    }
+
+    private void validateRejectReason(DecideApprovalRequest dto) {
+        if (dto.decision() == DecisionType.REJECT && !StringUtils.hasText(dto.reason())) {
+            throw new CoreException(ErrorType.APPROVAL_REASON_REQUIRED);
+        }
+    }
+
+    private void updateRequestStatus(ApprovalRequest request, ApprovalStep step, DecisionType decision) {
+        if (decision == DecisionType.REJECT) {
+            request.reject();
+            return;
+        }
+        if (step.getStepOrder() == 2) {
+            request.approve();
+        }
     }
 
     private ActorType determineActorTypeFromPrincipal(CustomUserDetails principal) {
