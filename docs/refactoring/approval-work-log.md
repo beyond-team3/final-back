@@ -156,3 +156,22 @@ decideStep() 재구성
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:48] 승인 요청 이슈 4건 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — QUO/CNT 승인 요청 생성 시 문서 기준 client snapshot 강제, 역할별 승인 요청 검색 쿼리 사용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepository.java — CLIENT/SALES_REP 접근 제어를 저장소 페이징 쿼리로 분리
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java — 승인 로그 fromStage를 실제 deal snapshot 기준으로 기록
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/controller/ApprovalController.java — 승인 요청 생성 API에 201 Created 응답 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — snapshot 검증 및 저장소 기반 검색 테스트 보강
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriterTest.java — 실제 deal stage 기록 검증 테스트 추가
+- 수정 파일: docs/refactoring/approval-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/refactoring/approval-work-log.md — 작업 및 테스트 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
