@@ -10,6 +10,8 @@ import com.monsoon.seedflowplus.domain.billing.invoice.entity.QInvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.StatementStatus;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.QStatement;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.QContractDetail;
+import com.monsoon.seedflowplus.domain.sales.order.entity.QOrderDetail;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.request.BillingRevenueStatisticsFilter;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.CategoryBilledRevenueDto;
 import com.monsoon.seedflowplus.domain.statistics.billing.dto.response.MonthlyBilledRevenueDto;
@@ -48,7 +50,7 @@ public class BillingRevenueStatisticsRepository {
                 .where(
                         invoice.status.in(InvoiceStatus.PUBLISHED, InvoiceStatus.PAID),
                         invoice.invoiceDate.between(filter.getFromDate(), filter.getToDate()),
-                        hasIncludedIssuedStatement()
+                        hasIncludedIssuedStatement(filter.getCategory())
                 )
                 .groupBy(monthExpr)
                 .orderBy(monthExpr.asc())
@@ -144,7 +146,11 @@ public class BillingRevenueStatisticsRepository {
     }
 
     private BooleanExpression categoryEq(String category) {
-        return StringUtils.hasText(category) ? contractDetail.productCategory.eq(category) : null;
+        return categoryEq(contractDetail.productCategory, category);
+    }
+
+    private BooleanExpression categoryEq(StringExpression categoryExpr, String category) {
+        return StringUtils.hasText(category) ? categoryExpr.eq(category) : null;
     }
 
     private StringExpression monthExpression() {
@@ -152,18 +158,23 @@ public class BillingRevenueStatisticsRepository {
         return Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m')", invoice.invoiceDate);
     }
 
-    private BooleanExpression hasIncludedIssuedStatement() {
+    private BooleanExpression hasIncludedIssuedStatement(String category) {
         QInvoiceStatement isSub = new QInvoiceStatement("isSub");
         QStatement stSub = new QStatement("stSub");
+        QOrderDetail odSub = new QOrderDetail("odSub");
+        QContractDetail cdSub = new QContractDetail("cdSub");
 
         return JPAExpressions
                 .selectOne()
                 .from(isSub)
                 .join(isSub.statement, stSub)
+                .leftJoin(odSub).on(odSub.orderHeader.id.eq(stSub.orderHeader.id))
+                .leftJoin(cdSub).on(cdSub.id.eq(odSub.contractDetail.id))
                 .where(
                         isSub.invoice.id.eq(invoice.id),
                         isSub.included.isTrue(),
-                        stSub.status.eq(StatementStatus.ISSUED)
+                        stSub.status.eq(StatementStatus.ISSUED),
+                        categoryEq(cdSub.productCategory, category)
                 )
                 .exists();
     }
