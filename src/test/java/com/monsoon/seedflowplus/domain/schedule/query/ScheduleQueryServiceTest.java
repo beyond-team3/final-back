@@ -22,6 +22,9 @@ import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.entity.PersonalSchedule;
+import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleStatus;
+import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleVisibility;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
 import com.monsoon.seedflowplus.domain.schedule.repository.PersonalScheduleRepository;
@@ -145,6 +148,43 @@ class ScheduleQueryServiceTest {
     }
 
     @Test
+    @DisplayName("개인 일정 단건 조회는 본인 ACTIVE 일정만 반환한다")
+    void getMyScheduleReturnsPersonalItem() {
+        PersonalSchedule personalSchedule = PersonalSchedule.builder()
+                .owner(user(10L, Role.ADMIN, null, null))
+                .title("개인 일정")
+                .description("설명")
+                .startAt(LocalDateTime.of(2026, 3, 5, 10, 0))
+                .endAt(LocalDateTime.of(2026, 3, 5, 11, 0))
+                .allDay(false)
+                .status(ScheduleStatus.ACTIVE)
+                .visibility(ScheduleVisibility.PRIVATE)
+                .build();
+        ReflectionTestUtils.setField(personalSchedule, "id", 300L);
+
+        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(300L, 10L, ScheduleStatus.CANCELED))
+                .thenReturn(Optional.of(personalSchedule));
+
+        ScheduleItemDto result = scheduleQueryService.getMySchedule(300L, 10L);
+
+        assertThat(result.getId()).isEqualTo(300L);
+        assertThat(result.getType().name()).isEqualTo("PERSONAL");
+        assertThat(result.getOwnerUserId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("개인 일정 단건 조회는 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
+    void getMyScheduleThrowsWhenScheduleNotFound() {
+        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(404L, 10L, ScheduleStatus.CANCELED))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> scheduleQueryService.getMySchedule(404L, 10L))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("SALES_REP는 assigneeUserId 필터를 전달하면 ACCESS_DENIED")
     void salesRepCannotUseAssigneeFilter() {
         Employee employee = employee(300L);
@@ -224,6 +264,35 @@ class ScheduleQueryServiceTest {
                 LocalDateTime.of(2026, 3, 31, 23, 59),
                 LocalDateTime.of(2026, 3, 1, 0, 0)
         );
+    }
+
+    @Test
+    @DisplayName("SALES_REP는 managerEmployeeId 기준으로 거래 일정을 조회한다")
+    void salesRepQueriesByManagerEmployeeId() {
+        Employee employee = employee(300L);
+        User salesRep = user(3L, Role.SALES_REP, employee, null);
+        DealSchedule dealSchedule = dealSchedule(120L);
+
+        when(userRepository.findById(3L)).thenReturn(Optional.of(salesRep));
+        when(dealScheduleRepository.findByClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                300L,
+                LocalDateTime.of(2026, 3, 31, 23, 59),
+                LocalDateTime.of(2026, 3, 1, 0, 0)
+        )).thenReturn(List.of(dealSchedule));
+
+        List<ScheduleItemDto> result = scheduleQueryService.getUnifiedSchedules(
+                ScheduleSearchCondition.builder()
+                        .actorUserId(3L)
+                        .actorRole(Role.SALES_REP)
+                        .ownerId(3L)
+                        .rangeStart(LocalDateTime.of(2026, 3, 1, 0, 0))
+                        .rangeEnd(LocalDateTime.of(2026, 3, 31, 23, 59))
+                        .includePersonal(false)
+                        .includeDeal(true)
+                        .build()
+        );
+
+        assertThat(result).hasSize(1);
     }
 
     private DealSchedule dealSchedule(Long id) {

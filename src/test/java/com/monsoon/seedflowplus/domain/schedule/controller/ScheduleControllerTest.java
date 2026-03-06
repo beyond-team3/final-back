@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.schedule.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -121,7 +122,7 @@ class ScheduleControllerTest {
                 .status(ScheduleStatus.ACTIVE.name())
                 .build();
 
-        when(personalScheduleCommandService.getMySchedule(eq(11L), any(CustomUserDetails.class))).thenReturn(dto);
+        when(scheduleQueryService.getMySchedule(11L, 1L)).thenReturn(dto);
 
         mockMvc.perform(get("/api/v1/schedules/personal/11")
                         .with(authentication(auth(adminPrincipal(1L)))))
@@ -207,10 +208,10 @@ class ScheduleControllerTest {
         verify(scheduleQueryService).getUnifiedSchedules(captor.capture());
 
         ScheduleSearchCondition condition = captor.getValue();
-        org.assertj.core.api.Assertions.assertThat(condition.getActorRole()).isEqualTo(Role.ADMIN);
-        org.assertj.core.api.Assertions.assertThat(condition.getActorUserId()).isEqualTo(10L);
-        org.assertj.core.api.Assertions.assertThat(condition.isIncludePersonal()).isTrue();
-        org.assertj.core.api.Assertions.assertThat(condition.isIncludeDeal()).isTrue();
+        assertThat(condition.getActorRole()).isEqualTo(Role.ADMIN);
+        assertThat(condition.getActorUserId()).isEqualTo(10L);
+        assertThat(condition.isIncludePersonal()).isTrue();
+        assertThat(condition.isIncludeDeal()).isTrue();
     }
 
     @Test
@@ -228,7 +229,7 @@ class ScheduleControllerTest {
 
         ArgumentCaptor<ScheduleSearchCondition> captor = ArgumentCaptor.forClass(ScheduleSearchCondition.class);
         verify(scheduleQueryService).getUnifiedSchedules(captor.capture());
-        org.assertj.core.api.Assertions.assertThat(captor.getValue().getActorRole()).isEqualTo(Role.SALES_REP);
+        assertThat(captor.getValue().getActorRole()).isEqualTo(Role.SALES_REP);
     }
 
     @Test
@@ -244,8 +245,8 @@ class ScheduleControllerTest {
 
         ArgumentCaptor<ScheduleSearchCondition> captor = ArgumentCaptor.forClass(ScheduleSearchCondition.class);
         verify(scheduleQueryService).getUnifiedSchedules(captor.capture());
-        org.assertj.core.api.Assertions.assertThat(captor.getValue().getActorRole()).isEqualTo(Role.CLIENT);
-        org.assertj.core.api.Assertions.assertThat(captor.getValue().getActorClientId()).isEqualTo(901L);
+        assertThat(captor.getValue().getActorRole()).isEqualTo(Role.CLIENT);
+        assertThat(captor.getValue().getActorClientId()).isEqualTo(901L);
     }
 
     private Authentication auth(CustomUserDetails principal) {

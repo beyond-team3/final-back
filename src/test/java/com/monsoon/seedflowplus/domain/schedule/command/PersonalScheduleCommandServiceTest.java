@@ -172,18 +172,7 @@ class PersonalScheduleCommandServiceTest {
         personalScheduleCommandService.delete(30L, actor(1L));
 
         assertThat(existing.getStatus()).isEqualTo(ScheduleStatus.CANCELED);
-    }
-
-    @Test
-    @DisplayName("getMySchedule는 본인 일정이 없으면 PERSONAL_SCHEDULE_NOT_FOUND")
-    void getMyScheduleThrowsWhenScheduleNotFound() {
-        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(404L, 1L, ScheduleStatus.CANCELED))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> personalScheduleCommandService.getMySchedule(404L, actor(1L)))
-                .isInstanceOf(CoreException.class)
-                .extracting(ex -> ((CoreException) ex).getErrorType())
-                .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
+        assertThat(ReflectionTestUtils.getField(existing, "isDeleted")).isEqualTo(true);
     }
 
     @Test
@@ -207,6 +196,62 @@ class PersonalScheduleCommandServiceTest {
         )).isInstanceOf(CoreException.class)
                 .extracting(ex -> ((CoreException) ex).getErrorType())
                 .isEqualTo(ErrorType.PERSONAL_SCHEDULE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("create는 legacy 상태 DONE 요청을 거부한다")
+    void createRejectsLegacyDoneStatus() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L)));
+
+        assertThatThrownBy(() -> personalScheduleCommandService.create(
+                new PersonalScheduleCreateRequest(
+                        "제목",
+                        null,
+                        LocalDateTime.of(2026, 3, 6, 10, 0),
+                        LocalDateTime.of(2026, 3, 6, 11, 0),
+                        false,
+                        ScheduleStatus.DONE,
+                        ScheduleVisibility.PRIVATE
+                ),
+                actor(1L)
+        )).isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("update는 legacy 가시성 TEAM 요청을 거부한다")
+    void updateRejectsLegacyTeamVisibility() {
+        PersonalSchedule existing = PersonalSchedule.builder()
+                .owner(user(1L))
+                .title("기존")
+                .description("기존설명")
+                .startAt(LocalDateTime.of(2026, 3, 6, 9, 0))
+                .endAt(LocalDateTime.of(2026, 3, 6, 10, 0))
+                .allDay(false)
+                .status(ScheduleStatus.ACTIVE)
+                .visibility(ScheduleVisibility.PRIVATE)
+                .build();
+        ReflectionTestUtils.setField(existing, "id", 30L);
+
+        when(personalScheduleRepository.findByIdAndOwnerIdAndStatusNot(30L, 1L, ScheduleStatus.CANCELED))
+                .thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> personalScheduleCommandService.update(
+                30L,
+                new PersonalScheduleUpdateRequest(
+                        "수정",
+                        "수정설명",
+                        LocalDateTime.of(2026, 3, 6, 12, 0),
+                        LocalDateTime.of(2026, 3, 6, 13, 0),
+                        false,
+                        ScheduleStatus.ACTIVE,
+                        ScheduleVisibility.TEAM
+                ),
+                actor(1L)
+        )).isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.INVALID_INPUT_VALUE);
     }
 
     @Test
