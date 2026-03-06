@@ -40,6 +40,23 @@ createApprovalRequest()의 QUO 2-step 생성 수정
 ### 다음 단계
 없음
 
+## [2026-03-06 14:03] 승인 접근 제어 및 stage mismatch 이슈 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepository.java — CLIENT/SALES_REP 승인 요청 검색을 최신 SalesDealLog 1건 기준으로 제한
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 미지원 역할을 ActorType.SYSTEM으로 매핑하지 않고 UNAUTHORIZED 예외 처리
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java — 승인 로그 fromStage와 deal currentStage 불일치 시 예외 발생
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepositoryTest.java — 최신 로그 기준 CLIENT/SALES_REP 접근 제어 및 snapshot 우선 회귀 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — SALES_REP scoped search 경로 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriterTest.java — stage mismatch 예외 테스트로 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
+
 ## [2026-03-06 12:04] 승인 에러 코드 추가
 
 ### 작업 내용
