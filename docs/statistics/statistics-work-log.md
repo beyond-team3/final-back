@@ -34,3 +34,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 11:36] 월별 category 과대 집계 회귀 수정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepository.java` — 월별 매출 조회에서 category 지정 시 `invoice.totalAmount` 전액 합산을 제거하고, 매칭된 `contractDetail.amount`만 `invoice + month` 단위로 집계한 뒤 Java에서 월별 재집계하도록 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/repository/BillingRevenueStatisticsRepositoryTest.java` — 혼합 품종 invoice fixture와 회귀 테스트를 추가하고 기존 월별 기대값을 실제 fixture 기준으로 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
