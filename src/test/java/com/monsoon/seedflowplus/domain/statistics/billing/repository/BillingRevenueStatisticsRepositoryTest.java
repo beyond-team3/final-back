@@ -148,6 +148,33 @@ class BillingRevenueStatisticsRepositoryTest {
         assertThat(revenueMap.get("2024-01|cabbage")).isEqualByComparingTo("550");
     }
 
+    @Test
+    @DisplayName("월별 총매출은 invoice 총액이 아니라 issued statement 라인 금액 기준으로 집계한다")
+    void shouldAggregateMonthlyRevenueFromIssuedStatementLines() {
+        createInvoiceGraph(
+                List.of(detailSpec("tomato", "400")),
+                "999",
+                InvoiceStatus.PUBLISHED,
+                true,
+                StatementStatus.ISSUED,
+                "INV-MIS-001",
+                "STMT-MIS-001",
+                "ORD-MIS-001",
+                "CT-MIS-001"
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        List<MonthlyBilledRevenueDto> monthlyResult = repository.findMonthlyRevenue(filter(null));
+        List<CategoryBilledRevenueDto> categoryResult = repository.findCategoryRevenue(filter(null));
+
+        assertThat(monthlyResult).hasSize(1);
+        assertThat(monthlyResult.get(0).getMonth()).isEqualTo("2024-01");
+        assertThat(monthlyResult.get(0).getBilledRevenue()).isEqualByComparingTo("400");
+        assertThat(sumRevenue(monthlyResult)).isEqualByComparingTo("400");
+        assertThat(sumCategoryRevenue(categoryResult)).isEqualByComparingTo("400");
+    }
+
     private void seedMonthlyRevenueFixtures() {
         createInvoiceGraph(List.of(detailSpec("tomato", "100")), "100", InvoiceStatus.PUBLISHED, true, StatementStatus.ISSUED, "INV-OK-001", "STMT-OK-001", "ORD-OK-001", "CT-OK-001");
         createInvoiceGraph(List.of(detailSpec("tomato", "200")), "200", InvoiceStatus.PAID, true, StatementStatus.ISSUED, "INV-OK-002", "STMT-OK-002", "ORD-OK-002", "CT-OK-002");
@@ -365,6 +392,12 @@ class BillingRevenueStatisticsRepositoryTest {
     private BigDecimal sumRevenue(List<MonthlyBilledRevenueDto> rows) {
         return rows.stream()
                 .map(MonthlyBilledRevenueDto::getBilledRevenue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumCategoryRevenue(List<CategoryBilledRevenueDto> rows) {
+        return rows.stream()
+                .map(CategoryBilledRevenueDto::getBilledRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
