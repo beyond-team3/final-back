@@ -58,11 +58,14 @@ public class NotificationDeliveryWorkerService {
 
     private void dispatch(NotificationDelivery delivery, LocalDateTime now) {
         if (delivery.getChannel() == DeliveryChannel.IN_APP) {
-            delivery.markSent(now, null);
-            notificationSseService.send(
+            boolean sent = notificationSseService.send(
                     delivery.getNotification().getUser().getId(),
                     NotificationListItemResponse.from(delivery.getNotification())
             );
+            if (!sent) {
+                throw new IllegalStateException("SSE send failed");
+            }
+            delivery.markSent(now, null);
             return;
         }
 
@@ -80,19 +83,11 @@ public class NotificationDeliveryWorkerService {
                             );
         } catch (DataAccessException e) {
             log.warn(
-                    "SKIP LOCKED query failed. Falling back to non-locking due delivery lookup. status={}",
+                    "SKIP LOCKED query failed. Non-atomic fallback is disabled to prevent duplicate dispatch. status={}",
                     status,
                     e
             );
-            deliveryIds =
-                    notificationDeliveryRepository
-                            .findTop100ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
-                                    DeliveryStatus.PENDING,
-                                    now
-                            )
-                            .stream()
-                            .map(NotificationDelivery::getId)
-                            .toList();
+            return List.of();
         }
         if (deliveryIds.isEmpty()) {
             return List.of();

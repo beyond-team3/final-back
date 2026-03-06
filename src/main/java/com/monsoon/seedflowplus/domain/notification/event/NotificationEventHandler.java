@@ -9,6 +9,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.event.EventListener;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 @RequiredArgsConstructor
@@ -53,6 +55,17 @@ public class NotificationEventHandler {
         if (saved == null) {
             return;
         }
-        notificationSseService.send(userId, NotificationListItemResponse.from(saved));
+        NotificationListItemResponse payload = NotificationListItemResponse.from(saved);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            notificationSseService.send(userId, payload);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notificationSseService.send(userId, payload);
+            }
+        });
     }
 }

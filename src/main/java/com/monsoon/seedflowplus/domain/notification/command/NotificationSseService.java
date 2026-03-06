@@ -29,17 +29,19 @@ public class NotificationSseService {
         return emitter;
     }
 
-    public void send(Long userId, Object payload) {
+    public boolean send(Long userId, Object payload) {
         SseEmitter emitter = emitters.get(userId);
         if (emitter == null) {
-            return;
+            return true;
         }
 
         try {
             emitter.send(SseEmitter.event().name("notification").data(payload));
+            return true;
         } catch (IOException | IllegalStateException e) {
-            log.warn("SSE send failed. userId={}, reason={}", userId, e.getMessage(), e);
             removeIfMatch(userId, emitter);
+            log.warn("SSE send failed. userId={}, reason={}", userId, e.getMessage(), e);
+            return false;
         }
     }
 

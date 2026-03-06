@@ -57,11 +57,40 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    long deleteByNotification_Id(Long notificationId);
+    @Query(
+            value = """
+                    UPDATE tbl_notification_delivery
+                    SET is_deleted = true
+                    WHERE notification_id = :notificationId
+                      AND is_deleted = false
+                    """,
+            nativeQuery = true
+    )
+    int deleteByNotification_Id(@Param("notificationId") Long notificationId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    long deleteByNotification_User_Id(Long userId);
+    @Query(
+            value = """
+                    UPDATE tbl_notification_delivery d
+                    JOIN tbl_notification n ON n.notification_id = d.notification_id
+                    SET d.is_deleted = true
+                    WHERE n.user_id = :userId
+                      AND d.is_deleted = false
+                    """,
+            nativeQuery = true
+    )
+    int deleteByNotification_User_Id(@Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    long deleteByNotification_CreatedAtBefore(LocalDateTime cutoff);
+    @Query(
+            value = """
+                    UPDATE tbl_notification_delivery d
+                    JOIN tbl_notification n ON n.notification_id = d.notification_id
+                    SET d.is_deleted = true
+                    WHERE n.created_at < :cutoff
+                      AND d.is_deleted = false
+                    """,
+            nativeQuery = true
+    )
+    int deleteByNotification_CreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }

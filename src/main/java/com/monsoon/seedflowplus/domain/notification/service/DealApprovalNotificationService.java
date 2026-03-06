@@ -35,13 +35,15 @@ public class DealApprovalNotificationService {
 
     public Notification createDealStatusChangedNotification(DealStatusChangedEvent event) {
         Objects.requireNonNull(event, "event must not be null");
+        String transitionContent = buildDealStatusChangedContent(event.fromStatus(), event.toStatus());
         return createIfNotDuplicated(
                 event.userId(),
                 NotificationType.DEAL_STATUS_CHANGED,
                 NotificationTargetType.DEAL,
                 event.dealId(),
                 "딜 상태가 변경되었습니다",
-                buildDealStatusChangedContent(event.fromStatus(), event.toStatus()),
+                transitionContent,
+                transitionContent,
                 event.occurredAt()
         );
     }
@@ -55,6 +57,7 @@ public class DealApprovalNotificationService {
                 event.approvalRequestId(),
                 "승인 요청이 도착했습니다",
                 buildApprovalRequestedContent(event.dealType(), event.targetId()),
+                null,
                 event.occurredAt()
         );
     }
@@ -68,6 +71,7 @@ public class DealApprovalNotificationService {
                 event.approvalRequestId(),
                 "승인이 완료되었습니다",
                 buildApprovalCompletedContent(event.dealType(), event.targetId()),
+                null,
                 event.occurredAt()
         );
     }
@@ -81,6 +85,7 @@ public class DealApprovalNotificationService {
                 event.approvalRequestId(),
                 "승인이 반려되었습니다",
                 buildApprovalRejectedContent(event.dealType(), event.targetId()),
+                null,
                 event.occurredAt()
         );
     }
@@ -92,6 +97,7 @@ public class DealApprovalNotificationService {
             Long targetId,
             String title,
             String content,
+            String dedupKey,
             LocalDateTime now
     ) {
         Objects.requireNonNull(userId, "userId must not be null");
@@ -101,7 +107,7 @@ public class DealApprovalNotificationService {
         Objects.requireNonNull(now, "now must not be null");
 
         User lockedUser = lockUser(userId);
-        if (isDuplicatedToday(userId, type, targetType, targetId, now)) {
+        if (isDuplicatedToday(userId, type, targetType, targetId, dedupKey, now)) {
             return null;
         }
 
@@ -116,14 +122,14 @@ public class DealApprovalNotificationService {
                         .build()
         );
 
-        notificationDeliveryRepository.save(
-                NotificationDelivery.builder()
-                        .notification(notification)
-                        .channel(DeliveryChannel.IN_APP)
-                        .status(DeliveryStatus.PENDING)
-                        .scheduledAt(now)
-                        .build()
-        );
+        NotificationDelivery immediateDelivery = NotificationDelivery.builder()
+                .notification(notification)
+                .channel(DeliveryChannel.IN_APP)
+                .status(DeliveryStatus.PENDING)
+                .scheduledAt(now)
+                .build();
+        immediateDelivery.markSent(now, null);
+        notificationDeliveryRepository.save(immediateDelivery);
 
         return notification;
     }
@@ -141,15 +147,27 @@ public class DealApprovalNotificationService {
             NotificationType type,
             NotificationTargetType targetType,
             Long targetId,
+            String dedupKey,
             LocalDateTime now
     ) {
         LocalDateTime from = now.toLocalDate().atStartOfDay();
-        LocalDateTime to = now.toLocalDate().plusDays(1).atStartOfDay();
-        return notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
+        LocalDateTime to = from.plusDays(1);
+        if (dedupKey == null) {
+            return notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                    userId,
+                    type,
+                    targetType,
+                    targetId,
+                    from,
+                    to
+            );
+        }
+        return notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndContentAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 userId,
                 type,
                 targetType,
                 targetId,
+                dedupKey,
                 from,
                 to
         );

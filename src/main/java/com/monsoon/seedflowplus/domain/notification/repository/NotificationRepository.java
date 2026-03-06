@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
@@ -24,6 +23,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LocalDateTime to
     );
 
+    boolean existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            Long userId,
+            NotificationType type,
+            NotificationTargetType targetType,
+            Long targetId,
+            LocalDateTime from,
+            LocalDateTime to
+    );
+
+    boolean existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndContentAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            Long userId,
+            NotificationType type,
+            NotificationTargetType targetType,
+            Long targetId,
+            String content,
+            LocalDateTime from,
+            LocalDateTime to
+    );
+
     Page<Notification> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     long countByUser_IdAndReadAtIsNull(Long userId);
@@ -31,13 +49,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Optional<Notification> findByIdAndUser_Id(Long id, Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Transactional
     @Query("update Notification n set n.readAt = :now where n.user.id = :userId and n.readAt is null")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    long deleteByUser_Id(Long userId);
+    @Query("update Notification n set n.isDeleted = true where n.user.id = :userId and n.isDeleted = false")
+    int deleteByUser_Id(@Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    long deleteByCreatedAtBefore(LocalDateTime cutoff);
+    @Query("update Notification n set n.isDeleted = true where n.createdAt < :cutoff and n.isDeleted = false")
+    int deleteByCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }
