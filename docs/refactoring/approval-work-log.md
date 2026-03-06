@@ -67,3 +67,18 @@ applyQuotationDecision() 구현
 
 ### 다음 단계
 applyContractDecision() 구현
+
+## [2026-03-06 11:49] applyContractDecision 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — CNT 문서 조회, 상태 전이 검증, 상태 변경 helper 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractHeader.java — 계약서 상태 변경 메서드 추가
+- 수정 파일: docs/refactoring/approval-architecture.md — 구조 변경 기록 추가
+- 수정 파일: docs/refactoring/approval-work-log.md — 작업 및 컴파일 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+resolveAndApplyDocumentDecision() 구현

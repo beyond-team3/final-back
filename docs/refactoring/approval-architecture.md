@@ -65,3 +65,19 @@ QUO도 ADMIN 승인 후 CLIENT 승인 단계가 필요한 승인 정책 반영
 
 ### 변경 이유
 승인 처리 시 실문서 상태 변경을 ApprovalCommandService 내부에서 직접 수행하기 위한 구조 반영
+
+## [2026-03-06] CNT 문서 승인 적용 helper 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.applyContractDecision
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractHeader.java
+- 클래스/메서드: ContractHeader.updateStatus
+
+### 변경 내용
+계약서 승인/반려 시 실제 `ContractHeader`를 조회하고 상태 전이 검증 후
+실문서 상태를 변경하는 helper를 추가했다.
+이를 위해 `ContractHeader`에 상태 변경 메서드를 보완해 승인 서비스가 계약 상태를 직접 반영할 수 있게 했다.
+
+### 변경 이유
+CNT 승인 처리도 QUO와 동일한 패턴으로 실문서 상태 변경을 수행하기 위함
