@@ -110,12 +110,13 @@ public class RagSeedService {
             scopeDesc = String.format("특정 고객(ID: %d)의 전체 영업 데이터", clientId);
         }
 
-        // 2. 쿼리 타입에 따른 '숨겨진 프롬프트' 설정
+        // 2. 쿼리 타입 정규화 및 '숨겨진 프롬프트' 설정
+        String normalizedQueryType = (queryType == null) ? "" : queryType.trim();
         String hiddenPrompt;
         String searchQuery;
         int maxResults = 5;
 
-        switch (queryType.toUpperCase()) {
+        switch (normalizedQueryType.toUpperCase()) {
             case "RECAP":
                 hiddenPrompt = "[RAGseed: 지난 맥락 인출] 선택된 범위 내의 최근 노트를 분석하여 핵심 결정 사항을 요약하라.";
                 searchQuery = "최근 미팅 결정 사항 및 업무 진행 현황";
@@ -134,13 +135,13 @@ public class RagSeedService {
                 searchQuery = "약속 사항 향후 일정 확인 필요 사항";
                 break;
             default:
-                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 인출하라: " + queryType;
-                searchQuery = queryType;
+                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 인출하라: " + normalizedQueryType;
+                searchQuery = normalizedQueryType;
         }
 
         // 3. 관련 컨텍스트 인출 (동적 필터 적용)
         List<TextSegment> noteContexts = salesNoteRagService.retrieveRelatedNotes(clientId, contractId, searchQuery, maxResults);
-        List<TextSegment> productContexts = (queryType.equalsIgnoreCase("MATCHING")) 
+        List<TextSegment> productContexts = (normalizedQueryType.equalsIgnoreCase("MATCHING")) 
                 ? productRagService.retrieveRecommendedProducts(searchQuery, 5) 
                 : List.of();
 
