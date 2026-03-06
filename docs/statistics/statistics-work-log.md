@@ -95,3 +95,61 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-06 12:46] 통계 API 경로 정책 충돌 해소
+
+### 작업 내용
+- 수정 파일: `AGENTS.md` — 통계 API base path를 `/api/v1/statistics/billing/revenue` 기준으로 정정하고 구 경로 유지 금지를 범위 외 항목에 명시
+- 수정 파일: `docs/statistics/statistics-work-log.md` — 경로 정책 변경 선행 작업을 별도 로그로 기록
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [ ] 오류 있음 → 코드 수정 전 정책 정리 단계로 컴파일 미실행
+
+### 다음 단계
+`BillingRevenueStatisticsController`와 `SecurityConfig`의 경로를 `/api/v1/statistics/billing/revenue`로 변경하고 컨트롤러 보안 회귀 테스트를 추가
+
+## [2026-03-06 14:01] 컨트롤러 테스트 컨텍스트 복구
+
+### 작업 내용
+- 신규: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — WebMvcTest 슬라이스 전용 보안 설정 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — `@Import` 대상을 테스트 전용 보안 설정으로 교체하고 `@WithMockUser` 기반 경로별 200/403/401 검증을 유지
+- 수정 파일: `docs/statistics/statistics-architecture.md` — WebMvcTest 보안 설정 분리 구조를 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음 (이 작업으로 경로 정책 변경 세션 완료)
+
+## [2026-03-06 14:02] JPA metamodel 오류 원인 진단 및 해결
+
+### 작업 내용
+- 진단 결과: 원인 A — `@EnableJpaAuditing`이 `MonSoonApplication`에 직접 선언되어 `@WebMvcTest` 슬라이스에도 유입됨
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/MonSoonApplication.java` — 메인 클래스에서 `@EnableJpaAuditing` 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/config/JpaAuditingConfig.java` — JPA Auditing 전용 설정 클래스 신규 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — JPA Auditing 설정 분리 구조 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음 (경로 정책 변경 세션 완료)
+
+## [2026-03-06 14:06] 통계 API 경로 정책 변경 및 테스트 회귀 정리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsController.java` — 통계 API base path를 `/api/v1/statistics/billing/revenue`로 변경
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 통계 API 보안 매처를 새 base path로 동기화
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — 신규 경로 반영, 구 경로 404 검증, 엔드포인트별 200/401/403 보안 회귀 테스트 추가 및 WebMvcTest 슬라이스 설정 정리
+- 수정 파일: `build.gradle` — `spring-security-test` 의존성 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 경로 정책 변경 및 테스트 구조 변경 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음 (경로 정책 변경 세션 완료)
