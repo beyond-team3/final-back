@@ -66,7 +66,7 @@ public class BillingRevenueStatisticsRepository {
                     .toList();
         }
 
-        NumberExpression<BigDecimal> categoryAmountExpr = contractDetail.amount.coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> categoryAmountExpr = billedLineAmountExpression();
         NumberExpression<BigDecimal> groupedAmountExpr = categoryAmountExpr.sum().coalesce(BigDecimal.ZERO);
 
         List<Tuple> rows = queryFactory
@@ -104,10 +104,11 @@ public class BillingRevenueStatisticsRepository {
 
     public List<CategoryBilledRevenueDto> findCategoryRevenue(BillingRevenueStatisticsFilter filter) {
         StringExpression categoryExpr = contractDetail.productCategory;
-        NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
+        NumberExpression<BigDecimal> groupedAmountExpr = lineAmountExpr.sum().coalesce(BigDecimal.ZERO);
 
         List<Tuple> rows = queryFactory
-                .select(categoryExpr, invoice.id, amountExpr)
+                .select(categoryExpr, invoice.id, groupedAmountExpr)
                 .from(invoice)
                 .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
                 .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
@@ -129,7 +130,7 @@ public class BillingRevenueStatisticsRepository {
                         row -> row.get(categoryExpr),
                         Collectors.reducing(
                                 BigDecimal.ZERO,
-                                row -> Objects.requireNonNullElse(row.get(amountExpr), BigDecimal.ZERO),
+                                row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
                                 BigDecimal::add
                         )
                 ));
@@ -143,10 +144,11 @@ public class BillingRevenueStatisticsRepository {
     public List<MonthlyCategoryBilledRevenueDto> findMonthlyCategoryRevenue(BillingRevenueStatisticsFilter filter) {
         StringExpression monthExpr = monthExpression();
         StringExpression categoryExpr = contractDetail.productCategory;
-        NumberExpression<BigDecimal> amountExpr = invoice.totalAmount.coalesce(BigDecimal.ZERO);
+        NumberExpression<BigDecimal> lineAmountExpr = billedLineAmountExpression();
+        NumberExpression<BigDecimal> groupedAmountExpr = lineAmountExpr.sum().coalesce(BigDecimal.ZERO);
 
         List<Tuple> rows = queryFactory
-                .select(monthExpr, categoryExpr, invoice.id, amountExpr)
+                .select(monthExpr, categoryExpr, invoice.id, groupedAmountExpr)
                 .from(invoice)
                 .join(invoiceStatement).on(invoiceStatement.invoice.id.eq(invoice.id))
                 .join(statement).on(statement.id.eq(invoiceStatement.statement.id))
@@ -168,7 +170,7 @@ public class BillingRevenueStatisticsRepository {
                         row -> new MonthCategoryKey(row.get(monthExpr), row.get(categoryExpr)),
                         Collectors.reducing(
                                 BigDecimal.ZERO,
-                                row -> Objects.requireNonNullElse(row.get(amountExpr), BigDecimal.ZERO),
+                                row -> Objects.requireNonNullElse(row.get(groupedAmountExpr), BigDecimal.ZERO),
                                 BigDecimal::add
                         )
                 ));
@@ -194,6 +196,15 @@ public class BillingRevenueStatisticsRepository {
     private StringExpression monthExpression() {
         // MySQL 및 H2(MODE=MySQL) 환경 기준 월 키 포맷
         return Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m')", invoice.invoiceDate);
+    }
+
+    private NumberExpression<BigDecimal> billedLineAmountExpression() {
+        return Expressions.numberTemplate(
+                BigDecimal.class,
+                "coalesce({0}, 0) * coalesce({1}, 0)",
+                contractDetail.unitPrice,
+                orderDetail.quantity
+        );
     }
 
     private BooleanExpression hasIncludedIssuedStatement(String category) {

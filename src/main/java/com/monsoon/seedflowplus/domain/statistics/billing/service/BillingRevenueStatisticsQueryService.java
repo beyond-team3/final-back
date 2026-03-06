@@ -49,9 +49,9 @@ public class BillingRevenueStatisticsQueryService {
 
         YearMonth fromMonth = YearMonth.from(filter.getFromDate());
         YearMonth toMonth = YearMonth.from(filter.getToDate());
-        long monthDiff = ChronoUnit.MONTHS.between(fromMonth, toMonth);
+        long inclusiveMonthCount = ChronoUnit.MONTHS.between(fromMonth, toMonth) + 1;
 
-        if (monthDiff > MAX_RANGE_MONTHS) {
+        if (inclusiveMonthCount > MAX_RANGE_MONTHS) {
             throw new CoreException(
                     ErrorType.INVALID_INPUT_VALUE,
                     "최대 조회 기간은 24개월입니다."
