@@ -17,11 +17,15 @@ import com.monsoon.seedflowplus.domain.approval.entity.DecisionType;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalRequestRepository;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalStepRepository;
+import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
+import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDateTime;
@@ -213,6 +217,42 @@ public class ApprovalCommandService {
         }
     }
 
+    private DocumentDecisionResult applyQuotationDecision(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        QuotationHeader quotation = quotationRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        String fromStatus = quotation.getStatus().name();
+        String toStatus = switch (step.getActorType()) {
+            case ADMIN -> decision == DecisionType.APPROVE
+                    ? QuotationStatus.WAITING_CLIENT.name()
+                    : QuotationStatus.REJECTED_ADMIN.name();
+            case CLIENT -> decision == DecisionType.APPROVE
+                    ? QuotationStatus.FINAL_APPROVED.name()
+                    : QuotationStatus.REJECTED_CLIENT.name();
+            default -> throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+        };
+
+        docStatusTransitionValidator.validateOrThrow(
+                DealType.QUO,
+                fromStatus,
+                toActionType(decision),
+                toStatus
+        );
+
+        quotation.updateStatus(QuotationStatus.valueOf(toStatus));
+
+        return new DocumentDecisionResult(
+                fromStatus,
+                toStatus,
+                toDealStageName(fromStatus),
+                toDealStageName(toStatus)
+        );
+    }
+
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {
         if (step.getStepOrder() == 1) {
             return;
@@ -375,6 +415,21 @@ public class ApprovalCommandService {
                     .orElse(false);
         }
         return false;
+    }
+
+    private ActionType toActionType(DecisionType decision) {
+        return decision == DecisionType.REJECT ? ActionType.REJECT : ActionType.APPROVE;
+    }
+
+    private String toDealStageName(String status) {
+        return switch (status) {
+            case "WAITING_ADMIN" -> DealStage.PENDING_ADMIN.name();
+            case "WAITING_CLIENT" -> DealStage.PENDING_CLIENT.name();
+            case "REJECTED_ADMIN" -> DealStage.REJECTED_ADMIN.name();
+            case "REJECTED_CLIENT" -> DealStage.REJECTED_CLIENT.name();
+            case "FINAL_APPROVED", "COMPLETED" -> DealStage.APPROVED.name();
+            default -> throw new CoreException(ErrorType.INVALID_DOC_STATUS_TRANSITION, "unsupported approval status=" + status);
+        };
     }
 
     private record DocumentDecisionResult(
