@@ -167,3 +167,18 @@ Phase 6 테스트 구현
 
 ### 다음 단계
 없음
+
+## [2026-03-07 01:22] Phase 6 테스트 커버리지 누락 보강
+
+### 작업 내용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java — `@ValidTimeRange` 경계값(`endAt == startAt`)에 대한 POST/PUT 400 검증 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandServiceTest.java — `PERSONAL_SCHEDULE_NOT_FOUND` 예외를 get/update/delete 경로별 독립 테스트로 분리
+- 수정 파일: docs/schedule/schedule-architecture.md — 테스트 보강 이력 기록 추가
+- 수정 파일: docs/schedule/schedule-work-log.md — 작업 및 검증 결과 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
