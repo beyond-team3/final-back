@@ -449,7 +449,6 @@ public class ContractService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
-            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
