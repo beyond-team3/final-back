@@ -188,6 +188,26 @@ public class ContractService {
                         contract.getId()));
     }
 
+    /**
+     * 계약 상태 자동 동기화
+     * 1. COMPLETED(완료) -> 시작일(startDate) 도래 시 ACTIVE_CONTRACT(진행중)로 변경
+     * 2. ACTIVE_CONTRACT(진행중) -> 종료일(endDate) 경과 시 EXPIRED(만료)로 변경
+     */
+    @Transactional
+    public void syncContractStatuses() {
+        LocalDate today = LocalDate.now();
+
+        // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
+        List<ContractHeader> toActivate = contractRepository.findByStatusAndStartDateLessThanEqual(
+                ContractStatus.COMPLETED, today);
+        toActivate.forEach(c -> c.updateStatus(ContractStatus.ACTIVE_CONTRACT));
+
+        // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
+        List<ContractHeader> toExpire = contractRepository.findByStatusAndEndDateLessThan(
+                ContractStatus.ACTIVE_CONTRACT, today);
+        toExpire.forEach(c -> c.updateStatus(ContractStatus.EXPIRED));
+    }
+
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
         if (user.getRole() == Role.ADMIN) {
             return;
