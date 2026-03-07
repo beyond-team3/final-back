@@ -20,6 +20,12 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
     // 계약 코드와 거래처 ID로 계약 존재 여부 확인
     boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
 
+    // 상태와 시작일을 기준으로 계약 조회
+    List<ContractHeader> findByStatusAndStartDateLessThanEqual(ContractStatus status, LocalDate date);
+
+    // 상태와 종료일을 기준으로 계약 조회
+    List<ContractHeader> findByStatusAndEndDateLessThan(ContractStatus status, LocalDate date);
+
     // 거래처별 모든 계약 종료일 조회
     @Query("SELECT c.client.id, c.endDate FROM ContractHeader c ORDER BY c.endDate ASC")
     List<Object[]> findAllClientEndDatesRaw();
@@ -28,7 +34,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
         return findAllClientEndDatesRaw().stream()
                 .collect(Collectors.groupingBy(
                         row -> (Long) row[0],
-                        Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())
-                ));
+                        Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())));
     }
 }
