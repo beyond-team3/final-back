@@ -173,7 +173,8 @@ public class QuotationService {
                 null,
                 List.of(
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
-                        new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(), "COUNT")));
+                        new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(),
+                                "COUNT")));
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -203,7 +204,8 @@ public class QuotationService {
                         item.getQuantity(),
                         item.getUnit(),
                         item.getUnitPrice(),
-                        item.getAmount())).toList();
+                        item.getAmount()))
+                .toList();
 
         return new QuotationResponse(
                 quotation.getId(),
@@ -323,7 +325,16 @@ public class QuotationService {
         // 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
         List<QuotationHeader> toExpire = quotationRepository.findByStatusAndExpiredDateLessThanEqual(
                 QuotationStatus.WAITING_ADMIN, today);
-        toExpire.forEach(q -> q.updateStatus(QuotationStatus.EXPIRED));
+
+        for (QuotationHeader q : toExpire) {
+            q.updateStatus(QuotationStatus.EXPIRED);
+
+            // 연관된 견적 요청서(RFQ)가 있다면 다시 작성이 가능하도록 PENDING으로 복구
+            if (q.getQuotationRequest() != null &&
+                    q.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
+                q.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
+            }
+        }
     }
 
     private CustomUserDetails getAuthenticatedUser() {
@@ -346,6 +357,7 @@ public class QuotationService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
+            // TODO(BAC-70): RFQ 없이 QUO 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
