@@ -60,7 +60,7 @@ public class ContractService {
     private final DealLogQueryService dealLogQueryService;
 
     /**
-     * 특정 거래처의 계약 목록 조회 (드롭다운용)
+     * 특정 거래처의 모든 계약 목록 조회 (이력 관리 및 일반 조회용)
      */
     public List<ContractSimpleResponse> getContractsByClient(Long clientId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -72,14 +72,33 @@ public class ContractService {
         validateClientAccess(client, userDetails);
 
         return contractRepository.findByClientOrderByEndDateAsc(client).stream()
-                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 공통: 삭제된 계약 제외
+                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 공통: 삭제 제외
                 .filter(c -> {
-                    // 거래처인 경우 ACTIVE_CONTRACT만 표시
+                    // 거래처인 경우 관리자 승인 전 단계(WAITING_ADMIN, REJECTED_ADMIN)는 노출하지 않음
                     if (userDetails.getRole() == Role.CLIENT) {
-                        return c.getStatus() == ContractStatus.ACTIVE_CONTRACT;
+                        return c.getStatus() != ContractStatus.WAITING_ADMIN &&
+                                c.getStatus() != ContractStatus.REJECTED_ADMIN;
                     }
                     return true;
                 })
+                .map(ContractSimpleResponse::from)
+                .toList();
+    }
+
+    /**
+     * 특정 거래처의 활성 계약 목록 조회 (주문서 작성 용)
+     * ACTIVE_CONTRACT 상태만 반환
+     */
+    public List<ContractSimpleResponse> getActiveContractsByClient(Long clientId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        validateClientAccess(client, userDetails);
+
+        return contractRepository.findByClientOrderByEndDateAsc(client).stream()
+                .filter(c -> c.getStatus() == ContractStatus.ACTIVE_CONTRACT)
                 .map(ContractSimpleResponse::from)
                 .toList();
     }
@@ -449,6 +468,7 @@ public class ContractService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
+            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
