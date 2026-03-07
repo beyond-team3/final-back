@@ -29,23 +29,33 @@ class ContractSyncTest {
     @Test
     @DisplayName("계약 활성화 시각화 테스트: COMPLETED -> ACTIVE_CONTRACT")
     void syncStatus_VisualizeContractActivation() {
+        // given
         LocalDate today = LocalDate.now();
         ContractHeader contract = ContractHeader.create(
-                "TEST-CNT", null, mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
-                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class), null,
-                java.math.BigDecimal.ZERO, today, today.plusDays(10),
-                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY, null, null
+                "TEST-CNT",
+                null,
+                mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
+                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),         null,
+                java.math.BigDecimal.ZERO,
+                today,
+                today.plusDays(10),
+
+                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
+                null,
+                null
         );
         contract.updateStatus(ContractStatus.COMPLETED);
-
-        System.out.println("\n[계약서 테스트] 활성화 검증 시작");
-        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (시작일: " + today + ")");
 
         when(contractRepository.findByStatusAndStartDateLessThanEqual(eq(ContractStatus.COMPLETED), any(LocalDate.class)))
                 .thenReturn(List.of(contract));
 
+        System.out.println("\n[계약서 테스트] 활성화 검증 시작");
+        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (시작일: " + today + ")");
+
+        // when
         contractService.syncContractStatuses();
 
+        // then
         System.out.println(">>> 변경 후 상태: " + contract.getStatus());
         System.out.println("[계약서 테스트] 완료");
 
@@ -55,23 +65,33 @@ class ContractSyncTest {
     @Test
     @DisplayName("계약 만료 시각화 테스트: ACTIVE_CONTRACT -> EXPIRED")
     void syncStatus_VisualizeContractExpiration() {
+        // given
         LocalDate today = LocalDate.now();
         ContractHeader contract = ContractHeader.create(
-                "TEST-CNT-EX", null, mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
-                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class), null,
-                java.math.BigDecimal.ZERO, today.minusDays(10), today.minusDays(1),
-                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY, null, null
+                "TEST-CNT-EX",
+                null,
+                mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
+                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),
+                null,
+                java.math.BigDecimal.ZERO,
+                today.minusDays(10),
+                today.minusDays(1),
+                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
+                null,
+                null
         );
         contract.updateStatus(ContractStatus.ACTIVE_CONTRACT);
-
-        System.out.println("\n[계약서 테스트] 만료 검증 시작");
-        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (종료일: " + today.minusDays(1) + ")");
 
         when(contractRepository.findByStatusAndEndDateLessThan(eq(ContractStatus.ACTIVE_CONTRACT), any(LocalDate.class)))
                 .thenReturn(List.of(contract));
 
+        System.out.println("\n[계약서 테스트] 만료 검증 시작");
+        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (종료일: " + today.minusDays(1) + ")");
+
+        // when
         contractService.syncContractStatuses();
 
+        // then
         System.out.println(">>> 변경 후 상태: " + contract.getStatus());
         System.out.println("[계약서 테스트] 완료");
 
