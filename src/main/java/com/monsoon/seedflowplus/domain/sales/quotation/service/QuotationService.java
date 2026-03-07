@@ -173,9 +173,7 @@ public class QuotationService {
                 null,
                 List.of(
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
-                        new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(), "COUNT")
-                )
-        );
+                        new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(), "COUNT")));
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -205,8 +203,7 @@ public class QuotationService {
                         item.getQuantity(),
                         item.getUnit(),
                         item.getUnitPrice(),
-                        item.getAmount()))
-                .toList();
+                        item.getAmount())).toList();
 
         return new QuotationResponse(
                 quotation.getId(),
@@ -224,8 +221,7 @@ public class QuotationService {
                 dealLogQueryService.getRecentDocumentLogs(
                         quotation.getDeal() != null ? quotation.getDeal().getId() : null,
                         DealType.QUO,
-                        quotation.getId()
-                ));
+                        quotation.getId()));
     }
 
     public List<QuotationListResponse> getApprovedQuotations() {
@@ -303,15 +299,31 @@ public class QuotationService {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             // 미승인(관리자 승인 대기/반려) 상태는 거래처가 조회할 수 없음
-            if (quotation.getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.WAITING_ADMIN
+            if (quotation
+                    .getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.WAITING_ADMIN
                     ||
-                    quotation.getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.REJECTED_ADMIN) {
+                    quotation
+                            .getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.REJECTED_ADMIN) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;
         }
 
         throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    /**
+     * 견적서 상태 자동 동기화
+     * WAITING_ADMIN(관리자 승인 대기) 상태인 견적서 중 만료일(expiredDate)이 도래한 경우 EXPIRED로 변경
+     */
+    @Transactional
+    public void syncQuotationStatuses() {
+        LocalDate today = LocalDate.now();
+
+        // 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
+        List<QuotationHeader> toExpire = quotationRepository.findByStatusAndExpiredDateLessThanEqual(
+                QuotationStatus.WAITING_ADMIN, today);
+        toExpire.forEach(q -> q.updateStatus(QuotationStatus.EXPIRED));
     }
 
     private CustomUserDetails getAuthenticatedUser() {
@@ -334,7 +346,6 @@ public class QuotationService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
-            // TODO(BAC-70): RFQ 없이 QUO 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
