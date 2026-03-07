@@ -64,7 +64,7 @@ public class ContractService {
      */
     public List<ContractSimpleResponse> getContractsByClient(Long clientId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
-        
+
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
@@ -72,7 +72,14 @@ public class ContractService {
         validateClientAccess(client, userDetails);
 
         return contractRepository.findByClientOrderByEndDateAsc(client).stream()
-                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 삭제된 계약 제외
+                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 공통: 삭제된 계약 제외
+                .filter(c -> {
+                    // 거래처인 경우 ACTIVE_CONTRACT만 표시
+                    if (userDetails.getRole() == Role.CLIENT) {
+                        return c.getStatus() == ContractStatus.ACTIVE_CONTRACT;
+                    }
+                    return true;
+                })
                 .map(ContractSimpleResponse::from)
                 .toList();
     }
@@ -84,7 +91,8 @@ public class ContractService {
 
         if (user.getRole() == Role.SALES_REP) {
             // 해당 거래처의 담당 영업사원인지 확인
-            if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(user.getEmployeeId())) {
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(user.getEmployeeId())) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;
@@ -177,8 +185,7 @@ public class ContractService {
                 dealLogQueryService.getRecentDocumentLogs(
                         contract.getDeal() != null ? contract.getDeal().getId() : null,
                         DealType.CNT,
-                        contract.getId()
-                ));
+                        contract.getId()));
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -379,10 +386,10 @@ public class ContractService {
                 null,
                 List.of(
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
-                        new DealLogWriteService.DiffField("billingCycle", "청구 주기", null, request.billingCycle().name(), "ENUM"),
-                        new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(), "COUNT")
-                )
-        );
+                        new DealLogWriteService.DiffField("billingCycle", "청구 주기", null, request.billingCycle().name(),
+                                "ENUM"),
+                        new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(),
+                                "COUNT")));
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
