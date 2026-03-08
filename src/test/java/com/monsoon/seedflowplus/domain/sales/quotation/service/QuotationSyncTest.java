@@ -27,8 +27,8 @@ class QuotationSyncTest {
     private QuotationRepository quotationRepository;
 
     @Test
-    @DisplayName("견적서 만료 시각화 테스트: WAITING_ADMIN -> EXPIRED")
-    void syncStatus_VisualizeQuotationExpiration() {
+    @DisplayName("견적서 상태 변경 로직 검증: WAITING_ADMIN -> EXPIRED (Repository 데이터 존재 시)")
+    void syncStatus_ShouldChangeToExpired_WhenRepositoryReturnsWaitingAdminQuotation() {
         // given
         QuotationHeader quotation = QuotationHeader.create(
                 null, "TEST-QUO", mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
@@ -54,8 +54,8 @@ class QuotationSyncTest {
     }
 
     @Test
-    @DisplayName("견적서 만료 시 견적 요청서 상태 복구 테스트: REVIEWING -> PENDING")
-    void syncStatus_RecoverRfqStatus() {
+    @DisplayName("견적서 만료 시 연관된 견적 요청서 상태 복구 로직 검증: REVIEWING -> PENDING")
+    void syncStatus_ShouldRecoverRfqStatus_WhenQuotationExpires() {
         // given
         // 1. 실제 견적 요청서 객체 생성 및 상태 설정 (상태 변화를 보기 위함)
         com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader rfq = com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader
@@ -89,6 +89,7 @@ class QuotationSyncTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(QuotationStatus.EXPIRED, quotation.getStatus());
         org.junit.jupiter.api.Assertions.assertEquals(
-                com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.PENDING, rfq.getStatus());
+                com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.PENDING,
+                rfq.getStatus());
     }
 }
