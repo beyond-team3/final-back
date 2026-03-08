@@ -22,7 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @Transactional
@@ -143,6 +152,7 @@ class ContractSyncIntegrationTest {
                 .companyPhone("010-1234-5678")
                 .address("Address")
                 .clientType(ClientType.NURSERY)
+                .managerEmployee(employee)
                 .managerName("Manager")
                 .managerPhone("010-1111-2222")
                 .managerEmail("manager@test.com")
@@ -180,14 +190,40 @@ class ContractSyncIntegrationTest {
         contract.updateStatus(ContractStatus.COMPLETED);
         contractRepository.saveAndFlush(contract);
 
-        // then
-        // 내부에 작성한 로직에 의해 즉시 ACTIVE_CONTRACT가 되어야 함
-        ContractHeader updatedContract = contractRepository.findById(contract.getId()).orElseThrow();
-        assertEquals(ContractStatus.ACTIVE_CONTRACT, updatedContract.getStatus());
+        // SecurityContext 모킹 (Service 레이어의 getAuthenticatedUser 통과 용도)
+        User user = User.builder()
+                .loginId("test-user")
+                .loginPw("password")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(employee)
+                .client(client)
+                .build();
 
-        System.out.println("\n[통합 테스트] 승인 당일 즉시 활성화 검증");
-        System.out.println("시작일: " + today);
-        System.out.println("요청 상태: COMPLETED");
-        System.out.println("최종 상태: " + updatedContract.getStatus());
+        CustomUserDetails mockUser = new CustomUserDetails(user);
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(mockUser, null, mockUser.getAuthorities()));
+        SecurityContextHolder.setContext(context);
+
+        try {
+            // then
+            // 4. 결과 확인: DB 상태가 즉시 ACTIVE_CONTRACT로 변경되었는지 확인 (NPE 방지 로직 포함)
+            ContractHeader dbContract = contractRepository.findById(contract.getId()).orElseThrow();
+            assertEquals(ContractStatus.ACTIVE_CONTRACT, dbContract.getStatus());
+
+            // 5. 조회 확인: 서비스의 getActiveContractsByClient 조회 시에는 포함되어야 함
+            var activeContracts = contractService.getActiveContractsByClient(client.getId());
+            boolean isIncluded = activeContracts.stream()
+                    .anyMatch(c -> c.id().equals(contract.getId()));
+
+            assertTrue(isIncluded, "승인 즉시 활성 계약 목록에 포함되어야 함");
+
+            System.out.println("\n[통합 테스트] 승인 당일 즉시 조회 검증 (Query-based)");
+            System.out.println("시작일: " + today);
+            System.out.println("DB 상태: " + dbContract.getStatus());
+            System.out.println("활성 목록 포함 여부: " + isIncluded);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }
