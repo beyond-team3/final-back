@@ -29,6 +29,7 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -302,10 +304,10 @@ public class QuotationService {
             }
             // 미승인(관리자 승인 대기/반려) 상태는 거래처가 조회할 수 없음
             if (quotation
-                    .getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.WAITING_ADMIN
+                    .getStatus() == QuotationStatus.WAITING_ADMIN
                     ||
                     quotation
-                            .getStatus() == com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.REJECTED_ADMIN) {
+                            .getStatus() == QuotationStatus.REJECTED_ADMIN) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;
@@ -322,18 +324,17 @@ public class QuotationService {
     public void syncQuotationStatuses() {
         LocalDate today = LocalDate.now();
 
-        // 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
-        List<QuotationHeader> toExpire = quotationRepository.findByStatusAndExpiredDateLessThanEqual(
-                QuotationStatus.WAITING_ADMIN, today);
+        // 1. 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
+        int expiredQuoCount = quotationRepository.updateStatusForExpiration(
+                QuotationStatus.WAITING_ADMIN, QuotationStatus.EXPIRED, today);
 
-        for (QuotationHeader q : toExpire) {
-            q.updateStatus(QuotationStatus.EXPIRED);
+        // 2. 연관된 견적 요청서(RFQ) 상태 복구 (만료된 견적서와 연결된 REVIEWING 상태의 RFQ를 PENDING으로)
+        int recoveredRfqCount = quotationRequestRepository.recoverStatusByExpiredQuotation(
+                QuotationRequestStatus.REVIEWING, QuotationRequestStatus.PENDING, QuotationStatus.EXPIRED);
 
-            // 연관된 견적 요청서(RFQ)가 있다면 다시 작성이 가능하도록 PENDING으로 복구
-            if (q.getQuotationRequest() != null &&
-                    q.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
-                q.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
-            }
+        if (expiredQuoCount > 0 || recoveredRfqCount > 0) {
+            log.info("[QuotationService] 상태 동기화 완료: 견적 만료 {}건, RFQ 복구 {}건",
+                    expiredQuoCount, recoveredRfqCount);
         }
     }
 
@@ -357,7 +358,6 @@ public class QuotationService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
-            // TODO(BAC-70): RFQ 없이 QUO 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
