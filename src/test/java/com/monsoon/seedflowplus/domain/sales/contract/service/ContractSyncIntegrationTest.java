@@ -122,10 +122,6 @@ class ContractSyncIntegrationTest {
         ContractHeader updatedContract = contractRepository.findById(contract.getId())
                 .orElseThrow();
 
-        System.out.println("\n[통합 테스트] 시작일/종료일 모두 과거인 엣지 케이스 검증");
-        System.out.println("시작일: " + startDate + ", 종료일: " + endDate);
-        System.out.println("최종 상태: " + updatedContract.getStatus());
-
         assertEquals(ContractStatus.EXPIRED, updatedContract.getStatus());
     }
 
@@ -134,7 +130,7 @@ class ContractSyncIntegrationTest {
     void immediateActivationTest_TodayContract() {
         // given
         LocalDate today = LocalDate.now();
-        String uniqueSuffix = "IMM-" + String.valueOf(System.currentTimeMillis()).substring(10);
+        String uniqueSuffix = String.valueOf(System.currentTimeMillis()).substring(10);
 
         Employee employee = employeeRepository.save(Employee.builder()
                 .employeeCode("EMP-" + uniqueSuffix)
@@ -217,11 +213,6 @@ class ContractSyncIntegrationTest {
                     .anyMatch(c -> c.id().equals(contract.getId()));
 
             assertTrue(isIncluded, "승인 즉시 활성 계약 목록에 포함되어야 함");
-
-            System.out.println("\n[통합 테스트] 승인 당일 즉시 조회 검증 (Query-based)");
-            System.out.println("시작일: " + today);
-            System.out.println("DB 상태: " + dbContract.getStatus());
-            System.out.println("활성 목록 포함 여부: " + isIncluded);
         } finally {
             SecurityContextHolder.clearContext();
         }
