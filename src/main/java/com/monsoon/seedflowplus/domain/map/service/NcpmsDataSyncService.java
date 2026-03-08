@@ -46,8 +46,16 @@ public class NcpmsDataSyncService {
             for (NcpmsListDto item : allItems) {
                 currentItemIndex++;
                 try {
+                    String cropName = item.getKncrNm();
+                    
+                    // [필터링] '벼'(논벼, 밭벼 등) 관련 항목은 데이터가 너무 방대하고 매핑 대상이 아니므로 제외
+                    if (cropName != null && cropName.contains("벼")) {
+                        log.info("[{}/{}] {} 건너뜀 (제외 대상 작물)", currentItemIndex, totalItems, cropName);
+                        continue;
+                    }
+
                     log.info("[{}/{}] 아이템 처리 시작: insectKey={}, cropName={}", 
-                             currentItemIndex, totalItems, item.getInsectKey(), item.getKncrNm());
+                             currentItemIndex, totalItems, item.getInsectKey(), cropName);
                     
                     // 해당 작물에 대한 데이터 수집용 리스트
                     List<PestForecast> currentItemForecasts = new ArrayList<>();
