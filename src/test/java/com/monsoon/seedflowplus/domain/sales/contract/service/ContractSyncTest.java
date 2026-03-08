@@ -27,26 +27,26 @@ class ContractSyncTest {
     private ContractRepository contractRepository;
 
     @Test
-    @DisplayName("계약 활성화 시각화 테스트: COMPLETED -> ACTIVE_CONTRACT")
-    void syncStatus_VisualizeContractActivation() {
+    @DisplayName("계약 상태 변경 로직 검증: COMPLETED -> ACTIVE_CONTRACT (Repository 데이터 존재 시)")
+    void syncStatus_ShouldChangeToActiveContract_WhenRepositoryReturnsCompletedContract() {
         // given
         LocalDate today = LocalDate.now();
         ContractHeader contract = ContractHeader.create(
                 "TEST-CNT",
                 null,
                 mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
-                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),         null,
+                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class), null,
                 java.math.BigDecimal.ZERO,
                 today,
                 today.plusDays(10),
 
                 com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
                 null,
-                null
-        );
+                null);
         contract.updateStatus(ContractStatus.COMPLETED);
 
-        when(contractRepository.findByStatusAndStartDateLessThanEqual(eq(ContractStatus.COMPLETED), any(LocalDate.class)))
+        when(contractRepository.findByStatusAndStartDateLessThanEqual(eq(ContractStatus.COMPLETED),
+                any(LocalDate.class)))
                 .thenReturn(List.of(contract));
 
         System.out.println("\n[계약서 테스트] 활성화 검증 시작");
@@ -63,8 +63,8 @@ class ContractSyncTest {
     }
 
     @Test
-    @DisplayName("계약 만료 시각화 테스트: ACTIVE_CONTRACT -> EXPIRED")
-    void syncStatus_VisualizeContractExpiration() {
+    @DisplayName("계약 상태 변경 로직 검증: ACTIVE_CONTRACT -> EXPIRED (Repository 데이터 존재 시)")
+    void syncStatus_ShouldChangeToExpired_WhenRepositoryReturnsExpiredContract() {
         // given
         LocalDate today = LocalDate.now();
         ContractHeader contract = ContractHeader.create(
@@ -78,11 +78,11 @@ class ContractSyncTest {
                 today.minusDays(1),
                 com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
                 null,
-                null
-        );
+                null);
         contract.updateStatus(ContractStatus.ACTIVE_CONTRACT);
 
-        when(contractRepository.findByStatusAndEndDateLessThan(eq(ContractStatus.ACTIVE_CONTRACT), any(LocalDate.class)))
+        when(contractRepository.findByStatusAndEndDateLessThan(eq(ContractStatus.ACTIVE_CONTRACT),
+                any(LocalDate.class)))
                 .thenReturn(List.of(contract));
 
         System.out.println("\n[계약서 테스트] 만료 검증 시작");
