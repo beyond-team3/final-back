@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.sales.request.repository;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -32,5 +33,5 @@ public interface QuotationRequestRepository extends JpaRepository<QuotationReque
             "AND NOT EXISTS (SELECT 1 FROM QuotationHeader q2 WHERE q2.quotationRequest = r AND q2.status <> :quoStatus)")
     int recoverStatusByExpiredQuotation(@Param("oldStatus") QuotationRequestStatus oldStatus,
                                         @Param("newStatus") QuotationRequestStatus newStatus,
-                                        @Param("quoStatus") com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus quoStatus);
+                                        @Param("quoStatus") QuotationStatus quoStatus);
 }
