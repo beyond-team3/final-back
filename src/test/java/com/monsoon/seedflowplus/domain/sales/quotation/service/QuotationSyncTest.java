@@ -27,8 +27,8 @@ class QuotationSyncTest {
     private QuotationRepository quotationRepository;
 
     @Test
-    @DisplayName("견적서 상태 변경 로직 검증: WAITING_ADMIN -> EXPIRED (Repository 데이터 존재 시)")
-    void syncStatus_ShouldChangeToExpired_WhenRepositoryReturnsWaitingAdminQuotation() {
+    @DisplayName("서비스 계층 상태 전이 검증: Repository가 WAITING_ADMIN 견적서를 반환하면 EXPIRED로 변경됨")
+    void syncStatus_WhenRepositoryReturnsWaitingAdmin_TransitionsToExpired() {
         // given
         QuotationHeader quotation = QuotationHeader.create(
                 null, "TEST-QUO", mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
@@ -54,8 +54,8 @@ class QuotationSyncTest {
     }
 
     @Test
-    @DisplayName("견적서 만료 시 연관된 견적 요청서 상태 복구 로직 검증: REVIEWING -> PENDING")
-    void syncStatus_ShouldRecoverRfqStatus_WhenQuotationExpires() {
+    @DisplayName("서비스 계층 상태 복구 검증: 견적서 만료 시 연관된 견적 요청서(RFQ) 상태가 PENDING으로 복구됨")
+    void syncStatus_WhenRepositoryReturnsExpiredQuotation_ShouldRecoverRfqStatus() {
         // given
         // 1. 실제 견적 요청서 객체 생성 및 상태 설정 (상태 변화를 보기 위함)
         com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader rfq = com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader
