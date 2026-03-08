@@ -23,15 +23,17 @@ public class SalesScheduler {
     public void autoSyncStatuses() {
         log.info("[SalesScheduler] 상태 자동 동기화 시작");
         try {
-            // 1. 계약 상태 동기화
             contractService.syncContractStatuses();
-
-            // 2. 견적 상태 동기화
-            quotationService.syncQuotationStatuses();
-
-            log.info("[SalesScheduler] 상태 자동 동기화 완료");
         } catch (Exception e) {
-            log.error("[SalesScheduler] 상태 자동 동기화 중 오류 발생: {}", e.getMessage());
+            log.error("[SalesScheduler] 계약 상태 동기화 중 오류 발생", e);
         }
+
+        try {
+            quotationService.syncQuotationStatuses();
+        } catch (Exception e) {
+            log.error("[SalesScheduler] 견적 상태 동기화 중 오류 발생", e);
+        }
+
+        log.info("[SalesScheduler] 상태 자동 동기화 종료");
     }
 }
