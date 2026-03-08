@@ -31,6 +31,7 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ import java.util.UUID;
 
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -217,14 +219,16 @@ public class ContractService {
         LocalDate today = LocalDate.now();
 
         // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
-        List<ContractHeader> toActivate = contractRepository.findByStatusAndStartDateLessThanEqual(
-                ContractStatus.COMPLETED, today);
-        toActivate.forEach(c -> c.updateStatus(ContractStatus.ACTIVE_CONTRACT));
+        int activatedCount = contractRepository.updateStatusForActivation(
+                ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
 
         // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
-        List<ContractHeader> toExpire = contractRepository.findByStatusAndEndDateLessThan(
-                ContractStatus.ACTIVE_CONTRACT, today);
-        toExpire.forEach(c -> c.updateStatus(ContractStatus.EXPIRED));
+        int expiredCount = contractRepository.updateStatusForExpiration(
+                ContractStatus.ACTIVE_CONTRACT, ContractStatus.EXPIRED, today);
+
+        if (activatedCount > 0 || expiredCount > 0) {
+            log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
+        }
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
