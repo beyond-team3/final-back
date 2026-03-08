@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.sales.contract.service;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
@@ -117,5 +118,76 @@ class ContractSyncIntegrationTest {
         System.out.println("최종 상태: " + updatedContract.getStatus());
 
         assertEquals(ContractStatus.EXPIRED, updatedContract.getStatus());
+    }
+
+    @Test
+    @DisplayName("즉시 활성화 테스트: 오늘 시작하는 계약 승인 시 즉시 ACTIVE_CONTRACT로 전이되는지 확인")
+    void immediateActivationTest_TodayContract() {
+        // given
+        LocalDate today = LocalDate.now();
+        String uniqueSuffix = "IMM-" + String.valueOf(System.currentTimeMillis()).substring(10);
+
+        Employee employee = employeeRepository.save(Employee.builder()
+                .employeeCode("EMP-" + uniqueSuffix)
+                .employeeName("Tester")
+                .employeeEmail("test" + uniqueSuffix + "@test.com")
+                .employeePhone("010-0000-0000")
+                .address("Office")
+                .build());
+
+        Client client = clientRepository.save(Client.builder()
+                .clientCode("CLI-" + uniqueSuffix)
+                .clientName("Immediate Client")
+                .clientBrn("BRN-" + uniqueSuffix)
+                .ceoName("CEO")
+                .companyPhone("010-1234-5678")
+                .address("Address")
+                .clientType(ClientType.NURSERY)
+                .managerName("Manager")
+                .managerPhone("010-1111-2222")
+                .managerEmail("manager@test.com")
+                .build());
+
+        SalesDeal deal = salesDealRepository.save(SalesDeal.builder()
+                .summaryMemo("Immediate Deal")
+                .client(client)
+                .ownerEmp(employee)
+                .currentStage(DealStage.APPROVED)
+                .currentStatus(ContractStatus.COMPLETED.name())
+                .latestDocType(DealType.CNT)
+                .latestRefId(0L)
+                .lastActivityAt(java.time.LocalDateTime.now())
+                .build());
+
+        // 오늘 시작하는 계약 생성 (기본 상태 WAITING_ADMIN)
+        ContractHeader contract = ContractHeader.create(
+                "CNT-IMM-" + uniqueSuffix,
+                null,
+                client,
+                deal,
+                employee,
+                BigDecimal.valueOf(500000),
+                today,
+                today.plusMonths(1),
+                BillingCycle.MONTHLY,
+                null,
+                null);
+
+        assertEquals(ContractStatus.WAITING_ADMIN, contract.getStatus());
+
+        // when
+        // 외부 서비스(ApprovalCommandService 등)에서 updateStatus(COMPLETED)를 호출하는 상황 모의
+        contract.updateStatus(ContractStatus.COMPLETED);
+        contractRepository.saveAndFlush(contract);
+
+        // then
+        // 내부에 작성한 로직에 의해 즉시 ACTIVE_CONTRACT가 되어야 함
+        ContractHeader updatedContract = contractRepository.findById(contract.getId()).orElseThrow();
+        assertEquals(ContractStatus.ACTIVE_CONTRACT, updatedContract.getStatus());
+
+        System.out.println("\n[통합 테스트] 승인 당일 즉시 활성화 검증");
+        System.out.println("시작일: " + today);
+        System.out.println("요청 상태: COMPLETED");
+        System.out.println("최종 상태: " + updatedContract.getStatus());
     }
 }
