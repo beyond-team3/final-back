@@ -47,10 +47,10 @@ public class NcpmsDataSyncService {
                 currentItemIndex++;
                 try {
                     String cropName = item.getKncrNm();
-                    
-                    // [필터링] '벼'(논벼, 밭벼 등) 관련 항목은 데이터가 너무 방대하고 매핑 대상이 아니므로 제외
-                    if (cropName != null && cropName.contains("벼")) {
-                        log.info("[{}/{}] {} 건너뜀 (제외 대상 작물)", currentItemIndex, totalItems, cropName);
+                    String cropCode = mapCropNameToCode(cropName);
+
+                    // [필터링] 매핑 대상(고추, 양파)이 아니면 상세 조회를 수행하지 않고 즉시 건너뜀
+                    if ("UNKNOWN".equals(cropCode)) {
                         continue;
                     }
 
@@ -130,28 +130,24 @@ public class NcpmsDataSyncService {
         return entities;
     }
 
-    private String convertValueToSeverity(Integer value) {
-        if (value == null) return "보통";
-        if (value >= 80) return "심각";
-        if (value >= 50) return "경고";
-        if (value >= 20) return "주의";
+    private String convertValueToSeverity(Double value) {
+        if (value == null || value <= 0) return "보통";
+
+        // 0~5 범위의 소수점 데이터를 기반으로 한 정교한 위험도 산정
+        if (value >= 3.0) return "심각";
+        if (value >= 1.5) return "경고";
+        if (value >= 0.1) return "주의";
+        
         return "보통";
     }
 
     /**
-     * 안정적인 작물 매핑 (부분 일치 허용)
+     * 안정적인 작물 매핑 (고추, 양파만 수집)
      */
     private String mapCropNameToCode(String name) {
         if (name == null) return "UNKNOWN";
         if (name.contains("고추")) return "pepper";
-        if (name.contains("배추")) return "cabbage";
-        if (name.contains("마늘")) return "garlic";
         if (name.contains("양파")) return "onion";
-        if (name.contains("무")) return "radish";
-        if (name.contains("파")) return "onion"; 
-        if (name.contains("상추")) return "lettuce";
-        if (name.contains("감자")) return "potato";
-        if (name.contains("토마토")) return "tomato";
         return "UNKNOWN";
     }
 
@@ -160,17 +156,24 @@ public class NcpmsDataSyncService {
      */
     private String mapPestNameToCode(String name) {
         if (name == null) return "UNKNOWN";
+        
         if (name.contains("노균병")) return "P01";
         if (name.contains("무름병")) return "P02";
         if (name.contains("탄저병")) return "P03";
         if (name.contains("뿌리혹병")) return "P04";
         if (name.contains("역병")) return "P05";
-        if (name.contains("시들음병")) return "P06";
+        if (name.contains("시들음병") || name.contains("위황병")) return "P24";
         if (name.contains("잎마름병")) return "P07";
         if (name.contains("진딧물")) return "P08";
         if (name.contains("나방")) return "P09";
         if (name.contains("응애")) return "P10";
         if (name.contains("균핵병")) return "P11";
+        if (name.contains("바이러스")) return "P21";
+        if (name.contains("흰가루병")) return "P22";
+        if (name.contains("청고병") || name.contains("풋마름병")) return "P23";
+        if (name.contains("깜부기병")) return "P25";
+        if (name.contains("불마름병") || name.contains("잎가름병")) return "P26";
+        
         return "UNKNOWN";
     }
 }

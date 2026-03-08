@@ -65,7 +65,7 @@ public class NcpmsApiResponse {
         private String sidoCode;
         private String sidoNm;
         private String dbyhsNm;
-        private Integer inqireValue;
+        private Double inqireValue;
     }
 
     @Getter @Setter
@@ -87,9 +87,10 @@ public class NcpmsApiResponse {
     public static class NcpmsSigunguDto {
         private String insectKey;
         private String sidoCode;
+        private String sigunguCode;
         private String sigunguNm;
         private String dbyhsNm;
-        private Integer inqireValue;
+        private Double inqireValue;
     }
 
     private static <T> List<T> parseInconsistentNode(JsonNode node, TypeReference<List<T>> typeRef, Class<T> clazz) {
