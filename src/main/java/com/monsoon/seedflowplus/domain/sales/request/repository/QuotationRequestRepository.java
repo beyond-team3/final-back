@@ -21,12 +21,15 @@ public interface QuotationRequestRepository extends JpaRepository<QuotationReque
     List<QuotationRequestHeader> findByStatusAndClient(QuotationRequestStatus status, Client client);
 
     @EntityGraph(attributePaths = "client")
-    List<QuotationRequestHeader> findByStatusAndClientManagerEmployeeId(QuotationRequestStatus status, Long managerEmployeeId);
+    List<QuotationRequestHeader> findByStatusAndClientManagerEmployeeId(QuotationRequestStatus status,
+                                                                        Long managerEmployeeId);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE QuotationRequestHeader r SET r.status = :newStatus " +
             "WHERE r.status = :oldStatus " +
-            "AND EXISTS (SELECT 1 FROM QuotationHeader q WHERE q.quotationRequest = r AND q.status = :quoStatus)")
+            "AND EXISTS (SELECT 1 FROM QuotationHeader q WHERE q.quotationRequest = r AND q.status = :quoStatus) "
+            +
+            "AND NOT EXISTS (SELECT 1 FROM QuotationHeader q2 WHERE q2.quotationRequest = r AND q2.status <> :quoStatus)")
     int recoverStatusByExpiredQuotation(@Param("oldStatus") QuotationRequestStatus oldStatus,
                                         @Param("newStatus") QuotationRequestStatus newStatus,
                                         @Param("quoStatus") com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus quoStatus);
