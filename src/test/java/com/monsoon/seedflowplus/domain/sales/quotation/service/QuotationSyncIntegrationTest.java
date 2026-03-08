@@ -53,7 +53,6 @@ class QuotationSyncIntegrationTest {
     @DisplayName("RFQ 복구 테스트: 모든 연결된 견적이 만료된 경우 RFQ가 PENDING으로 복구되어야 함")
     void recoverStatus_ShouldRecoverToPending_WhenAllQuotationsAreExpired() {
         // given
-        LocalDate today = LocalDate.now();
         String uniqueSuffix = "REC1-" + System.currentTimeMillis() % 10000;
 
         Employee employee = createEmployee(uniqueSuffix);
@@ -85,7 +84,6 @@ class QuotationSyncIntegrationTest {
     @DisplayName("RFQ 복구 방지 테스트: 진행 중인 견적이 하나라도 있으면 RFQ가 복구되지 않아야 함")
     void recoverStatus_ShouldNotRecover_WhenNonExpiredQuotationExists() {
         // given
-        LocalDate today = LocalDate.now();
         String uniqueSuffix = "REC2-" + System.currentTimeMillis() % 10000;
 
         Employee employee = createEmployee(uniqueSuffix);
