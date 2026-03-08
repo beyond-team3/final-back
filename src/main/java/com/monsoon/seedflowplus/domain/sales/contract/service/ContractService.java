@@ -99,7 +99,7 @@ public class ContractService {
 
         validateClientAccess(client, userDetails);
 
-        return contractRepository.findByClientAndStatusOrderByEndDateAsc(client, ContractStatus.ACTIVE_CONTRACT)
+        return contractRepository.findActiveContractsByClient(client, LocalDate.now())
                 .stream()
                 .map(ContractSimpleResponse::from)
                 .toList();
