@@ -61,15 +61,25 @@ public class NcpmsDataSyncService {
                     List<PestForecast> currentItemForecasts = new ArrayList<>();
                     processMainItem(item, currentItemForecasts);
                     
-                    // [변경] 3. 작물 1개 처리가 끝날 때마다 즉시 DB 저장
+                    // [변경] 3. 중복 데이터 정제 (지역+작물+병해충 별로 가장 높은 위험도 하나만 남김)
                     if (!currentItemForecasts.isEmpty()) {
-                        final int savedCountInItem = currentItemForecasts.size();
+                        List<PestForecast> distinctForecasts = new ArrayList<>(
+                            currentItemForecasts.stream()
+                                .collect(java.util.stream.Collectors.toMap(
+                                    f -> f.getAreaName() + "|" + f.getCropCode() + "|" + f.getPestCode(),
+                                    f -> f,
+                                    (existing, replacement) -> getMoreSevere(existing, replacement)
+                                ))
+                                .values()
+                        );
+
+                        final int savedCountInItem = distinctForecasts.size();
                         transactionTemplate.executeWithoutResult(status -> {
-                            pestForecastRepository.saveAll(currentItemForecasts);
+                            pestForecastRepository.saveAll(distinctForecasts);
                         });
                         totalSavedCount += savedCountInItem;
-                        log.info(">> [{}/{}] {} 처리 완료: {}건 저장 (현재 누적: {}건)", 
-                                 currentItemIndex, totalItems, item.getKncrNm(), savedCountInItem, totalSavedCount);
+                        log.info(">> [{}/{}] {} 처리 완료: {}건 저장 (중복 제거 전: {}건, 현재 누적: {}건)", 
+                                 currentItemIndex, totalItems, item.getKncrNm(), savedCountInItem, currentItemForecasts.size(), totalSavedCount);
                     } else {
                         log.info(">> [{}/{}] {} : 수집된 유효 데이터가 없습니다.", 
                                  currentItemIndex, totalItems, item.getKncrNm());
@@ -183,5 +193,24 @@ public class NcpmsDataSyncService {
         if (name.contains("불마름병") || name.contains("잎가름병")) return "P26";
         
         return "UNKNOWN";
+    }
+
+    /**
+     * 두 예찰 데이터 중 더 심각한 단계를 가진 데이터를 반환합니다.
+     */
+    private PestForecast getMoreSevere(PestForecast f1, PestForecast f2) {
+        int r1 = getSeverityRank(f1.getSeverity());
+        int r2 = getSeverityRank(f2.getSeverity());
+        return r1 >= r2 ? f1 : f2;
+    }
+
+    private int getSeverityRank(String severity) {
+        if (severity == null) return 0;
+        return switch (severity) {
+            case "심각" -> 3;
+            case "경고" -> 2;
+            case "주의" -> 1;
+            default -> 0; // 보통
+        };
     }
 }

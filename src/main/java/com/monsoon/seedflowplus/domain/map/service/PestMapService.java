@@ -42,10 +42,21 @@ public class PestMapService {
 
         var forecasts = forecastRepository.findAllByCropCodeAndPestCodeIn(request.getCropCode(), relatedCodes)
                 .stream()
-                .map(f -> PestMapSearchResponse.ForecastDto.builder()
-                        .areaName(f.getAreaName())
-                        .severity(f.getSeverity())
-                        .build())
+                .collect(Collectors.toMap(
+                        f -> f.getAreaName(),
+                        f -> PestMapSearchResponse.ForecastDto.builder()
+                                .areaName(f.getAreaName())
+                                .severity(f.getSeverity())
+                                .build(),
+                        (existing, replacement) -> {
+                            int r1 = getSeverityRank(existing.getSeverity());
+                            int r2 = getSeverityRank(replacement.getSeverity());
+                            return r1 >= r2 ? existing : replacement;
+                        }
+                ))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(PestMapSearchResponse.ForecastDto::getAreaName))
                 .collect(Collectors.toList());
 
         // 2. 추천 품종 데이터 조회
@@ -180,6 +191,16 @@ public class PestMapService {
             case "P04" -> "뿌리혹병";
             case "P05", "PP02", "TM01" -> "역병";
             default -> pestCode;
+        };
+    }
+
+    private int getSeverityRank(String severity) {
+        if (severity == null) return 0;
+        return switch (severity) {
+            case "심각" -> 3;
+            case "경고" -> 2;
+            case "주의" -> 1;
+            default -> 0; // 보통
         };
     }
 }
