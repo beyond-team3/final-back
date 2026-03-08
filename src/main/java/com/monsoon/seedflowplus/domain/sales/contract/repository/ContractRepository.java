@@ -17,6 +17,8 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
 
     List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
 
+    List<ContractHeader> findByClientAndStatusOrderByEndDateAsc(Client client, ContractStatus status);
+
     // 계약 코드와 거래처 ID로 계약 존재 여부 확인
     boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
 
