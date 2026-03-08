@@ -22,7 +22,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,7 +50,7 @@ class QuotationSyncIntegrationTest {
 
     @Test
     @DisplayName("RFQ 복구 테스트: 모든 연결된 견적이 만료된 경우 RFQ가 PENDING으로 복구되어야 함")
-    void recoverStatus_ShouldRecoverToPending_WhenAllQuotationsAreExpired() {
+    void recoverStatus_Pending() {
         // given
         String uniqueSuffix = "REC1-" + System.currentTimeMillis() % 10000;
 
@@ -77,12 +76,11 @@ class QuotationSyncIntegrationTest {
         // then
         QuotationRequestHeader updatedRfq = quotationRequestRepository.findById(rfq.getId()).orElseThrow();
         assertEquals(QuotationRequestStatus.PENDING, updatedRfq.getStatus());
-        System.out.println("\n[RFQ 복구 테스트 1] 모든 견적 만료 시 복구 성공 확인");
     }
 
     @Test
     @DisplayName("RFQ 복구 방지 테스트: 진행 중인 견적이 하나라도 있으면 RFQ가 복구되지 않아야 함")
-    void recoverStatus_ShouldNotRecover_WhenNonExpiredQuotationExists() {
+    void recoverStatus_NoPending() {
         // given
         String uniqueSuffix = "REC2-" + System.currentTimeMillis() % 10000;
 
@@ -116,7 +114,6 @@ class QuotationSyncIntegrationTest {
         QuotationRequestHeader updatedRfq = quotationRequestRepository.findById(rfq.getId()).orElseThrow();
         // 진행 중인 견적이 있으므로 REVIEWING 상태를 유지해야 함
         assertEquals(QuotationRequestStatus.REVIEWING, updatedRfq.getStatus());
-        System.out.println("\n[RFQ 복구 테스트 2] 진행 중인 견적 존재 시 복구 방지 확인");
     }
 
     private Employee createEmployee(String suffix) {
