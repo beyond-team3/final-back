@@ -27,7 +27,7 @@ import java.util.Objects;
 public class ContractHeader extends BaseModifyEntity {
 
     @Column(name = "contract_code", unique = true)
-    private String contractCode; // id: CT-1771728490492
+    private String contractCode; // id: CNT-1771728490492
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quo_id")
@@ -71,9 +71,10 @@ public class ContractHeader extends BaseModifyEntity {
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
 
-    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal, Employee author,
-                        BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
-                        BillingCycle billingCycle, String specialTerms, String memo) {
+    public ContractHeader(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal,
+                          Employee author,
+                          BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
+                          BillingCycle billingCycle, String specialTerms, String memo) {
         this.contractCode = contractCode;
         this.quotation = quotation;
         this.client = client;
@@ -87,7 +88,8 @@ public class ContractHeader extends BaseModifyEntity {
         this.memo = memo;
     }
 
-    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal, Employee author,
+    public static ContractHeader create(String contractCode, QuotationHeader quotation, Client client, SalesDeal deal,
+                                        Employee author,
                                         BigDecimal totalAmount, LocalDate startDate, LocalDate endDate,
                                         BillingCycle billingCycle, String specialTerms, String memo) {
         return new ContractHeader(
@@ -117,6 +119,14 @@ public class ContractHeader extends BaseModifyEntity {
         if (status == null) {
             throw new IllegalArgumentException("변경할 상태 값이 존재하지 않습니다.");
         }
+
+        // 거래처 승인 완료(COMPLETED) 시점에 시작일이 오늘 현재/과거면
+        // 즉시 계약진행중(ACTIVE_CONTRACT)으로 변경하여 사용자 누락 방지
+        if (status == ContractStatus.COMPLETED && !startDate.isAfter(LocalDate.now())) {
+            this.status = ContractStatus.ACTIVE_CONTRACT;
+            return;
+        }
+
         this.status = status;
     }
 
