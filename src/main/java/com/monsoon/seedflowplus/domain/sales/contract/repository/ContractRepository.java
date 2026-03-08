@@ -4,7 +4,9 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +14,20 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public interface ContractRepository extends JpaRepository<ContractHeader, Long> {
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
+            "WHERE c.status = :oldStatus AND c.startDate <= :today")
+    int updateStatusForActivation(@Param("oldStatus") ContractStatus oldStatus,
+                                  @Param("newStatus") ContractStatus newStatus,
+                                  @Param("today") LocalDate today);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
+            "WHERE c.status = :oldStatus AND c.endDate < :today")
+    int updateStatusForExpiration(@Param("oldStatus") ContractStatus oldStatus,
+                                  @Param("newStatus") ContractStatus newStatus,
+                                  @Param("today") LocalDate today);
 
     List<ContractHeader> findAllByStatus(ContractStatus status);
 
