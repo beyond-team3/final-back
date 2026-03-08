@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
@@ -62,8 +63,8 @@ class ContractSyncIntegrationTest {
         String uniqueSuffix = String.valueOf(System.currentTimeMillis()).substring(8);
 
         // 연관 엔티티 준비 (DB 제약 조건 충족을 위함)
-        com.monsoon.seedflowplus.domain.account.entity.Employee employee = employeeRepository
-                .save(com.monsoon.seedflowplus.domain.account.entity.Employee.builder()
+        Employee employee = employeeRepository
+                .save(Employee.builder()
                         .employeeCode("EMP-INT-" + uniqueSuffix)
                         .employeeName("Integ Tester")
                         .employeeEmail("integ" + uniqueSuffix + "@test.com")
@@ -92,7 +93,7 @@ class ContractSyncIntegrationTest {
                 .currentStatus(ContractStatus.COMPLETED.name())
                 .latestDocType(DealType.CNT)
                 .latestRefId(0L)
-                .lastActivityAt(java.time.LocalDateTime.now())
+                .lastActivityAt(LocalDateTime.now())
                 .build());
 
         // 시작/종료일이 모두 과거인 계약 생성 (상태: COMPLETED)
@@ -162,7 +163,7 @@ class ContractSyncIntegrationTest {
                 .currentStatus(ContractStatus.COMPLETED.name())
                 .latestDocType(DealType.CNT)
                 .latestRefId(0L)
-                .lastActivityAt(java.time.LocalDateTime.now())
+                .lastActivityAt(LocalDateTime.now())
                 .build());
 
         // 오늘 시작하는 계약 생성 (기본 상태 WAITING_ADMIN)
