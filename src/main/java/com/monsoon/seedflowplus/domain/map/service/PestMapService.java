@@ -178,7 +178,7 @@ public class PestMapService {
             case "P02", "CB01", "RD01" -> "무름병";
             case "P03", "PP01" -> "탄저병";
             case "P04" -> "뿌리혹병";
-            case "PP02", "TM01" -> "역병";
+            case "P05", "PP02", "TM01" -> "역병";
             default -> pestCode;
         };
     }

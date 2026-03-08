@@ -7,10 +7,12 @@ import com.monsoon.seedflowplus.domain.map.dto.response.NcpmsApiResponse.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import jakarta.annotation.PostConstruct;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +24,7 @@ public class NcpmsApiClient {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final XmlMapper xmlMapper = new XmlMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
+    private RestTemplate restTemplate;
 
     @Value("${ncpms.api.key}")
     private String apiKey;
@@ -31,6 +33,15 @@ public class NcpmsApiClient {
     private String baseUrl;
 
     private static final int DISPLAY_COUNT = 50;
+    private static final int TIMEOUT_MS = 5000;
+
+    @PostConstruct
+    public void init() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(TIMEOUT_MS);
+        factory.setReadTimeout(TIMEOUT_MS);
+        this.restTemplate = new RestTemplate(factory);
+    }
 
     /**
      * 페이지네이션을 처리하여 연도의 모든 예찰 목록을 수집합니다.
@@ -46,7 +57,7 @@ public class NcpmsApiClient {
                     .queryParam("serviceType", "AA003")
                     .queryParam("displayCount", DISPLAY_COUNT)
                     .queryParam("startPoint", startPoint)
-                    .queryParam("searchExaminYear", year) // 실제 파라미터명 수정
+                    .queryParam("searchExaminYear", year)
                     .build().toUri();
 
             NcpmsListResponse response = executeWithRetry(uri, NcpmsListResponse.class);
@@ -106,18 +117,27 @@ public class NcpmsApiClient {
                 if (content == null || content.isBlank()) return null;
 
                 String trimmed = content.trim();
-                if (trimmed.startsWith("{")) {
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
                     JsonNode root = objectMapper.readTree(trimmed);
-                    JsonNode serviceNode = root.get("service");
-                    return serviceNode != null ? objectMapper.treeToValue(serviceNode, clazz) : objectMapper.readValue(trimmed, clazz);
-                } else {
+                    
+                    // Handle wrapped response: { "service": { ... } }
+                    if (root.has("service")) {
+                        return objectMapper.treeToValue(root.get("service"), clazz);
+                    }
+                    
+                    // Handle direct array response or already correct structure
+                    return objectMapper.treeToValue(root, clazz);
+                } else if (trimmed.startsWith("<")) {
                     return xmlMapper.readValue(trimmed, clazz);
+                } else {
+                    log.warn("Unknown response format: {}", trimmed.substring(0, Math.min(trimmed.length(), 50)));
+                    return null;
                 }
             } catch (Exception e) {
                 retry++;
                 log.warn("NCPMS API 재시도 ({}/3) - URI: {}, 사유: {}", retry, uri, e.getMessage());
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(1000); // 1초 대기
                 } catch (InterruptedException ignored) {}
             }
         }
