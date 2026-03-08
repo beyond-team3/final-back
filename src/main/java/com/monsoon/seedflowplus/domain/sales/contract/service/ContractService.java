@@ -86,7 +86,7 @@ public class ContractService {
     }
 
     /**
-     * 특정 거래처의 활성 계약 목록 조회 (주문서 작성 용)
+     * 특정 거래처의 활성 계약 목록 조회 (주문서 작성 등 실무용)
      * ACTIVE_CONTRACT 상태만 반환
      */
     public List<ContractSimpleResponse> getActiveContractsByClient(Long clientId) {
@@ -97,8 +97,8 @@ public class ContractService {
 
         validateClientAccess(client, userDetails);
 
-        return contractRepository.findByClientOrderByEndDateAsc(client).stream()
-                .filter(c -> c.getStatus() == ContractStatus.ACTIVE_CONTRACT)
+        return contractRepository.findByClientAndStatusOrderByEndDateAsc(client, ContractStatus.ACTIVE_CONTRACT)
+                .stream()
                 .map(ContractSimpleResponse::from)
                 .toList();
     }
@@ -468,7 +468,6 @@ public class ContractService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
-            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
