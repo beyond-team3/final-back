@@ -1,6 +1,5 @@
 package com.monsoon.seedflowplus.domain.sales.contract.service;
 
-import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,74 +25,25 @@ class ContractSyncTest {
     private ContractRepository contractRepository;
 
     @Test
-    @DisplayName("계약 상태 변경 로직 검증: COMPLETED -> ACTIVE_CONTRACT (Repository 데이터 존재 시)")
-    void syncStatus_ShouldChangeToActiveContract_WhenRepositoryReturnsCompletedContract() {
+    @DisplayName("계약 상태 변경 로직 검증: 벌크 업데이트 메서드 호출 확인 (가시화 대체)")
+    void syncStatus_ShouldCallBulkUpdateMethods() {
         // given
         LocalDate today = LocalDate.now();
-        ContractHeader contract = ContractHeader.create(
-                "TEST-CNT",
-                null,
-                mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
-                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class), null,
-                java.math.BigDecimal.ZERO,
-                today,
-                today.plusDays(10),
+        when(contractRepository.updateStatusForActivation(any(), any(), any())).thenReturn(1);
+        when(contractRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
 
-                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
-                null,
-                null);
-        contract.updateStatus(ContractStatus.COMPLETED);
-
-        when(contractRepository.findByStatusAndStartDateLessThanEqual(eq(ContractStatus.COMPLETED),
-                any(LocalDate.class)))
-                .thenReturn(List.of(contract));
-
-        System.out.println("\n[계약서 테스트] 활성화 검증 시작");
-        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (시작일: " + today + ")");
+        System.out.println("\n[계약서 테스트] 벌크 업데이트 검증 시작");
 
         // when
         contractService.syncContractStatuses();
 
         // then
-        System.out.println(">>> 변경 후 상태: " + contract.getStatus());
+        verify(contractRepository, times(1)).updateStatusForActivation(
+                eq(ContractStatus.COMPLETED), eq(ContractStatus.ACTIVE_CONTRACT), eq(today));
+        verify(contractRepository, times(1)).updateStatusForExpiration(
+                eq(ContractStatus.ACTIVE_CONTRACT), eq(ContractStatus.EXPIRED), eq(today));
+
+        System.out.println(">>> Repository 벌크 업데이트 메서드(Activation, Expiration) 호출 확인 완료");
         System.out.println("[계약서 테스트] 완료");
-
-        org.junit.jupiter.api.Assertions.assertEquals(ContractStatus.ACTIVE_CONTRACT, contract.getStatus());
-    }
-
-    @Test
-    @DisplayName("계약 상태 변경 로직 검증: ACTIVE_CONTRACT -> EXPIRED (Repository 데이터 존재 시)")
-    void syncStatus_ShouldChangeToExpired_WhenRepositoryReturnsExpiredContract() {
-        // given
-        LocalDate today = LocalDate.now();
-        ContractHeader contract = ContractHeader.create(
-                "TEST-CNT-EX",
-                null,
-                mock(com.monsoon.seedflowplus.domain.account.entity.Client.class),
-                mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),
-                null,
-                java.math.BigDecimal.ZERO,
-                today.minusDays(10),
-                today.minusDays(1),
-                com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle.MONTHLY,
-                null,
-                null);
-        contract.updateStatus(ContractStatus.ACTIVE_CONTRACT);
-
-        when(contractRepository.findByStatusAndEndDateLessThan(eq(ContractStatus.ACTIVE_CONTRACT),
-                any(LocalDate.class)))
-                .thenReturn(List.of(contract));
-
-        System.out.println("\n[계약서 테스트] 만료 검증 시작");
-        System.out.println(">>> 변경 전 상태: " + contract.getStatus() + " (종료일: " + today.minusDays(1) + ")");
-
-        // when
-        contractService.syncContractStatuses();
-
-        // then
-        System.out.println(">>> 변경 후 상태: " + contract.getStatus());
-        System.out.println("[계약서 테스트] 완료");
-
-        org.junit.jupiter.api.Assertions.assertEquals(ContractStatus.EXPIRED, contract.getStatus());
     }
 }
