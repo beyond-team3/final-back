@@ -44,21 +44,29 @@ public class NcpmsApiClient {
     }
 
     /**
-     * 페이지네이션을 처리하여 연도의 모든 예찰 목록을 수집합니다.
+     * 특정 날짜(연, 월, 일)의 모든 예찰 목록을 수집합니다.
      */
-    public List<NcpmsListDto> fetchAllList(String year) {
+    public List<NcpmsListDto> fetchAllList(String year, String month, String day) {
         List<NcpmsListDto> result = new ArrayList<>();
         int startPoint = 1;
 
         while (true) {
-            URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl)
                     .queryParam("apiKey", apiKey)
                     .queryParam("serviceCode", "SVC51")
                     .queryParam("serviceType", "AA003")
                     .queryParam("displayCount", DISPLAY_COUNT)
                     .queryParam("startPoint", startPoint)
-                    .queryParam("searchExaminYear", year)
-                    .build().toUri();
+                    .queryParam("searchExaminYear", year);
+            
+            if (month != null && !month.isBlank()) {
+                builder.queryParam("searchExaminMonth", month);
+            }
+            if (day != null && !day.isBlank()) {
+                builder.queryParam("searchExaminDe", day);
+            }
+
+            URI uri = builder.build().toUri();
 
             NcpmsListResponse response = executeWithRetry(uri, NcpmsListResponse.class);
 

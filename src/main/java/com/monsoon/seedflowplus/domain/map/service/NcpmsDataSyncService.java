@@ -22,14 +22,14 @@ public class NcpmsDataSyncService {
     private final NcpmsApiClient ncpmsApiClient;
 
     @Async("briefingTaskExecutor")
-    public void syncPestForecastData() {
-        log.info("NCPMS 동기화 시작 (2025년 기준)");
+    public void syncPestForecastData(String year, String month, String day) {
+        log.info("NCPMS 동기화 시작 (기준 날짜: {}년 {}월 {}일)", year, month, day);
 
         try {
-            // 1. 모든 목록 수집 (페이지네이션 포함)
-            List<NcpmsListDto> allItems = ncpmsApiClient.fetchAllList("2025");
+            // 1. 특정 날짜 목록 수집 (페이지네이션 포함)
+            List<NcpmsListDto> allItems = ncpmsApiClient.fetchAllList(year, month, day);
             if (allItems.isEmpty()) {
-                log.warn("NCPMS API로부터 수집된 작물 목록이 없습니다.");
+                log.warn("{}년 {}월 {}일 기준 NCPMS API로부터 수집된 작물 목록이 없습니다.", year, month, day);
                 return;
             }
 
@@ -95,32 +95,40 @@ public class NcpmsDataSyncService {
     private void processMainItem(NcpmsListDto item, List<PestForecast> accumulated) throws InterruptedException {
         String insectKey = item.getInsectKey();
         List<NcpmsSidoDto> sidoList = ncpmsApiClient.fetchSido(insectKey);
-        log.info("sidoList size for insectKey {}: {}", insectKey, sidoList.size());
+        int totalSido = sidoList.size();
+        log.info(">> {} 시도 목록 수집 완료 (총 {}개 시도)", item.getKncrNm(), totalSido);
 
-        for (NcpmsSidoDto sido : sidoList) {
-            Thread.sleep(50);
+        for (int i = 0; i < totalSido; i++) {
+            NcpmsSidoDto sido = sidoList.get(i);
+            Thread.sleep(100); // API 서버 부하 방지용 대기
+            
             List<NcpmsSigunguDto> sigunguList = ncpmsApiClient.fetchSigungu(insectKey, sido.getSidoCode());
-            log.info("sigunguList size for sido {}: {}", sido.getSidoNm(), sigunguList.size());
-            List<PestForecast> entities = convertToEntityList(item.getKncrNm(), sigunguList);
-            log.info("entities created from sigunguList: {}", entities.size());
-            accumulated.addAll(entities);
+            if (sigunguList != null && !sigunguList.isEmpty()) {
+                List<PestForecast> entities = convertToEntityList(item.getKncrNm(), sigunguList);
+                accumulated.addAll(entities);
+                log.info("   - [{}/{}] {} 처리: {}건 수집", (i + 1), totalSido, sido.getSidoNm(), entities.size());
+            } else {
+                log.info("   - [{}/{}] {} 처리: 데이터 없음", (i + 1), totalSido, sido.getSidoNm());
+            }
         }
     }
 
     private List<PestForecast> convertToEntityList(String cropName, List<NcpmsSigunguDto> sigunguDataList) {
         List<PestForecast> entities = new ArrayList<>();
+        if (sigunguDataList == null) return entities;
+        
         String cropCode = mapCropNameToCode(cropName);
 
         for (NcpmsSigunguDto dto : sigunguDataList) {
+            if (dto == null) continue;
+            
             String pestCode = mapPestNameToCode(dto.getDbyhsNm());
             String severity = convertValueToSeverity(dto.getInqireValue());
-
-            log.info("Mapping: cropName={}, dbyhsNm={}, cropCode={}, pestCode={}", cropName, dto.getDbyhsNm(), cropCode, pestCode);
 
             // 유효한 매핑 결과가 있는 경우에만 수집
             if (!"UNKNOWN".equals(cropCode) && !"UNKNOWN".equals(pestCode)) {
                 entities.add(PestForecast.builder()
-                        .areaName(dto.getSigunguNm())
+                        .areaName(dto.getSigunguNm() != null ? dto.getSigunguNm() : "Unknown")
                         .cropCode(cropCode)
                         .pestCode(pestCode)
                         .severity(severity)
