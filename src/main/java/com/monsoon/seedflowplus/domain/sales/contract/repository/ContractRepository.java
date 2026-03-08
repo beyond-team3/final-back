@@ -19,15 +19,15 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
     @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
             "WHERE c.status = :oldStatus AND c.startDate <= :today")
     int updateStatusForActivation(@Param("oldStatus") ContractStatus oldStatus,
-                                @Param("newStatus") ContractStatus newStatus,
-                                @Param("today") LocalDate today);
+                                  @Param("newStatus") ContractStatus newStatus,
+                                  @Param("today") LocalDate today);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
             "WHERE c.status = :oldStatus AND c.endDate < :today")
     int updateStatusForExpiration(@Param("oldStatus") ContractStatus oldStatus,
-                                @Param("newStatus") ContractStatus newStatus,
-                                @Param("today") LocalDate today);
+                                  @Param("newStatus") ContractStatus newStatus,
+                                  @Param("today") LocalDate today);
 
     List<ContractHeader> findAllByStatus(ContractStatus status);
 
@@ -40,11 +40,13 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
      */
     @Query("SELECT c FROM ContractHeader c " +
             "WHERE c.client = :client " +
-            "AND (c.status = 'ACTIVE_CONTRACT' " +
-            "OR (c.status = 'COMPLETED' AND c.startDate <= :today AND c.endDate >= :today)) " +
+            "AND (c.status = :activeStatus " +
+            "OR (c.status = :completedStatus AND c.startDate <= :today AND c.endDate >= :today)) " +
             "ORDER BY c.endDate ASC")
     List<ContractHeader> findActiveContractsByClient(@Param("client") Client client,
-                                                    @Param("today") LocalDate today);
+                                                     @Param("today") LocalDate today,
+                                                     @Param("activeStatus") ContractStatus activeStatus,
+                                                     @Param("completedStatus") ContractStatus completedStatus);
 
     // 계약 코드와 거래처 ID로 계약 존재 여부 확인
     boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
