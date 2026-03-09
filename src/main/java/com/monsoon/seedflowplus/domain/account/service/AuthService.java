@@ -54,7 +54,7 @@ public class AuthService {
         // 마지막 로그인 시간 업데이트
         user.updateLastLoginAt(LocalDateTime.now());
 
-        return TokenResponse.of(accessToken, refreshToken, accessTokenExpiration);
+        return TokenResponse.of(accessToken, refreshToken, accessTokenExpiration, user.getRole());
     }
 
     @Transactional
@@ -86,7 +86,7 @@ public class AuthService {
                 newRefreshToken,
                 Duration.ofMillis(jwtTokenProvider.getRefreshExpiration()));
 
-        return TokenResponse.of(newAccessToken, newRefreshToken, accessTokenExpiration);
+        return TokenResponse.of(newAccessToken, newRefreshToken, accessTokenExpiration, user.getRole());
     }
 
     @Transactional
