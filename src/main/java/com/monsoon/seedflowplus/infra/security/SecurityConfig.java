@@ -63,8 +63,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/clients/*/crops").hasRole("SALES_REP")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/accounts/clients/crops/*").hasRole("SALES_REP")
                         .requestMatchers("/api/v1/accounts/clients/register", "/api/v1/accounts/employees/register",
-                                "/api/v1/accounts/users/**")
-                        .hasRole("ADMIN")
+                                "/api/v1/accounts/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/clients/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/employees/*").hasRole("ADMIN")
                         .requestMatchers("/api/v1/notes/**").hasAnyRole("SALES_REP", "ADMIN")
@@ -72,6 +71,9 @@ public class SecurityConfig {
                         .hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/scoring/**").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/billing/revenue/**").hasAnyRole("SALES_REP", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/products").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/products/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/products/*").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 

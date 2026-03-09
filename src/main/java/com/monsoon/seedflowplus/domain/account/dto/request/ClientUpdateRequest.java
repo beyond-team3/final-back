@@ -17,5 +17,5 @@ public record ClientUpdateRequest(
         String managerPhone,
         @Email String managerEmail,
         @PositiveOrZero BigDecimal totalCredit,
-        Long managerId) {
+        Long employeeId) {
 }
