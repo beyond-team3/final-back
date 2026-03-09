@@ -26,10 +26,10 @@ public class NcpmsApiClient {
     private final XmlMapper xmlMapper = new XmlMapper();
     private RestTemplate restTemplate;
 
-    @Value("${ncpms.api.key}")
+    @Value("${ncpms.api.key:}")
     private String apiKey;
 
-    @Value("${ncpms.api.url}")
+    @Value("${ncpms.api.url:}")
     private String baseUrl;
 
     private static final int DISPLAY_COUNT = 50;
@@ -43,10 +43,18 @@ public class NcpmsApiClient {
         this.restTemplate = new RestTemplate(factory);
     }
 
+    private boolean isConfigured() {
+        return apiKey != null && !apiKey.isBlank() && baseUrl != null && !baseUrl.isBlank();
+    }
+
     /**
      * 특정 날짜(연, 월, 일)의 모든 예찰 목록을 수집합니다.
      */
     public List<NcpmsListDto> fetchAllList(String year, String month, String day) {
+        if (!isConfigured()) {
+            log.warn("NCPMS API가 설정되지 않았습니다. (apiKey 또는 baseUrl 누락)");
+            return new ArrayList<>();
+        }
         List<NcpmsListDto> result = new ArrayList<>();
         int startPoint = 1;
 
@@ -90,6 +98,9 @@ public class NcpmsApiClient {
     }
 
     public List<NcpmsSidoDto> fetchSido(String insectKey) {
+        if (!isConfigured()) {
+            return new ArrayList<>();
+        }
         URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .queryParam("apiKey", apiKey)
                 .queryParam("serviceCode", "SVC52")
@@ -102,6 +113,9 @@ public class NcpmsApiClient {
     }
 
     public List<NcpmsSigunguDto> fetchSigungu(String insectKey, String sidoCode) {
+        if (!isConfigured()) {
+            return new ArrayList<>();
+        }
         URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .queryParam("apiKey", apiKey)
                 .queryParam("serviceCode", "SVC53")
