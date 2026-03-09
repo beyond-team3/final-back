@@ -1,7 +1,7 @@
--- SeedFlow+ scenario1 재실행용 초기화 + 계정/거래처 seed 스크립트
+-- SeedFlow+ scenario1 재실행용 targeted bootstrap 스크립트
 -- 전제: MariaDB / MySQL
--- 주의: 개발 DB 데이터를 삭제한 뒤 scenario1에 필요한 계정/거래처를 다시 만든다.
--- 비어 있는 테이블에서도 멈추지 않도록 TRUNCATE 대신 DELETE + AUTO_INCREMENT 초기화를 사용한다.
+-- 목적: 시나리오 관련 파이프라인 데이터만 정리하고 admin/sales/client 계정과 거래처를 다시 만든다.
+-- 주의: 전체 tbl_client/tbl_employee 삭제를 피해서 락 대기를 줄인다.
 
 START TRANSACTION;
 
@@ -38,8 +38,21 @@ DELETE FROM tbl_request_quotation_header;
 
 DELETE FROM tbl_sales_deal;
 
-DELETE FROM tbl_account_score;
-DELETE FROM tbl_client_crops;
+DELETE FROM tbl_account_score
+WHERE client_id IN (
+    SELECT client_id
+    FROM tbl_client
+    WHERE client_brn = '123-45-67890'
+       OR manager_email = 'client@seedflow.com'
+);
+
+DELETE FROM tbl_client_crops
+WHERE client_id IN (
+    SELECT client_id
+    FROM tbl_client
+    WHERE client_brn = '123-45-67890'
+       OR manager_email = 'client@seedflow.com'
+);
 
 DELETE FROM tbl_product_bookmark;
 DELETE FROM tbl_product_compare_item;
@@ -51,9 +64,15 @@ DELETE FROM tbl_cultivation_time;
 DELETE FROM tbl_tag;
 DELETE FROM tbl_product;
 
-DELETE FROM tbl_user;
-DELETE FROM tbl_client;
-DELETE FROM tbl_employee;
+DELETE FROM tbl_user
+WHERE login_id IN ('admin@seedflow.com', 'sales@seedflow.com', 'client@seedflow.com');
+
+DELETE FROM tbl_client
+WHERE client_brn = '123-45-67890'
+   OR manager_email = 'client@seedflow.com';
+
+DELETE FROM tbl_employee
+WHERE employee_email IN ('admin@seedflow.com', 'sales@seedflow.com');
 
 ALTER TABLE tbl_notification_delivery AUTO_INCREMENT = 1;
 ALTER TABLE tbl_notification AUTO_INCREMENT = 1;
@@ -88,9 +107,6 @@ ALTER TABLE tbl_product_tag AUTO_INCREMENT = 1;
 ALTER TABLE tbl_cultivation_time AUTO_INCREMENT = 1;
 ALTER TABLE tbl_tag AUTO_INCREMENT = 1;
 ALTER TABLE tbl_product AUTO_INCREMENT = 1;
-ALTER TABLE tbl_user AUTO_INCREMENT = 1;
-ALTER TABLE tbl_client AUTO_INCREMENT = 1;
-ALTER TABLE tbl_employee AUTO_INCREMENT = 1;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
