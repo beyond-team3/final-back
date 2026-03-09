@@ -78,7 +78,10 @@ pipeline {
 
         stage('Update Manifest') {
             when {
-                branch 'main'
+                anyOf{
+                    branch 'main'
+                    branch 'dev'
+                }
             }
             steps {
                 script {
@@ -87,40 +90,35 @@ pipeline {
                     def imageName = "21monsoon/monsoon-backend"
                     def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
 
+                    def targetBranch = env.BRANCH_NAME == 'main' ? 'main' : 'dev'
+
                     // SSH 자격 증명 ID 사용
                     sshagent(credentials: ['github-deploy-key']) {
                         sh """
-                            # 기존 임시 폴더 정리
                             rm -rf temp-manifests
-
-                            # SSH를 통한 보안 클론
                             git clone ${manifestRepoUrl} temp-manifests
                             cd temp-manifests
 
-                            # 젠킨스 봇 계정 설정
+                            # 브랜치 전환
+                            git checkout ${targetBranch} || git checkout -b ${targetBranch}
+
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
 
-                            # 태그 업데이트
+                            # 이미지 태그 업데이트
                             sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
 
-                            # 변경 사항이 있을 때만 커밋 및 푸시
+                            # 변경 사항 확인 및 rebase push
                             git add ${targetFile}
 
                             if git diff --cached --quiet; then
-                                echo "No changes detected in manifest; skipping commit/push."
+                                echo "No changes detected; skip commit/push"
                             else
-                                # 동시 푸시 충돌 방지를 위한 rebase 전략 적용
-                                git commit -m "[CD] Update ${imageName} to ${newTag} [skip ci]"
-                                for attempt in 1 2 3; do
-                                    git pull --rebase origin main && git push origin main && break
-                                    if [ "$attempt" -eq 3 ]; then
-                                        echo "Push failed after 3 attempts."
-                                        exit 1
-                                    fi
-                                    sleep 2
-                                done
-                                echo "Manifest update stage completed for beyond-team3/final-manifests backend"
+                                git commit -m "🚀 [CD-${targetBranch.toUpperCase()}] Update ${imageName} to ${newTag} [skip ci]"
+
+                            # 동시 푸시 충돌 방지
+                            git pull --rebase origin ${targetBranch}
+                            git push origin ${targetBranch}
                             fi
                         """
                     }
@@ -138,7 +136,7 @@ pipeline {
         success {
             discordSend(
                 webhookURL: "${env.DISCORD_WEBHOOK}",
-                title: "🟢[Backend] 빌드 성공",
+                title: "🟢 [Backend] 빌드 성공",
                 description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
                 result: 'SUCCESS'
             )
@@ -146,7 +144,7 @@ pipeline {
         failure {
             discordSend(
                 webhookURL: "${env.DISCORD_WEBHOOK}",
-                title: "🔴[Backend] 빌드 실패",
+                title: "🔴 [Backend] 빌드 실패",
                 description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
                 result: 'FAILURE'
             )
