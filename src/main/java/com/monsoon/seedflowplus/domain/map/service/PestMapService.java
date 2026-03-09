@@ -116,17 +116,15 @@ public class PestMapService {
     }
 
     public List<SalesOfficeResponse> getAllSalesOffices() {
-        // 모든 점수를 가져와 맵으로 변환 (Client ID -> Score)
-        Map<Long, Integer> clientScores = accountScoreRepository.findAll().stream()
-                .filter(score -> score.getClient() != null)
+        // 모든 점수를 가져와 맵으로 변환 (Client ID -> Score) - 최적화된 프로젝션 쿼리 사용
+        Map<Long, Integer> clientScores = accountScoreRepository.findAllClientIdAndTotalScore().stream()
                 .collect(Collectors.toMap(
-                        score -> score.getClient().getId(),
-                        score -> (int) Math.round(score.getTotalScore()),
+                        p -> p.getClientId(),
+                        p -> (int) Math.round(p.getTotalScore()),
                         (existing, replacement) -> existing
                 ));
 
-        return clientRepository.findAll().stream()
-                .filter(client -> client.getLatitude() != null && client.getLongitude() != null)
+        return clientRepository.findAllWithCropsAndCoordinates().stream()
                 .map(client -> SalesOfficeResponse.builder()
                         .id(client.getId().toString())
                         .name(client.getClientName())
