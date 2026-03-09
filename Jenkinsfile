@@ -67,15 +67,6 @@ pipeline {
             }
             steps {
                 script {
-                    // 도커 클라이언트 설치
-                    sh '''
-                        if ! command -v docker &> /dev/null; then
-                            echo "Docker CLI not found. Installing..."
-                            # 데비안 기반이므로 apt-get을 사용합니다.
-                            apt-get update && apt-get install -y docker.io
-                        fi
-                    '''
-
                     // 변수 정의
                     def prefix = env.APP_VERSION_PREFIX
 
