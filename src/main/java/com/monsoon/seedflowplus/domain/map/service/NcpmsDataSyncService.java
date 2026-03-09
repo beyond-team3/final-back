@@ -104,18 +104,22 @@ public class NcpmsDataSyncService {
             NcpmsSidoDto sido = sidoList.get(i);
             String currentSidoCode = sido.getSidoCode();
 
-            // 1. 시도 단위 데이터 저장 (시군구 상세가 없거나 전체 요약이 필요할 때를 대비)
-            if (currentSidoCode != null && !currentSidoCode.isBlank()) {
-                PestForecast sidoEntity = buildPestForecast(
-                    item.getKncrNm(), 
-                    sido.getSidoNm(), 
-                    currentSidoCode, 
-                    "000", // 시군구 코드가 없는 광역 데이터는 000으로 표시
-                    sido.getDbyhsNm(), 
-                    sido.getInqireValue()
-                );
-                if (sidoEntity != null) accumulated.add(sidoEntity);
+            // 시도 코드가 없는 경우 상세 조회를 진행할 수 없으므로 스킵
+            if (currentSidoCode == null || currentSidoCode.isBlank()) {
+                log.warn("시도 코드가 누락되었습니다. (시도명: {}). 상세 조회를 건너뜁니다.", sido.getSidoNm());
+                continue;
             }
+
+            // 1. 시도 단위 데이터 저장 (시군구 상세가 없거나 전체 요약이 필요할 때를 대비)
+            PestForecast sidoEntity = buildPestForecast(
+                item.getKncrNm(), 
+                sido.getSidoNm(), 
+                currentSidoCode, 
+                "000", // 시군구 코드가 없는 광역 데이터는 000으로 표시
+                sido.getDbyhsNm(), 
+                sido.getInqireValue()
+            );
+            if (sidoEntity != null) accumulated.add(sidoEntity);
 
             Thread.sleep(100); // API 서버 부하 방지용 대기
             
