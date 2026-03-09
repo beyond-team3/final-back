@@ -33,3 +33,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-09 09:43] notification 문서에 타입/권한 매핑 추가
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/docs/notification-feature-summary.md — 프론트 연동용 알림 타입 전체 목록과 액터 권한별 접근 범위/수신자 매핑 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
