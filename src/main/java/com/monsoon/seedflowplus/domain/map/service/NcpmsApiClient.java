@@ -48,6 +48,17 @@ public class NcpmsApiClient {
     }
 
     /**
+     * 로그 출력용으로 URI에서 apiKey를 마스킹합니다.
+     */
+    private String sanitizeUri(URI uri) {
+        if (uri == null) return "null";
+        return UriComponentsBuilder.fromUri(uri)
+                .replaceQueryParam("apiKey", "****")
+                .build()
+                .toUriString();
+    }
+
+    /**
      * 특정 날짜(연, 월, 일)의 모든 예찰 목록을 수집합니다.
      */
     public List<NcpmsListDto> fetchAllList(String year, String month, String day) {
@@ -79,7 +90,7 @@ public class NcpmsApiClient {
             NcpmsListResponse response = executeWithRetry(uri, NcpmsListResponse.class);
 
             if (response == null) {
-                throw new RuntimeException("NCPMS 목록 API 호출 최종 실패 - URI: " + uri);
+                throw new RuntimeException("NCPMS 목록 API 호출 최종 실패 - URI: " + sanitizeUri(uri));
             }
 
             if (response.getItems() == null || response.getItems().isEmpty()) {
@@ -114,7 +125,7 @@ public class NcpmsApiClient {
 
         NcpmsSidoResponse response = executeWithRetry(uri, NcpmsSidoResponse.class);
         if (response == null) {
-            throw new RuntimeException("NCPMS Sido API 호출 최종 실패 - URI: " + uri);
+            throw new RuntimeException("NCPMS Sido API 호출 최종 실패 - URI: " + sanitizeUri(uri));
         }
         return response.getItems() != null ? response.getItems() : new ArrayList<>();
     }
@@ -133,7 +144,7 @@ public class NcpmsApiClient {
 
         NcpmsSigunguResponse response = executeWithRetry(uri, NcpmsSigunguResponse.class);
         if (response == null) {
-            throw new RuntimeException("NCPMS Sigungu API 호출 최종 실패 - URI: " + uri);
+            throw new RuntimeException("NCPMS Sigungu API 호출 최종 실패 - URI: " + sanitizeUri(uri));
         }
         return response.getItems() != null ? response.getItems() : new ArrayList<>();
     }
@@ -143,6 +154,7 @@ public class NcpmsApiClient {
      */
     private <T> T executeWithRetry(URI uri, Class<T> clazz) {
         int retry = 0;
+        String sanitizedUri = sanitizeUri(uri);
         while (retry < 3) {
             try {
                 String content = restTemplate.getForObject(uri, String.class);
@@ -167,13 +179,13 @@ public class NcpmsApiClient {
                 }
             } catch (Exception e) {
                 retry++;
-                log.warn("NCPMS API 재시도 ({}/3) - URI: {}, 사유: {}", retry, uri, e.getMessage());
+                log.warn("NCPMS API 재시도 ({}/3) - URI: {}, 사유: {}", retry, sanitizedUri, e.getMessage());
                 try {
                     Thread.sleep(1000); // 1초 대기
                 } catch (InterruptedException ignored) {}
             }
         }
-        log.error("NCPMS API 최종 실패 - URI: {}", uri);
+        log.error("NCPMS API 최종 실패 - URI: {}", sanitizedUri);
         return null;
     }
 }
