@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.Collections;
+import com.monsoon.seedflowplus.domain.product.entity.ProductTag;
+import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class ProductReadService {
         private final CultivationTimeRepository cultivationTimeRepository;
         private final ProductBookmarkRepository productBookmarkRepository;
         private final ProductCompareRepository productCompareRepository;
+        private final ProductTagRepository productTagRepository;
 
         // 상품 전체목록 (검색 조건 적용)
         public List<ProductResponse> getAllProducts(Role role, ProductSearchCondition condition) {
@@ -194,25 +197,43 @@ public class ProductReadService {
         }
 
         private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
+                
+                // 1. 태그 정보 조회 (ProductTagRepository 활용)
+                List<ProductTag> productTags = Collections.emptyList();
+                try {
+                    productTags = productTagRepository.findAllByProduct_Id(product.getId());
+                } catch (Exception e) {} // 임시 대비
+                
+                Map<String, List<String>> tagMap = productTags.stream()
+                        .collect(Collectors.groupingBy(
+                                pt -> pt.getTag().getCategoryCode(),
+                                Collectors.mapping(pt -> pt.getTag().getTagName(), Collectors.toList())
+                        ));
+                
+                // 연관 테이블에 태그가 비어있다면, 기존 JSON 컬럼 참조(하위호환성 유지)
+                if (tagMap.isEmpty() && product.getTags() != null) {
+                    tagMap = product.getTags();
+                }
+
                 ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
                                 .id(product.getId())
                                 .category(product.getProductCategory().name())
                                 .name(product.getProductName())
                                 .description(product.getProductDescription())
                                 .imageUrl(product.getProductImageUrl())
-                                .tags(product.getTags());
+                                .tags(tagMap);
 
                 if (ctList != null && !ctList.isEmpty()) {
-                        builder.cultivationTimes(ctList.stream().map(ct -> CultivationTimeDto.builder()
-                                        .croppingSystem(ct.getCroppingSystem())
-                                        .region(ct.getRegion())
-                                        .sowingStart(ct.getSowingStart())
-                                        .sowingEnd(ct.getSowingEnd())
-                                        .plantingStart(ct.getPlantingStart())
-                                        .plantingEnd(ct.getPlantingEnd())
-                                        .harvestingStart(ct.getHarvestingStart())
-                                        .harvestingEnd(ct.getHarvestingEnd())
-                                        .build()).toList());
+                        builder.cultivationTimes(ctList.stream().map(ct -> new CultivationTimeDto(
+                                        ct.getCroppingSystem(),
+                                        ct.getRegion(),
+                                        ct.getSowingStart(),
+                                        ct.getSowingEnd(),
+                                        ct.getPlantingStart(),
+                                        ct.getPlantingEnd(),
+                                        ct.getHarvestingStart(),
+                                        ct.getHarvestingEnd())
+                        ).collect(Collectors.toList()));
                 }
 
                 if (canViewPrice) {
