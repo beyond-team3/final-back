@@ -57,3 +57,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-09 10:02] approval 기능 요약 문서 신규 작성
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/docs/approval-feature-summary.md — approval 도메인의 목적/정책/API/권한/알림 연계 내용을 현재 코드 기준으로 정리한 문서 신규 작성
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
