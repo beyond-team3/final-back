@@ -41,7 +41,7 @@ public class SalesBriefing extends BaseModifyEntity {
     private String strategySuggestion; // AI 추천 전략
 
     @Schema(description = "브리핑 생성 버전")
-    @Column(length = 20)
+    @Column(length = 50)
     private String version; // 브리핑 버전
 
     @Builder
