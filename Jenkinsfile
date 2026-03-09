@@ -60,17 +60,27 @@ pipeline {
 
         stage('Docker Build & Push') {
             when {
-                branch 'main'
+                anyOf{
+                    branch 'main'
+                    branch 'dev'
+                }
             }
             steps {
                 script {
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
-                    echo "Building Docker Image: ${IMAGE_NAME}:${newTag}"
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+
+                    newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
+
+                    echo "Building Docker Image with Unique Tag: ${newTag}"
 
                     docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
-                    def customImage = docker.build("${IMAGE_NAME}:${newTag}")
-                    customImage.push()
-                    customImage.push('latest')
+
+                        def customImage = docker.build("${IMAGE_NAME}:${newTag}")
+                        customImage.push()
+
+                        if (env.BRANCH_NAME == 'main') {
+                            customImage.push('latest')
                     }
                 }
             }
@@ -88,9 +98,14 @@ pipeline {
                     def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
                     def targetFile = "backend/deployment.yml"
                     def imageName = "21monsoon/monsoon-backend"
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+
+                    def newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
 
                     def targetBranch = env.BRANCH_NAME == 'main' ? 'main' : 'dev'
+
+                    echo "Generated Unique Tag: ${newTag}" // 태그 로그 확인용
 
                     // SSH 자격 증명 ID 사용
                     sshagent(credentials: ['github-deploy-key']) {
