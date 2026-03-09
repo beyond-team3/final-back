@@ -155,3 +155,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 04:09] bootstrap SQL를 targeted cleanup 방식으로 변경
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/bootstrap-scenario1.sql — tbl_client/tbl_employee 전체 삭제 대신 scenario 대상 계정/거래처만 정리하도록 조건부 DELETE 방식으로 변경해 락 대기 범위를 축소
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
