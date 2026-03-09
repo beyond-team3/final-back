@@ -1,0 +1,1162 @@
+### SeedFlow+ 시나리오1: 전체 파이프라인 연쇄 검증
+### DB 초기 상태(empty)에서 실행
+### 실행 순서: SECTION 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7
+### 환경: local (http-client.env.json 참조)
+###
+### 주의 1) 실제 구현 기준으로 사전 생성/활성화된 ADMIN 계정이 필요하다.
+### 주의 2) 실제 권한 흐름은 RFQ/ORD/PAY=CLIENT, QUO/CNT/INV=SALES_REP, QUO/CNT 승인=ADMIN→CLIENT 2단계다.
+### 주의 3) Schedule 검증은 현재 구현 enum 기준(DOC_APPROVED, DELIVERY_DUE, PAYMENT_DUE, PAYMENT_RECEIVED)으로 수행한다.
+
+### local
+
+### ============================================================
+### SECTION 0. 계정/기초 데이터 준비
+### ============================================================
+
+### [0-1] ADMIN 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminEmail}}",
+  "loginPw": "{{adminPassword}}"
+}
+
+> {%
+client.test("ADMIN login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.accessToken, "admin access token must exist");
+});
+client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+### [0-2] SALES_REP 사원 등록
+POST {{baseUrl}}/api/v1/accounts/employees/register
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "employeeName": "시나리오 영업담당",
+  "employeeEmail": "{{salesEmail}}",
+  "employeePhone": "010-1111-2222",
+  "address": "서울특별시 강남구 테헤란로 123, 06142"
+}
+
+> {%
+client.test("sales employee register success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [0-3] SALES_REP 사원 ID 조회
+GET {{baseUrl}}/api/v1/accounts/employees
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("sales employee list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const employee = (response.body.data || []).find((item) => item.employeeEmail === "{{salesEmail}}");
+client.assert(!!employee, "sales employee must exist");
+client.global.set("salesEmployeeId", employee.employeeId);
+%}
+
+### [0-4] SALES_REP 계정 생성
+POST {{baseUrl}}/api/v1/accounts/users/create
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "loginId": "{{salesEmail}}",
+  "loginPw": "{{salesPassword}}",
+  "role": "SALES_REP",
+  "targetId": {{salesEmployeeId}}
+}
+
+> {%
+client.test("sales account create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [0-5] SALES_REP 계정 ID 조회
+GET {{baseUrl}}/api/v1/accounts/employees/{{salesEmployeeId}}
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("sales employee detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+client.assert(!!response.body.data.accountId, "sales accountId must exist");
+client.global.set("salesAccountId", response.body.data.accountId);
+%}
+
+### [0-6] SALES_REP 계정 활성화
+PATCH {{baseUrl}}/api/v1/accounts/users/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": {{salesAccountId}},
+  "status": "ACTIVATE"
+}
+
+> {%
+client.test("sales account activate success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [0-7] CLIENT 등록
+POST {{baseUrl}}/api/v1/accounts/clients/register
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "clientName": "시나리오 농산유통",
+  "clientBrn": "123-45-67890",
+  "ceoName": "홍길동",
+  "companyPhone": "02-1234-5678",
+  "address": "서울특별시 송파구 올림픽로 300, 05551",
+  "clientType": "DISTRIBUTOR",
+  "managerName": "김거래",
+  "managerPhone": "010-3333-4444",
+  "managerEmail": "{{clientEmail}}",
+  "totalCredit": 50000000,
+  "employeeId": {{salesEmployeeId}}
+}
+
+> {%
+client.test("client register success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.id, "clientId must exist");
+});
+client.global.set("clientId", response.body.data.id);
+%}
+
+### [0-8] CLIENT 계정 생성
+POST {{baseUrl}}/api/v1/accounts/users/create
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "loginId": "{{clientEmail}}",
+  "loginPw": "{{clientPassword}}",
+  "role": "CLIENT",
+  "targetId": {{clientId}},
+  "employeeId": {{salesEmployeeId}}
+}
+
+> {%
+client.test("client account create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [0-9] CLIENT 계정 ID 조회
+GET {{baseUrl}}/api/v1/accounts/clients/{{clientId}}
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("client detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+client.assert(!!response.body.data.accountId, "client accountId must exist");
+client.global.set("clientAccountId", response.body.data.accountId);
+%}
+
+### [0-10] CLIENT 계정 활성화
+PATCH {{baseUrl}}/api/v1/accounts/users/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": {{clientAccountId}},
+  "status": "ACTIVATE"
+}
+
+> {%
+client.test("client account activate success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [0-11] SALES_REP 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{salesEmail}}",
+  "loginPw": "{{salesPassword}}"
+}
+
+> {%
+client.test("SALES_REP login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(!!response.body.data.accessToken, "sales access token must exist");
+});
+client.global.set("salesToken", response.body.data.accessToken);
+%}
+
+### [0-12] CLIENT 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{clientEmail}}",
+  "loginPw": "{{clientPassword}}"
+}
+
+> {%
+client.test("CLIENT login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(!!response.body.data.accessToken, "client access token must exist");
+});
+client.global.set("clientToken", response.body.data.accessToken);
+%}
+
+### [0-13] 수박 상품 생성
+POST {{baseUrl}}/api/v1/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "productName": "프리미엄 수박 5kg",
+  "productCategory": "WATERMELON",
+  "productDescription": "시나리오 검증용 수박 상품",
+  "amount": 100,
+  "unit": "BOX",
+  "price": 35000,
+  "status": "SALE",
+  "tags": {
+    "grade": ["premium"],
+    "season": ["spring"]
+  },
+  "cultivationTimes": []
+}
+
+> {%
+client.test("watermelon product create success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(!!response.body, "productId must exist");
+});
+client.global.set("watermelonProductId", response.body);
+%}
+
+### [0-14] 참외 상품 생성
+POST {{baseUrl}}/api/v1/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "productName": "고당도 참외 3kg",
+  "productCategory": "MELON",
+  "productDescription": "시나리오 검증용 참외 상품",
+  "amount": 100,
+  "unit": "BOX",
+  "price": 22000,
+  "status": "SALE",
+  "tags": {
+    "grade": ["sweet"],
+    "season": ["spring"]
+  },
+  "cultivationTimes": []
+}
+
+> {%
+client.test("melon product create success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(!!response.body, "productId must exist");
+});
+client.global.set("melonProductId", response.body);
+%}
+
+### ============================================================
+### SECTION 1. RFQ
+### ============================================================
+
+### [1-1] RFQ 생성 (CLIENT)
+POST {{baseUrl}}/api/v1/requests
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "requirements": "2026년 봄 시즌 판촉용 RFQ",
+  "items": [
+    {
+      "productId": {{watermelonProductId}},
+      "productCategory": "수박",
+      "productName": "프리미엄 수박 5kg",
+      "quantity": 20
+    },
+    {
+      "productId": {{melonProductId}},
+      "productCategory": "참외",
+      "productName": "고당도 참외 3kg",
+      "quantity": 15
+    }
+  ]
+}
+
+> {%
+client.test("RFQ create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [1-2] RFQ ID 조회
+GET {{baseUrl}}/api/v1/requests/pending
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("pending RFQ list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const rfq = (response.body.data || []).find((item) => item.clientName === "시나리오 농산유통");
+client.assert(!!rfq, "rfq must exist");
+client.global.set("rfqId", rfq.id);
+%}
+
+### [1-3] Deal ID 조회
+GET {{baseUrl}}/api/v1/deals?clientId={{clientId}}&latestDocType=RFQ&page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal list for RFQ success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const deal = (response.body.data.content || []).find((item) => item.latestRefId === Number(client.global.get("rfqId")));
+client.assert(!!deal, "deal linked to rfq must exist");
+client.global.set("dealId", deal.dealId);
+%}
+
+### [1-4] Deal 기준 DealLog 조회
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=20&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal log contains RFQ create", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.docType === "RFQ" && log.refId === Number(client.global.get("rfqId")) && log.actionType === "CREATE"), "RFQ CREATE log must exist");
+});
+%}
+
+### [1-5] 문서 기준 DealLog 조회
+GET {{baseUrl}}/api/v1/deal-logs?docType=RFQ&refId={{rfqId}}&page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("document log for RFQ exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert((response.body.data.content || []).length > 0, "RFQ document log must exist");
+});
+%}
+
+### [1-6] Notification 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales notification after RFQ exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED" || item.type === "QUOTATION_REQUEST_CREATED"), "RFQ related notification must exist");
+});
+%}
+
+### ============================================================
+### SECTION 2. QUO
+### ============================================================
+
+### [2-1] QUO 생성 (SALES_REP)
+POST {{baseUrl}}/api/v1/quotations
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "requestId": {{rfqId}},
+  "clientId": {{clientId}},
+  "items": [
+    {
+      "productId": {{watermelonProductId}},
+      "productName": "프리미엄 수박 5kg",
+      "productCategory": "수박",
+      "quantity": 20,
+      "unit": "BOX",
+      "unitPrice": 35000
+    },
+    {
+      "productId": {{melonProductId}},
+      "productName": "고당도 참외 3kg",
+      "productCategory": "참외",
+      "quantity": 15,
+      "unit": "BOX",
+      "unitPrice": 22000
+    }
+  ],
+  "memo": "시나리오1 견적서"
+}
+
+> {%
+client.test("QUO create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [2-2] QUO ID 조회
+GET {{baseUrl}}/api/v1/deals?clientId={{clientId}}&latestDocType=QUO&page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal list for QUO success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const deal = (response.body.data.content || []).find((item) => item.dealId === Number(client.global.get("dealId")));
+client.assert(!!deal, "deal for quotation must exist");
+client.global.set("quoId", deal.latestRefId);
+%}
+
+### [2-3] QUO 상세 조회
+GET {{baseUrl}}/api/v1/quotations/{{quoId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("quotation detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "WAITING_ADMIN", "quotation status must be WAITING_ADMIN");
+});
+client.global.set("quoCode", response.body.data.quotationCode);
+%}
+
+### [2-4] DealLog 조회 - QUO 생성 확인
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=50&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal log contains QUO create", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.docType === "QUO" && log.refId === Number(client.global.get("quoId")) && log.actionType === "CREATE"), "QUO CREATE log must exist");
+});
+%}
+
+### [2-5] QUO 승인 요청 제출
+POST {{baseUrl}}/api/v1/approvals
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "dealType": "QUO",
+  "targetId": {{quoId}},
+  "clientIdSnapshot": {{clientId}},
+  "targetCodeSnapshot": "{{quoCode}}"
+}
+
+> {%
+client.test("quotation approval request success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(response.body.data.status === "PENDING", "approval status must be PENDING");
+});
+client.global.set("quoApprovalId", response.body.data.approvalId);
+%}
+
+### [2-6] QUO 승인 상세 조회 - step ID 확보
+GET {{baseUrl}}/api/v1/approvals/{{quoApprovalId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("quotation approval detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const steps = response.body.data.steps || [];
+const adminStep = steps.find((step) => step.actorType === "ADMIN");
+const clientStep = steps.find((step) => step.actorType === "CLIENT");
+client.assert(!!adminStep && !!clientStep, "quotation approval steps must exist");
+client.global.set("quoAdminStepId", adminStep.stepId);
+client.global.set("quoClientStepId", clientStep.stepId);
+%}
+
+### [2-7] Notification 조회 (ADMIN) - 승인 요청 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("admin notification for approval request exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
+});
+%}
+
+### [2-8] QUO 관리자 승인
+POST {{baseUrl}}/api/v1/approvals/{{quoApprovalId}}/steps/{{quoAdminStepId}}/decision
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "관리자 승인"
+}
+
+> {%
+client.test("quotation admin approval success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "PENDING", "approval request stays pending until client step");
+});
+%}
+
+### [2-9] QUO 상태 확인 - WAITING_CLIENT
+GET {{baseUrl}}/api/v1/quotations/{{quoId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("quotation status after admin approval", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "WAITING_CLIENT", "quotation status must be WAITING_CLIENT");
+});
+%}
+
+### [2-10] Notification 조회 (CLIENT) - 다음 승인 요청 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{clientToken}}
+
+> {%
+client.test("client notification for quotation approval request exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "client approval requested notification must exist");
+});
+%}
+
+### [2-11] QUO 거래처 최종 승인
+POST {{baseUrl}}/api/v1/approvals/{{quoApprovalId}}/steps/{{quoClientStepId}}/decision
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "거래처 승인"
+}
+
+> {%
+client.test("quotation client approval success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "APPROVED", "approval request must be APPROVED");
+});
+%}
+
+### [2-12] QUO 최종 상태 확인
+GET {{baseUrl}}/api/v1/quotations/{{quoId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("quotation final status approved", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "FINAL_APPROVED", "quotation status must be FINAL_APPROVED");
+});
+%}
+
+### [2-13] Notification 조회 (SALES_REP) - 승인 완료 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales notification for quotation approval completed exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED"), "APPROVAL_COMPLETED notification must exist");
+});
+%}
+
+### ============================================================
+### SECTION 3. CNT
+### ============================================================
+
+### [3-1] CNT 생성 (SALES_REP)
+POST {{baseUrl}}/api/v1/contracts
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "quotationId": {{quoId}},
+  "clientId": {{clientId}},
+  "startDate": "2026-03-15",
+  "endDate": "2027-03-14",
+  "billingCycle": "MONTHLY",
+  "specialTerms": "월말 정산",
+  "memo": "시나리오1 계약서",
+  "items": [
+    {
+      "productId": {{watermelonProductId}},
+      "productName": "프리미엄 수박 5kg",
+      "productCategory": "수박",
+      "totalQuantity": 60,
+      "unit": "BOX",
+      "unitPrice": 35000
+    },
+    {
+      "productId": {{melonProductId}},
+      "productName": "고당도 참외 3kg",
+      "productCategory": "참외",
+      "totalQuantity": 40,
+      "unit": "BOX",
+      "unitPrice": 22000
+    }
+  ]
+}
+
+> {%
+client.test("contract create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [3-2] CNT ID 조회
+GET {{baseUrl}}/api/v1/contracts?clientId={{clientId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("contract list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const contracts = response.body.data || [];
+client.assert(contracts.length > 0, "contract must exist");
+client.global.set("cntId", contracts[0].id);
+%}
+
+### [3-3] CNT 상세 조회
+GET {{baseUrl}}/api/v1/contracts/{{cntId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("contract detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "WAITING_ADMIN", "contract status must be WAITING_ADMIN");
+});
+client.global.set("cntCode", response.body.data.contractCode);
+client.global.set("cntItem1DetailId", response.body.data.items[0].detailId);
+client.global.set("cntItem2DetailId", response.body.data.items[1].detailId);
+%}
+
+### [3-4] DealLog 조회 - CNT 생성 확인
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=50&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal log contains CNT create", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.docType === "CNT" && log.refId === Number(client.global.get("cntId")) && log.actionType === "CREATE"), "CNT CREATE log must exist");
+});
+%}
+
+### [3-5] CNT 승인 요청 제출
+POST {{baseUrl}}/api/v1/approvals
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "dealType": "CNT",
+  "targetId": {{cntId}},
+  "clientIdSnapshot": {{clientId}},
+  "targetCodeSnapshot": "{{cntCode}}"
+}
+
+> {%
+client.test("contract approval request success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(response.body.data.status === "PENDING", "approval status must be PENDING");
+});
+client.global.set("cntApprovalId", response.body.data.approvalId);
+%}
+
+### [3-6] CNT 승인 상세 조회 - step ID 확보
+GET {{baseUrl}}/api/v1/approvals/{{cntApprovalId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("contract approval detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const steps = response.body.data.steps || [];
+const adminStep = steps.find((step) => step.actorType === "ADMIN");
+const clientStep = steps.find((step) => step.actorType === "CLIENT");
+client.assert(!!adminStep && !!clientStep, "contract approval steps must exist");
+client.global.set("cntAdminStepId", adminStep.stepId);
+client.global.set("cntClientStepId", clientStep.stepId);
+%}
+
+### [3-7] ADMIN 승인
+POST {{baseUrl}}/api/v1/approvals/{{cntApprovalId}}/steps/{{cntAdminStepId}}/decision
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "관리자 승인"
+}
+
+> {%
+client.test("contract admin approval success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+%}
+
+### [3-8] CNT 상태 확인 - WAITING_CLIENT
+GET {{baseUrl}}/api/v1/contracts/{{cntId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("contract status after admin approval", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "WAITING_CLIENT", "contract status must be WAITING_CLIENT");
+});
+%}
+
+### [3-9] Notification 조회 (CLIENT) - CNT 승인 요청 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{clientToken}}
+
+> {%
+client.test("client notification for contract approval request exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
+});
+%}
+
+### [3-10] CLIENT 최종 승인
+POST {{baseUrl}}/api/v1/approvals/{{cntApprovalId}}/steps/{{cntClientStepId}}/decision
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "거래처 승인"
+}
+
+> {%
+client.test("contract client approval success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "APPROVED", "approval request must be APPROVED");
+});
+%}
+
+### [3-11] CNT 최종 상태 확인
+GET {{baseUrl}}/api/v1/contracts/{{cntId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("contract final status completed", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "COMPLETED", "contract status must be COMPLETED");
+});
+%}
+
+### [3-12] Notification 조회 (SALES_REP) - CNT 승인 완료 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales notification for contract approval completed exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED"), "APPROVAL_COMPLETED notification must exist");
+});
+%}
+
+### [3-13] Schedule 조회 - CNT 승인 후 일정 반영 확인
+GET {{baseUrl}}/api/v1/schedules?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59&dealId={{dealId}}&includeDeal=true&includePersonal=false
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("schedule contains contract approval event", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const schedules = response.body.data || [];
+  client.assert(schedules.some((item) => item.docType === "CNT" && item.eventType === "DOC_APPROVED"), "CNT DOC_APPROVED schedule must exist");
+});
+%}
+
+### ============================================================
+### SECTION 4. ORD / STMT
+### ============================================================
+
+### [4-1] ORD 생성 (CLIENT)
+POST {{baseUrl}}/api/v1/orders
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "headerId": {{cntId}},
+  "shippingName": "시나리오 물류센터",
+  "shippingPhone": "010-5555-6666",
+  "shippingAddress": "경기도 하남시 미사대로 750",
+  "shippingAddressDetail": "A동 101호",
+  "deliveryRequest": "2026-04-10 오전 도착 요청",
+  "items": [
+    {
+      "contractDetailId": {{cntItem1DetailId}},
+      "quantity": 20
+    },
+    {
+      "contractDetailId": {{cntItem2DetailId}},
+      "quantity": 15
+    }
+  ]
+}
+
+> {%
+client.test("order create success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.orderId, "orderId must exist");
+});
+client.global.set("ordId", response.body.data.orderId);
+%}
+
+### [4-2] ORD 확정 (CLIENT) - 명세서 자동 생성
+PATCH {{baseUrl}}/api/v1/orders/{{ordId}}/confirm
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{}
+
+> {%
+client.test("order confirm success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "CONFIRMED", "order status must be CONFIRMED");
+});
+%}
+
+### [4-3] STMT 자동 생성 확인
+GET {{baseUrl}}/api/v1/statements
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("statement list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const statement = (response.body.data || []).find((item) => item.orderId === Number(client.global.get("ordId")));
+client.assert(!!statement, "statement mapped to order must exist");
+client.global.set("stmtId", statement.statementId);
+%}
+
+### [4-4] DealLog 조회 - ORD/STMT 생성 확인
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal log contains ORD and STMT", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.docType === "ORD" && log.refId === Number(client.global.get("ordId"))), "ORD log must exist");
+  client.assert(logs.some((log) => log.docType === "STMT" && log.refId === Number(client.global.get("stmtId"))), "STMT log must exist");
+});
+%}
+
+### [4-5] Notification 조회 - ORD/STMT 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales notification after order/statement exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED" || item.type === "STATEMENT_ISSUED"), "order/statement notification must exist");
+});
+%}
+
+### [4-6] Schedule 조회 - ORD 관련 일정 확인
+GET {{baseUrl}}/api/v1/schedules?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59&dealId={{dealId}}&includeDeal=true&includePersonal=false
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("schedule contains order event", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const schedules = response.body.data || [];
+  client.assert(schedules.some((item) => item.docType === "ORD"), "ORD schedule entry must exist");
+});
+%}
+
+### ============================================================
+### SECTION 5. INV / Statistics
+### ============================================================
+
+### [5-1] INV 생성 (SALES_REP)
+POST {{baseUrl}}/api/v1/invoices
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "contractId": {{cntId}},
+  "startDate": "2026-03-15",
+  "endDate": "2026-04-30",
+  "memo": "시나리오1 청구서"
+}
+
+> {%
+client.test("invoice create success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(response.body.data.status === "DRAFT", "invoice status must be DRAFT");
+});
+client.global.set("invId", response.body.data.invoiceId);
+const statements = response.body.data.statements || [];
+if (statements.length > 0) {
+  client.global.set("stmtId", statements[0].statementId);
+}
+%}
+
+### [5-2] INV 발행
+PATCH {{baseUrl}}/api/v1/invoices/{{invId}}/publish
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{}
+
+> {%
+client.test("invoice publish success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "PUBLISHED", "invoice status must be PUBLISHED");
+});
+%}
+
+### [5-3] INV 상태 확인
+GET {{baseUrl}}/api/v1/invoices/{{invId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("invoice published status confirmed", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "PUBLISHED", "invoice status must remain PUBLISHED");
+});
+%}
+
+### [5-4] DealLog 조회 - INV 생성/발행 확인
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("deal log contains INV create and issue", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.docType === "INV" && log.refId === Number(client.global.get("invId"))), "INV log must exist");
+  client.assert(logs.some((log) => log.docType === "INV" && log.refId === Number(client.global.get("invId")) && log.actionType === "ISSUE"), "INV ISSUE log must exist");
+});
+%}
+
+### [5-5] Notification 조회 - INV 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{clientToken}}
+
+> {%
+client.test("client notification after invoice publish exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED" || item.type === "INVOICE_ISSUED"), "invoice notification must exist");
+});
+%}
+
+### [5-6] Schedule 조회 - PAYMENT_DUE 확인
+GET {{baseUrl}}/api/v1/schedules?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59&dealId={{dealId}}&includeDeal=true&includePersonal=false
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("schedule contains payment due", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const schedules = response.body.data || [];
+  client.assert(schedules.some((item) => item.eventType === "PAYMENT_DUE"), "PAYMENT_DUE schedule must exist");
+});
+%}
+
+### [5-7] Statistics 조회 (ADMIN)
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("admin monthly revenue statistics success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.some((row) => Number(row.billedRevenue) > 0), "admin billedRevenue must be > 0");
+});
+%}
+
+### [5-8] Statistics 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales monthly revenue statistics success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.some((row) => Number(row.billedRevenue) > 0), "sales billedRevenue must be > 0");
+});
+%}
+
+### [5-9] Statistics 조회 (CLIENT) - ACCESS_DENIED
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{clientToken}}
+
+> {%
+client.test("client statistics access denied", function () {
+  client.assert(response.status === 403, "status must be 403");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+});
+%}
+
+### ============================================================
+### SECTION 6. PAY
+### ============================================================
+
+### [6-1] PAY 생성 (CLIENT)
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": {{invId}},
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment create success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.paymentId, "paymentId must exist");
+});
+client.global.set("payId", response.body.data.paymentId);
+%}
+
+### [6-2] DealLog 조회 - PAY 생성 로그 확인
+GET {{baseUrl}}/api/v1/deal-logs?docType=PAY&refId={{payId}}&page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("payment document log exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const logs = response.body.data.content || [];
+  client.assert(logs.some((log) => log.actionType === "PAY"), "PAY action log must exist");
+});
+%}
+
+### [6-3] INV 상태 확인 - PAID
+GET {{baseUrl}}/api/v1/invoices/{{invId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("invoice status paid after payment", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "PAID", "invoice status must be PAID");
+});
+%}
+
+### [6-4] Notification 조회 - PAY 알림 확인
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales notification after payment exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const items = response.body.data.content || [];
+  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED"), "payment-related notification must exist");
+});
+%}
+
+### [6-5] Schedule 조회 - PAYMENT_RECEIVED 확인
+GET {{baseUrl}}/api/v1/schedules?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59&dealId={{dealId}}&includeDeal=true&includePersonal=false
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("schedule contains payment received", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const schedules = response.body.data || [];
+  client.assert(schedules.some((item) => item.eventType === "PAYMENT_RECEIVED"), "PAYMENT_RECEIVED schedule must exist");
+});
+%}
+
+### ============================================================
+### SECTION 7. 전체 타임라인 / Schedule / Statistics 최종 확인
+### ============================================================
+
+### [7-1] Deal 전체 타임라인 조회
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("full deal timeline contains RFQ->QUO->CNT->ORD->STMT->INV->PAY", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const docs = (response.body.data.content || []).map((log) => log.docType);
+  const required = ["RFQ", "QUO", "CNT", "ORD", "STMT", "INV", "PAY"];
+  let lastIndex = -1;
+  required.forEach((docType) => {
+    const idx = docs.indexOf(docType);
+    client.assert(idx > lastIndex, docType + " must appear in chronological order");
+    lastIndex = idx;
+  });
+});
+%}
+
+### [7-2] Client 기준 타임라인 조회
+GET {{baseUrl}}/api/v1/clients/{{clientId}}/logs?page=0&size=100&sort=actionAt,asc
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("client timeline contains full pipeline", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const docs = new Set((response.body.data.content || []).map((log) => log.docType));
+  ["RFQ", "QUO", "CNT", "ORD", "STMT", "INV", "PAY"].forEach((docType) => {
+    client.assert(docs.has(docType), docType + " must exist in client timeline");
+  });
+});
+%}
+
+### [7-3] 전체 Schedule 조회
+GET {{baseUrl}}/api/v1/schedules?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59&includeDeal=true&includePersonal=false
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("schedule contains implemented pipeline events", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const eventTypes = new Set((response.body.data || []).filter((item) => item.dealId === Number(client.global.get("dealId"))).map((item) => item.eventType));
+  ["DOC_APPROVED", "DELIVERY_DUE", "PAYMENT_DUE", "PAYMENT_RECEIVED"].forEach((eventType) => {
+    client.assert(eventTypes.has(eventType), eventType + " must exist");
+  });
+});
+%}
+
+### [7-4] Statistics 품종별 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/by-category?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("category revenue statistics exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length > 0, "category rows must exist");
+  client.assert(rows.some((row) => row.category === "수박" || row.category === "참외"), "watermelon or melon category must exist");
+});
+%}
+
+### [7-5] Statistics 월별+품종별 복합 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly-by-category?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("monthly by category statistics exists", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length > 0, "monthly-by-category rows must exist");
+  client.assert(rows.every((row) => !!row.month && !!row.category), "month and category must exist");
+});
+%}
