@@ -67,8 +67,15 @@ pipeline {
             }
             steps {
                 script {
-                    def shortSha = env.GIT_COMMIT.take(7)
+                    // 변수 정의
+                    def prefix = env.APP_VERSION_PREFIX
+
                     def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def buildNum = env.BUILD_NUMBER
+                    def shortSha = env.GIT_COMMIT.take(7)
+
+
+                    // 변수 결합하여 태그 생성
                     def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
 
                     echo "Build Tag: " + newTag // 태그 확인용
@@ -102,12 +109,13 @@ pipeline {
 
                     // 태그 준비
                     def prefix = env.APP_VERSION_PREFIX
+
                     def branchName = env.BRANCH_NAME.replaceAll("/", "-")
                     def buildNum = env.BUILD_NUMBER
-                    def sha = env.GIT_COMMIT.take(7)
+                    def shortSha = env.GIT_COMMIT.take(7)
 
                     // 문자열 결합 방식으로 고유 태그 생성
-                    def newTag = prefix + "." + branchName + "." + buildNum + "." + sha
+                    def newTag = prefix + "." + branchName + "." + buildNum + "." + shortSha
                     def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
 
                     echo "Targeting Tag: " + newTag
