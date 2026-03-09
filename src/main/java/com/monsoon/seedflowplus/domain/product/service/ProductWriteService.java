@@ -65,18 +65,21 @@ public class ProductWriteService {
             Product savedProduct = productRepository.saveAndFlush(newProduct);
 
             // 재배적기 정보가 있다면 저장
-            if (request.getCultivationTime() != null) {
-                CultivationTimeDto ctDto = request.getCultivationTime();
-                CultivationTime cultivationTime = CultivationTime.builder()
-                        .product(savedProduct)
-                        .sowingStart(ctDto.getSowingStart())
-                        .sowingEnd(ctDto.getSowingEnd())
-                        .plantingStart(ctDto.getPlantingStart())
-                        .plantingEnd(ctDto.getPlantingEnd())
-                        .harvestingStart(ctDto.getHarvestingStart())
-                        .harvestingEnd(ctDto.getHarvestingEnd())
-                        .build();
-                cultivationTimeRepository.save(cultivationTime);
+            if (request.getCultivationTimes() != null && !request.getCultivationTimes().isEmpty()) {
+                List<CultivationTime> ctList = request.getCultivationTimes().stream()
+                        .map(ctDto -> CultivationTime.builder()
+                                .product(savedProduct)
+                                .croppingSystem(ctDto.getCroppingSystem())
+                                .region(ctDto.getRegion())
+                                .sowingStart(ctDto.getSowingStart())
+                                .sowingEnd(ctDto.getSowingEnd())
+                                .plantingStart(ctDto.getPlantingStart())
+                                .plantingEnd(ctDto.getPlantingEnd())
+                                .harvestingStart(ctDto.getHarvestingStart())
+                                .harvestingEnd(ctDto.getHarvestingEnd())
+                                .build())
+                        .toList();
+                cultivationTimeRepository.saveAll(ctList);
             }
 
             updateProductTags(savedProduct, request.getTags());
@@ -122,42 +125,41 @@ public class ProductWriteService {
                 request.getPrice(),
                 request.getStatus(),
                 request.getTags(),
-                request.getCultivationTime());
+                request.getCultivationTimes());
 
         // 찾은 엔티티의 정보 업데이트 (엔티티 내부의 수정 메서드 호출)
         product.updateProduct(param, param.tags());
 
         updateProductTags(product, param.tags());
-        updateCultivationTime(product, param.cultivationTime());
+        updateCultivationTime(product, param.cultivationTimes());
     }
 
-    private void updateCultivationTime(Product product, CultivationTimeDto ctDto) {
-        CultivationTime currentCt = cultivationTimeRepository.findByProductId(product.getId()).orElse(null);
+    private void updateCultivationTime(Product product, List<CultivationTimeDto> ctDtoList) {
+        List<CultivationTime> currentCts = cultivationTimeRepository.findByProductId(product.getId());
+
+        // 기존 데이터가 있다면 모두 삭제 후 재등록
+        if (currentCts != null && !currentCts.isEmpty()) {
+            cultivationTimeRepository.deleteAllInBatch(currentCts); // 즉시 삭제 반영
+        }
 
         // DTO가 없는 경우
-        if (ctDto == null) {
-            if (currentCt != null) {
-                cultivationTimeRepository.delete(currentCt);
-            }
+        if (ctDtoList == null || ctDtoList.isEmpty()) {
             return;
         }
 
-        // 기존 데이터가 있다면 삭제 후 재등록 (또는 엔티티 더티 체킹 활용 가능)
-        if (currentCt != null) {
-            cultivationTimeRepository.delete(currentCt);
-            cultivationTimeRepository.flush(); // 즉시 삭제 반영 (유니크 키 제약조건 위반 방지)
-        }
-
-        CultivationTime newCt = CultivationTime.builder()
+        List<CultivationTime> newCts = ctDtoList.stream().map(ctDto -> CultivationTime.builder()
                 .product(product)
+                .croppingSystem(ctDto.getCroppingSystem())
+                .region(ctDto.getRegion())
                 .sowingStart(ctDto.getSowingStart())
                 .sowingEnd(ctDto.getSowingEnd())
                 .plantingStart(ctDto.getPlantingStart())
                 .plantingEnd(ctDto.getPlantingEnd())
                 .harvestingStart(ctDto.getHarvestingStart())
                 .harvestingEnd(ctDto.getHarvestingEnd())
-                .build();
-        cultivationTimeRepository.save(newCt);
+                .build()).toList();
+
+        cultivationTimeRepository.saveAll(newCts);
     }
 
     @Transactional
