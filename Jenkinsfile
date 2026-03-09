@@ -1,27 +1,27 @@
 pipeline {
     agent {
-            kubernetes {
-                yaml """
-    apiVersion: v1
-    kind: Pod
-    spec:
-      containers:
-      - name: jnlp
-        image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
-      - name: docker-cli
-        image: docker:24.0-cli
-        command: ['cat']
-        tty: true
-        volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-      volumes:
-      - name: docker-sock
-        hostPath:
-          path: /var/run/docker.sock
-    """
-            }
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
+  - name: docker-cli
+    image: docker:27-cli
+    command: ['cat']
+    tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+"""
         }
+    }
 
     tools {
         jdk 'jdk-21'
