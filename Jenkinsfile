@@ -60,7 +60,10 @@ pipeline {
 
         stage('Docker Build & Push') {
             when {
+                anyOf{
                 branch 'main'
+                branch 'dev'
+                }
             }
             steps {
                 script {
@@ -70,7 +73,10 @@ pipeline {
                     docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
                     def customImage = docker.build("${IMAGE_NAME}:${newTag}")
                     customImage.push()
-                    customImage.push('latest')
+
+                    // main 브랜치일 때만 latest 태그 부여
+                    if (env.BRANCH_NAME == 'main') {
+                        customImage.push('latest')
                     }
                 }
             }
