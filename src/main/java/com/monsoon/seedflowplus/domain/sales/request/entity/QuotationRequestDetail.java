@@ -30,11 +30,14 @@ public class QuotationRequestDetail extends BaseEntity {
 
     private Integer quantity; // 수량(구매 수량)
 
-    public QuotationRequestDetail(Product product, String productCategory, String productName, Integer quantity) {
+    private String unit; // 단위
+
+    public QuotationRequestDetail(Product product, String productCategory, String productName, Integer quantity,String unit) {
         this.product = product;
         this.productCategory = productCategory;
         this.productName = productName;
         this.quantity = quantity;
+        this.unit = unit;
     }
 
     protected void setQuotationRequest(QuotationRequestHeader quotationRequest) {
