@@ -143,3 +143,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 03:58] bootstrap SQL 초기화 방식을 DELETE로 변경
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/bootstrap-scenario1.sql — 빈 테이블에서도 멈추지 않도록 TRUNCATE 대신 DELETE와 AUTO_INCREMENT 초기화 방식으로 전체 초기화 구문 변경
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
