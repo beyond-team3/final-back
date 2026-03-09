@@ -50,3 +50,29 @@ DocumentSummary 엔티티 생성
 
 ### 다음 단계
 DocumentSummaryRepository 및 QueryDSL 커스텀 구현
+
+## [2026-03-10] DocumentSummary 검색 조건 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummarySearchCondition.java
+- 클래스/메서드: DocumentSummarySearchCondition
+
+### 변경 내용
+DocumentSummary 조회 전용 검색 조건 레코드를 추가했다.
+문서 유형, 상태, 키워드, 담당자, 거래처 기준 필드를 `@Builder` 기반으로 정의했다.
+이후 Repository 커스텀 조회 시그니처에서 재사용할 조건 객체를 분리했다.
+
+### 변경 이유
+통합 문서 조회 Repository 시그니처에 사용할 검색 조건 객체를 선행 정의하기 위해.
+
+## [2026-03-10 01:08] DocumentSummary 검색 조건 생성
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummarySearchCondition.java — 통합 문서 검색 조건 레코드 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+DocumentSummaryRepository 구현 가능 여부 확인
