@@ -106,3 +106,27 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 02:25] HTTP 시나리오 기본 변수 선언 추가
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/scenario1.http — IntelliJ HTTP Client에서 환경 파일 선택이 누락되어도 baseUrl/계정 변수가 치환되도록 기본 변수 선언 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
+
+## [2026-03-10 03:34] scenario1 재실행용 DB 초기화 SQL 추가
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/reset-scenario1.sql — 시나리오 재실행 시 중복 제약과 누적 상태를 제거할 수 있도록 approval/deal/schedule/billing/account/product 관련 테이블 전체 초기화 스크립트 신규 작성
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
