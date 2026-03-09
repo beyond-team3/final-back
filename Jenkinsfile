@@ -69,18 +69,19 @@ pipeline {
                 script {
                     def shortSha = env.GIT_COMMIT.take(7)
                     def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
 
-                    newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
+                    echo "Build Tag: " + newTag // 태그 확인용
 
-                    echo "Building Docker Image with Unique Tag: ${newTag}"
+                    docker.withRegistry('', DOCKER_CREDENTIAL_ID) {
 
-                    docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
-
-                        def customImage = docker.build("${IMAGE_NAME}:${newTag}")
+                        def imgNameWithTag = IMAGE_NAME + ":" + newTag
+                        def customImage = docker.build(imgNameWithTag)
                         customImage.push()
 
                         if (env.BRANCH_NAME == 'main') {
                             customImage.push('latest')
+                        }
                     }
                 }
             }
@@ -88,7 +89,7 @@ pipeline {
 
         stage('Update Manifest') {
             when {
-                anyOf{
+                anyOf {
                     branch 'main'
                     branch 'dev'
                 }
@@ -98,42 +99,44 @@ pipeline {
                     def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
                     def targetFile = "backend/deployment.yml"
                     def imageName = "21monsoon/monsoon-backend"
-                    def shortSha = env.GIT_COMMIT.take(7)
-                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
 
-                    def newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
+                    // 태그 준비
+                    def prefix = env.APP_VERSION_PREFIX
+                    def branchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def buildNum = env.BUILD_NUMBER
+                    def sha = env.GIT_COMMIT.take(7)
 
-                    def targetBranch = env.BRANCH_NAME == 'main' ? 'main' : 'dev'
+                    // 문자열 결합 방식으로 고유 태그 생성
+                    def newTag = prefix + "." + branchName + "." + buildNum + "." + sha
+                    def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
 
-                    echo "Generated Unique Tag: ${newTag}" // 태그 로그 확인용
+                    echo "Targeting Tag: " + newTag
 
-                    // SSH 자격 증명 ID 사용
+                    // SSH 실행 및 매니페스트 업데이트
                     sshagent(credentials: ['github-deploy-key']) {
                         sh """
+                            echo "Starting Manifest Update for: ${newTag}"
+
                             rm -rf temp-manifests
                             git clone ${manifestRepoUrl} temp-manifests
                             cd temp-manifests
 
-                            # 브랜치 전환
                             git checkout ${targetBranch} || git checkout -b ${targetBranch}
 
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
 
-                            # 이미지 태그 업데이트
+                            # sed 명령어에서 변수 구분 명확화
                             sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
 
-                            # 변경 사항 확인 및 rebase push
                             git add ${targetFile}
 
                             if git diff --cached --quiet; then
                                 echo "No changes detected; skip commit/push"
                             else
                                 git commit -m "🚀 [CD-${targetBranch.toUpperCase()}] Update ${imageName} to ${newTag} [skip ci]"
-
-                            # 동시 푸시 충돌 방지
-                            git pull --rebase origin ${targetBranch}
-                            git push origin ${targetBranch}
+                                git pull --rebase origin ${targetBranch}
+                                git push origin ${targetBranch}
                             fi
                         """
                     }
