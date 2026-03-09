@@ -137,3 +137,29 @@ DocumentSummary 조회 전용 서비스와 응답 DTO를 추가했다.
 
 ### 다음 단계
 DocumentSummaryQueryController 추가
+
+## [2026-03-10] DocumentSummary 조회 컨트롤러 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/controller/DocumentSummaryQueryController.java
+- 클래스/메서드: DocumentSummaryQueryController#getDocuments
+
+### 변경 내용
+`GET /api/v1/documents` 엔드포인트를 추가했다.
+문서 타입, 상태, 키워드 필터와 페이지네이션 파라미터를 받아 검색 조건과 Pageable로 변환하도록 구성했다.
+정렬 필드는 `createdAt`만 허용하고 응답은 `ApiResult<Page<DocumentSummaryResponse>>`로 반환한다.
+
+### 변경 이유
+통합 문서 요약 목록을 외부 API로 조회할 수 있는 입력 경로가 필요해서.
+
+## [2026-03-10 01:15] DocumentSummary 조회 컨트롤러 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/controller/DocumentSummaryQueryController.java — 문서 목록 조회 API 엔드포인트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+bootRun 기동 및 /api/v1/documents 확인
