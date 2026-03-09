@@ -182,7 +182,10 @@ public class NcpmsApiClient {
                 log.warn("NCPMS API 재시도 ({}/3) - URI: {}, 사유: {}", retry, sanitizedUri, e.getMessage());
                 try {
                     Thread.sleep(1000); // 1초 대기
-                } catch (InterruptedException ignored) {}
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
         log.error("NCPMS API 최종 실패 - URI: {}", sanitizedUri);
