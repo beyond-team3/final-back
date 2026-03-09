@@ -1,73 +1,208 @@
 pipeline {
-	agent any
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
+  - name: docker-cli
+    image: docker:27-cli
+    command: ['cat']
+    tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+    - name: ssh-config
+      mountPath: /home/jenkins/.ssh/known_hosts
+      subPath: known_hosts
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+  - name: ssh-config
+    configMap:
+      name: ssh-known-hosts
+"""
+        }
+    }
 
-	tools {
-		jdk 'jdk-21'
-	}
+    tools {
+        jdk 'jdk-21'
+    }
 
-	environment {
-		DOCKER_CREDENTIAL_ID = 'docker-hub-id'
-		DISCORD_WEBHOOK = credentials('discord-webhook-url')
-		IMAGE_NAME = '21monsoon/monsoon-backend'
+    environment {
+        DOCKER_CREDENTIAL_ID = 'docker-hub-id'
+        DISCORD_WEBHOOK = credentials('discord-webhook-url')
+        IMAGE_NAME = '21monsoon/monsoon-backend'
+        APP_VERSION_PREFIX = '0.0'
 
-		//version
-		APP_VERSION_PREFIX = '0.0'
-	}
+        // CI에서는 테스트 프로필 강제
+        SPRING_PROFILES_ACTIVE = 'test'
+    }
 
-	stages {
-		stage('Checkout') {
-			steps {
-				checkout scm
-			}
-		}
+    stages {
 
-		stage('Unit Test & Build') {
-			steps {
-				script {
-					echo 'Building and Testing with H2...'
-					sh 'chmod +x ./gradlew'
-					// Gradel 캐시 활용(첫번쨰 이후 빌드 및 테스트 빠른수행)
-					sh './gradlew clean build'
-				}
-			}
-		}
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
-		stage('Docker Build & Push') {
-			// main 브랜치일 때만 배포
-			when {
-				branch 'main'
-			}
-			steps {
-				script {
-					// 0.0 + . + 빌드번호(1, 2, 3...) 조합
-					def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
+        stage('Setup Config') {
+            when {
+                branch 'main'
+            }
+            steps {
+                configFileProvider([
+                  configFile(fileId: 'monsoon-prod-yml', targetLocation: 'src/main/resources/application-prod.yml')
+                ]) {
+                  echo 'Injected application-prod.yml for production build'
+                }
+            }
+        }
 
-					echo "Building Docker Image: ${IMAGE_NAME}:${newTag}"
 
-					docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
-						def customImage = docker.build("${IMAGE_NAME}:${newTag}")
+        stage('Unit Test') {
+            steps {
+                script {
+                    echo "Running tests with profile=${env.SPRING_PROFILES_ACTIVE} (H2)..."
+                    sh 'chmod +x ./gradlew'
 
-						// 버전 태그와 latest 태그 둘 다 푸시
-						customImage.push()          // 0.0.x 푸시
-						customImage.push('latest')  // latest 업데이트
-					}
-				}
-			}
-		}
-	}
+                    // 프로필을 JVM 옵션으로도 한 번 더 강제 (안전장치)
+                    sh './gradlew clean test -Dspring.profiles.active=test --stacktrace --info'
+                }
+            }
+        }
 
-	post {
-		success {
-			discordSend (webhookURL: "${env.DISCORD_WEBHOOK}",
-				title: "🟢[Backend] 빌드 성공",
-				description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
-				result: 'SUCCESS')
-		}
-		failure {
-			discordSend (webhookURL: "${env.DISCORD_WEBHOOK}",
-				title: "🔴[Backend] 빌드 실패",
-				description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
-				result: 'FAILURE')
-		}
-	}
+        stage('Build Jar') {
+            steps {
+                script {
+                    echo "Building bootJar (skip tests - already run)..."
+                    sh './gradlew bootJar -x test'
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                container('docker-cli') {
+                    script {
+                        // 변수 정의 및 태그 생성
+                        def prefix = env.APP_VERSION_PREFIX
+                        def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+                        def buildNum = env.BUILD_NUMBER
+                        def shortSha = env.GIT_COMMIT.take(7)
+                        def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
+
+                        withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
+                            usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+
+                            echo "Building and Pushing Tag: " + newTag
+
+                            // 도커 빌드 (고유 태그 및 latest)
+                            sh "docker build --no-cache -t ${IMAGE_NAME}:${newTag} ."
+
+                            // 도커 로그인 및 푸시
+                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            sh "docker push ${IMAGE_NAME}:${newTag}"
+
+                            // main 브랜치일 경우에만 latest 푸시
+                            if (env.BRANCH_NAME == 'main') {
+                                sh "docker tag ${IMAGE_NAME}:${newTag} ${IMAGE_NAME}:latest"
+                                sh "docker push ${IMAGE_NAME}:latest"
+                            }
+
+                            sh "docker logout"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Update Manifest') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'dev'
+                }
+            }
+            steps {
+                script {
+                    def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
+                    def targetFile = "backend/deployment.yml"
+                    def imageName = "21monsoon/monsoon-backend"
+
+                    // 변수 정의
+                    def prefix = env.APP_VERSION_PREFIX
+                    def branchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def buildNum = env.BUILD_NUMBER
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def newTag = prefix + "." + branchName + "." + buildNum + "." + shortSha
+
+                    def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
+
+                    echo "Targeting Tag: " + newTag
+
+                    sshagent(credentials: ['github-deploy-key']) {
+                        sh """
+                            # SSH 디렉토리 생성 및 GitHub 지문 등록
+                            mkdir -p ~/.ssh
+                            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+
+                            echo "Starting Manifest Update for: ${newTag}"
+
+                            # 클론 진행
+                            rm -rf temp-manifests
+                            git clone ${manifestRepoUrl} temp-manifests
+
+                            cd temp-manifests
+
+                            # 이미지 태그 업데이트
+                            git checkout ${targetBranch} || git checkout -b ${targetBranch}
+                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
+
+                            # Git 설정 및 푸시
+                            git config user.email "jenkins-bot@monsoon.com"
+                            git config user.name "Jenkins-CI-Bot"
+
+                            git add ${targetFile}
+                            if git diff --cached --quiet; then
+                                echo "No changes detected; skip push"
+                            else
+                                git commit -m "🚀 [CD] Update to ${newTag} [skip ci]"
+                                git push origin ${targetBranch}
+                            fi
+                        """
+                    }
+                }
+            }
+            post {
+                always {
+                    sh 'rm -rf temp-manifests'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            discordSend(
+                webhookURL: "${env.DISCORD_WEBHOOK}",
+                title: "🟢 [Backend] 빌드 성공",
+                description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
+                result: 'SUCCESS'
+            )
+        }
+        failure {
+            discordSend(
+                webhookURL: "${env.DISCORD_WEBHOOK}",
+                title: "🔴 [Backend] 빌드 실패",
+                description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
+                result: 'FAILURE'
+            )
+        }
+    }
 }

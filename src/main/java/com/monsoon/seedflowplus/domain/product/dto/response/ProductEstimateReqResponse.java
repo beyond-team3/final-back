@@ -1,0 +1,16 @@
+package com.monsoon.seedflowplus.domain.product.dto.response;
+
+import lombok.Builder;
+import lombok.Getter;
+
+@Getter
+@Builder
+public class ProductEstimateReqResponse {
+
+    private Long productId;
+    private String productCode; // 상품코드
+    private String productCategory; // 품종
+    private String productName; // 상품명
+    private String unit; // 단위
+
+}

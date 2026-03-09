@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.10'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '3.3.5'
+    id 'io.spring.dependency-management' version '1.1.6'
 }
 
 group = 'com.monsoon'
@@ -12,7 +12,7 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
-    }
+}
 
 configurations {
     compileOnly {
@@ -25,19 +25,83 @@ repositories {
 }
 
 dependencies {
-// Web & Lombok
+    // [Web & Interface] API 개발 및 화면 처리
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // Swagger: 프론트엔드(Vue.js) 협업을 위한 API 문서 자동화
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
+    // 외부 API 비동기 호출을 위한 WebClient (WebFlux) 의존성 추가
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
+    implementation 'org.glassfish.jaxb:jaxb-runtime:4.0.5'
+
+    // [Database & Persistence] 데이터 저장 및 ORM
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    testImplementation 'com.h2database:h2'
+
+    // [QueryDSL] ERP의 복잡한 동적 쿼리 해결 (필수!)
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+    annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta"
+    annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+    annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+    // ⚡ [Cache & Session] 성능 최적화 및 세션 관리
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // [Security & Auth] 보안 및 JWT 인증
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // [Messaging] 알림 및 메일 발송
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // [Developer Tools] 개발 편의 및 생산성
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
-    // DB (Production: MariaDB / Test: H2)
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client' // 배포용
-    testImplementation 'com.h2database:h2' // ★ 테스트용 필수
-
-    // Test
+    // 코드 검증 및 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     runtimeOnly 'com.h2database:h2'
+
+    // Prometheus 모니터링을 위한 의존성 추가
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // [LangChain4j] RAG (Retrieval-Augmented Generation) 구현을 위한 의존성
+    implementation 'dev.langchain4j:langchain4j-spring-boot-starter:0.35.0'
+    implementation 'dev.langchain4j:langchain4j-google-ai-gemini:0.35.0'
+    implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.35.0'
+
+    // 취약점이 있는 라이브러리 강제 업데이트 예시
+    constraints {
+        implementation('org.apache.commons:commons-lang3:3.17.0') {
+            because 'previous versions have CVE-2025-48924'
+        }
+    }
+}
+
+// QueryDSL Q클래스 생성 경로 설정 (IntelliJ가 소스셋으로 인식)
+def querydslDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
+
+sourceSets {
+    main.java.srcDirs += [ querydslDir ]
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+}
+
+clean.doLast {
+    file(querydslDir).deleteDir()
 }
 
 tasks.named('test') {

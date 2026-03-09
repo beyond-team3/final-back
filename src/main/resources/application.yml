@@ -1,10 +1,57 @@
 spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL # MySQL 모드로 동작하게 설정
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  application:
+    name: seedflowplus
+  profiles:
+    active: local
+
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: create-drop # 테스트 시작 시 생성, 종료 시 삭제
-    show-sql: true # 젠킨스 로그에서 쿼리 확인용
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+kakao:
+  api:
+    local-url: "https://dapi.kakao.com/v2/local/search/address.json"
+
+google:
+  gemini:
+    api:
+      url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
+ncpms:
+  api:
+    url: "http://ncpms.rda.go.kr/npmsAPI/service"
+
+# --- 모니터링 (Actuator & Prometheus) 설정 ---
+management:
+  endpoints:
+    web:
+      exposure:
+        # health와 prometheus 엔드포인트만 외부에 노출
+        include: health, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: monsoon-backend

@@ -1,0 +1,109 @@
+### IntelliJ HTTP Client Environment
+### 사용 순서
+### 1) 이 파일의 변수 값을 로컬/개발 계정에 맞게 수정
+### 2) 아래 Login 요청 4개를 실행해 토큰 저장
+### 3) 각 도메인(order/statement/invoice/payment) 파일 실행
+
+@baseUrl = http://localhost:8080
+
+### 로그인 계정 (로컬/개발 전용)
+@client1LoginId = client_id_01
+@client1LoginPw = password123
+@salesLoginId = idid
+@salesLoginPw = 12345678
+@adminLoginId = sales_admin
+@adminLoginPw = password123
+
+### 수동 세팅이 필요한 ID (실제 코드 기준)
+### - order 생성에는 headerId(=계약 header PK) + contractDetailId가 필요
+### - contractDetailId는 계약 상세 PK로, ContractResponse.items에는 노출되지 않으므로 테스트 DB 기준으로 채워야 함
+### - 조회 SQL 예시:
+###   SELECT d.cnt_detail_id, d.cnt_id, d.product_name, d.total_quantity
+###   FROM tbl_contract_detail d
+###   WHERE d.cnt_id = <contractId>
+###   ORDER BY d.cnt_detail_id;
+@testContractId = 4
+@testContractDetailId = 9
+
+### fallback IDs (자동 추출 실패 시 수동 입력)
+@orderId = 1
+@statementId = 1
+@invoiceId = 1
+@invoicePublishedId = 1
+@invoiceDraftId = 1
+@paymentId = 1
+@dealId = 1
+@dealClientId = 1
+@dealLatestDocType = ORD
+@dealLatestRefId = 1
+@dealLogId = 1
+
+### 실패 케이스용 미존재 ID
+@missingOrderId = 99999991
+@missingStatementId = 99999992
+@missingInvoiceId = 99999993
+@missingPaymentId = 99999994
+@missingDealLogId = 99999995
+
+### 청구 기간 샘플
+@invoiceStartDate = 2026-03-01
+@invoiceEndDate = 2026-03-31
+
+### ==============================================
+### Auth: CLIENT #1
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{client1LoginId}}",
+  "loginPw": "{{client1LoginPw}}"
+}
+
+> {%
+client.test("client1 login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data) {
+  client.global.set("client1AccessToken", response.body.data.accessToken);
+  client.global.set("client1RefreshToken", response.body.data.refreshToken);
+}
+%}
+
+### Auth: SALES_REP
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{salesLoginId}}",
+  "loginPw": "{{salesLoginPw}}"
+}
+
+> {%
+client.test("sales login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data) {
+  client.global.set("salesAccessToken", response.body.data.accessToken);
+}
+%}
+
+### Auth: ADMIN
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "loginPw": "{{adminLoginPw}}"
+}
+
+> {%
+client.test("admin login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data) {
+  client.global.set("adminAccessToken", response.body.data.accessToken);
+}
+%}

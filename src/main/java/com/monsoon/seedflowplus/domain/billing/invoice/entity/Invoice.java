@@ -1,0 +1,119 @@
+package com.monsoon.seedflowplus.domain.billing.invoice.entity;
+
+import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import jakarta.persistence.Index;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.Objects;
+
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
+@AttributeOverride(name = "id", column = @Column(name = "invoice_id"))
+@Table(
+        name = "tbl_invoice",
+        // 통계 전용 인덱스
+        indexes = {
+                @Index(name = "idx_invoice_status_date", columnList = "status, invoice_date")
+        }
+)
+public class Invoice extends BaseCreateEntity {
+    @Column(name = "invoice_code", nullable = false, unique = true, length = 20)
+    private String invoiceCode;   // INV-20260223-001
+
+    @Column(name = "contract_id", nullable = false)
+    private Long contractId;      // 타 파트라 ID만 저장
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id")
+    private Client client;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id", nullable = false)
+    private SalesDeal deal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
+
+    @Column(name = "invoice_date", nullable = false)
+    private LocalDate invoiceDate;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
+
+    @Column(name = "supply_amount")
+    private BigDecimal supplyAmount;
+
+    @Column(name = "vat_amount")
+    private BigDecimal vatAmount;
+
+    @Column(name = "total_amount")
+    private BigDecimal totalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private InvoiceStatus status;
+
+    @Column(name = "memo", columnDefinition = "TEXT")
+    private String memo;
+
+    // 생성
+    public static Invoice create(Long contractId, Client client, SalesDeal deal, Employee employee,
+                                 LocalDate invoiceDate, LocalDate startDate, LocalDate endDate,
+                                 String invoiceCode, String memo) {
+        Invoice invoice = new Invoice();
+        invoice.invoiceCode = invoiceCode;
+        invoice.contractId = contractId;
+        invoice.client = client;
+        invoice.deal = Objects.requireNonNull(deal, "deal must not be null");
+        invoice.employee = employee;
+        invoice.invoiceDate = invoiceDate;
+        invoice.startDate = startDate;
+        invoice.endDate = endDate;
+        invoice.supplyAmount = BigDecimal.ZERO;
+        invoice.vatAmount = BigDecimal.ZERO;
+        invoice.totalAmount = BigDecimal.ZERO;
+        invoice.status = InvoiceStatus.DRAFT;
+        invoice.memo = memo;
+        return invoice;
+    }
+
+    // 금액 업데이트
+    public void updateAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+        this.supplyAmount = totalAmount.divide(BigDecimal.valueOf(1.1), 2, RoundingMode.HALF_UP);
+        this.vatAmount = totalAmount.subtract(this.supplyAmount);
+    }
+
+    // 발행 확정
+    public void publish() {
+        this.status = InvoiceStatus.PUBLISHED;
+    }
+
+    // 결제 완료
+    public void paid() {
+        this.status = InvoiceStatus.PAID;
+    }
+
+    // 취소
+    public void cancel() {
+        this.status = InvoiceStatus.CANCELED;
+    }
+
+    public void changeCode(String newCode) {
+        this.invoiceCode = newCode;
+    }
+}

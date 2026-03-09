@@ -1,0 +1,202 @@
+### Payment API Test
+### 실행 순서
+### 1) _env.http 로그인 실행
+### 2) invoice.http SUCCESS FLOW 실행해 invoicePublishedId 확보 (권장)
+### 3) 아래 SUCCESS FLOW 실행
+### 4) FAILURE FLOW 실행
+
+@baseUrl = http://localhost:8080
+@missingInvoiceId = 99999993
+@missingPaymentId = 99999994
+@invoicePublishedId = 1
+
+### ============================================================
+### SUCCESS FLOW
+### ============================================================
+
+### [S1] 결제 처리 (CLIENT 전용)
+### 전제: invoicePublishedId는 PUBLISHED 상태 청구서여야 함
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": {{invoicePublishedId}},
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment process success", function () {
+  client.assert(response.status === 201, "status must be 201");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+if (response.body && response.body.data) {
+  client.global.set("paymentId", response.body.data.paymentId);
+  client.global.set("paidInvoiceId", response.body.data.invoiceId);
+}
+%}
+
+### [S2] 결제 단건 조회 (본인 거래처)
+GET {{baseUrl}}/api/v1/payments/{{paymentId}}
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("payment get success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [S3] 거래처 결제 목록 조회
+GET {{baseUrl}}/api/v1/payments/clients/me
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("payment list by client success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### [S4] 전체 결제 목록 조회 (SALES_REP)
+GET {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("payment list all success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+});
+%}
+
+### ============================================================
+### FAILURE FLOW
+### ============================================================
+
+### [F1] Validation 오류: 필수값 누락
+### 기대: ErrorType.INVALID_INPUT_VALUE -> ErrorCode.C002
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{}
+
+> {%
+client.test("payment missing fields -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F2] Validation 오류: invoiceId 음수
+### 기대: ErrorType.INVALID_INPUT_VALUE -> ErrorCode.C002
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": -1,
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment invoiceId positive validation -> C002", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "C002", "error.code must be C002");
+});
+%}
+
+### [F3] 권한 실패: SALES_REP가 결제 처리 시도
+### 기대: ErrorType.ACCESS_DENIED -> ErrorCode.A002
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": {{invoicePublishedId}},
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment by sales denied -> A002", function () {
+  client.assert(response.status === 403, "status must be 403");
+  client.assert(response.body.error.code === "A002", "error.code must be A002");
+});
+%}
+
+### [F4] 리소스 없음: 결제 대상 청구서 없음
+### 기대: ErrorType.INVOICE_NOT_FOUND -> ErrorCode.I001
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": {{missingInvoiceId}},
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment invoice not found -> I001", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.error.code === "I001", "error.code must be I001");
+});
+%}
+
+### [F5] 상태 전이 위반: PUBLISHED가 아닌 청구서 결제 시도(PAID 포함)
+### 기대: ErrorType.INVOICE_NOT_PUBLISHED -> ErrorCode.I003
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{client1AccessToken}}
+Content-Type: application/json
+
+{
+  "invoiceId": {{paidInvoiceId}},
+  "paymentMethod": "TRANSFER"
+}
+
+> {%
+client.test("payment on non-published invoice -> I003", function () {
+  client.assert(response.status === 400, "status must be 400");
+  client.assert(response.body.error.code === "I003", "error.code must be I003");
+});
+%}
+
+### [F6] 리소스 없음: 결제 단건 조회 실패
+### 기대: ErrorType.PAYMENT_NOT_FOUND -> ErrorCode.P101
+GET {{baseUrl}}/api/v1/payments/{{missingPaymentId}}
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("payment not found -> P101", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.error.code === "P101", "error.code must be P101");
+});
+%}
+
+### [F7] 거래처 컨텍스트 없음: SALES_REP로 결제 단건 조회
+### 기대: ErrorType.PAYMENT_NOT_FOUND -> ErrorCode.P101
+### 이유: PaymentController는 clientId null을 막지 않고, Service 조회에서 NOT_FOUND로 귀결됨
+GET {{baseUrl}}/api/v1/payments/{{paymentId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("payment get by sales rep -> P101", function () {
+  client.assert(response.status === 404, "status must be 404");
+  client.assert(response.body.error.code === "P101", "error.code must be P101");
+});
+%}
+
+### [F8] 인증 실패: 토큰 없음
+### 기대: ErrorType.UNAUTHORIZED -> ErrorCode.A001
+GET {{baseUrl}}/api/v1/payments
+
+> {%
+client.test("payment unauthorized -> A001", function () {
+  client.assert(response.status === 401, "status must be 401");
+  client.assert(response.body.error.code === "A001", "error.code must be A001");
+});
+%}
+
+### [F9] 중복/유니크 참고
+### PaymentService에는 invoice_id unique 위반 시 ALREADY_PAID(P102) 매핑이 있으나,
+### 단건 재시도에서는 선행 상태검증(INVOICE_NOT_PUBLISHED/I003)에 먼저 걸려 P102 재현이 어려움.
+### P102은 동시성(경합) 상황에서 주로 재현됩니다.
