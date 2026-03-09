@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Dashboard", description = "관리자 대시보드")
 @RestController
-@RequestMapping("/api/dashboard")
+@RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
 public class AdminDashboardController {
 

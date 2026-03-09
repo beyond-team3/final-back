@@ -77,20 +77,20 @@ public class SalesDashboardRepository {
                                                       LocalDate fromDate,
                                                       LocalDate toDate) {
         String sql = """
-                SELECT DATE_FORMAT(i.invoice_date, '%Y-%m') AS year_month,
-                       COALESCE(SUM(i.total_amount), 0)     AS total
-                FROM tbl_invoice i
-                WHERE i.employee_id  = :empId
-                  AND i.status       = 'PAID'
-                  AND i.invoice_date BETWEEN :from AND :to
-                GROUP BY DATE_FORMAT(i.invoice_date, '%Y-%m')
-                ORDER BY year_month
+                SELECT DATE_FORMAT(i.invoice_date, '%Y-%m') AS ym,
+                               COALESCE(SUM(i.total_amount), 0)     AS total
+                        FROM tbl_invoice i
+                        WHERE i.employee_id  = :empId
+                          AND i.status       = 'PAID'
+                          AND i.invoice_date BETWEEN :fromDate AND :toDate
+                        GROUP BY 1
+                        ORDER BY 1
                 """;
         return jdbc.queryForList(sql,
                 new MapSqlParameterSource()
                         .addValue("empId", employeeId)
-                        .addValue("from", fromDate)
-                        .addValue("to", toDate));
+                        .addValue("fromDate", fromDate)
+                        .addValue("toDate", toDate));
     }
 
     // ──────────────────────────────────────────────
