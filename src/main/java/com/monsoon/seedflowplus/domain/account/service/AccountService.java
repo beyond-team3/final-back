@@ -24,6 +24,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.infra.kakao.GeocodingService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -169,6 +171,12 @@ public class AccountService {
             }
         }
 
+        Employee manager = null;
+        if (request.managerId() != null) {
+            manager = employeeRepository.findById(request.managerId())
+                    .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+        }
+
         client.updateClientInfo(
                 request.clientName(),
                 request.clientBrn(),
@@ -180,6 +188,10 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+
+        if (manager != null) {
+            client.updateManagerEmployee(manager);
+        }
     }
 
     @Transactional
@@ -364,12 +376,17 @@ public class AccountService {
 
         // 영업사원인 경우 본인 담당 거래처만 조회
         if (role == Role.SALES_REP) {
-            if (userDetails.getEmployeeId() == null) {
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
                 throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
             }
-            return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+            List<Client> rawEntities = clientRepository.findAllByManagerEmployeeId(employeeId);
+
+            List<ClientListResponse> clients = rawEntities.stream()
                     .map(ClientListResponse::from)
                     .toList();
+
+            return clients;
         }
 
         // 그 외 권한은 접근 거부
@@ -417,7 +434,7 @@ public class AccountService {
         Client client = clientRepository.findById(userDetails.getClientId())
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-        return ClientProfileResponse.from(client);
+        return ClientProfileResponse.from(client, userDetails.getRole());
     }
 
     @Transactional(readOnly = true)

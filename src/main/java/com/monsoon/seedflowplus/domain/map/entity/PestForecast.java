@@ -18,6 +18,12 @@ public class PestForecast {
     private String areaName;     // 시군구명 (예: 청양군)
 
     @Column(nullable = false)
+    private String sidoCode;     // 시도 코드
+
+    @Column(nullable = false)
+    private String sigunguCode;  // 시군구 코드
+
+    @Column(nullable = false)
     private String cropCode;     // 작물 코드 (예: pepper)
 
     @Column(nullable = false)
@@ -27,8 +33,10 @@ public class PestForecast {
     private String severity;     // 심각도 (심각, 경고, 주의, 보통)
 
     @Builder
-    public PestForecast(String areaName, String cropCode, String pestCode, String severity) {
+    public PestForecast(String areaName, String sidoCode, String sigunguCode, String cropCode, String pestCode, String severity) {
         this.areaName = areaName;
+        this.sidoCode = sidoCode;
+        this.sigunguCode = sigunguCode;
         this.cropCode = cropCode;
         this.pestCode = pestCode;
         this.severity = severity;

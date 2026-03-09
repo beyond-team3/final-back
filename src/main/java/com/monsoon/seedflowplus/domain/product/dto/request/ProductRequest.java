@@ -38,6 +38,6 @@ public class ProductRequest {
 
     private Map<String, List<String>> tags;
 
-    @Schema(description = "재배적기 정보")
-    private CultivationTimeDto cultivationTime;
+    @Schema(description = "재배적기 정보 목록")
+    private List<CultivationTimeDto> cultivationTimes;
 }
