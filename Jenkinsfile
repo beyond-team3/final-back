@@ -8,17 +8,14 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
-  - name: docker-cli
-    image: docker:27-cli
-    command: ['cat']
-    tty: true
     volumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
+    - name: ssh-config
+      mountPath: /home/jenkins/.ssh/known_hosts
+      subPath: known_hosts
   volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
+  - name: ssh-config
+    configMap:
+      name: ssh-known-hosts
 """
         }
     }
