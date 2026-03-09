@@ -15,10 +15,16 @@ spec:
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
+    - name: ssh-config
+      mountPath: /home/jenkins/.ssh/known_hosts
+      subPath: known_hosts
   volumes:
   - name: docker-sock
     hostPath:
       path: /var/run/docker.sock
+  - name: ssh-config
+    configMap:
+      name: ssh-known-hosts
 """
         }
     }
