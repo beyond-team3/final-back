@@ -33,36 +33,29 @@ public class NcpmsDataSyncService {
                 return;
             }
 
-            // [추가] 2. 기존 데이터 한 번만 삭제 (배치 저장 시작 전)
-            transactionTemplate.executeWithoutResult(status -> {
-                pestForecastRepository.deleteAllInBatch();
-            });
-            log.info("기존 예찰 데이터를 모두 삭제하고 새로운 동기화를 시작합니다.");
-
             int totalItems = allItems.size();
             int currentItemIndex = 0;
-            int totalSavedCount = 0;
+            List<PestForecast> allForecastsToSave = new ArrayList<>();
 
+            // 2. 모든 데이터 먼저 수집 (Prepare)
             for (NcpmsListDto item : allItems) {
                 currentItemIndex++;
                 try {
                     String cropName = item.getKncrNm();
                     String cropCode = mapCropNameToCode(cropName);
 
-                    // [필터링] 매핑 대상(고추, 양파)이 아니면 상세 조회를 수행하지 않고 즉시 건너뜀
                     if ("UNKNOWN".equals(cropCode)) {
                         continue;
                     }
 
-                    log.info("[{}/{}] 아이템 처리 시작: insectKey={}, cropName={}", 
+                    log.info("[{}/{}] 데이터 수집 시작: insectKey={}, cropName={}", 
                              currentItemIndex, totalItems, item.getInsectKey(), cropName);
                     
-                    // 해당 작물에 대한 데이터 수집용 리스트
                     List<PestForecast> currentItemForecasts = new ArrayList<>();
                     processMainItem(item, currentItemForecasts);
                     
-                    // [변경] 3. 중복 데이터 정제 (지역+작물+병해충 별로 가장 높은 위험도 하나만 남김)
                     if (!currentItemForecasts.isEmpty()) {
+                        // 중복 제거 (지역+작물+병해충 별로 가장 높은 위험도 하나만 남김)
                         List<PestForecast> distinctForecasts = new ArrayList<>(
                             currentItemForecasts.stream()
                                 .collect(java.util.stream.Collectors.toMap(
@@ -72,27 +65,26 @@ public class NcpmsDataSyncService {
                                 ))
                                 .values()
                         );
-
-                        final int savedCountInItem = distinctForecasts.size();
-                        transactionTemplate.executeWithoutResult(status -> {
-                            pestForecastRepository.saveAll(distinctForecasts);
-                        });
-                        totalSavedCount += savedCountInItem;
-                        log.info(">> [{}/{}] {} 처리 완료: {}건 저장 (중복 제거 전: {}건, 현재 누적: {}건)", 
-                                 currentItemIndex, totalItems, item.getKncrNm(), savedCountInItem, currentItemForecasts.size(), totalSavedCount);
-                    } else {
-                        log.info(">> [{}/{}] {} : 수집된 유효 데이터가 없습니다.", 
-                                 currentItemIndex, totalItems, item.getKncrNm());
+                        allForecastsToSave.addAll(distinctForecasts);
                     }
 
                     // Rate limit: NCPMS 서버 보호 및 차단 방지
                     Thread.sleep(150);
                 } catch (Exception e) {
-                    log.error("아이템 처리 실패 (건너뜀) - insectKey: {}, 사유: {}", item.getInsectKey(), e.getMessage());
+                    log.error("아이템 수집 실패 (건너뜀) - insectKey: {}, 사유: {}", item.getInsectKey(), e.getMessage());
                 }
             }
 
-            log.info("NCPMS 동기화 최종 완료! 총 {}개 작물군에 대해 {}건의 데이터가 저장되었습니다.", totalItems, totalSavedCount);
+            // 3. 단일 트랜잭션에서 기존 데이터 삭제 후 새 데이터 저장 (Swap)
+            if (!allForecastsToSave.isEmpty()) {
+                transactionTemplate.executeWithoutResult(status -> {
+                    pestForecastRepository.deleteAllInBatch();
+                    pestForecastRepository.saveAll(allForecastsToSave);
+                });
+                log.info("NCPMS 동기화 최종 완료! 총 {}건의 데이터가 원자적으로 교체되었습니다.", allForecastsToSave.size());
+            } else {
+                log.warn("NCPMS 동기화 중단: 수집된 유효 데이터가 없습니다. 기존 데이터를 유지합니다.");
+            }
 
         } catch (Exception e) {
             log.error("NCPMS 동기화 프로세스 전체 실패", e);
