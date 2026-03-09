@@ -163,3 +163,15 @@ DocumentSummaryQueryController 추가
 
 ### 다음 단계
 bootRun 기동 및 /api/v1/documents 확인
+
+## [2026-03-10 01:22] DocumentSummary import 누락 보정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/DocumentSummary.java — `DealType` import 누락 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → bootRun 시 `jwt.secret` placeholder 미해결로 애플리케이션 기동 실패
+
+### 다음 단계
+`jwt.secret` 환경설정 주입 후 `/api/v1/documents` 기동 재확인

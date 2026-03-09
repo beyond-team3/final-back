@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.deal.core.entity;
 
+import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
