@@ -85,8 +85,20 @@
 ## [2026-03-10 01:18] IntelliJ HTTP Client 시나리오1 추가
 
 ### 작업 내용
-- 수정 파일: src/api-test/http/scenario1.http — 실제 컨트롤러 경로/권한/응답 구조에 맞춘 SeedFlow+ 전체 파이프라인 연쇄 검증 시나리오 신규 작성
+- 수정 파일: api-test/http/pipeline/scenario1.http — 실제 컨트롤러 경로/권한/응답 구조에 맞춘 SeedFlow+ 전체 파이프라인 연쇄 검증 시나리오 신규 작성
 - 수정 파일: src/test/http/http-client.env.json — local HTTP client 실행용 기본 환경 변수 파일 신규 작성
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
+
+## [2026-03-10 01:29] HTTP 시나리오 파일 위치 정리
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/scenario1.http — 요청한 디렉터리 구조에 맞게 시나리오 파일을 pipeline 하위로 이동
 
 ### 컴파일 결과
 - [x] 오류 없음
