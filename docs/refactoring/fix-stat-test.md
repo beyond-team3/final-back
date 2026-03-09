@@ -69,3 +69,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-09 15:20] deal log docs 구현 정합성 점검 및 반영
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/log/docs/deal-log-changeset-summary.md — 실제 패키지 경로, 기본 정렬 규칙, 가이드 문서 파일명 및 기능 목록을 현재 구현 기준으로 정정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음

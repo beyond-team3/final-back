@@ -13,17 +13,17 @@
 
 ### A. 엔티티
 - `DealLogDetail` 신규 추가
-  - 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/entity/DealLogDetail.java`
+  - 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/entity/DealLogDetail.java`
   - 테이블: `tbl_sales_deal_log_detail`
   - 컬럼: `deal_log_detail_id`, `deal_log_id(unique)`, `reason(TEXT)`, `diff_json(TEXT)`, `created_at`
 - `SalesDealLog`에 선택적 1:1 역매핑 추가
-  - 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/entity/SalesDealLog.java`
+  - 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/entity/SalesDealLog.java`
 
 ### B. Repository
 - `SalesDealLogRepository` 신규
   - deal/client/docType+refId 타임라인 조회
   - 권한 스코프 조회용 메서드(영업사원/거래처 조건) 추가
-  - 기본 타임라인 정렬 상수 제공
+  - 기본 타임라인 정렬 상수 제공: `actionAt DESC, targetCode ASC NULLS LAST, id ASC`
 - `DealLogDetailRepository` 신규
   - `findByDealLogId(Long dealLogId)`
 
@@ -49,7 +49,8 @@
   - `getTimelineByClient`
   - `getTimelineByDocument(docType, refId)`
   - `getLogDetail(dealLogId)` (옵션)
-  - sort 미지정 시 기본 정렬 강제: `actionAt DESC`, `targetCode ASC`
+  - `getRecentDocumentLogs(...)` / `getRecentDocumentLogsStrict(...)`
+  - sort 미지정 시 기본 정렬 강제: `actionAt DESC, targetCode ASC NULLS LAST, id ASC`
 - DTO 신규
   - `DealLogSummaryDto`
   - `DealLogDetailDto`
@@ -61,7 +62,7 @@
   - 권한 실패 시 `403` (`ACCESS_DENIED`)
 
 ### F. 연결 가이드 문서
-- `DealLogIntegrationGuide.md` 신규
+- `deal-log-integration-guide.md` 반영
   - 실제 연결 없이, 각 문서 서비스에서의 호출 순서/예시 코드 제공
   - 순서:
     1. 현재 상태 조회
@@ -76,7 +77,7 @@
 - 문서 기준 조회(docType+refId) 제공
 - 기본 조회 3종 제공(deal/client/document)
 - 페이징: `Pageable`(offset)
-- 정렬 기본값: `actionAt DESC, targetCode ASC`
+- 정렬 기본값: `actionAt DESC, targetCode ASC NULLS LAST, id ASC`
 - CONVERT 2건 기록 구조 제공(원본 CONVERT + 신규 CREATE)
 - 상태 전이 검증 분리(`형식 검증` vs `전이 가능성 검증`)
 
@@ -112,15 +113,15 @@ feat(deal-log): implement end-to-end deal log domain (entity/repository/service/
 ---
 
 ## 6) 참고: 이번 변경 파일
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/entity/SalesDealLog.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/entity/DealLogDetail.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/repository/SalesDealLogRepository.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/repository/DealLogDetailRepository.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/service/DealLogWriteService.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/policy/DocStatusTransitionPolicy.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/service/DocStatusTransitionValidator.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/dto/response/DealLogSummaryDto.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/dto/response/DealLogDetailDto.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/service/DealLogQueryService.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/controller/DealLogController.java`
-- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/docs/DealLogIntegrationGuide.md`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/entity/SalesDealLog.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/entity/DealLogDetail.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/repository/SalesDealLogRepository.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/repository/DealLogDetailRepository.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealLogWriteService.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicy.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DocStatusTransitionValidator.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/dto/response/DealLogSummaryDto.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/dto/response/DealLogDetailDto.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealLogQueryService.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/controller/DealLogController.java`
+- `src/main/java/com/monsoon/seedflowplus/domain/deal/log/docs/deal-log-integration-guide.md`
