@@ -102,44 +102,79 @@ public class NcpmsDataSyncService {
 
         for (int i = 0; i < totalSido; i++) {
             NcpmsSidoDto sido = sidoList.get(i);
+            String currentSidoCode = sido.getSidoCode();
+
+            // 1. 시도 단위 데이터 저장 (시군구 상세가 없거나 전체 요약이 필요할 때를 대비)
+            if (currentSidoCode != null && !currentSidoCode.isBlank()) {
+                PestForecast sidoEntity = buildPestForecast(
+                    item.getKncrNm(), 
+                    sido.getSidoNm(), 
+                    currentSidoCode, 
+                    "000", // 시군구 코드가 없는 광역 데이터는 000으로 표시
+                    sido.getDbyhsNm(), 
+                    sido.getInqireValue()
+                );
+                if (sidoEntity != null) accumulated.add(sidoEntity);
+            }
+
             Thread.sleep(100); // API 서버 부하 방지용 대기
             
-            List<NcpmsSigunguDto> sigunguList = ncpmsApiClient.fetchSigungu(insectKey, sido.getSidoCode());
+            // 2. 시군구 단위 상세 데이터 저장
+            List<NcpmsSigunguDto> sigunguList = ncpmsApiClient.fetchSigungu(insectKey, currentSidoCode);
             if (sigunguList != null && !sigunguList.isEmpty()) {
-                List<PestForecast> entities = convertToEntityList(item.getKncrNm(), sigunguList);
+                List<PestForecast> entities = convertToEntityList(item.getKncrNm(), sigunguList, currentSidoCode);
                 accumulated.addAll(entities);
-                log.info("   - [{}/{}] {} 처리: {}건 수집", (i + 1), totalSido, sido.getSidoNm(), entities.size());
-            } else {
-                log.info("   - [{}/{}] {} 처리: 데이터 없음", (i + 1), totalSido, sido.getSidoNm());
+                log.info("   - [{}/{}] {} 상세 처리: {}건 수집", (i + 1), totalSido, sido.getSidoNm(), entities.size());
             }
         }
     }
 
-    private List<PestForecast> convertToEntityList(String cropName, List<NcpmsSigunguDto> sigunguDataList) {
+    private List<PestForecast> convertToEntityList(String cropName, List<NcpmsSigunguDto> sigunguDataList, String fallbackSidoCode) {
         List<PestForecast> entities = new ArrayList<>();
         if (sigunguDataList == null) return entities;
         
-        String cropCode = mapCropNameToCode(cropName);
-
         for (NcpmsSigunguDto dto : sigunguDataList) {
             if (dto == null) continue;
             
-            String pestCode = mapPestNameToCode(dto.getDbyhsNm());
-            String severity = convertValueToSeverity(dto.getInqireValue());
+            String finalSidoCode = (dto.getSidoCode() != null && !dto.getSidoCode().isBlank()) 
+                                    ? dto.getSidoCode() : fallbackSidoCode;
 
-            // 유효한 매핑 결과가 있는 경우에만 수집
-            if (!"UNKNOWN".equals(cropCode) && !"UNKNOWN".equals(pestCode)) {
-                entities.add(PestForecast.builder()
-                        .areaName(dto.getSigunguNm() != null ? dto.getSigunguNm() : "Unknown")
-                        .sidoCode(dto.getSidoCode())
-                        .sigunguCode(dto.getSigunguCode())
-                        .cropCode(cropCode)
-                        .pestCode(pestCode)
-                        .severity(severity)
-                        .build());
+            PestForecast entity = buildPestForecast(
+                cropName, 
+                dto.getSigunguNm(), 
+                finalSidoCode, 
+                dto.getSigunguCode(), 
+                dto.getDbyhsNm(), 
+                dto.getInqireValue()
+            );
+
+            if (entity != null) {
+                entities.add(entity);
             }
         }
         return entities;
+    }
+
+    private PestForecast buildPestForecast(String cropName, String areaName, String sidoCode, String sigunguCode, String dbyhsNm, Double inqireValue) {
+        String cropCode = mapCropNameToCode(cropName);
+        String pestCode = mapPestNameToCode(dbyhsNm);
+        String severity = convertValueToSeverity(inqireValue);
+
+        // 필수 값 검증 (DB Not Null 제약 조건 준수)
+        if (!"UNKNOWN".equals(cropCode) && !"UNKNOWN".equals(pestCode) && 
+            sidoCode != null && !sidoCode.isBlank() && 
+            sigunguCode != null && !sigunguCode.isBlank()) {
+            
+            return PestForecast.builder()
+                    .areaName(areaName != null ? areaName : "Unknown")
+                    .sidoCode(sidoCode)
+                    .sigunguCode(sigunguCode)
+                    .cropCode(cropCode)
+                    .pestCode(pestCode)
+                    .severity(severity)
+                    .build();
+        }
+        return null;
     }
 
     private String convertValueToSeverity(Double value) {

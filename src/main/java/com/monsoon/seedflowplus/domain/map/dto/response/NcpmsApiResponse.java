@@ -62,8 +62,11 @@ public class NcpmsApiResponse {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class NcpmsSidoDto {
         private String insectKey;
+        @JsonAlias({"sidoCd", "sido_code", "sido_cd", "sidoCode"})
         private String sidoCode;
+        @JsonAlias({"sidoNm", "sido_name", "sido_nm", "sidoName"})
         private String sidoNm;
+        @JsonAlias({"dbyhsNm", "pestNm", "pestName"})
         private String dbyhsNm;
         private Double inqireValue;
     }
@@ -86,9 +89,13 @@ public class NcpmsApiResponse {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class NcpmsSigunguDto {
         private String insectKey;
+        @JsonAlias({"sidoCd", "sido_code", "sido_cd", "sidoCode"})
         private String sidoCode;
+        @JsonAlias({"sigunguCd", "sigungu_code", "sigungu_cd", "sigunguCode"})
         private String sigunguCode;
+        @JsonAlias({"sigunguNm", "sigungu_name", "sigungu_nm", "sigunguName"})
         private String sigunguNm;
+        @JsonAlias({"dbyhsNm", "pestNm", "pestName"})
         private String dbyhsNm;
         private Double inqireValue;
     }
