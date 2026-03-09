@@ -89,21 +89,27 @@ pipeline {
                         def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
                         def buildNum = env.BUILD_NUMBER
                         def shortSha = env.GIT_COMMIT.take(7)
-
                         def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
-                        echo "Build Tag: " + newTag
 
-                        // 도커 빌드 및 푸시
-                        docker.withRegistry('', DOCKER_CREDENTIAL_ID) {
-                            def imgNameWithTag = IMAGE_NAME + ":" + newTag
+                        withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
+                            usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
 
-                            // 호스트의 도커 엔진을 사용하여 빌드
-                            def customImage = docker.build(imgNameWithTag)
-                            customImage.push()
+                            echo "Building and Pushing Tag: " + newTag
 
+                            // 도커 빌드 (고유 태그 및 latest)
+                            sh "docker build --no-cache -t ${IMAGE_NAME}:${newTag} ."
+
+                            // 도커 로그인 및 푸시
+                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            sh "docker push ${IMAGE_NAME}:${newTag}"
+
+                            // main 브랜치일 경우에만 latest 푸시
                             if (env.BRANCH_NAME == 'main') {
-                                customImage.push('latest')
+                                sh "docker tag ${IMAGE_NAME}:${newTag} ${IMAGE_NAME}:latest"
+                                sh "docker push ${IMAGE_NAME}:latest"
                             }
+
+                            sh "docker logout"
                         }
                     }
                 }
