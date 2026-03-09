@@ -1,5 +1,27 @@
 pipeline {
-    agent any
+    agent {
+            kubernetes {
+                yaml """
+    apiVersion: v1
+    kind: Pod
+    spec:
+      containers:
+      - name: jnlp
+        image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
+      - name: docker-cli
+        image: docker:24.0-cli
+        command: ['cat']
+        tty: true
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+    """
+            }
+        }
 
     tools {
         jdk 'jdk-21'
@@ -59,35 +81,29 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-            when {
-                anyOf{
-                    branch 'main'
-                    branch 'dev'
-                }
-            }
             steps {
-                script {
-                    // 변수 정의
-                    def prefix = env.APP_VERSION_PREFIX
+                container('docker-cli') {
+                    script {
+                        // 변수 정의 및 태그 생성
+                        def prefix = env.APP_VERSION_PREFIX
+                        def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+                        def buildNum = env.BUILD_NUMBER
+                        def shortSha = env.GIT_COMMIT.take(7)
 
-                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
-                    def buildNum = env.BUILD_NUMBER
-                    def shortSha = env.GIT_COMMIT.take(7)
+                        def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
+                        echo "Build Tag: " + newTag
 
+                        // 도커 빌드 및 푸시
+                        docker.withRegistry('', DOCKER_CREDENTIAL_ID) {
+                            def imgNameWithTag = IMAGE_NAME + ":" + newTag
 
-                    // 변수 결합하여 태그 생성
-                    def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
+                            // 호스트의 도커 엔진을 사용하여 빌드
+                            def customImage = docker.build(imgNameWithTag)
+                            customImage.push()
 
-                    echo "Build Tag: " + newTag // 태그 확인용
-
-                    docker.withRegistry('', DOCKER_CREDENTIAL_ID) {
-
-                        def imgNameWithTag = IMAGE_NAME + ":" + newTag
-                        def customImage = docker.build(imgNameWithTag)
-                        customImage.push()
-
-                        if (env.BRANCH_NAME == 'main') {
-                            customImage.push('latest')
+                            if (env.BRANCH_NAME == 'main') {
+                                customImage.push('latest')
+                            }
                         }
                     }
                 }
