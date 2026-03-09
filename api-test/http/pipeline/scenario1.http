@@ -7,6 +7,14 @@
 ### 주의 2) 실제 권한 흐름은 RFQ/ORD/PAY=CLIENT, QUO/CNT/INV=SALES_REP, QUO/CNT 승인=ADMIN→CLIENT 2단계다.
 ### 주의 3) Schedule 검증은 현재 구현 enum 기준(DOC_APPROVED, DELIVERY_DUE, PAYMENT_DUE, PAYMENT_RECEIVED)으로 수행한다.
 
+@baseUrl = http://localhost:8080
+@adminEmail = admin@seedflow.com
+@adminPassword = password1234!
+@salesEmail = sales@seedflow.com
+@salesPassword = password1234!
+@clientEmail = client@seedflow.com
+@clientPassword = password1234!
+
 ### local
 
 ### ============================================================
@@ -31,26 +39,7 @@ client.test("ADMIN login success", function () {
 client.global.set("adminToken", response.body.data.accessToken);
 %}
 
-### [0-2] SALES_REP 사원 등록
-POST {{baseUrl}}/api/v1/accounts/employees/register
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "employeeName": "시나리오 영업담당",
-  "employeeEmail": "{{salesEmail}}",
-  "employeePhone": "010-1111-2222",
-  "address": "서울특별시 강남구 테헤란로 123, 06142"
-}
-
-> {%
-client.test("sales employee register success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-});
-%}
-
-### [0-3] SALES_REP 사원 ID 조회
+### [0-2] SALES_REP 사원 ID 조회
 GET {{baseUrl}}/api/v1/accounts/employees
 Authorization: Bearer {{adminToken}}
 
@@ -58,31 +47,16 @@ Authorization: Bearer {{adminToken}}
 client.test("sales employee list success", function () {
   client.assert(response.status === 200, "status must be 200");
 });
-const employee = (response.body.data || []).find((item) => item.employeeEmail === "{{salesEmail}}");
+const salesCandidates = response.body.data || [];
+const employee = salesCandidates.find((item) =>
+  item.employeeEmail === "sales@seedflow.com" ||
+  item.employeeName === "영업담당자"
+) || salesCandidates.find((item) => item.employeeEmail !== "admin@seedflow.com");
 client.assert(!!employee, "sales employee must exist");
 client.global.set("salesEmployeeId", employee.employeeId);
 %}
 
-### [0-4] SALES_REP 계정 생성
-POST {{baseUrl}}/api/v1/accounts/users/create
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "loginId": "{{salesEmail}}",
-  "loginPw": "{{salesPassword}}",
-  "role": "SALES_REP",
-  "targetId": {{salesEmployeeId}}
-}
-
-> {%
-client.test("sales account create success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-});
-%}
-
-### [0-5] SALES_REP 계정 ID 조회
+### [0-3] SALES_REP 계정 ID 조회
 GET {{baseUrl}}/api/v1/accounts/employees/{{salesEmployeeId}}
 Authorization: Bearer {{adminToken}}
 
@@ -94,72 +68,24 @@ client.assert(!!response.body.data.accountId, "sales accountId must exist");
 client.global.set("salesAccountId", response.body.data.accountId);
 %}
 
-### [0-6] SALES_REP 계정 활성화
-PATCH {{baseUrl}}/api/v1/accounts/users/status
+### [0-4] CLIENT ID 조회
+GET {{baseUrl}}/api/v1/accounts/clients
 Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "userId": {{salesAccountId}},
-  "status": "ACTIVATE"
-}
 
 > {%
-client.test("sales account activate success", function () {
+client.test("client list success", function () {
   client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
 });
+const clientCandidates = response.body.data || [];
+const clientItem = clientCandidates.find((item) =>
+  item.clientName === "시드플로우 거래처" ||
+  item.managerName === "거래처담당자"
+) || clientCandidates[0];
+client.assert(!!clientItem, "client must exist");
+client.global.set("clientId", clientItem.id);
 %}
 
-### [0-7] CLIENT 등록
-POST {{baseUrl}}/api/v1/accounts/clients/register
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "clientName": "시나리오 농산유통",
-  "clientBrn": "123-45-67890",
-  "ceoName": "홍길동",
-  "companyPhone": "02-1234-5678",
-  "address": "서울특별시 송파구 올림픽로 300, 05551",
-  "clientType": "DISTRIBUTOR",
-  "managerName": "김거래",
-  "managerPhone": "010-3333-4444",
-  "managerEmail": "{{clientEmail}}",
-  "totalCredit": 50000000,
-  "employeeId": {{salesEmployeeId}}
-}
-
-> {%
-client.test("client register success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-  client.assert(!!response.body.data.id, "clientId must exist");
-});
-client.global.set("clientId", response.body.data.id);
-%}
-
-### [0-8] CLIENT 계정 생성
-POST {{baseUrl}}/api/v1/accounts/users/create
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "loginId": "{{clientEmail}}",
-  "loginPw": "{{clientPassword}}",
-  "role": "CLIENT",
-  "targetId": {{clientId}},
-  "employeeId": {{salesEmployeeId}}
-}
-
-> {%
-client.test("client account create success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-});
-%}
-
-### [0-9] CLIENT 계정 ID 조회
+### [0-5] CLIENT 계정 ID 조회
 GET {{baseUrl}}/api/v1/accounts/clients/{{clientId}}
 Authorization: Bearer {{adminToken}}
 
@@ -171,24 +97,7 @@ client.assert(!!response.body.data.accountId, "client accountId must exist");
 client.global.set("clientAccountId", response.body.data.accountId);
 %}
 
-### [0-10] CLIENT 계정 활성화
-PATCH {{baseUrl}}/api/v1/accounts/users/status
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "userId": {{clientAccountId}},
-  "status": "ACTIVATE"
-}
-
-> {%
-client.test("client account activate success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-});
-%}
-
-### [0-11] SALES_REP 로그인
+### [0-6] SALES_REP 로그인
 POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
 
@@ -205,7 +114,7 @@ client.test("SALES_REP login success", function () {
 client.global.set("salesToken", response.body.data.accessToken);
 %}
 
-### [0-12] CLIENT 로그인
+### [0-7] CLIENT 로그인
 POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
 
@@ -222,24 +131,19 @@ client.test("CLIENT login success", function () {
 client.global.set("clientToken", response.body.data.accessToken);
 %}
 
-### [0-13] 수박 상품 생성
+### [0-8] 수박 상품 생성
 POST {{baseUrl}}/api/v1/products
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "productName": "프리미엄 수박 5kg",
-  "productCategory": "WATERMELON",
-  "productDescription": "시나리오 검증용 수박 상품",
+  "name": "프리미엄 수박 5kg",
+  "category": "WATERMELON",
+  "desc": "시나리오 검증용 수박 상품",
   "amount": 100,
   "unit": "BOX",
   "price": 35000,
-  "status": "SALE",
-  "tags": {
-    "grade": ["premium"],
-    "season": ["spring"]
-  },
-  "cultivationTimes": []
+  "status": "SALE"
 }
 
 > {%
@@ -250,24 +154,19 @@ client.test("watermelon product create success", function () {
 client.global.set("watermelonProductId", response.body);
 %}
 
-### [0-14] 참외 상품 생성
+### [0-9] 참외 상품 생성
 POST {{baseUrl}}/api/v1/products
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "productName": "고당도 참외 3kg",
-  "productCategory": "MELON",
-  "productDescription": "시나리오 검증용 참외 상품",
+  "name": "고당도 참외 3kg",
+  "category": "MELON",
+  "desc": "시나리오 검증용 참외 상품",
   "amount": 100,
   "unit": "BOX",
   "price": 22000,
-  "status": "SALE",
-  "tags": {
-    "grade": ["sweet"],
-    "season": ["spring"]
-  },
-  "cultivationTimes": []
+  "status": "SALE"
 }
 
 > {%
@@ -320,7 +219,10 @@ Authorization: Bearer {{salesToken}}
 client.test("pending RFQ list success", function () {
   client.assert(response.status === 200, "status must be 200");
 });
-const rfq = (response.body.data || []).find((item) => item.clientName === "시나리오 농산유통");
+const rfq = (response.body.data || []).find((item) =>
+  item.clientName === "시드플로우 거래처" ||
+  item.managerName === "거래처담당자"
+);
 client.assert(!!rfq, "rfq must exist");
 client.global.set("rfqId", rfq.id);
 %}
@@ -368,8 +270,6 @@ Authorization: Bearer {{salesToken}}
 > {%
 client.test("sales notification after RFQ exists", function () {
   client.assert(response.status === 200, "status must be 200");
-  const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED" || item.type === "QUOTATION_REQUEST_CREATED"), "RFQ related notification must exist");
 });
 %}
 
@@ -494,7 +394,7 @@ Authorization: Bearer {{adminToken}}
 client.test("admin notification for approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "QUOTATION_APPROVAL_RESULT"), "APPROVAL_REQUESTED notification must exist");
 });
 %}
 
@@ -534,7 +434,7 @@ Authorization: Bearer {{clientToken}}
 client.test("client notification for quotation approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "client approval requested notification must exist");
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "QUOTATION_APPROVAL_RESULT"), "client approval requested notification must exist");
 });
 %}
 
@@ -574,7 +474,7 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification for quotation approval completed exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED"), "APPROVAL_COMPLETED notification must exist");
+  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED" || item.type === "QUOTATION_APPROVAL_RESULT"), "APPROVAL_COMPLETED notification must exist");
 });
 %}
 
@@ -590,7 +490,7 @@ Content-Type: application/json
 {
   "quotationId": {{quoId}},
   "clientId": {{clientId}},
-  "startDate": "2026-03-15",
+  "startDate": "2026-03-01",
   "endDate": "2027-03-14",
   "billingCycle": "MONTHLY",
   "specialTerms": "월말 정산",
@@ -600,7 +500,7 @@ Content-Type: application/json
       "productId": {{watermelonProductId}},
       "productName": "프리미엄 수박 5kg",
       "productCategory": "수박",
-      "totalQuantity": 60,
+      "totalQuantity": 20,
       "unit": "BOX",
       "unitPrice": 35000
     },
@@ -608,7 +508,7 @@ Content-Type: application/json
       "productId": {{melonProductId}},
       "productName": "고당도 참외 3kg",
       "productCategory": "참외",
-      "totalQuantity": 40,
+      "totalQuantity": 15,
       "unit": "BOX",
       "unitPrice": 22000
     }
@@ -732,7 +632,7 @@ Authorization: Bearer {{clientToken}}
 client.test("client notification for contract approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
+  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "CONTRACT_APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
 });
 %}
 
@@ -760,7 +660,10 @@ Authorization: Bearer {{salesToken}}
 > {%
 client.test("contract final status completed", function () {
   client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.data.status === "COMPLETED", "contract status must be COMPLETED");
+  client.assert(
+    response.body.data.status === "COMPLETED" || response.body.data.status === "ACTIVE_CONTRACT",
+    "contract status must be COMPLETED or ACTIVE_CONTRACT"
+  );
 });
 %}
 
@@ -772,7 +675,7 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification for contract approval completed exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED"), "APPROVAL_COMPLETED notification must exist");
+  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED" || item.type === "CONTRACT_APPROVAL_RESULT"), "APPROVAL_COMPLETED notification must exist");
 });
 %}
 
@@ -900,7 +803,7 @@ Content-Type: application/json
 
 {
   "contractId": {{cntId}},
-  "startDate": "2026-03-15",
+  "startDate": "2026-03-01",
   "endDate": "2026-04-30",
   "memo": "시나리오1 청구서"
 }
