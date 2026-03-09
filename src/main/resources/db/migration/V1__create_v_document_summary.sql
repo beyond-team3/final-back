@@ -36,10 +36,11 @@ FROM tbl_order_header
 UNION ALL
 
 SELECT CONCAT('STMT-', statement_id),
-       'STMT', statement_id, deal_id, NULL,
+       'STMT', s.statement_id, s.deal_id, d.client_id,
        statement_code, total_amount, NULL,
        status, created_at
-FROM tbl_statement
+FROM tbl_statement s
+         JOIN tbl_sales_deal d ON d.deal_id = s.deal_id
 
 UNION ALL
 

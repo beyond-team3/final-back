@@ -10,10 +10,12 @@ import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
@@ -51,7 +53,7 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
                         statusEq(condition.status()),
                         keywordContains(condition.keyword())
                 )
-                .orderBy(createdAtDesc())
+                .orderBy(getOrderSpecifiers(pageable))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -117,7 +119,24 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
         return documentSummary.docCode.containsIgnoreCase(keyword.trim());
     }
 
-    private OrderSpecifier<?> createdAtDesc() {
-        return new OrderSpecifier<>(Order.DESC, documentSummary.createdAt);
+    private OrderSpecifier<?>[] getOrderSpecifiers(Pageable pageable) {
+        List<OrderSpecifier<?>> orderSpecifiers = new ArrayList<>();
+
+        if (pageable != null) {
+            for (Sort.Order sortOrder : pageable.getSort()) {
+                if ("createdAt".equals(sortOrder.getProperty())) {
+                    orderSpecifiers.add(new OrderSpecifier<>(
+                            sortOrder.isAscending() ? Order.ASC : Order.DESC,
+                            documentSummary.createdAt
+                    ));
+                }
+            }
+        }
+
+        if (orderSpecifiers.isEmpty()) {
+            orderSpecifiers.add(new OrderSpecifier<>(Order.DESC, documentSummary.createdAt));
+        }
+
+        return orderSpecifiers.toArray(OrderSpecifier[]::new);
     }
 }
