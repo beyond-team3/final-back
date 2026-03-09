@@ -29,7 +29,7 @@ public class AccountController {
 
     @PatchMapping("/employees/{employeeId}")
     public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId,
-                                            @RequestBody @Valid EmployeeUpdateRequest request) {
+                                           @RequestBody @Valid EmployeeUpdateRequest request) {
         accountService.updateEmployeeInfo(employeeId, request);
         return ApiResult.success();
     }
