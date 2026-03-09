@@ -1,4 +1,4 @@
-package com.monsoon.seedflowplus.domain.schedule.dto.request;
+package com.monsoon.seedflowplus.domain.schedule.query;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import java.time.LocalDateTime;

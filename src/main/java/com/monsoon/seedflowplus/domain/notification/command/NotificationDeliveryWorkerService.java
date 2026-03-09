@@ -3,12 +3,14 @@ package com.monsoon.seedflowplus.domain.notification.command;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
+import com.monsoon.seedflowplus.domain.notification.dto.response.NotificationListItemResponse;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,13 +23,13 @@ public class NotificationDeliveryWorkerService {
     private static final int FAIL_REASON_MAX_LENGTH = 500;
 
     private final NotificationDeliveryRepository notificationDeliveryRepository;
+    private final NotificationSseService notificationSseService;
 
     public int dispatchDueDeliveries(LocalDateTime now) {
         Objects.requireNonNull(now, "now must not be null");
 
         List<NotificationDelivery> dueDeliveries =
-                notificationDeliveryRepository
-                        .findTop100ForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                loadDueDeliveriesWithAssociations(
                         DeliveryStatus.PENDING.name(),
                         now
                 );
@@ -56,11 +58,41 @@ public class NotificationDeliveryWorkerService {
 
     private void dispatch(NotificationDelivery delivery, LocalDateTime now) {
         if (delivery.getChannel() == DeliveryChannel.IN_APP) {
+            boolean sent = notificationSseService.send(
+                    delivery.getNotification().getUser().getId(),
+                    NotificationListItemResponse.from(delivery.getNotification())
+            );
+            if (!sent) {
+                throw new IllegalStateException("SSE send failed");
+            }
             delivery.markSent(now, null);
             return;
         }
 
         throw new IllegalStateException("Unsupported delivery channel: " + delivery.getChannel());
+    }
+
+    private List<NotificationDelivery> loadDueDeliveriesWithAssociations(String status, LocalDateTime now) {
+        List<Long> deliveryIds;
+        try {
+            deliveryIds =
+                    notificationDeliveryRepository
+                            .findTop100IdsForUpdateSkipLockedByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+                                    status,
+                                    now
+                            );
+        } catch (DataAccessException e) {
+            log.warn(
+                    "SKIP LOCKED query failed. Non-atomic fallback is disabled to prevent duplicate dispatch. status={}",
+                    status,
+                    e
+            );
+            return List.of();
+        }
+        if (deliveryIds.isEmpty()) {
+            return List.of();
+        }
+        return notificationDeliveryRepository.findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc(deliveryIds);
     }
 
     private String normalizeReason(Exception e) {

@@ -22,10 +22,16 @@ public class ContractController {
 
     private final ContractService contractService;
 
-    @Operation(summary = "거래처별 계약 목록 조회 (드롭다운용)", description = "특정 거래처 ID에 귀속된 계약 목록을 조회합니다.")
+    @Operation(summary = "거래처별 계약 목록 조회 (일반 조회용)", description = "거래처 ID에 귀속된 계약 목록을 조회합니다. 권한에 따라 특정 상태가 제한될 수 있습니다.")
     @GetMapping
     public ApiResult<List<ContractSimpleResponse>> getContractsByClient(@RequestParam("clientId") Long clientId) {
         return ApiResult.success(contractService.getContractsByClient(clientId));
+    }
+
+    @Operation(summary = "거래처별 활성 계약 목록 조회 (주문서 작성용)", description = "주문서 작성 시 사용 가능한 ACTIVE_CONTRACT 상태의 계약만 조회합니다.")
+    @GetMapping("/active")
+    public ApiResult<List<ContractSimpleResponse>> getActiveContractsByClient(@RequestParam("clientId") Long clientId) {
+        return ApiResult.success(contractService.getActiveContractsByClient(clientId));
     }
 
     @Operation(summary = "계약서 작성을 위한 견적 데이터 불러오기", description = "견적서 ID를 통해 계약서 작성에 필요한 기본 정보를 조회합니다.")

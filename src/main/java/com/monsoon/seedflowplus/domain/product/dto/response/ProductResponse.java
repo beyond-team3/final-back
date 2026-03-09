@@ -20,7 +20,7 @@ public class ProductResponse {
     private String imageUrl;
     private PriceData priceData;
     private Map<String, List<String>> tags;
-    private CultivationTimeDto cultivationTime;
+    private List<CultivationTimeDto> cultivationTimes;
 
     @Getter
     @AllArgsConstructor

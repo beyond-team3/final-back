@@ -23,6 +23,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LocalDateTime to
     );
 
+    boolean existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            Long userId,
+            NotificationType type,
+            NotificationTargetType targetType,
+            Long targetId,
+            LocalDateTime from,
+            LocalDateTime to
+    );
+
+    boolean existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndContentAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            Long userId,
+            NotificationType type,
+            NotificationTargetType targetType,
+            Long targetId,
+            String content,
+            LocalDateTime from,
+            LocalDateTime to
+    );
+
     Page<Notification> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     long countByUser_IdAndReadAtIsNull(Long userId);
@@ -32,4 +51,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Notification n set n.readAt = :now where n.user.id = :userId and n.readAt is null")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Notification n set n.isDeleted = true where n.user.id = :userId and n.isDeleted = false")
+    int deleteByUser_Id(@Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Notification n set n.isDeleted = true where n.createdAt < :cutoff and n.isDeleted = false")
+    int deleteByCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }

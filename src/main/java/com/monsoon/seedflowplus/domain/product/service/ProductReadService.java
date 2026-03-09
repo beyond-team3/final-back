@@ -44,7 +44,7 @@ public class ProductReadService {
                 boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
                 List<Long> productIds = products.stream().map(Product::getId).toList();
-                Map<Long, CultivationTime> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
 
                 return products.stream()
                                 .map(product -> convertToDto(product, canViewPrice, ctMap.get(product.getId())))
@@ -58,7 +58,7 @@ public class ProductReadService {
                 boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
                 List<Long> productIds = bookmarks.stream().map(b -> b.getProduct().getId()).toList();
-                Map<Long, CultivationTime> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
 
                 return bookmarks.stream()
                                 .map(bookmark -> convertToDto(bookmark.getProduct(), canViewPrice,
@@ -120,7 +120,7 @@ public class ProductReadService {
                 // 권한 체크후 관리자와 영업사원만 가격 정보 출력
                 boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
-                Map<Long, CultivationTime> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
 
                 return products.stream()
                                 .map(product -> convertToDto(product, canViewPrice, ctMap.get(product.getId())))
@@ -138,7 +138,7 @@ public class ProductReadService {
                                 .map(item -> item.getProduct().getId())
                                 .distinct()
                                 .toList();
-                Map<Long, CultivationTime> ctMap = getCultivationTimeMap(allProductIds);
+                Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(allProductIds);
 
                 return histories.stream()
                                 .map(history -> CompareHistoryResponse.builder()
@@ -154,7 +154,6 @@ public class ProductReadService {
                                 .toList();
         }
 
-
         // 상품 상세페이지 사용
         public ProductResponse getProductDetail(Long productId, Role role) {
 
@@ -166,20 +165,35 @@ public class ProductReadService {
                 return convertToDto(product, canViewPrice);
         }
 
-        private Map<Long, CultivationTime> getCultivationTimeMap(List<Long> productIds) {
+        private Map<Long, List<CultivationTime>> getCultivationTimeMap(List<Long> productIds) {
                 if (productIds == null || productIds.isEmpty()) {
                         return Collections.emptyMap();
                 }
                 return cultivationTimeRepository.findAllByProductIdIn(productIds).stream()
-                                .collect(Collectors.toMap(ct -> ct.getProduct().getId(), ct -> ct));
+                                .collect(Collectors.groupingBy(ct -> ct.getProduct().getId()));
+        }
+
+        public List<CultivationTimeDto> getCultivationTimes(Long productId) {
+                return cultivationTimeRepository.findByProductId(productId).stream()
+                                .map(ct -> CultivationTimeDto.builder()
+                                                .croppingSystem(ct.getCroppingSystem())
+                                                .region(ct.getRegion())
+                                                .sowingStart(ct.getSowingStart())
+                                                .sowingEnd(ct.getSowingEnd())
+                                                .plantingStart(ct.getPlantingStart())
+                                                .plantingEnd(ct.getPlantingEnd())
+                                                .harvestingStart(ct.getHarvestingStart())
+                                                .harvestingEnd(ct.getHarvestingEnd())
+                                                .build())
+                                .toList();
         }
 
         private ProductResponse convertToDto(Product product, boolean canViewPrice) {
                 return convertToDto(product, canViewPrice,
-                                cultivationTimeRepository.findByProductId(product.getId()).orElse(null));
+                                cultivationTimeRepository.findByProductId(product.getId()));
         }
 
-        private ProductResponse convertToDto(Product product, boolean canViewPrice, CultivationTime ct) {
+        private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
                 ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
                                 .id(product.getId())
                                 .category(product.getProductCategory().name())
@@ -188,15 +202,17 @@ public class ProductReadService {
                                 .imageUrl(product.getProductImageUrl())
                                 .tags(product.getTags());
 
-                if (ct != null) {
-                        builder.cultivationTime(CultivationTimeDto.builder()
+                if (ctList != null && !ctList.isEmpty()) {
+                        builder.cultivationTimes(ctList.stream().map(ct -> CultivationTimeDto.builder()
+                                        .croppingSystem(ct.getCroppingSystem())
+                                        .region(ct.getRegion())
                                         .sowingStart(ct.getSowingStart())
                                         .sowingEnd(ct.getSowingEnd())
                                         .plantingStart(ct.getPlantingStart())
                                         .plantingEnd(ct.getPlantingEnd())
                                         .harvestingStart(ct.getHarvestingStart())
                                         .harvestingEnd(ct.getHarvestingEnd())
-                                        .build());
+                                        .build()).toList());
                 }
 
                 if (canViewPrice) {

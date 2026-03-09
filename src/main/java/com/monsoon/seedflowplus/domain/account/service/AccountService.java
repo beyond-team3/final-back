@@ -12,6 +12,7 @@ import com.monsoon.seedflowplus.domain.account.dto.response.ClientProfileRespons
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeDetailResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeListResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeManagedClientResponse;
+import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeProfileResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.EmployeeSimpleResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredClientResponse;
 import com.monsoon.seedflowplus.domain.account.dto.response.UnregisteredEmployeeResponse;
@@ -23,6 +24,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.infra.kakao.GeocodingService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -168,6 +171,12 @@ public class AccountService {
             }
         }
 
+        Employee manager = null;
+        if (request.managerId() != null) {
+            manager = employeeRepository.findById(request.managerId())
+                    .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+        }
+
         client.updateClientInfo(
                 request.clientName(),
                 request.clientBrn(),
@@ -179,6 +188,10 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+
+        if (manager != null) {
+            client.updateManagerEmployee(manager);
+        }
     }
 
     @Transactional
@@ -291,17 +304,34 @@ public class AccountService {
     @Transactional(readOnly = true)
     public EmployeeDetailResponse getEmployeeDetail(Long employeeId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
-
-        // 권한 체크: ADMIN이 아니고, 본인의 employeeId와 요청된 employeeId가 다른 경우 거부
-        if (userDetails.getRole() != Role.ADMIN &&
-                (userDetails.getEmployeeId() == null || !userDetails.getEmployeeId().equals(employeeId))) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
-        }
+        requireRole(userDetails, Role.ADMIN);
 
         User user = userRepository.findByEmployeeId(employeeId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
         return EmployeeDetailResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeProfileResponse getMyEmployeeProfile() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        if (userDetails.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        User user = userRepository.findByEmployeeId(userDetails.getEmployeeId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        if (user.getEmployee() == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        return EmployeeProfileResponse.from(user);
     }
 
     @Transactional(readOnly = true)
@@ -346,12 +376,17 @@ public class AccountService {
 
         // 영업사원인 경우 본인 담당 거래처만 조회
         if (role == Role.SALES_REP) {
-            if (userDetails.getEmployeeId() == null) {
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
                 throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
             }
-            return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+            List<Client> rawEntities = clientRepository.findAllByManagerEmployeeId(employeeId);
+
+            List<ClientListResponse> clients = rawEntities.stream()
                     .map(ClientListResponse::from)
                     .toList();
+
+            return clients;
         }
 
         // 그 외 권한은 접근 거부
@@ -399,7 +434,7 @@ public class AccountService {
         Client client = clientRepository.findById(userDetails.getClientId())
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-        return ClientProfileResponse.from(client);
+        return ClientProfileResponse.from(client, userDetails.getRole());
     }
 
     @Transactional(readOnly = true)

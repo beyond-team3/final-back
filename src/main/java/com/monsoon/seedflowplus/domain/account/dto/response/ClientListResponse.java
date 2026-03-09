@@ -1,39 +1,32 @@
 package com.monsoon.seedflowplus.domain.account.dto.response;
 
+import com.monsoon.seedflowplus.core.common.util.AddressParser;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
 import com.monsoon.seedflowplus.domain.account.entity.Status;
 
 public record ClientListResponse(
+        Long id,
         String clientCode,
         String clientName,
         ClientType clientType,
         String managerName,
-        String region,
+        Long managerId,
+        String addressSido,
         Status status) {
     public static ClientListResponse from(Client client) {
-        String region = extractRegion(client.getAddress());
+        AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
         Status accountStatus = client.getAccount() != null ? client.getAccount().getStatus() : null;
+        Long managerEmployeeId = client.getManagerEmployee() != null ? client.getManagerEmployee().getId() : null;
 
         return new ClientListResponse(
+                client.getId(),
                 client.getClientCode(),
                 client.getClientName(),
                 client.getClientType(),
                 client.getManagerName(),
-                region,
+                managerEmployeeId,
+                addressInfo.sido(),
                 accountStatus);
-    }
-
-    private static String extractRegion(String address) {
-        if (address == null || address.isBlank()) {
-            return "";
-        }
-        String[] parts = address.trim().split("\\s+");
-        if (parts.length >= 2) {
-            return parts[0] + " " + parts[1];
-        } else if (parts.length == 1) {
-            return parts[0];
-        }
-        return "";
     }
 }

@@ -2,7 +2,7 @@ package com.monsoon.seedflowplus.domain.schedule.dto.request;
 
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleVisibility;
-import com.monsoon.seedflowplus.domain.schedule.dto.validation.ValidTimeRange;
+import com.monsoon.seedflowplus.domain.schedule.validation.ValidTimeRange;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,7 +15,7 @@ public record PersonalScheduleCreateRequest(
         @NotNull LocalDateTime startAt,
         @NotNull LocalDateTime endAt,
         boolean allDay,
-        @NotNull ScheduleStatus status,
-        @NotNull ScheduleVisibility visibility
+        ScheduleStatus status,
+        ScheduleVisibility visibility
 ) {
 }
