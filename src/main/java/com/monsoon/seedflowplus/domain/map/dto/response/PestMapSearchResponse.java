@@ -14,6 +14,8 @@ public class PestMapSearchResponse {
     @Builder
     public static class ForecastDto {
         private String areaName;
+        private String sidoCode;
+        private String sigunguCode;
         private String severity;
     }
 
