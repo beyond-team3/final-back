@@ -61,22 +61,26 @@ pipeline {
         stage('Docker Build & Push') {
             when {
                 anyOf{
-                branch 'main'
-                branch 'dev'
+                    branch 'main'
+                    branch 'dev'
                 }
             }
             steps {
                 script {
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
-                    echo "Building Docker Image: ${IMAGE_NAME}:${newTag}"
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+
+                    newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
+
+                    echo "Building Docker Image with Unique Tag: ${newTag}"
 
                     docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
-                    def customImage = docker.build("${IMAGE_NAME}:${newTag}")
-                    customImage.push()
 
-                    // main 브랜치일 때만 latest 태그 부여
-                    if (env.BRANCH_NAME == 'main') {
-                        customImage.push('latest')
+                        def customImage = docker.build("${IMAGE_NAME}:${newTag}")
+                        customImage.push()
+
+                        if (env.BRANCH_NAME == 'main') {
+                            customImage.push('latest')
                     }
                 }
             }
