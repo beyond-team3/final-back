@@ -78,7 +78,11 @@ public class NcpmsApiClient {
 
             NcpmsListResponse response = executeWithRetry(uri, NcpmsListResponse.class);
 
-            if (response == null || response.getItems() == null || response.getItems().isEmpty()) {
+            if (response == null) {
+                throw new RuntimeException("NCPMS 목록 API 호출 최종 실패 - URI: " + uri);
+            }
+
+            if (response.getItems() == null || response.getItems().isEmpty()) {
                 break;
             }
 
@@ -109,7 +113,10 @@ public class NcpmsApiClient {
                 .build().toUri();
 
         NcpmsSidoResponse response = executeWithRetry(uri, NcpmsSidoResponse.class);
-        return response != null ? response.getItems() : new ArrayList<>();
+        if (response == null) {
+            throw new RuntimeException("NCPMS Sido API 호출 최종 실패 - URI: " + uri);
+        }
+        return response.getItems() != null ? response.getItems() : new ArrayList<>();
     }
 
     public List<NcpmsSigunguDto> fetchSigungu(String insectKey, String sidoCode) {
@@ -125,7 +132,10 @@ public class NcpmsApiClient {
                 .build().toUri();
 
         NcpmsSigunguResponse response = executeWithRetry(uri, NcpmsSigunguResponse.class);
-        return response != null ? response.getItems() : new ArrayList<>();
+        if (response == null) {
+            throw new RuntimeException("NCPMS Sigungu API 호출 최종 실패 - URI: " + uri);
+        }
+        return response.getItems() != null ? response.getItems() : new ArrayList<>();
     }
 
     /**
