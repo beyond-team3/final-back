@@ -43,9 +43,11 @@ public class PestMapService {
         var forecasts = forecastRepository.findAllByCropCodeAndPestCodeIn(request.getCropCode(), relatedCodes)
                 .stream()
                 .collect(Collectors.toMap(
-                        f -> f.getAreaName(),
+                        f -> f.getSidoCode() + "|" + f.getSigunguCode(),
                         f -> PestMapSearchResponse.ForecastDto.builder()
                                 .areaName(f.getAreaName())
+                                .sidoCode(f.getSidoCode())
+                                .sigunguCode(f.getSigunguCode())
                                 .severity(f.getSeverity())
                                 .build(),
                         (existing, replacement) -> {

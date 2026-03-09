@@ -66,7 +66,7 @@ public class NcpmsDataSyncService {
                         List<PestForecast> distinctForecasts = new ArrayList<>(
                             currentItemForecasts.stream()
                                 .collect(java.util.stream.Collectors.toMap(
-                                    f -> f.getAreaName() + "|" + f.getCropCode() + "|" + f.getPestCode(),
+                                    f -> f.getSidoCode() + "|" + f.getSigunguCode() + "|" + f.getCropCode() + "|" + f.getPestCode(),
                                     f -> f,
                                     (existing, replacement) -> getMoreSevere(existing, replacement)
                                 ))
@@ -139,6 +139,8 @@ public class NcpmsDataSyncService {
             if (!"UNKNOWN".equals(cropCode) && !"UNKNOWN".equals(pestCode)) {
                 entities.add(PestForecast.builder()
                         .areaName(dto.getSigunguNm() != null ? dto.getSigunguNm() : "Unknown")
+                        .sidoCode(dto.getSidoCode())
+                        .sigunguCode(dto.getSigunguCode())
                         .cropCode(cropCode)
                         .pestCode(pestCode)
                         .severity(severity)
