@@ -13,10 +13,12 @@ public record ClientListResponse(
         String managerName,
         Long managerId,
         String addressSido,
-        Status status) {
+        Status status,
+        Long accountId) {
     public static ClientListResponse from(Client client) {
         AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
         Status accountStatus = client.getAccount() != null ? client.getAccount().getStatus() : null;
+        Long accountId = client.getAccount() != null ? client.getAccount().getId() : null;
         Long managerEmployeeId = client.getManagerEmployee() != null ? client.getManagerEmployee().getId() : null;
 
         return new ClientListResponse(
@@ -27,6 +29,7 @@ public record ClientListResponse(
                 client.getManagerName(),
                 managerEmployeeId,
                 addressInfo.sido(),
-                accountStatus);
+                accountStatus,
+                accountId);
     }
 }

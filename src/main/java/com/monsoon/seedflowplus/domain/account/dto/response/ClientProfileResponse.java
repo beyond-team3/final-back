@@ -3,10 +3,9 @@ package com.monsoon.seedflowplus.domain.account.dto.response;
 import com.monsoon.seedflowplus.core.common.util.AddressParser;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
-import com.monsoon.seedflowplus.domain.account.entity.Role;
 
 public record ClientProfileResponse(
-        Role role,
+        Long id,
         String clientCode,
         String clientName,
         String clientBrn,
@@ -19,11 +18,11 @@ public record ClientProfileResponse(
         String managerName,
         String managerPhone,
         String managerEmail) {
-    public static ClientProfileResponse from(Client client, Role role) {
+    public static ClientProfileResponse from(Client client) {
         AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
 
         return new ClientProfileResponse(
-                role,
+                client.getId(),
                 client.getClientCode(),
                 client.getClientName(),
                 client.getClientBrn(),

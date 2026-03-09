@@ -23,12 +23,17 @@ public record ClientDetailResponse(
         String managerPhone,
         String managerEmail,
         Long managerId,
+        String managerEmployeeName, // 추가
         BigDecimal totalCredit,
-        BigDecimal usedCredit) {
+        BigDecimal usedCredit,
+        Long accountId) {
     public static ClientDetailResponse from(Client client) {
         Status accountStatus = client.getAccount() != null ? client.getAccount().getStatus() : null;
+        Long accountId = client.getAccount() != null ? client.getAccount().getId() : null;
         AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
         Long managerEmployeeId = client.getManagerEmployee() != null ? client.getManagerEmployee().getId() : null;
+        String managerEmployeeName = client.getManagerEmployee() != null ? client.getManagerEmployee().getEmployeeName()
+                : null;
 
         return new ClientDetailResponse(
                 client.getId(),
@@ -46,7 +51,9 @@ public record ClientDetailResponse(
                 client.getManagerPhone(),
                 client.getManagerEmail(),
                 managerEmployeeId,
+                managerEmployeeName,
                 client.getTotalCredit(),
-                client.getUsedCredit());
+                client.getUsedCredit(),
+                accountId);
     }
 }

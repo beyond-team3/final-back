@@ -1,5 +1,33 @@
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3355.v388858a_47b_33-6-jdk21
+  - name: docker-cli
+    image: docker:27-cli
+    command: ['cat']
+    tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+    - name: ssh-config
+      mountPath: /home/jenkins/.ssh/known_hosts
+      subPath: known_hosts
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+  - name: ssh-config
+    configMap:
+      name: ssh-known-hosts
+"""
+        }
+    }
 
     tools {
         jdk 'jdk-21'
@@ -59,18 +87,36 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-            when {
-                branch 'main'
-            }
             steps {
-                script {
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
-                    echo "Building Docker Image: ${IMAGE_NAME}:${newTag}"
+                container('docker-cli') {
+                    script {
+                        // 변수 정의 및 태그 생성
+                        def prefix = env.APP_VERSION_PREFIX
+                        def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+                        def buildNum = env.BUILD_NUMBER
+                        def shortSha = env.GIT_COMMIT.take(7)
+                        def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
 
-                    docker.withRegistry('', "${DOCKER_CREDENTIAL_ID}") {
-                    def customImage = docker.build("${IMAGE_NAME}:${newTag}")
-                    customImage.push()
-                    customImage.push('latest')
+                        withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
+                            usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+
+                            echo "Building and Pushing Tag: " + newTag
+
+                            // 도커 빌드 (고유 태그 및 latest)
+                            sh "docker build --no-cache -t ${IMAGE_NAME}:${newTag} ."
+
+                            // 도커 로그인 및 푸시
+                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            sh "docker push ${IMAGE_NAME}:${newTag}"
+
+                            // main 브랜치일 경우에만 latest 푸시
+                            if (env.BRANCH_NAME == 'main') {
+                                sh "docker tag ${IMAGE_NAME}:${newTag} ${IMAGE_NAME}:latest"
+                                sh "docker push ${IMAGE_NAME}:latest"
+                            }
+
+                            sh "docker logout"
+                        }
                     }
                 }
             }
@@ -78,49 +124,56 @@ pipeline {
 
         stage('Update Manifest') {
             when {
-                branch 'main'
+                anyOf {
+                    branch 'main'
+                    branch 'dev'
+                }
             }
             steps {
                 script {
                     def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
                     def targetFile = "backend/deployment.yml"
                     def imageName = "21monsoon/monsoon-backend"
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
 
-                    // SSH 자격 증명 ID 사용
+                    // 변수 정의
+                    def prefix = env.APP_VERSION_PREFIX
+                    def branchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def buildNum = env.BUILD_NUMBER
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def newTag = prefix + "." + branchName + "." + buildNum + "." + shortSha
+
+                    def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
+
+                    echo "Targeting Tag: " + newTag
+
                     sshagent(credentials: ['github-deploy-key']) {
                         sh """
-                            # 기존 임시 폴더 정리
-                            rm -rf temp-manifests
+                            # SSH 디렉토리 생성 및 GitHub 지문 등록
+                            mkdir -p ~/.ssh
+                            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
-                            # SSH를 통한 보안 클론
+                            echo "Starting Manifest Update for: ${newTag}"
+
+                            # 클론 진행
+                            rm -rf temp-manifests
                             git clone ${manifestRepoUrl} temp-manifests
+
                             cd temp-manifests
 
-                            # 젠킨스 봇 계정 설정
+                            # 이미지 태그 업데이트
+                            git checkout ${targetBranch} || git checkout -b ${targetBranch}
+                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
+
+                            # Git 설정 및 푸시
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
 
-                            # 태그 업데이트
-                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
-
-                            # 변경 사항이 있을 때만 커밋 및 푸시
                             git add ${targetFile}
-
                             if git diff --cached --quiet; then
-                                echo "No changes detected in manifest; skipping commit/push."
+                                echo "No changes detected; skip push"
                             else
-                                # 동시 푸시 충돌 방지를 위한 rebase 전략 적용
-                                git commit -m "[CD] Update ${imageName} to ${newTag} [skip ci]"
-                                for attempt in 1 2 3; do
-                                    git pull --rebase origin main && git push origin main && break
-                                    if [ "$attempt" -eq 3 ]; then
-                                        echo "Push failed after 3 attempts."
-                                        exit 1
-                                    fi
-                                    sleep 2
-                                done
-                                echo "Manifest update stage completed for beyond-team3/final-manifests backend"
+                                git commit -m "🚀 [CD] Update to ${newTag} [skip ci]"
+                                git push origin ${targetBranch}
                             fi
                         """
                     }
@@ -138,7 +191,7 @@ pipeline {
         success {
             discordSend(
                 webhookURL: "${env.DISCORD_WEBHOOK}",
-                title: "🟢[Backend] 빌드 성공",
+                title: "🟢 [Backend] 빌드 성공",
                 description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
                 result: 'SUCCESS'
             )
@@ -146,7 +199,7 @@ pipeline {
         failure {
             discordSend(
                 webhookURL: "${env.DISCORD_WEBHOOK}",
-                title: "🔴[Backend] 빌드 실패",
+                title: "🔴 [Backend] 빌드 실패",
                 description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
                 result: 'FAILURE'
             )
