@@ -63,11 +63,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/clients/*/crops").hasRole("SALES_REP")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/accounts/clients/crops/*").hasRole("SALES_REP")
                         .requestMatchers("/api/v1/accounts/clients/register", "/api/v1/accounts/employees/register",
-                                "/api/v1/accounts/users/**").hasRole("ADMIN")
+                                "/api/v1/accounts/users/**")
+                        .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/clients/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/employees/*").hasRole("ADMIN")
                         .requestMatchers("/api/v1/notes/**").hasAnyRole("SALES_REP", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/clients/*/trade-summary").hasAnyRole("SALES_REP", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/clients/*/trade-summary")
+                        .hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/scoring/**").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/billing/revenue/**").hasAnyRole("SALES_REP", "ADMIN")
                         .anyRequest().authenticated())
@@ -85,9 +87,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration
-                .setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8000", "http://localhost:30090"));
+                .setAllowedOrigins(
+                        Arrays.asList("http://localhost:5173", "http://localhost:8000", "http://localhost:30090"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(
+                Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "X-Request-Started-At"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 

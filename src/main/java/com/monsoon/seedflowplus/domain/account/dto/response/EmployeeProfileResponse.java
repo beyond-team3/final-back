@@ -1,33 +1,40 @@
 package com.monsoon.seedflowplus.domain.account.dto.response;
 
 import com.monsoon.seedflowplus.core.common.util.AddressParser;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.ClientType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
-import com.monsoon.seedflowplus.domain.account.entity.User;
 
-import java.time.LocalDateTime;
-
-public record EmployeeProfileResponse(
-        Long employeeId,
+public record ClientProfileResponse(
         Role role,
-        String employeeName,
-        String employeeCode,
-        String employeeEmail,
-        String employeePhone,
-        LocalDateTime createdAt,
+        String clientCode,
+        String clientName,
+        String clientBrn,
+        String ceoName,
+        String companyPhone,
+        String addressSido,
         String addressDetail,
-        String addressZip) {
-    public static EmployeeProfileResponse from(User user) {
-        AddressParser.AddressInfo addressInfo = AddressParser.parse(user.getEmployee().getAddress());
+        String addressZip,
+        ClientType clientType,
+        String managerName,
+        String managerPhone,
+        String managerEmail) {
+    public static ClientProfileResponse from(Client client, Role role) {
+        AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
 
-        return new EmployeeProfileResponse(
-                user.getEmployee().getId(),
-                user.getRole(),
-                user.getEmployee().getEmployeeName(),
-                user.getEmployee().getEmployeeCode(),
-                user.getEmployee().getEmployeeEmail(),
-                user.getEmployee().getEmployeePhone(),
-                user.getEmployee().getCreatedAt(),
+        return new ClientProfileResponse(
+                role,
+                client.getClientCode(),
+                client.getClientName(),
+                client.getClientBrn(),
+                client.getCeoName(),
+                client.getCompanyPhone(),
+                addressInfo.sido(),
                 addressInfo.detail(),
-                addressInfo.zip());
+                addressInfo.zip(),
+                client.getClientType(),
+                client.getManagerName(),
+                client.getManagerPhone(),
+                client.getManagerEmail());
     }
 }
