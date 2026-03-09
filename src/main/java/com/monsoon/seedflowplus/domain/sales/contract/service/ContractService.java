@@ -31,6 +31,7 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ import java.util.UUID;
 
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -60,11 +62,11 @@ public class ContractService {
     private final DealLogQueryService dealLogQueryService;
 
     /**
-     * 특정 거래처의 계약 목록 조회 (드롭다운용)
+     * 특정 거래처의 모든 계약 목록 조회 (이력 관리 및 일반 조회용)
      */
     public List<ContractSimpleResponse> getContractsByClient(Long clientId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
-        
+
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
@@ -72,7 +74,34 @@ public class ContractService {
         validateClientAccess(client, userDetails);
 
         return contractRepository.findByClientOrderByEndDateAsc(client).stream()
-                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 삭제된 계약 제외
+                .filter(c -> c.getStatus() != ContractStatus.DELETED) // 공통: 삭제 제외
+                .filter(c -> {
+                    // 거래처인 경우 관리자 승인 전 단계(WAITING_ADMIN, REJECTED_ADMIN)는 노출하지 않음
+                    if (userDetails.getRole() == Role.CLIENT) {
+                        return c.getStatus() != ContractStatus.WAITING_ADMIN &&
+                                c.getStatus() != ContractStatus.REJECTED_ADMIN;
+                    }
+                    return true;
+                })
+                .map(ContractSimpleResponse::from)
+                .toList();
+    }
+
+    /**
+     * 특정 거래처의 활성 계약 목록 조회 (주문서 작성 등 실무용)
+     * ACTIVE_CONTRACT 상태만 반환
+     */
+    public List<ContractSimpleResponse> getActiveContractsByClient(Long clientId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
+        validateClientAccess(client, userDetails);
+
+        return contractRepository.findActiveContractsByClient(client, LocalDate.now(),
+                        ContractStatus.ACTIVE_CONTRACT, ContractStatus.COMPLETED)
+                .stream()
                 .map(ContractSimpleResponse::from)
                 .toList();
     }
@@ -84,7 +113,8 @@ public class ContractService {
 
         if (user.getRole() == Role.SALES_REP) {
             // 해당 거래처의 담당 영업사원인지 확인
-            if (client.getManagerEmployee() == null || !client.getManagerEmployee().getId().equals(user.getEmployeeId())) {
+            if (client.getManagerEmployee() == null
+                    || !client.getManagerEmployee().getId().equals(user.getEmployeeId())) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;
@@ -177,8 +207,29 @@ public class ContractService {
                 dealLogQueryService.getRecentDocumentLogs(
                         contract.getDeal() != null ? contract.getDeal().getId() : null,
                         DealType.CNT,
-                        contract.getId()
-                ));
+                        contract.getId()));
+    }
+
+    /**
+     * 계약 상태 자동 동기화
+     * 1. COMPLETED(완료) -> 시작일(startDate) 도래 시 ACTIVE_CONTRACT(진행중)로 변경
+     * 2. ACTIVE_CONTRACT(진행중) -> 종료일(endDate) 경과 시 EXPIRED(만료)로 변경
+     */
+    @Transactional
+    public void syncContractStatuses() {
+        LocalDate today = LocalDate.now();
+
+        // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
+        int activatedCount = contractRepository.updateStatusForActivation(
+                ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
+
+        // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
+        int expiredCount = contractRepository.updateStatusForExpiration(
+                ContractStatus.ACTIVE_CONTRACT, ContractStatus.EXPIRED, today);
+
+        if (activatedCount > 0 || expiredCount > 0) {
+            log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
+        }
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -379,10 +430,10 @@ public class ContractService {
                 null,
                 List.of(
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
-                        new DealLogWriteService.DiffField("billingCycle", "청구 주기", null, request.billingCycle().name(), "ENUM"),
-                        new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(), "COUNT")
-                )
-        );
+                        new DealLogWriteService.DiffField("billingCycle", "청구 주기", null, request.billingCycle().name(),
+                                "ENUM"),
+                        new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(),
+                                "COUNT")));
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
@@ -422,7 +473,6 @@ public class ContractService {
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
         if (ownerEmp == null) {
-            // TODO(BAC-70): QUO 없이 CNT 시작 시 owner 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
