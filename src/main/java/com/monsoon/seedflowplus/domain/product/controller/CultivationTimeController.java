@@ -20,7 +20,7 @@ public class CultivationTimeController {
     private final ProductReadService productReadService;
 
     @GetMapping("/{productId}/cultivation-time")
-    @Operation(summary = "상품 재배적기 단독 조회", description = "특정 상품의 작형 및 지역별 재배적기 목록을 반환합니다.")
+    @Operation(summary = "상품 재배적기 목록 조회", description = "특정 상품의 작형 및 지역별 재배적기 목록을 반환합니다.")
     public ResponseEntity<List<CultivationTimeDto>> getCultivationTimes(@PathVariable Long productId) {
         List<CultivationTimeDto> response = productReadService.getCultivationTimes(productId);
         return ResponseEntity.ok(response);

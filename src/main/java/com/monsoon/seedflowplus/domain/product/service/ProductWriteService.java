@@ -66,6 +66,9 @@ public class ProductWriteService {
 
             // 재배적기 정보가 있다면 저장
             if (request.getCultivationTimes() != null && !request.getCultivationTimes().isEmpty()) {
+                if (request.getCultivationTimes().stream().anyMatch(java.util.Objects::isNull)) {
+                    throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+                }
                 List<CultivationTime> ctList = request.getCultivationTimes().stream()
                         .map(ctDto -> CultivationTime.builder()
                                 .product(savedProduct)
@@ -145,6 +148,10 @@ public class ProductWriteService {
         // DTO가 없는 경우
         if (ctDtoList == null || ctDtoList.isEmpty()) {
             return;
+        }
+
+        if (ctDtoList.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
         List<CultivationTime> newCts = ctDtoList.stream().map(ctDto -> CultivationTime.builder()

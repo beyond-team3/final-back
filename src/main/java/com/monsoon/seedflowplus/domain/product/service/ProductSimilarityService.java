@@ -176,10 +176,7 @@ public class ProductSimilarityService {
                 return (double) intersection.size() / union.size();
         }
 
-        // ── 재배적기 겹침: 파종/정식/수확 각각 겹침 계산 후 평균 ────────
-
         // ── 재배적기 겹침: 파종/정식/수확 각각 겹침 계산 후 최대값 ────────
-
         private double calculateCultivationSimilarity(List<CultivationTime> baseCts,
                         List<CultivationTime> candidateCts) {
                 if (baseCts == null || baseCts.isEmpty() || candidateCts == null || candidateCts.isEmpty())
