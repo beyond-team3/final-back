@@ -45,3 +45,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-09 09:44] billing statistics 문서 API/권한 보강
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/docs/statistics-backend.md — 프론트 연동을 위한 API 요청/응답 예시와 액터별 접근 권한 표 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
