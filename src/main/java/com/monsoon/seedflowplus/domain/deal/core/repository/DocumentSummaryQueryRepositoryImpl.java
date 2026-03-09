@@ -44,6 +44,8 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
                 .leftJoin(deal).on(documentSummary.dealId.eq(deal.id))
                 .where(
                         roleScope(userDetails),
+                        ownerEmpIdEq(condition.ownerEmpId()),
+                        clientIdEq(condition.clientId()),
                         docTypeEq(condition.docType()),
                         statusEq(condition.status()),
                         keywordContains(condition.keyword())
@@ -59,6 +61,8 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
                 .leftJoin(deal).on(documentSummary.dealId.eq(deal.id))
                 .where(
                         roleScope(userDetails),
+                        ownerEmpIdEq(condition.ownerEmpId()),
+                        clientIdEq(condition.clientId()),
                         docTypeEq(condition.docType()),
                         statusEq(condition.status()),
                         keywordContains(condition.keyword())
@@ -83,7 +87,15 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
         if (role == Role.CLIENT) {
             return documentSummary.clientId.eq(userDetails.getClientId());
         }
-        return null;
+        throw new AccessDeniedException("허용되지 않은 역할입니다: " + role);
+    }
+
+    private BooleanExpression ownerEmpIdEq(Long ownerEmpId) {
+        return ownerEmpId == null ? null : deal.ownerEmp.id.eq(ownerEmpId);
+    }
+
+    private BooleanExpression clientIdEq(Long clientId) {
+        return clientId == null ? null : documentSummary.clientId.eq(clientId);
     }
 
     private BooleanExpression docTypeEq(DealType docType) {

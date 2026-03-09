@@ -36,13 +36,26 @@ public class DocumentSummaryQueryService {
             throw new AccessDeniedException("사용자 권한 정보가 없습니다.");
         }
 
-        if (userDetails.getRole() == Role.SALES_REP && userDetails.getEmployeeId() == null) {
-            throw new AccessDeniedException("영업사원 사용자에 employeeId가 없습니다.");
+        Role role = userDetails.getRole();
+        if (role == Role.ADMIN) {
+            return;
         }
 
-        if (userDetails.getRole() == Role.CLIENT && userDetails.getClientId() == null) {
-            throw new AccessDeniedException("거래처 사용자에 clientId가 없습니다.");
+        if (role == Role.SALES_REP) {
+            if (userDetails.getEmployeeId() == null) {
+                throw new AccessDeniedException("영업사원 사용자에 employeeId가 없습니다.");
+            }
+            return;
         }
+
+        if (role == Role.CLIENT) {
+            if (userDetails.getClientId() == null) {
+                throw new AccessDeniedException("거래처 사용자에 clientId가 없습니다.");
+            }
+            return;
+        }
+
+        throw new AccessDeniedException("허용되지 않은 역할입니다: " + role);
     }
 
     private DocumentSummaryResponse toResponse(DocumentSummary documentSummary) {

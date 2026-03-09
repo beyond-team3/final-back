@@ -175,3 +175,16 @@ bootRun 기동 및 /api/v1/documents 확인
 
 ### 다음 단계
 `jwt.secret` 환경설정 주입 후 `/api/v1/documents` 기동 재확인
+
+## [2026-03-10 04:36] DocumentSummary 조회 권한 및 조건 보강
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/service/DocumentSummaryQueryService.java — 허용 역할 화이트리스트 검증 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — ownerEmpId/clientId 조건 반영 및 미지원 역할 차단 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
