@@ -94,9 +94,14 @@ pipeline {
                     def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
                     def targetFile = "backend/deployment.yml"
                     def imageName = "21monsoon/monsoon-backend"
-                    def newTag = "${env.APP_VERSION_PREFIX}.${env.BUILD_ID}"
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
+
+                    def newTag = "${env.APP_VERSION_PREFIX}.${cleanBranchName}.${env.BUILD_NUMBER}.${shortSha}"
 
                     def targetBranch = env.BRANCH_NAME == 'main' ? 'main' : 'dev'
+
+                    echo "Generated Unique Tag: ${newTag}" // 태그 로그 확인용
 
                     // SSH 자격 증명 ID 사용
                     sshagent(credentials: ['github-deploy-key']) {
