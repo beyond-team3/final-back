@@ -39,7 +39,7 @@ public class ProductController {
     private final ProductSimilarityService productSimilarityService;
 
     // 상품 등록
-    @PostMapping
+    @PostMapping("/create")
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 등록", description = "상품 등록페이지 입니다.")
     public ResponseEntity<Long> createProduct(@Valid @RequestBody ProductRequest request) {
         Long productId = productWriteService.createProduct(request);
@@ -67,7 +67,7 @@ public class ProductController {
     }
 
     // 상품 전체 목록 조회 (추후 성능 비교를 위해 임시로 전체 조회 사용)
-    @GetMapping
+    @GetMapping("/list")
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 전체목록 조회", description = "상품 리스트를 반환합니다.")
     public ResponseEntity<List<ProductResponse>> getAllProducts(
             @io.swagger.v3.oas.annotations.Parameter(description = "10~500 숫자") @RequestParam(defaultValue = "10") int limit,
