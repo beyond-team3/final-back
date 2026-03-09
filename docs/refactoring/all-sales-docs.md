@@ -212,3 +212,35 @@ bootRun 기동 및 /api/v1/documents 확인
 
 ### 다음 단계
 없음
+
+## [2026-03-10] DocumentSummary 정렬 및 STMT 권한 보정
+
+### 변경 대상
+- 파일: src/main/resources/db/migration/V1__create_v_document_summary.sql
+- 클래스/메서드: v_document_summary (DB View)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java
+- 클래스/메서드: DocumentSummaryQueryRepositoryImpl#searchDocuments
+
+### 변경 내용
+STMT 문서 행이 `tbl_sales_deal`의 `client_id`를 사용하도록 뷰를 수정해 CLIENT 권한 범위에서 명세서가 누락되지 않도록 보정했다.
+Repository 조회 정렬이 고정 `createdAt DESC` 대신 `Pageable`의 `createdAt` 방향을 그대로 해석하도록 변경했다.
+같은 변경을 보호하기 위해 DocumentSummary 전용 repository/controller/service 테스트를 추가했다.
+
+### 변경 이유
+권한 범위 누락과 정렬 API 계약 불일치를 수정하기 위해.
+
+## [2026-03-10 08:39] DocumentSummary 권한/정렬 버그 수정 및 테스트 보강
+
+### 작업 내용
+- 수정 파일: src/main/resources/db/migration/V1__create_v_document_summary.sql — STMT 문서도 deal 기준 client_id를 채우도록 뷰 조인 보강
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — Pageable 기반 createdAt 정렬 적용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java — CLIENT의 STMT 조회와 asc/desc 정렬 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/controller/DocumentSummaryQueryControllerTest.java — sort 파라미터 계약 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/service/DocumentSummaryQueryServiceTest.java — 권한 정보 누락 차단 검증 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
