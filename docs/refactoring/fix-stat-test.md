@@ -130,3 +130,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 03:34] scenario1 bootstrap SQL로 교체
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/bootstrap-scenario1.sql — 기존 reset 전용 SQL을 삭제하고 초기화 후 admin/sales/client 계정과 거래처를 한 번에 다시 만드는 통합 bootstrap 스크립트로 교체
+- 수정 파일: api-test/http/pipeline/reset-scenario1.sql — 단독 reset 파일 삭제
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
