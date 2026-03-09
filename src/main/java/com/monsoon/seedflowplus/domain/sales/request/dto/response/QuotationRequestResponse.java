@@ -32,7 +32,8 @@ public record QuotationRequestResponse(
             Long productId,
             String productCategory,
             String productName,
-            Integer quantity) {
+            Integer quantity,
+            String unit) {
         public static ItemResponse from(
                 com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestDetail detail) {
             return new ItemResponse(
@@ -40,7 +41,8 @@ public record QuotationRequestResponse(
                     detail.getProduct() != null ? detail.getProduct().getId() : null,
                     detail.getProductCategory(),
                     detail.getProductName(),
-                    detail.getQuantity());
+                    detail.getQuantity(),
+                    detail.getUnit());
         }
     }
 }
