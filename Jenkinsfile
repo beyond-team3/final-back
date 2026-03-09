@@ -131,36 +131,51 @@ spec:
             }
             steps {
                 script {
+                    def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
+                    def targetFile = "backend/deployment.yml"
+                    def imageName = "21monsoon/monsoon-backend"
+
+                    // 변수 정의
+                    def prefix = env.APP_VERSION_PREFIX
+                    def branchName = env.BRANCH_NAME.replaceAll("/", "-")
+                    def buildNum = env.BUILD_NUMBER
+                    def shortSha = env.GIT_COMMIT.take(7)
+                    def newTag = prefix + "." + branchName + "." + buildNum + "." + shortSha
+
+                    def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
+
+                    echo "Targeting Tag: " + newTag
+
                     sshagent(credentials: ['github-deploy-key']) {
                         sh """
-                    # SSH 디렉토리 생성 및 GitHub 지문 등록
-                    mkdir -p ~/.ssh
-                    ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+                            # SSH 디렉토리 생성 및 GitHub 지문 등록
+                            mkdir -p ~/.ssh
+                            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
-                    echo "Starting Manifest Update for: ${newTag}"
+                            echo "Starting Manifest Update for: ${newTag}"
 
-                    # 클론 진행
-                    rm -rf temp-manifests
-                    git clone ${manifestRepoUrl} temp-manifests
+                            # 클론 진행
+                            rm -rf temp-manifests
+                            git clone ${manifestRepoUrl} temp-manifests
 
-                    cd temp-manifests
+                            cd temp-manifests
 
-                    # 이미지 태그 업데이트
-                    git checkout ${targetBranch} || git checkout -b ${targetBranch}
-                    sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
+                            # 이미지 태그 업데이트
+                            git checkout ${targetBranch} || git checkout -b ${targetBranch}
+                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
 
-                    # Git 설정 및 푸시
-                    git config user.email "jenkins-bot@monsoon.com"
-                    git config user.name "Jenkins-CI-Bot"
+                            # Git 설정 및 푸시
+                            git config user.email "jenkins-bot@monsoon.com"
+                            git config user.name "Jenkins-CI-Bot"
 
-                    git add ${targetFile}
-                    if git diff --cached --quiet; then
-                        echo "No changes detected; skip push"
-                    else
-                        git commit -m "🚀 [CD] Update to ${newTag} [skip ci]"
-                        git push origin ${targetBranch}
-                    fi
-                """
+                            git add ${targetFile}
+                            if git diff --cached --quiet; then
+                                echo "No changes detected; skip push"
+                            else
+                                git commit -m "🚀 [CD] Update to ${newTag} [skip ci]"
+                                git push origin ${targetBranch}
+                            fi
+                        """
                     }
                 }
             }
