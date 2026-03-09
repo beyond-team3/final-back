@@ -35,10 +35,26 @@ public class PestMapService {
     private final AccountScoreRepository accountScoreRepository;
 
     public PestMapSearchResponse getPestMapData(PestMapSearchRequest request) {
+        // 필수 파라미터 검증
+        if (request.getPestCode() == null || request.getPestCode().isBlank() || 
+            request.getCropCode() == null || request.getCropCode().isBlank()) {
+            return PestMapSearchResponse.builder()
+                    .forecasts(Collections.emptyList())
+                    .recommendedProducts(Collections.emptyList())
+                    .build();
+        }
 
         // 1. 예찰 데이터 조회 (연관된 모든 병해충 코드 및 작물 코드로 필터링)
         String pestName = mapPestCodeToName(request.getPestCode());
         List<String> relatedCodes = getRelatedPestCodes(pestName, request.getPestCode());
+
+        // 연관 코드가 없으면 빈 결과 반환
+        if (relatedCodes.isEmpty()) {
+            return PestMapSearchResponse.builder()
+                    .forecasts(Collections.emptyList())
+                    .recommendedProducts(Collections.emptyList())
+                    .build();
+        }
 
         var forecasts = forecastRepository.findAllByCropCodeAndPestCodeIn(request.getCropCode(), relatedCodes)
                 .stream()
@@ -93,6 +109,9 @@ public class PestMapService {
      * 특정 병해충 이름에 대응하는 모든 시스템 코드를 반환합니다.
      */
     private List<String> getRelatedPestCodes(String pestName, String originalCode) {
+        if (originalCode == null || originalCode.isBlank()) {
+            return Collections.emptyList();
+        }
         return switch (pestName) {
             case "노균병" -> List.of("P01", "CB03", "GR01");
             case "무름병" -> List.of("P02", "CB01", "RD01");
