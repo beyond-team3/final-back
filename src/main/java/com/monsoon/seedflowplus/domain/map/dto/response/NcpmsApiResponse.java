@@ -101,28 +101,43 @@ public class NcpmsApiResponse {
     }
 
     private static <T> List<T> parseInconsistentNode(JsonNode node, TypeReference<List<T>> typeRef, Class<T> clazz) {
-        List<T> result = new ArrayList<>();
-        if (node == null || node.isNull()) return result;
+        if (node == null || node.isNull()) return new ArrayList<>();
 
         try {
             if (node.isArray()) {
                 return mapper.convertValue(node, typeRef);
             } else if (node.isObject()) {
+                List<T> result = new ArrayList<>();
                 result.add(mapper.convertValue(node, clazz));
+                return result;
             } else if (node.isTextual()) {
                 String text = node.asText().trim();
-                if (text.startsWith("[") && text.endsWith("]")) {
-                    log.warn("NCPMS API returned data in non-standard format. Attempting recovery: {}", text);
-                    return parseMapToStringFormat(text, typeRef);
+                if (text.isEmpty()) return new ArrayList<>();
+
+                // 1. 먼저 표준 JSON 파싱 시도
+                try {
+                    if (text.startsWith("[")) {
+                        return mapper.readValue(text, typeRef);
+                    } else if (text.startsWith("{")) {
+                        List<T> result = new ArrayList<>();
+                        result.add(mapper.readValue(text, clazz));
+                        return result;
+                    }
+                } catch (Exception e) {
+                    // 2. 표준 파싱 실패 시 복구 로직(key=value 형식) 시도
+                    if (text.startsWith("[") || text.startsWith("{")) {
+                        log.warn("Standard JSON parsing failed. Attempting recovery for: {}", text);
+                        return parseMapToStringFormat(text, typeRef, clazz);
+                    }
                 }
             }
         } catch (Exception e) {
             log.error("Failed to parse node: {}", node, e);
         }
-        return result;
+        return new ArrayList<>();
     }
 
-    private static <T> List<T> parseMapToStringFormat(String text, TypeReference<List<T>> typeRef) {
+    private static <T> List<T> parseMapToStringFormat(String text, TypeReference<List<T>> typeRef, Class<T> clazz) {
         try {
             // [{k1=v1, k2=v2}, {k1=v3}] -> [{"k1":"v1", "k2":"v2"}, {"k1":"v3"}]
             // 1. Handle keys: {key= or , key=
@@ -142,7 +157,14 @@ public class NcpmsApiResponse {
             sb.append(jsonified.substring(lastEnd));
             
             String finalJson = sb.toString();
-            return mapper.readValue(finalJson, typeRef);
+            
+            if (finalJson.startsWith("[")) {
+                return mapper.readValue(finalJson, typeRef);
+            } else {
+                List<T> result = new ArrayList<>();
+                result.add(mapper.readValue(finalJson, clazz));
+                return result;
+            }
         } catch (Exception e) {
             log.error("Manual recovery failed for: {}", text, e);
             return new ArrayList<>();
