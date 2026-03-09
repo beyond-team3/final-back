@@ -202,17 +202,21 @@ public class ProductReadService {
                 List<ProductTag> productTags = Collections.emptyList();
                 try {
                     productTags = productTagRepository.findAllByProduct_Id(product.getId());
-                } catch (Exception e) {} // 임시 대비
+                } catch (Exception e) { /* 태그 조회 실패 시 빈 목록으로 처리 */ }
                 
                 Map<String, List<String>> tagMap = productTags.stream()
                         .collect(Collectors.groupingBy(
-                                pt -> pt.getTag().getCategoryCode(),
+                                pt -> pt.getTag().getCategoryCode().toLowerCase(),
                                 Collectors.mapping(pt -> pt.getTag().getTagName(), Collectors.toList())
                         ));
                 
                 // 연관 테이블에 태그가 비어있다면, 기존 JSON 컬럼 참조(하위호환성 유지)
                 if (tagMap.isEmpty() && product.getTags() != null) {
-                    tagMap = product.getTags();
+                    Map<String, List<String>> lowerTags = new java.util.HashMap<>();
+                    for (Map.Entry<String, List<String>> entry : product.getTags().entrySet()) {
+                        lowerTags.put(entry.getKey().toLowerCase(), entry.getValue());
+                    }
+                    tagMap = lowerTags;
                 }
 
                 ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
