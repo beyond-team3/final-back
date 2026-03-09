@@ -76,3 +76,35 @@ DocumentSummary 조회 전용 검색 조건 레코드를 추가했다.
 
 ### 다음 단계
 DocumentSummaryRepository 구현 가능 여부 확인
+
+## [2026-03-10] DocumentSummary Repository 추가
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepository.java
+- 클래스/메서드: DocumentSummaryRepository
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepository.java
+- 클래스/메서드: DocumentSummaryQueryRepository#searchDocuments
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java
+- 클래스/메서드: DocumentSummaryQueryRepositoryImpl#searchDocuments
+
+### 변경 내용
+DocumentSummary 전용 JPA Repository와 QueryDSL 커스텀 조회 인터페이스/구현체를 추가했다.
+`QDocumentSummary`와 `QSalesDeal`를 `deal_id` 기준으로 조인해 역할별 조회 범위를 적용했다.
+문서 유형, 상태, 문서 코드 키워드 조건과 `createdAt DESC` 정렬, 분리된 count 쿼리를 구성했다.
+
+### 변경 이유
+통합 문서 요약 뷰를 권한 범위 내에서 페이징 조회하기 위한 저장소 계층이 필요해서.
+
+## [2026-03-10 01:12] DocumentSummary Repository 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepository.java — DocumentSummary JPA Repository 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepository.java — 커스텀 조회 인터페이스 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — 역할 필터 및 동적 조건 QueryDSL 구현 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
