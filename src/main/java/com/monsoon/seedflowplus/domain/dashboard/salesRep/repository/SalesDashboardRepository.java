@@ -77,7 +77,7 @@ public class SalesDashboardRepository {
                                                       LocalDate fromDate,
                                                       LocalDate toDate) {
         String sql = """
-                SELECT DATE_FORMAT(i.invoice_date, '%Y-%m') AS year_month,
+                SELECT DATE_FORMAT(i.invoice_date, '%Y-%m') AS ym,
                                COALESCE(SUM(i.total_amount), 0)     AS total
                         FROM tbl_invoice i
                         WHERE i.employee_id  = :empId
