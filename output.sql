@@ -73,42 +73,56 @@ JOIN tbl_sales_deal d ON d.deal_id = p.deal_id;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DELETE FROM tbl_payment
-WHERE payment_code IN ('S1-260310-PY-O', 'S1-260310-PY-C');
+WHERE payment_id IN (970001, 970002)
+   OR payment_code IN ('S1-260310-PY-O', 'S1-260310-PY-C', 'SC1-20260310-PAY-OPEN', 'SC1-20260310-PAY-CLOSED');
 
 DELETE FROM tbl_invoice
-WHERE invoice_code IN ('S1-260310-IV-O', 'S1-260310-IV-C');
+WHERE invoice_id IN (966001, 966002)
+   OR invoice_code IN ('S1-260310-IV-O', 'S1-260310-IV-C', 'SC1-20260310-INV-OPEN', 'SC1-20260310-INV-CLOSED');
 
 DELETE FROM tbl_statement
-WHERE statement_code IN ('S1-260310-ST-O');
+WHERE statement_id IN (965001)
+   OR statement_code IN ('S1-260310-ST-O', 'SC1-20260310-STMT-OPEN');
 
 DELETE FROM tbl_order_header
-WHERE order_code IN ('S1-260310-OD-O', 'S1-260310-OD-C');
+WHERE order_id IN (960001, 960002)
+   OR order_code IN ('S1-260310-OD-O', 'S1-260310-OD-C', 'SC1-20260310-ORD-OPEN', 'SC1-20260310-ORD-CLOSED');
 
 DELETE FROM tbl_contract_header
-WHERE contract_code IN ('S1-260310-CN-O', 'S1-260310-CN-C');
+WHERE cnt_id IN (960001, 9600021)
+   OR contract_code IN ('S1-260310-CN-O', 'S1-260310-CN-C', 'SC1-20260310-CNT-OPEN', 'SC1-20260310-CNT-CLOSED');
 
 DELETE FROM tbl_quotation_header
-WHERE quotation_code IN ('S1-260310-QU-O', 'S1-260310-QU-P');
+WHERE quo_id IN (950001, 950002)
+   OR quotation_code IN ('S1-260310-QU-O', 'S1-260310-QU-P', 'SC1-20260310-QUO-OPEN', 'SC1-20260310-QUO-PENDING');
 
 DELETE FROM tbl_request_quotation_header
-WHERE request_code IN ('S1-260310-RF-O', 'S1-260310-RF-P', 'S1-260310-RF-C');
+WHERE rfq_id IN (940001, 940002, 940003)
+   OR request_code IN ('S1-260310-RF-O', 'S1-260310-RF-P', 'S1-260310-RF-C', 'SC1-20260310-RFQ-OPEN', 'SC1-20260310-RFQ-PENDING', 'SC1-20260310-RFQ-CLOSED');
 
 DELETE FROM tbl_sales_deal
-WHERE latest_target_code IN (
+WHERE deal_id IN (930001, 930002, 930003)
+   OR latest_target_code IN (
     'S1-260310-PY-O',
     'S1-260310-QU-P',
-    'S1-260310-OD-C'
+    'S1-260310-OD-C',
+    'SC1-20260310-PAY-OPEN',
+    'SC1-20260310-QUO-PENDING',
+    'SC1-20260310-ORD-CLOSED'
 )
 OR summary_memo LIKE 'SC1-20260310:%';
 
 DELETE FROM tbl_user
-WHERE login_id IN ('sc1_admin_20260310', 'sc1_sales_20260310', 'sc1_client_20260310');
+WHERE user_id IN (990001, 990002, 990003)
+   OR login_id IN ('sc1_admin_20260310', 'sc1_sales_20260310', 'sc1_client_20260310');
 
 DELETE FROM tbl_client
-WHERE client_code IN ('SC1-20260310-CL-01', 'SC1-20260310-CL-02');
+WHERE client_id IN (920001, 920002)
+   OR client_code IN ('SC1-20260310-CL-01', 'SC1-20260310-CL-02');
 
 DELETE FROM tbl_employee
-WHERE employee_code IN ('SC1-20260310-EMP-ADMIN', 'SC1-20260310-EMP-SALES-01', 'SC1-20260310-EMP-SALES-02');
+WHERE employee_id IN (910001, 910002, 910003)
+   OR employee_code IN ('SC1-20260310-EMP-ADMIN', 'SC1-20260310-EMP-SALES-01', 'SC1-20260310-EMP-SALES-02');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
