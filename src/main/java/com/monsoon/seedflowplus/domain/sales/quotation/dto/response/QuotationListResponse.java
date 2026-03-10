@@ -12,9 +12,13 @@ public record QuotationListResponse(
 
         @Schema(description = "견적서 코드") String quotationCode,
 
+        @Schema(description = "거래처 ID") Long clientId,
+
         @Schema(description = "거래처명") String clientName,
 
         @Schema(description = "담당 영업사원명") String managerName,
+
+        @Schema(description = "작성자 ID") Long authorId,
 
         @Schema(description = "작성일 (YYYY-MM-DD)") @JsonFormat(pattern = "yyyy-MM-dd") LocalDate createdAt,
 

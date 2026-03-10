@@ -102,7 +102,7 @@ public class QuotationService {
                     .collect(Collectors.toSet());
 
             if (!requestProductIds.equals(inputProductIds)) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA); // 혹은 전용 에러 타입 필요
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA);
             }
 
             // 상태를 REVIEWING으로 변경
@@ -212,9 +212,10 @@ public class QuotationService {
         return new QuotationResponse(
                 quotation.getId(),
                 quotation.getQuotationCode(),
-                quotation.getQuotationRequest() != null ? quotation.getQuotationRequest().getId()
-                        : null,
+                quotation.getQuotationRequest() != null ? quotation.getQuotationRequest().getId() : null,
+                quotation.getClient().getId(),
                 quotation.getClient().getClientName(),
+                quotation.getAuthor() != null ? quotation.getAuthor().getId() : null,
                 quotation.getAuthor() != null ? quotation.getAuthor().getEmployeeName() : null,
                 quotation.getStatus(),
                 quotation.getTotalAmount(),
@@ -243,8 +244,10 @@ public class QuotationService {
                 .map(q -> new QuotationListResponse(
                         q.getId(),
                         q.getQuotationCode(),
+                        q.getClient().getId(),
                         q.getClient().getClientName(),
                         q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                        q.getAuthor() != null ? q.getAuthor().getId() : null,
                         q.getCreatedAt().toLocalDate(),
                         q.getStatus()))
                 .toList();
@@ -256,13 +259,11 @@ public class QuotationService {
         QuotationHeader quotation = quotationRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
-        // 1. 권한 체크: ADMIN(모두) 또는 SALES_REP(본인이 작성한 것만)
-        if (userDetails.getRole() != Role.ADMIN) {
-            if (userDetails.getRole() != Role.SALES_REP ||
-                    quotation.getAuthor() == null ||
-                    !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
-                throw new CoreException(ErrorType.ACCESS_DENIED);
-            }
+        // 1. 권한 체크: 오직 작성자(SALES_REP) 본인만 삭제 가능
+        if (userDetails.getRole() != Role.SALES_REP ||
+                quotation.getAuthor() == null ||
+                !quotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
         // 2. 상태 체크: FINAL_APPROVED, WAITING_CONTRACT, COMPLETED, EXPIRED인 경우 삭제 불가
@@ -303,11 +304,8 @@ public class QuotationService {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             // 미승인(관리자 승인 대기/반려) 상태는 거래처가 조회할 수 없음
-            if (quotation
-                    .getStatus() == QuotationStatus.WAITING_ADMIN
-                    ||
-                    quotation
-                            .getStatus() == QuotationStatus.REJECTED_ADMIN) {
+            if (quotation.getStatus() == QuotationStatus.WAITING_ADMIN
+                    || quotation.getStatus() == QuotationStatus.REJECTED_ADMIN) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;
