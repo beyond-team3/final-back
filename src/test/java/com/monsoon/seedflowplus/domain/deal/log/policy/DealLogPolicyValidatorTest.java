@@ -137,6 +137,7 @@ class DealLogPolicyValidatorTest {
                 ActionType.RESUBMIT,
                 ActionType.APPROVE,
                 ActionType.REJECT,
+                ActionType.CONFIRM,
                 ActionType.PAY,
                 ActionType.CANCEL
         );

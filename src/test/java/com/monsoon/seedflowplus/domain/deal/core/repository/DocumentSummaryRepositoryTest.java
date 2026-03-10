@@ -123,8 +123,8 @@ class DocumentSummaryRepositoryTest {
     }
 
     @Test
-    @DisplayName("CLIENT 조회는 client_id가 null인 ORD INV PAY도 deal 기준으로 포함한다")
-    void searchDocumentsUsesDealClientForNullableClientDocs() {
+    @DisplayName("CLIENT 조회는 client_id가 null인 ORD INV는 포함하지만 PAY는 제외한다")
+    void searchDocumentsUsesDealClientForNullableClientDocsExceptPay() {
         Employee owner = persistEmployee("EMP-NULL-CLIENT");
         Client client = persistClient("CLI-NULL-CLIENT", "333-33-33333", owner);
         SalesDeal deal = persistDeal(client, owner, 301L, LocalDateTime.of(2026, 3, 10, 11, 0));
@@ -148,7 +148,26 @@ class DocumentSummaryRepositoryTest {
 
         assertThat(searchDocCodes(DealType.ORD, principal)).containsExactly("ORD-NULL-CLIENT");
         assertThat(searchDocCodes(DealType.INV, principal)).containsExactly("INV-NULL-CLIENT");
-        assertThat(searchDocCodes(DealType.PAY, principal)).containsExactly("PAY-NULL-CLIENT");
+        assertThat(searchDocCodes(DealType.PAY, principal)).isEmpty();
+        assertThat(searchDocCodes(null, principal)).doesNotContain("PAY-NULL-CLIENT");
+    }
+
+    @Test
+    @DisplayName("문서 목록 조회는 PAY 문서를 전체 목록에서도 제외한다")
+    void searchDocumentsExcludesPayFromAllDocuments() {
+        Employee owner = persistEmployee("EMP-PAY-EXCLUDED");
+        Client client = persistClient("CLI-PAY-EXCLUDED", "444-44-44444", owner);
+        SalesDeal deal = persistDeal(client, owner, 401L, LocalDateTime.of(2026, 3, 10, 12, 0));
+        Invoice invoice = persistInvoice(11L, client, deal, owner, "INV-PAY-EXCLUDED",
+                new BigDecimal("44000"), LocalDateTime.of(2026, 3, 10, 12, 0));
+        persistPayment(invoice, client, deal, "PAY-PAY-EXCLUDED",
+                LocalDateTime.of(2026, 3, 10, 12, 30));
+        flushAndClear();
+
+        CustomUserDetails principal = adminPrincipal();
+
+        assertThat(searchDocCodes(null, principal)).doesNotContain("PAY-PAY-EXCLUDED");
+        assertThat(searchDocCodes(DealType.PAY, principal)).isEmpty();
     }
 
     @Test

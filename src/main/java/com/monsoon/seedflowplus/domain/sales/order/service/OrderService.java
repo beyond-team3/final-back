@@ -6,6 +6,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -26,6 +28,11 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,9 +54,11 @@ public class OrderService {
     private final ContractDetailRepository contractDetailRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
     private final StatementService statementService;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final DealScheduleSyncService dealScheduleSyncService;
 
 
     @Transactional
@@ -119,6 +128,26 @@ public class OrderService {
 
         // 7. 총액 업데이트
         orderHeader.updateTotalAmount(totalAmount);
+
+        // ORD도 다른 문서와 동일하게 생성 완료 시점의 CREATE 로그를 남겨야 타임라인이 누락되지 않는다.
+        dealPipelineFacade.recordAndSync(
+                orderHeader.getDeal(),
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                orderHeader.getDeal().getCurrentStage(),
+                mapOrderStage(orderHeader.getStatus()),
+                orderHeader.getStatus().name(),
+                orderHeader.getStatus().name(),
+                ActionType.CREATE,
+                null,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("totalAmount", "주문 총액", null, totalAmount, "MONEY"),
+                        new DealLogWriteService.DiffField("itemCount", "주문 품목 수", null, request.getItems().size(), "COUNT"))
+        );
 
         return toOrderResponse(orderHeader);
     }
@@ -220,6 +249,7 @@ public class OrderService {
                 null,
                 List.of(new DealLogWriteService.DiffField("status", "주문 상태", fromStatus, OrderStatus.CONFIRMED.name(), "STATUS"))
         );
+        syncDeliveryDueSchedule(orderHeader, principal);
 
         statementService.createStatement(orderHeader, actorType, actorId);
 
@@ -321,6 +351,53 @@ public class OrderService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return actorId;
+    }
+
+    private void syncDeliveryDueSchedule(OrderHeader orderHeader, CustomUserDetails principal) {
+        if (orderHeader.getCreatedAt() == null) {
+            return;
+        }
+        if (orderHeader.getDeal() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+
+        Long assigneeUserId = resolveScheduleAssigneeUserId(orderHeader.getDeal(), principal, orderHeader.getClient().getId());
+        LocalDateTime startAt = orderHeader.getCreatedAt().toLocalDate().atStartOfDay();
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                "ORD_" + orderHeader.getId() + "_DELIVERY_DUE",
+                orderHeader.getDeal().getId(),
+                orderHeader.getClient().getId(),
+                assigneeUserId,
+                DealScheduleEventType.DELIVERY_DUE,
+                DealDocType.ORD,
+                orderHeader.getId(),
+                null,
+                "납품 예정: " + orderHeader.getClient().getClientName(),
+                null,
+                startAt,
+                startAt.plusDays(1),
+                LocalDateTime.now()
+        ));
+    }
+
+    private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
+        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                    .map(User::getId);
+            if (ownerUserId.isPresent()) {
+                return ownerUserId.get();
+            }
+        }
+        if (principal != null && principal.getUserId() != null) {
+            return principal.getUserId();
+        }
+        if (clientId != null) {
+            return userRepository.findByClientId(clientId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
     // ----------------------------------------------------------------

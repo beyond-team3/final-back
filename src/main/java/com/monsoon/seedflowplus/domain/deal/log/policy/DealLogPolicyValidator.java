@@ -26,7 +26,7 @@ public class DealLogPolicyValidator {
      * - CREATE, UPDATE, SUBMIT, RESUBMIT, CONVERT, APPROVE, REJECT, CONFIRM, ISSUE, PAY, EXPIRE, CANCEL
      *
      * CLIENT:
-     * - CREATE, UPDATE, SUBMIT, RESUBMIT, APPROVE, REJECT, PAY, CANCEL
+     * - CREATE, UPDATE, SUBMIT, RESUBMIT, APPROVE, REJECT, CONFIRM, PAY, CANCEL
      *
      * SYSTEM:
      * - CREATE, UPDATE, SUBMIT, RESUBMIT, CONVERT, CONFIRM, ISSUE, PAY, EXPIRE, CANCEL
@@ -83,6 +83,7 @@ public class DealLogPolicyValidator {
                 ActionType.RESUBMIT,
                 ActionType.APPROVE,
                 ActionType.REJECT,
+                ActionType.CONFIRM,
                 ActionType.PAY,
                 ActionType.CANCEL
         );
