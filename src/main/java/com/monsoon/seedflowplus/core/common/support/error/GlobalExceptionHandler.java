@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -62,7 +63,8 @@ public class GlobalExceptionHandler {
                         if (resolved != null) {
                             return resolved;
                         }
-                        return e.getStatusCode().is4xxClientError() ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
+                        return e.getStatusCode().is4xxClientError() ? HttpStatus.BAD_REQUEST
+                                : HttpStatus.INTERNAL_SERVER_ERROR;
                     }
                 }));
     }
@@ -142,6 +144,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorType.UNSUPPORTED_MEDIA_TYPE.getStatus())
                 .body(ApiResult.error(ErrorType.UNSUPPORTED_MEDIA_TYPE));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    protected ResponseEntity<ApiResult<?>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        log.warn("MaxUploadSizeExceededException: {}", e.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResult.error(ErrorType.INVALID_INPUT_VALUE, "업로드 가능한 파일 크기(10MB)를 초과했습니다."));
     }
 
     @ExceptionHandler(Exception.class)

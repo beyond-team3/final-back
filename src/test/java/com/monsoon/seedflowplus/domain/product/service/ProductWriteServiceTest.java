@@ -255,7 +255,7 @@ class ProductWriteServiceTest {
                 when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
 
                 // when
-                productWriteService.updateProduct(productId, request, userId);
+                productWriteService.updateProduct(productId, request, null, userId);
 
                 // then
                 assertThat(product.getPrice()).isEqualByComparingTo("60000"); // 엔티티 수정 확인
@@ -300,7 +300,7 @@ class ProductWriteServiceTest {
                 when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
 
                 // when
-                productWriteService.updateProduct(productId, request, userId);
+                productWriteService.updateProduct(productId, request, null, userId);
 
                 // then
                 verify(productPriceHistoryRepository, never()).save(any()); // 이력 저장 호출 안 됨 확인

@@ -60,14 +60,15 @@ public class ProductController {
     }
 
     // 상품 수정
-    @PutMapping("/{productId}")
+    @PutMapping(value = "/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @io.swagger.v3.oas.annotations.Operation(summary = "상품 수정", description = "상품 수정페이지 입니다.")
     public ResponseEntity<Void> updateProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductRequest request,
+            @Valid @RequestPart(value = "request") ProductRequest request,
+            @RequestPart(value = "productImage", required = false) MultipartFile productImage,
             @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = extractUserIdFromUserDetails(userDetails);
-        productWriteService.updateProduct(productId, request, userId);
+        productWriteService.updateProduct(productId, request, productImage, userId);
         return ResponseEntity.noContent().build();
     }
 
