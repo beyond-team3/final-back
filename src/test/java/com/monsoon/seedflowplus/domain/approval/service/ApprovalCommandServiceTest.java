@@ -5,6 +5,8 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.response.CreateApprovalRequestResponse;
@@ -29,10 +31,13 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -91,6 +96,9 @@ class ApprovalCommandServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private DealScheduleSyncService dealScheduleSyncService;
 
     @Mock
     private Clock clock;
@@ -509,7 +517,7 @@ class ApprovalCommandServiceTest {
         ApprovalStep step2 = step(62L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
         request.addStep(step1);
         request.addStep(step2);
-        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT);
+        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
 
         when(approvalRequestRepository.findById(600L)).thenReturn(Optional.of(request));
         when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(62L, 600L)).thenReturn(Optional.of(step2));
@@ -525,8 +533,13 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.CLIENT, null, 101L)
         );
 
-        assertThat(contract.getStatus()).isEqualTo(ContractStatus.COMPLETED);
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
+        verify(dealScheduleSyncService, times(2)).upsertFromEvent(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(DealScheduleUpsertCommand::externalKey)
+                .containsExactly("CNT_8001_DOC_APPROVED_2026-03-10", "CNT_8001_DOC_APPROVED_2026-03-20");
     }
 
     @Test
@@ -696,8 +709,18 @@ class ApprovalCommandServiceTest {
     }
 
     private ContractHeader contract(Long id, ContractStatus status, Long clientId, SalesDeal deal) {
-        Client client = org.mockito.Mockito.mock(Client.class);
-        lenient().when(client.getId()).thenReturn(clientId);
+        Client client = Client.builder()
+                .clientCode("C-" + clientId)
+                .clientName("거래처-" + clientId)
+                .clientBrn("123-45-" + clientId)
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", clientId);
         ContractHeader contract = ContractHeader.create(
                 "C-" + id,
                 null,
@@ -712,12 +735,15 @@ class ApprovalCommandServiceTest {
                 "memo"
         );
         ReflectionTestUtils.setField(contract, "id", id);
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.of(2026, 3, 10));
+        ReflectionTestUtils.setField(contract, "endDate", LocalDate.of(2026, 3, 20));
         contract.updateStatus(status);
         return contract;
     }
 
     private SalesDeal salesDeal(Long ownerEmployeeId) {
         SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        lenient().when(deal.getId()).thenReturn(9900L + (ownerEmployeeId == null ? 0L : ownerEmployeeId));
         if (ownerEmployeeId == null) {
             lenient().when(deal.getOwnerEmp()).thenReturn(null);
             return deal;
@@ -726,6 +752,15 @@ class ApprovalCommandServiceTest {
         Employee owner = org.mockito.Mockito.mock(Employee.class);
         lenient().when(owner.getId()).thenReturn(ownerEmployeeId);
         lenient().when(deal.getOwnerEmp()).thenReturn(owner);
+        User assigneeUser = User.builder()
+                .loginId("sales-" + ownerEmployeeId)
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(owner)
+                .build();
+        ReflectionTestUtils.setField(assigneeUser, "id", 8800L + ownerEmployeeId);
+        lenient().when(userRepository.findByEmployeeId(ownerEmployeeId)).thenReturn(Optional.of(assigneeUser));
         return deal;
     }
 
