@@ -241,15 +241,30 @@ public class QuotationService {
                 user.getEmployeeId());
 
         return quotations.stream()
-                .map(q -> new QuotationListResponse(
-                        q.getId(),
-                        q.getQuotationCode(),
-                        q.getClient().getId(),
-                        q.getClient().getClientName(),
-                        q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
-                        q.getAuthor() != null ? q.getAuthor().getId() : null,
-                        q.getCreatedAt().toLocalDate(),
-                        q.getStatus()))
+                .map(q -> {
+                    List<QuotationResponse.QuotationItemResponse> items = q.getItems().stream()
+                            .map(item -> new QuotationResponse.QuotationItemResponse(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList();
+
+                    return new QuotationListResponse(
+                            q.getId(),
+                            q.getQuotationCode(),
+                            q.getClient().getId(),
+                            q.getClient().getClientName(),
+                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            q.getCreatedAt().toLocalDate(),
+                            q.getStatus(),
+                            q.getDeal().getId(),
+                            items);
+                })
                 .toList();
     }
 

@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Schema(description = "견적서 목록 응답")
 public record QuotationListResponse(
@@ -22,5 +23,9 @@ public record QuotationListResponse(
 
         @Schema(description = "작성일 (YYYY-MM-DD)") @JsonFormat(pattern = "yyyy-MM-dd") LocalDate createdAt,
 
-        @Schema(description = "견적서 상태") QuotationStatus status) {
+        @Schema(description = "견적서 상태") QuotationStatus status,
+
+        @Schema(description = "영업 딜(Deal) ID") Long dealId,
+
+        @Schema(description = "견적 품목 목록") List<QuotationResponse.QuotationItemResponse> items) {
 }
