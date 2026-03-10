@@ -37,3 +37,28 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10] schedule doc type contract 표기 제거
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealDocType.java
+- 클래스/메서드: DealDocType
+
+### 변경 내용
+schedule 도메인 전용 문서 타입 enum에서 `CONTRACT`와 `CNT`가 공존하던 중복 표현을 정리했다.
+DB가 비어 있는 상태를 전제로 `CONTRACT` 상수를 제거하고 `CNT`만 남겨 일정 응답의 `docType.name()` 표기를 단일화했다.
+
+### 변경 이유
+같은 계약 문서를 두 enum 이름으로 유지하면 일정 응답과 externalKey 규칙이 분기되므로 표기를 통일해야 한다.
+
+## [2026-03-10 10:20] BUG-3 선행 DealDocType CNT 정리
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealDocType.java — `DealDocType.CONTRACT` 제거 후 `CNT` 단일 표기로 통일
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+BUG-3 트리거 연결 작업 재개
