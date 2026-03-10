@@ -321,7 +321,7 @@ class ScheduleQueryServiceTest {
                 .startAt(LocalDateTime.of(2026, 3, 10, 10, 0))
                 .endAt(LocalDateTime.of(2026, 3, 10, 11, 0))
                 .eventType(DealScheduleEventType.DOC_SUBMITTED)
-                .docType(DealDocType.QUOTATION)
+                .docType(DealDocType.QUO)
                 .refDocId(1L)
                 .refDealLogId(2L)
                 .source(ScheduleSource.AUTO_SYNC)

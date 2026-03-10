@@ -1,11 +1,11 @@
 package com.monsoon.seedflowplus.domain.schedule.entity;
 
 public enum DealDocType {
-    REQUEST,
-    QUOTATION,
+    RFQ,
+    QUO,
     CNT,
-    ORDER,
-    STATEMENT,
-    INVOICE,
-    PAYMENT
+    ORD,
+    STMT,
+    INV,
+    PAY
 }
