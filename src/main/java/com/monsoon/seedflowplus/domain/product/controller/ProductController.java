@@ -20,10 +20,12 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -39,10 +41,21 @@ public class ProductController {
     private final ProductSimilarityService productSimilarityService;
 
     // 상품 등록
-    @PostMapping
-    @io.swagger.v3.oas.annotations.Operation(summary = "상품 등록", description = "상품 등록페이지 입니다.")
-    public ResponseEntity<Long> createProduct(@Valid @RequestBody ProductRequest request) {
-        Long productId = productWriteService.createProduct(request);
+    // 🌟 핵심: 파일 업로드를 위해 consumes 속성을 MULTIPART_FORM_DATA_VALUE로 지정합니다.
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @io.swagger.v3.oas.annotations.Operation(summary = "상품 등록", description = "상품 정보와 이미지를 함께 등록하는 API 입니다.")
+    public ResponseEntity<Long> createProduct(
+
+            // 🌟 1. JSON 데이터: @RequestBody 대신 @RequestPart를 사용합니다.
+            @Valid @RequestPart(value = "request") ProductRequest request,
+
+            // 🌟 2. 이미지 파일: MultipartFile 객체로 받습니다. (이미지가 필수가 아니라면 required = false)
+            @RequestPart(value = "productImage", required = false) MultipartFile productImage
+
+    ) {
+        // 서비스로 JSON 데이터와 사진 파일을 같이 넘겨줍니다!
+        Long productId = productWriteService.createProduct(request, productImage);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(productId);
     }
 

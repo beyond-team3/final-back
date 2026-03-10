@@ -17,10 +17,12 @@ import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
+import com.monsoon.seedflowplus.infra.aws.service.S3UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -40,9 +42,20 @@ public class ProductWriteService {
     private final ProductCompareItemRepository productCompareItemRepository;
     private final UserRepository userRepository;
     private final ProductCompareRepository productCompareRepository;
+    private final S3UploadService s3UploadService;
 
     @Transactional
-    public Long createProduct(ProductRequest request) {
+    public Long createProduct(ProductRequest request, MultipartFile productImage) {
+
+        // S3 이미지 업로드 처리 로직 추가
+        String uploadedImageUrl = null;
+        if (productImage != null && !productImage.isEmpty()) {
+            // 파일이 있으면 S3에 올리고 URL을 받아옴
+            uploadedImageUrl = s3UploadService.uploadProductImage(productImage);
+        } else {
+            // 파일 없이 기존처럼 텍스트 URL로만 요청이 올 경우를 대비한 방어 코드
+            uploadedImageUrl = request.getProductImageUrl();
+        }
 
         ProductCategory category = ProductCategory.valueOf(request.getProductCategory());
         String generatedCode = generateProductCode(category);
@@ -50,13 +63,13 @@ public class ProductWriteService {
         Product newProduct = Product.builder()
                 .productCode(generatedCode)
                 .productName(request.getProductName())
-                .productCategory(category) // 위에서 변환한 category 객체 재사용
+                .productCategory(category)
                 .productDescription(request.getProductDescription())
-                .productImageUrl(request.getProductImageUrl())
+                .productImageUrl(uploadedImageUrl)
                 .amount(request.getAmount())
                 .unit(request.getUnit())
                 .price(request.getPrice())
-                .status(ProductStatus.valueOf(request.getStatus())) // String -> Enum
+                .status(ProductStatus.valueOf(request.getStatus()))
                 .tags(request.getTags())
                 .build();
 
