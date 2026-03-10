@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.payment.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
@@ -25,6 +26,7 @@ import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCo
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -128,7 +130,7 @@ public class PaymentService {
                         new DealLogWriteService.DiffField("paymentMethod", "결제 수단", null, payment.getPaymentMethod().name(), "ENUM")
                 )
         );
-        syncPaymentReceivedSchedule(payment);
+        syncPaymentReceivedSchedule(payment, clientId);
 
         return PaymentResponse.from(
                 payment,
@@ -235,17 +237,15 @@ public class PaymentService {
         return "";
     }
 
-    private void syncPaymentReceivedSchedule(Payment payment) {
+    private void syncPaymentReceivedSchedule(Payment payment, Long clientId) {
         if (payment.getCreatedAt() == null) {
             return;
         }
-        if (payment.getDeal() == null || payment.getDeal().getOwnerEmp() == null || payment.getDeal().getOwnerEmp().getId() == null) {
+        if (payment.getDeal() == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
 
-        Long assigneeUserId = userRepository.findByEmployeeId(payment.getDeal().getOwnerEmp().getId())
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
-                .getId();
+        Long assigneeUserId = resolveScheduleAssigneeUserId(payment.getDeal(), clientId);
         LocalDateTime startAt = payment.getCreatedAt().toLocalDate().atStartOfDay();
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
@@ -263,5 +263,21 @@ public class PaymentService {
                 startAt.plusDays(1),
                 LocalDateTime.now()
         ));
+    }
+
+    private Long resolveScheduleAssigneeUserId(SalesDeal deal, Long clientId) {
+        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                    .map(User::getId);
+            if (ownerUserId.isPresent()) {
+                return ownerUserId.get();
+            }
+        }
+        if (clientId != null) {
+            return userRepository.findByClientId(clientId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 }

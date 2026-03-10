@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -31,6 +32,7 @@ import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCo
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -247,7 +249,7 @@ public class OrderService {
                 null,
                 List.of(new DealLogWriteService.DiffField("status", "주문 상태", fromStatus, OrderStatus.CONFIRMED.name(), "STATUS"))
         );
-        syncDeliveryDueSchedule(orderHeader);
+        syncDeliveryDueSchedule(orderHeader, principal);
 
         statementService.createStatement(orderHeader, actorType, actorId);
 
@@ -351,17 +353,15 @@ public class OrderService {
         return actorId;
     }
 
-    private void syncDeliveryDueSchedule(OrderHeader orderHeader) {
+    private void syncDeliveryDueSchedule(OrderHeader orderHeader, CustomUserDetails principal) {
         if (orderHeader.getCreatedAt() == null) {
             return;
         }
-        if (orderHeader.getDeal() == null || orderHeader.getDeal().getOwnerEmp() == null || orderHeader.getDeal().getOwnerEmp().getId() == null) {
+        if (orderHeader.getDeal() == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
 
-        Long assigneeUserId = userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
-                .getId();
+        Long assigneeUserId = resolveScheduleAssigneeUserId(orderHeader.getDeal(), principal, orderHeader.getClient().getId());
         LocalDateTime startAt = orderHeader.getCreatedAt().toLocalDate().atStartOfDay();
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
@@ -379,6 +379,25 @@ public class OrderService {
                 startAt.plusDays(1),
                 LocalDateTime.now()
         ));
+    }
+
+    private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
+        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                    .map(User::getId);
+            if (ownerUserId.isPresent()) {
+                return ownerUserId.get();
+            }
+        }
+        if (principal != null && principal.getUserId() != null) {
+            return principal.getUserId();
+        }
+        if (clientId != null) {
+            return userRepository.findByClientId(clientId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
     // ----------------------------------------------------------------

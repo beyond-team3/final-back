@@ -196,7 +196,7 @@ public class ApprovalCommandService {
                 step.getActorType(),
                 actorId
         );
-        syncContractApprovalSchedulesIfNeeded(request, step, dto.decision(), now);
+        syncContractApprovalSchedulesIfNeeded(request, step, dto.decision(), now, principal);
         publishApprovalEventsAfterDecision(request, step, dto.decision(), now);
 
         return toDetail(request);
@@ -316,7 +316,8 @@ public class ApprovalCommandService {
             ApprovalRequest request,
             ApprovalStep step,
             DecisionType decision,
-            LocalDateTime occurredAt
+            LocalDateTime occurredAt,
+            CustomUserDetails principal
     ) {
         if (request.getDealType() != DealType.CNT || step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
             return;
@@ -324,27 +325,44 @@ public class ApprovalCommandService {
 
         ContractHeader contract = contractRepository.findById(request.getTargetId())
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
-        if (contract.getDeal() == null || contract.getDeal().getOwnerEmp() == null || contract.getDeal().getOwnerEmp().getId() == null) {
+        if (contract.getDeal() == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
-
-        User assignee = userRepository.findByEmployeeId(contract.getDeal().getOwnerEmp().getId())
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        Long assigneeUserId = resolveScheduleAssigneeUserId(contract.getDeal(), principal, contract.getClient().getId());
 
         upsertContractApprovalSchedule(
                 contract,
-                assignee.getId(),
+                assigneeUserId,
                 "계약 시작일: " + contract.getClient().getClientName(),
                 contract.getStartDate(),
                 occurredAt
         );
         upsertContractApprovalSchedule(
                 contract,
-                assignee.getId(),
+                assigneeUserId,
                 "계약 만료일: " + contract.getClient().getClientName(),
                 contract.getEndDate(),
                 occurredAt
         );
+    }
+
+    private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
+        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                    .map(User::getId);
+            if (ownerUserId.isPresent()) {
+                return ownerUserId.get();
+            }
+        }
+        if (principal != null && principal.getUserId() != null) {
+            return principal.getUserId();
+        }
+        if (clientId != null) {
+            return userRepository.findByClientId(clientId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
     private void upsertContractApprovalSchedule(

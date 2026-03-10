@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -28,6 +29,7 @@ import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStateme
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
@@ -177,7 +179,7 @@ public class InvoiceService {
                 null,
                 List.of(new DealLogWriteService.DiffField("status", "청구서 상태", fromStatus, InvoiceStatus.PUBLISHED.name(), "STATUS"))
         );
-        syncPaymentDueSchedule(invoice);
+        syncPaymentDueSchedule(invoice, principal);
         return InvoicePublishResponse.from(invoice);
     }
 
@@ -430,17 +432,15 @@ public class InvoiceService {
         return actorId;
     }
 
-    private void syncPaymentDueSchedule(Invoice invoice) {
+    private void syncPaymentDueSchedule(Invoice invoice, CustomUserDetails principal) {
         if (invoice.getInvoiceDate() == null) {
             return;
         }
-        if (invoice.getDeal() == null || invoice.getDeal().getOwnerEmp() == null || invoice.getDeal().getOwnerEmp().getId() == null) {
+        if (invoice.getDeal() == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
 
-        Long assigneeUserId = userRepository.findByEmployeeId(invoice.getDeal().getOwnerEmp().getId())
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
-                .getId();
+        Long assigneeUserId = resolveScheduleAssigneeUserId(invoice.getDeal(), principal, invoice.getClient().getId());
         LocalDateTime startAt = invoice.getInvoiceDate().atStartOfDay();
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
@@ -458,6 +458,25 @@ public class InvoiceService {
                 startAt.plusDays(1),
                 LocalDateTime.now()
         ));
+    }
+
+    private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
+        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
+                    .map(User::getId);
+            if (ownerUserId.isPresent()) {
+                return ownerUserId.get();
+            }
+        }
+        if (principal != null && principal.getUserId() != null) {
+            return principal.getUserId();
+        }
+        if (clientId != null) {
+            return userRepository.findByClientId(clientId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
     private DealStage mapInvoiceStage(InvoiceStatus status) {
