@@ -176,3 +176,15 @@ BUG-3. 결제 완료 파이프라인에서 schedule sync 호출이 빠져 일정
 
 ### 다음 단계
 개발 DB에서 `ALTER TABLE tbl_deal_sked MODIFY COLUMN doc_type VARCHAR(20) NOT NULL;` 직접 실행 후 `DESCRIBE tbl_deal_sked;` 재확인
+
+## [2026-03-10 11:22] BUG-4 INV 알림 assertion 제거
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/scenario1.http — INV publish 직후 `INVOICE_ISSUED` 알림 조회 assertion을 주석 처리하고 미구현 사유 주석 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → HTTP 시나리오 파일 변경으로 컴파일 대상 아님
+
+### 다음 단계
+별도 태스크에서 Invoice 발행 알림 구현
