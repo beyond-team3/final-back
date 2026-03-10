@@ -33,18 +33,15 @@ import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPubli
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
-import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
-import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -57,6 +54,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class ApprovalCommandService {
@@ -326,97 +324,16 @@ public class ApprovalCommandService {
             return;
         }
 
-        ContractHeader contract = contractRepository.findById(request.getTargetId())
-                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
-        if (contract.getDeal() == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-        Long assigneeUserId = resolveScheduleAssigneeUserId(contract.getDeal(), principal, contract.getClient().getId());
-
-        ContractApprovalSchedulesSyncEvent event = buildContractApprovalSchedulesSyncEvent(contract, assigneeUserId, occurredAt);
+        ContractApprovalSchedulesSyncEvent event = new ContractApprovalSchedulesSyncEvent(
+                request.getTargetId(),
+                request.getDealType(),
+                step.getStepOrder(),
+                step.getActorType(),
+                decision,
+                occurredAt,
+                principal == null ? null : principal.getUserId()
+        );
         publishAfterCommit(event);
-    }
-
-    private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
-        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
-            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
-                    .map(User::getId);
-            if (ownerUserId.isPresent()) {
-                return ownerUserId.get();
-            }
-        }
-        if (principal != null && principal.getUserId() != null) {
-            return principal.getUserId();
-        }
-        if (clientId != null) {
-            return userRepository.findByClientId(clientId)
-                    .map(User::getId)
-                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
-        }
-        throw new CoreException(ErrorType.USER_NOT_FOUND);
-    }
-
-    private ContractApprovalSchedulesSyncEvent buildContractApprovalSchedulesSyncEvent(
-            ContractHeader contract,
-            Long assigneeUserId,
-            LocalDateTime occurredAt
-    ) {
-        List<DealScheduleUpsertCommand> upsertCommands = new ArrayList<>();
-        List<String> deleteExternalKeys = new ArrayList<>();
-        collectContractApprovalScheduleCommand(
-                upsertCommands,
-                deleteExternalKeys,
-                contract,
-                assigneeUserId,
-                "START",
-                "계약 시작일: " + contract.getClient().getClientName(),
-                contract.getStartDate(),
-                occurredAt
-        );
-        collectContractApprovalScheduleCommand(
-                upsertCommands,
-                deleteExternalKeys,
-                contract,
-                assigneeUserId,
-                "END",
-                "계약 만료일: " + contract.getClient().getClientName(),
-                contract.getEndDate(),
-                occurredAt
-        );
-        return new ContractApprovalSchedulesSyncEvent(upsertCommands, deleteExternalKeys);
-    }
-
-    private void collectContractApprovalScheduleCommand(
-            List<DealScheduleUpsertCommand> upsertCommands,
-            List<String> deleteExternalKeys,
-            ContractHeader contract,
-            Long assigneeUserId,
-            String scheduleBoundary,
-            String title,
-            java.time.LocalDate date,
-            LocalDateTime occurredAt
-    ) {
-        String externalKey = "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary;
-        if (date == null) {
-            deleteExternalKeys.add(externalKey);
-            return;
-        }
-
-        upsertCommands.add(new DealScheduleUpsertCommand(
-                externalKey,
-                contract.getDeal().getId(),
-                contract.getClient().getId(),
-                assigneeUserId,
-                DealScheduleEventType.DOC_APPROVED,
-                DealDocType.CNT,
-                contract.getId(),
-                null,
-                title,
-                null,
-                date.atStartOfDay(),
-                date.plusDays(1).atStartOfDay(),
-                occurredAt
-        ));
     }
 
     private void publishAfterCommit(Object event) {
@@ -428,7 +345,11 @@ public class ApprovalCommandService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                applicationEventPublisher.publishEvent(event);
+                try {
+                    applicationEventPublisher.publishEvent(event);
+                } catch (Throwable t) {
+                    log.error("Failed to publish event after transaction commit. event={}", event, t);
+                }
             }
         });
     }
