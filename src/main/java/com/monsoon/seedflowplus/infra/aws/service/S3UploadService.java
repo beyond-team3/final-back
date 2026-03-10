@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -21,25 +22,38 @@ public class S3UploadService {
     // Spring Cloud AWS가 제공하는 S3 전용 템플릿 객체
     private final S3Template s3Template;
 
-    @Value("${spring.cloud.aws.s3.bucket}")
+    @Value("${spring.cloud.aws.s3.bucket:monsoon-dummy-bucket}")
     private String bucketName;
 
+    @Value("${spring.cloud.aws.region.static:ap-northeast-2}")
+    private String region;
+
+    private static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif", "webp");
     /**
      * 프론트엔드에서 전달받은 MultipartFile을 S3에 업로드하고 URL을 반환.
      */
     public String uploadProductImage(MultipartFile file) {
-        if (file.isEmpty() || file.getOriginalFilename() == null) {
-            throw new CoreException(ErrorType.FILE_NOT_FOUND);
+        if (file == null || file.isEmpty() || file.getOriginalFilename() == null) {
+            throw new CoreException(ErrorType.INVALID_FILE_UPLOAD);
         }
 
-        // 원본 파일명에서 확장자 추출 (예: watermelon.jpg -> .jpg)
+        // 파일명과 확장자 추출
         String originalFilename = file.getOriginalFilename();
         String extension = StringUtils.getFilenameExtension(originalFilename);
 
-        // 파일 덮어쓰기 방지를 위한 고유한 파일명 생성 (예: 123e4567-e89b-12d3-a456-426614174000.jpg)
-        String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
+        // 확장자 검증 (화이트리스트에 없는 파일이면 에러 발생!)
+        if (extension == null || !ALLOWED_EXTENSIONS.contains(extension.toLowerCase())) {
+            throw new CoreException(ErrorType.INVALID_FILE_FORMAT);
+        }
 
-        // S3 폴더 경로 설정 - 상품 이미지만 따로 모아두기 위해 "products/" 폴더 아래에 저장
+        // MIME 타입 한 번 더 검증 (확장자만 .jpg로 바꾼 가짜 파일 방어)
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new CoreException(ErrorType.INVALID_FILE_FORMAT);
+        }
+
+        // 파일명 생성 (UUID)
+        String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
         String s3Key = "products/" + uniqueFilename;
 
         try (InputStream inputStream = file.getInputStream()) {
@@ -63,6 +77,6 @@ public class S3UploadService {
      * S3에 저장된 객체의 퍼블릭 URL을 만들어주는 헬퍼 메서드
      */
     private String getPublicUrl(String s3Key) {
-        return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/%s", bucketName, s3Key);
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, s3Key);
     }
 }
