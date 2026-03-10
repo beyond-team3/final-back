@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,13 +16,17 @@ import java.util.Map;
 public class ProductRequest {
 
     @NotBlank(message = "상품명은 필수입니다.")
+    @JsonProperty("name")
     private String productName;
 
     @NotBlank(message = "카테고리는 필수입니다.")
+    @JsonProperty("category")
     private String productCategory;
 
+    @JsonProperty("desc")
     private String productDescription;
 
+    @JsonProperty("imageUrl")
     private String productImageUrl;
 
     @NotNull(message = "수량은 필수입니다.")

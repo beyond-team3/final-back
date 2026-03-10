@@ -14,6 +14,7 @@ public record QuotationRequestCreateRequest(
             Long productId,
             @NotBlank(message = "상품 품종은 필수입니다.") String productCategory,
             @NotBlank(message = "상품 이름은 필수입니다.") String productName,
-            @NotNull(message = "수량은 필수입니다.") @Positive(message = "수량은 1 이상이어야 합니다.") Integer quantity) {
+            @NotNull(message = "수량은 필수입니다.") @Positive(message = "수량은 1 이상이어야 합니다.") Integer quantity,
+            String unit) {
     }
 }

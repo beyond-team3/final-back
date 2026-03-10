@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.account.controller;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.account.dto.request.*;
 import com.monsoon.seedflowplus.domain.account.dto.response.*;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AccountController {
 
     @PatchMapping("/employees/{employeeId}")
     public ApiResult<?> updateEmployeeInfo(@PathVariable Long employeeId,
-                                            @RequestBody @Valid EmployeeUpdateRequest request) {
+                                           @RequestBody @Valid EmployeeUpdateRequest request) {
         accountService.updateEmployeeInfo(employeeId, request);
         return ApiResult.success();
     }
@@ -47,9 +48,10 @@ public class AccountController {
     }
 
     @PatchMapping("/clients/{clientId}")
-    public ApiResult<?> updateClientInfo(@PathVariable Long clientId, @RequestBody @Valid ClientUpdateRequest request) {
-        accountService.updateClientInfo(clientId, request);
-        return ApiResult.success();
+    public ApiResult<ClientDetailResponse> updateClientInfo(@PathVariable Long clientId,
+                                                            @RequestBody @Valid ClientUpdateRequest request) {
+        Client updatedClient = accountService.updateClientInfo(clientId, request);
+        return ApiResult.success(ClientDetailResponse.from(updatedClient));
     }
 
     @GetMapping("/clients/{clientId}/crops")

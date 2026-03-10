@@ -5,13 +5,23 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 import java.util.Optional;
 
 public interface AccountScoreRepository extends JpaRepository<AccountScore, Long> {
     Optional<AccountScore> findByClient_Id(Long clientId);
 
+    @Query("SELECT s.client.id as clientId, s.totalScore as totalScore FROM AccountScore s WHERE s.client IS NOT NULL")
+    List<ScoreProjection> findAllClientIdAndTotalScore();
+
+    interface ScoreProjection {
+        Long getClientId();
+        Double getTotalScore();
+    }
+
     @Modifying
-    @Query(value = "INSERT INTO tbl_clientscore (client_id, total_score, contract_score, order_score, visit_score, primary_reason, detail_description, created_at, updated_at) " +
+    @Query(value = "INSERT INTO tbl_account_score (client_id, total_score, contract_score, order_score, visit_score, primary_reason, detail_description, created_at, updated_at) " +
             "VALUES (:clientId, :total, :contract, :order, :visit, :reason, :detail, NOW(), NOW()) " +
             "ON DUPLICATE KEY UPDATE " +
             "total_score = :total, contract_score = :contract, order_score = :order, visit_score = :visit, " +

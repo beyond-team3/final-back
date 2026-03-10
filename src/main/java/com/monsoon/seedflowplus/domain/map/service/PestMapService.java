@@ -11,6 +11,8 @@ import com.monsoon.seedflowplus.domain.product.entity.ProductBookmark;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.repository.ProductBookmarkRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.scoring.entity.AccountScore;
+import com.monsoon.seedflowplus.domain.scoring.repository.AccountScoreRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -18,10 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,16 +32,49 @@ public class PestMapService {
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
     private final ProductBookmarkRepository bookmarkRepository;
+    private final AccountScoreRepository accountScoreRepository;
 
     public PestMapSearchResponse getPestMapData(PestMapSearchRequest request) {
+        // 필수 파라미터 검증
+        if (request.getPestCode() == null || request.getPestCode().isBlank() || 
+            request.getCropCode() == null || request.getCropCode().isBlank()) {
+            return PestMapSearchResponse.builder()
+                    .forecasts(Collections.emptyList())
+                    .recommendedProducts(Collections.emptyList())
+                    .build();
+        }
 
-        // 1. 예찰 데이터 조회
-        var forecasts = forecastRepository.findAllByPestCode(request.getPestCode())
+        // 1. 예찰 데이터 조회 (연관된 모든 병해충 코드 및 작물 코드로 필터링)
+        String pestName = mapPestCodeToName(request.getPestCode());
+        List<String> relatedCodes = getRelatedPestCodes(pestName, request.getPestCode());
+
+        // 연관 코드가 없으면 빈 결과 반환
+        if (relatedCodes.isEmpty()) {
+            return PestMapSearchResponse.builder()
+                    .forecasts(Collections.emptyList())
+                    .recommendedProducts(Collections.emptyList())
+                    .build();
+        }
+
+        var forecasts = forecastRepository.findAllByCropCodeAndPestCodeIn(request.getCropCode(), relatedCodes)
                 .stream()
-                .map(f -> PestMapSearchResponse.ForecastDto.builder()
-                        .areaName(f.getAreaName())
-                        .severity(f.getSeverity())
-                        .build())
+                .collect(Collectors.toMap(
+                        f -> f.getSidoCode() + "|" + f.getSigunguCode(),
+                        f -> PestMapSearchResponse.ForecastDto.builder()
+                                .areaName(f.getAreaName())
+                                .sidoCode(f.getSidoCode())
+                                .sigunguCode(f.getSigunguCode())
+                                .severity(f.getSeverity())
+                                .build(),
+                        (existing, replacement) -> {
+                            int r1 = getSeverityRank(existing.getSeverity());
+                            int r2 = getSeverityRank(replacement.getSeverity());
+                            return r1 >= r2 ? existing : replacement;
+                        }
+                ))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(PestMapSearchResponse.ForecastDto::getAreaName))
                 .collect(Collectors.toList());
 
         // 2. 추천 품종 데이터 조회
@@ -54,10 +86,9 @@ public class PestMapService {
 
         // 카테고리가 정상적으로 매핑되었을 때만 DB 조회 실행
         if (category != null) {
-            String targetPestName = mapPestCodeToName(request.getPestCode());
             products = productRepository.findByProductCategory(category)
                     .stream()
-                    .filter(p -> isProductResistantToPest(p, request.getPestCode(), targetPestName))
+                    .filter(p -> isProductResistantToPest(p, request.getPestCode(), pestName))
                     .map(p -> PestMapSearchResponse.ProductDto.builder()
                             .id(p.getId())
                             .name(p.getProductName())
@@ -74,6 +105,23 @@ public class PestMapService {
                 .build();
     }
 
+    /**
+     * 특정 병해충 이름에 대응하는 모든 시스템 코드를 반환합니다.
+     */
+    private List<String> getRelatedPestCodes(String pestName, String originalCode) {
+        if (originalCode == null || originalCode.isBlank()) {
+            return Collections.emptyList();
+        }
+        return switch (pestName) {
+            case "노균병" -> List.of("P01", "CB03", "GR01");
+            case "무름병" -> List.of("P02", "CB01", "RD01");
+            case "탄저병" -> List.of("P03", "PP01");
+            case "뿌리혹병" -> List.of("P04");
+            case "역병" -> List.of("P05", "PP02", "TM01");
+            default -> List.of(originalCode);
+        };
+    }
+
     private Set<Long> getCurrentUserBookmarkedProductIds() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
@@ -87,14 +135,21 @@ public class PestMapService {
     }
 
     public List<SalesOfficeResponse> getAllSalesOffices() {
-        return clientRepository.findAll().stream()
-                .filter(client -> client.getLatitude() != null && client.getLongitude() != null)
+        // 모든 점수를 가져와 맵으로 변환 (Client ID -> Score) - 최적화된 프로젝션 쿼리 사용
+        Map<Long, Integer> clientScores = accountScoreRepository.findAllClientIdAndTotalScore().stream()
+                .collect(Collectors.toMap(
+                        p -> p.getClientId(),
+                        p -> (int) Math.round(p.getTotalScore()),
+                        (existing, replacement) -> existing
+                ));
+
+        return clientRepository.findAllWithCropsAndCoordinates().stream()
                 .map(client -> SalesOfficeResponse.builder()
                         .id(client.getId().toString())
                         .name(client.getClientName())
                         .lat(client.getLatitude())
                         .lng(client.getLongitude())
-//                        .score(calculateVisitScore(client))
+                        .score(clientScores.getOrDefault(client.getId(), 0))
                         .handledCrops(
                                 Optional.ofNullable(client.getCrops())
                                         .orElse(Collections.emptyList())
@@ -153,8 +208,18 @@ public class PestMapService {
             case "P02", "CB01", "RD01" -> "무름병";
             case "P03", "PP01" -> "탄저병";
             case "P04" -> "뿌리혹병";
-            case "PP02", "TM01" -> "역병";
+            case "P05", "PP02", "TM01" -> "역병";
             default -> pestCode;
+        };
+    }
+
+    private int getSeverityRank(String severity) {
+        if (severity == null) return 0;
+        return switch (severity) {
+            case "심각" -> 3;
+            case "경고" -> 2;
+            case "주의" -> 1;
+            default -> 0; // 보통
         };
     }
 }

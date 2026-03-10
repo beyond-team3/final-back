@@ -24,6 +24,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
 import com.monsoon.seedflowplus.infra.kakao.GeocodingService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -132,10 +134,11 @@ public class AccountService {
                     .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
             // 담당 영업사원 업데이트 (요청에 포함된 경우)
-            if (request.managerEmployeeId() != null) {
-                Employee manager = employeeRepository.findById(request.managerEmployeeId())
+            if (request.employeeId() != null) {
+                Employee manager = employeeRepository.findById(request.employeeId())
                         .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
                 client.updateManagerEmployee(manager);
+                clientRepository.save(client); // 명시적 저장 추가
             }
 
             userBuilder.client(client);
@@ -158,7 +161,7 @@ public class AccountService {
     }
 
     @Transactional
-    public void updateClientInfo(Long clientId, ClientUpdateRequest request) {
+    public Client updateClientInfo(Long clientId, ClientUpdateRequest request) {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
@@ -167,6 +170,12 @@ public class AccountService {
             if (clientRepository.existsByClientBrnAndIdNot(request.clientBrn(), clientId)) {
                 throw new CoreException(ErrorType.DUPLICATE_CLIENT_BRN);
             }
+        }
+
+        Employee manager = null;
+        if (request.employeeId() != null) {
+            manager = employeeRepository.findById(request.employeeId())
+                    .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
         }
 
         client.updateClientInfo(
@@ -180,6 +189,13 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+
+        if (manager != null) {
+            client.updateManagerEmployee(manager);
+        }
+
+        clientRepository.flush();
+        return client;
     }
 
     @Transactional
@@ -208,11 +224,16 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientCropResponse> getClientCrops(Long clientId) {
+        System.out.println("[DEBUG] AccountService.getClientCrops requested for clientId: " + clientId);
         validateAndGetClient(clientId);
 
-        return clientCropRepository.findAllByClientId(clientId).stream()
+        List<ClientCropResponse> crops = clientCropRepository.findAllByClientId(clientId).stream()
                 .map(ClientCropResponse::from)
                 .toList();
+
+        System.out.println(
+                "[DEBUG] AccountService.getClientCrops found " + crops.size() + " crops for clientId: " + clientId);
+        return crops;
     }
 
     @Transactional
@@ -284,8 +305,18 @@ public class AccountService {
         CustomUserDetails userDetails = getAuthenticatedUser();
         requireRole(userDetails, Role.ADMIN);
 
-        return userRepository.findAllByEmployeeIsNotNull().stream()
-                .map(EmployeeListResponse::from)
+        List<Employee> allEmployees = employeeRepository.findAll();
+        List<User> usersWithEmployee = userRepository.findAllByEmployeeIsNotNull();
+
+        java.util.Map<Long, User> userMap = usersWithEmployee.stream()
+                .collect(java.util.stream.Collectors.toMap(u -> u.getEmployee().getId(), u -> u));
+
+        return allEmployees.stream()
+                .map(employee -> {
+                    User user = userMap.get(employee.getId());
+                    Status status = (user != null) ? user.getStatus() : null;
+                    return EmployeeListResponse.from(employee, status);
+                })
                 .toList();
     }
 
@@ -294,14 +325,15 @@ public class AccountService {
         CustomUserDetails userDetails = getAuthenticatedUser();
         requireRole(userDetails, Role.ADMIN);
 
-        User user = userRepository.findByEmployeeId(employeeId)
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
-
-        if (user.getEmployee() == null) {
-            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
-        }
-
-        return EmployeeDetailResponse.from(user);
+        // 먼저 User 계정이 있는지 확인
+        return userRepository.findByEmployeeId(employeeId)
+                .map(EmployeeDetailResponse::from)
+                .orElseGet(() -> {
+                    // 계정이 없으면 사원 정보만이라도 조회
+                    Employee employee = employeeRepository.findById(employeeId)
+                            .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
+                    return EmployeeDetailResponse.from(employee);
+                });
     }
 
     @Transactional(readOnly = true)
@@ -364,12 +396,17 @@ public class AccountService {
 
         // 영업사원인 경우 본인 담당 거래처만 조회
         if (role == Role.SALES_REP) {
-            if (userDetails.getEmployeeId() == null) {
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
                 throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
             }
-            return clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId()).stream()
+            List<Client> rawEntities = clientRepository.findAllByManagerEmployeeId(employeeId);
+
+            List<ClientListResponse> clients = rawEntities.stream()
                     .map(ClientListResponse::from)
                     .toList();
+
+            return clients;
         }
 
         // 그 외 권한은 접근 거부

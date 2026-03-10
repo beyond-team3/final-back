@@ -1,0 +1,124 @@
+대분류,소분류,테스트 내용,수행 결과
+쿼리 서비스,단건 개인일정 조회 성공,"입력: scheduleId=101, actorUserId=10, status=ACTIVE
+성공: findByIdAndOwnerIdAndStatusNot(..., CANCELED) 조회 후 ScheduleItemDto.fromPersonal 반환
+실패: owner 조건 없이 조회되어 타 사용자 일정 노출",PASS
+쿼리 서비스,단건 개인일정 조회 입력값 검증,"입력: scheduleId=null 또는 actorUserId=null
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: null 입력이 조회로 진행",PASS
+쿼리 서비스,단건 개인일정 미존재/취소 상태,"입력: id가 없거나 status=CANCELED
+성공: CoreException(PERSONAL_SCHEDULE_NOT_FOUND)
+실패: 취소 일정이 조회됨",PASS
+쿼리 서비스,통합조회 include 모두 false 차단,"입력: includePersonal=false, includeDeal=false
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 빈 검색을 정상 처리",PASS
+쿼리 서비스,통합조회 기간 검증,"입력: rangeStart>=rangeEnd 또는 null 포함
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 역전/누락 기간이 조회됨",PASS
+쿼리 서비스,통합조회 actor 식별 검증,"입력: condition=null 또는 actorUserId=null
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: actor 없이 조회 허용",PASS
+쿼리 서비스,ownerId 위변조 차단,"입력: condition.ownerId != actor.id
+성공: CoreException(ACCESS_DENIED)
+실패: 타 owner 일정 조회 가능",PASS
+쿼리 서비스,역할 불일치 차단,"입력: condition.actorRole=ADMIN, 실제 actor.role=CLIENT
+성공: CoreException(ACCESS_DENIED)
+실패: 요청 role 신뢰로 권한 우회",PASS
+쿼리 서비스,ADMIN 거래일정 전체 조회,"입력: actorRole=ADMIN, assignee/client/deal 필터 모두 null
+성공: findByStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc 호출
+실패: 필터 없는 관리자 조회가 제한됨",PASS
+쿼리 서비스,ADMIN 거래일정 복합필터 조회,"입력: assigneeUserId+clientId+dealId 모두 지정
+성공: 3조건 repository 메서드 1회 호출
+실패: 부분 조건 메서드 호출로 결과 누락",PASS
+쿼리 서비스,SALES_REP employee 미연결 차단,"입력: actor.role=SALES_REP, actor.employee=null
+성공: CoreException(EMPLOYEE_NOT_LINKED)
+실패: employee 없이 조회 허용",PASS
+쿼리 서비스,SALES_REP assignee 필터 금지,"입력: actor.role=SALES_REP, assigneeUserId 지정
+성공: CoreException(ACCESS_DENIED)
+실패: 본인 외 assignee 필터 허용",PASS
+쿼리 서비스,SALES_REP client 소유 검증,"입력: clientId 지정 + existsByIdAndManagerEmployeeId=false
+성공: CoreException(ACCESS_DENIED)
+실패: 담당 외 client 조회 허용",PASS
+쿼리 서비스,SALES_REP deal 단독 조회,"입력: dealId 지정, clientId null
+성공: findByDealIdAndClientManagerEmployeeId... 호출
+실패: manager 범위 조건 없이 조회",PASS
+쿼리 서비스,CLIENT 추가필터 금지,"입력: actor.role=CLIENT, assigneeUserId/clientId/dealId 중 하나라도 지정
+성공: CoreException(ACCESS_DENIED)
+실패: client가 임의 조건으로 조회",PASS
+쿼리 서비스,CLIENT actorClientId 위변조 차단,"입력: condition.actorClientId != actor.client.id
+성공: CoreException(ACCESS_DENIED)
+실패: actorClientId 불일치 허용",PASS
+쿼리 서비스,CLIENT client 미연결 차단,"입력: actor.client=null
+성공: CoreException(ACCESS_DENIED)
+실패: client 식별자 없이 거래일정 조회",PASS
+쿼리 서비스,통합정렬 보장,"입력: personal/deal 시작시각 혼합 데이터
+성공: 결과가 startAt ASC, id ASC 정렬
+실패: 소스별 병합 순서 그대로 반환",PASS
+개인일정 커맨드,create 기본값 적용,"입력: status=null, visibility=null
+성공: status=ACTIVE, visibility=PRIVATE로 저장
+실패: null 그대로 저장",PASS
+개인일정 커맨드,create DONE 상태 차단,"입력: request.status=DONE
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 완료 상태 일정 신규 생성",PASS
+개인일정 커맨드,create TEAM 공개범위 차단,"입력: request.visibility=TEAM
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 개인일정에 TEAM 허용",PASS
+개인일정 커맨드,create actor 미인증 차단,"입력: actor=null 또는 actor.userId=null
+성공: CoreException(UNAUTHORIZED)
+실패: 비인증 사용자 일정 생성",PASS
+개인일정 커맨드,update 상태/공개범위 유지,"입력: request.status=null, visibility=null
+성공: 기존 status/visibility 유지한 update 실행
+실패: null 전달 시 필드 초기화",PASS
+개인일정 커맨드,update DONE/TEAM 차단,"입력: status=DONE 또는 visibility=TEAM
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 금지 상태/공개범위로 수정",PASS
+개인일정 커맨드,delete 소프트삭제,"입력: 본인 소유 scheduleId
+성공: schedule.cancel()로 status=CANCELED
+실패: 물리삭제 또는 상태 미변경",PASS
+개인일정 커맨드,본인 소유 검증,"입력: 타인 일정 id 또는 CANCELED 일정
+성공: CoreException(PERSONAL_SCHEDULE_NOT_FOUND)
+실패: 소유권 없는 일정 수정/삭제 허용",PASS
+동기화 서비스,externalKey 기준 신규 생성,"입력: findByExternalKey empty + 유효 command
+성공: DealSchedule 신규 생성 후 saveAndFlush id 반환
+실패: externalKey가 달라도 기존 데이터 덮어씀",PASS
+동기화 서비스,externalKey 기준 업데이트,"입력: findByExternalKey existing 존재
+성공: existing.syncUpdate(...) 후 saveAndFlush
+실패: 기존 건이 있어도 중복 insert",PASS
+동기화 서비스,유니크 충돌 재시도,"입력: saveAndFlush에서 DataIntegrityViolationException 발생
+성공: externalKey 재조회 후 syncUpdate + save 경로로 복구
+실패: 예외 전파로 동기화 중단",PASS
+동기화 서비스,command 필수값 검증,"입력: externalKey/dealId/clientId/assigneeUserId/eventType/docType/title/startAt/endAt/lastSyncedAt 중 누락
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 누락값으로 upsert 수행",PASS
+동기화 서비스,시간범위 검증,"입력: startAt>=endAt
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 역전 시간으로 저장",PASS
+동기화 서비스,deal-client 불일치 차단,"입력: deal.getClient().id != command.clientId
+성공: CoreException(INVALID_INPUT_VALUE, deal and client mismatch)
+실패: 잘못된 client 연결로 저장",PASS
+참조 조회기,deal/client/assignee 조회 실패 처리,"입력: 각 findById 미존재
+성공: DEAL_NOT_FOUND / CLIENT_NOT_FOUND / USER_NOT_FOUND 예외
+실패: null 참조로 동기화 진행",PASS
+DTO/검증,DealScheduleUpsertCommand 길이 검증,"입력: externalKey 길이 181 또는 title 길이 201
+성공: CoreException(INVALID_INPUT_VALUE)
+실패: 컬럼 길이 초과 데이터 허용",PASS
+DTO/검증,ValidTimeRangeValidator 정상 케이스,"입력: startAt=10:00, endAt=11:00
+성공: isValid=true
+실패: 정상 시간범위를 false 판정",PASS
+DTO/검증,ValidTimeRangeValidator 비정상 케이스,"입력: endAt<=startAt 또는 getter 예외 발생 객체
+성공: isValid=false
+실패: 잘못된 시간범위가 통과",PASS
+컨트롤러 API,인증 사용자 강제,"입력: actor=null 또는 actor.role/userId null
+성공: CoreException(UNAUTHORIZED)
+실패: 비인증 상태로 API 진입",PASS
+컨트롤러 API,통합조회 조건 전달,"입력: GET /api/v1/schedules?from=...&to=...&includePersonal=true&includeDeal=false
+성공: ownerId/actor 정보 포함 ScheduleSearchCondition으로 queryService 호출
+실패: actor 정보 누락 전달",PASS
+컨트롤러 API,개인일정 생성 응답 코드,"입력: POST /personal 유효 요청
+성공: 201 Created + 생성 id 반환
+실패: 200 반환 또는 id 누락",PASS
+컨트롤러 API,요청 DTO 검증,"입력: title blank 또는 endAt<=startAt
+성공: 400 validation 에러
+실패: 잘못된 DTO가 서비스로 전달",PASS
+컨트롤러 API,듀얼 경로 호환,"입력: /api/v1/schedules, /api/schedules 동일 요청
+성공: 두 경로 모두 동일 동작
+실패: 한 경로만 동작해 API 단절",PASS

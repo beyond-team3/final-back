@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
 
 public record ClientProfileResponse(
+        Long id,
         String clientCode,
         String clientName,
         String clientBrn,
@@ -21,6 +22,7 @@ public record ClientProfileResponse(
         AddressParser.AddressInfo addressInfo = AddressParser.parse(client.getAddress());
 
         return new ClientProfileResponse(
+                client.getId(),
                 client.getClientCode(),
                 client.getClientName(),
                 client.getClientBrn(),
