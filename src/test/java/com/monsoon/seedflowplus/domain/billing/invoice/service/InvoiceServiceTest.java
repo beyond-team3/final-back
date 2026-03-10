@@ -25,6 +25,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDate;
@@ -140,7 +141,7 @@ class InvoiceServiceTest {
         DealScheduleUpsertCommand command = commandCaptor.getValue();
         assertEquals("INV_41_PAYMENT_DUE", command.externalKey());
         assertEquals("결제 마감: 테스트 거래처", command.title());
-        assertEquals(DealType.INV, DealType.INV);
+        assertEquals(DealDocType.INV, command.docType());
         assertEquals(LocalDate.of(2026, 3, 15).atStartOfDay(), command.startAt());
         assertEquals(LocalDate.of(2026, 3, 16).atStartOfDay(), command.endAt());
         assertEquals(41L, response.getInvoiceId());
