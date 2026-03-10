@@ -244,3 +244,17 @@ Repository 조회 정렬이 고정 `createdAt DESC` 대신 `Pageable`의 `create
 
 ### 다음 단계
 없음
+
+## [2026-03-10 09:13] DocumentSummary 권한 경계 및 운영 뷰 테스트 보강
+
+### 작업 내용
+- 수정 파일: src/main/resources/db/migration/V1__create_v_document_summary.sql — ORD/INV/PAY도 deal 기준 client_id를 사용하고 status를 문자열로 정규화하도록 보정
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — userDetails 누락 시 fail-open 대신 AccessDeniedException을 던지도록 보정
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java — 운영 뷰 SQL 재사용, nullable client 문서 노출 및 권한 정보 누락 차단 검증 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
