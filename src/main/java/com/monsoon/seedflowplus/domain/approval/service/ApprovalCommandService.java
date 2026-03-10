@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.approval.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
@@ -32,6 +33,10 @@ import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPubli
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -63,6 +68,7 @@ public class ApprovalCommandService {
     private final DocStatusTransitionValidator docStatusTransitionValidator;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
+    private final DealScheduleSyncService dealScheduleSyncService;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
@@ -190,6 +196,7 @@ public class ApprovalCommandService {
                 step.getActorType(),
                 actorId
         );
+        syncContractApprovalSchedulesIfNeeded(request, step, dto.decision(), now);
         publishApprovalEventsAfterDecision(request, step, dto.decision(), now);
 
         return toDetail(request);
@@ -303,6 +310,69 @@ public class ApprovalCommandService {
             case CNT -> applyContractDecision(request, step, decision);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
+    }
+
+    private void syncContractApprovalSchedulesIfNeeded(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision,
+            LocalDateTime occurredAt
+    ) {
+        if (request.getDealType() != DealType.CNT || step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
+            return;
+        }
+
+        ContractHeader contract = contractRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+        if (contract.getDeal() == null || contract.getDeal().getOwnerEmp() == null || contract.getDeal().getOwnerEmp().getId() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+
+        User assignee = userRepository.findByEmployeeId(contract.getDeal().getOwnerEmp().getId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        upsertContractApprovalSchedule(
+                contract,
+                assignee.getId(),
+                "계약 시작일: " + contract.getClient().getClientName(),
+                contract.getStartDate(),
+                occurredAt
+        );
+        upsertContractApprovalSchedule(
+                contract,
+                assignee.getId(),
+                "계약 만료일: " + contract.getClient().getClientName(),
+                contract.getEndDate(),
+                occurredAt
+        );
+    }
+
+    private void upsertContractApprovalSchedule(
+            ContractHeader contract,
+            Long assigneeUserId,
+            String title,
+            java.time.LocalDate date,
+            LocalDateTime occurredAt
+    ) {
+        if (date == null) {
+            return;
+        }
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                "CNT_" + contract.getId() + "_DOC_APPROVED_" + date,
+                contract.getDeal().getId(),
+                contract.getClient().getId(),
+                assigneeUserId,
+                DealScheduleEventType.DOC_APPROVED,
+                DealDocType.CNT,
+                contract.getId(),
+                null,
+                title,
+                null,
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay(),
+                occurredAt
+        ));
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {

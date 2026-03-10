@@ -6,6 +6,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.statement.service.StatementService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -26,6 +27,10 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,9 +52,11 @@ public class OrderService {
     private final ContractDetailRepository contractDetailRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
     private final StatementService statementService;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final DealScheduleSyncService dealScheduleSyncService;
 
 
     @Transactional
@@ -240,6 +247,7 @@ public class OrderService {
                 null,
                 List.of(new DealLogWriteService.DiffField("status", "주문 상태", fromStatus, OrderStatus.CONFIRMED.name(), "STATUS"))
         );
+        syncDeliveryDueSchedule(orderHeader);
 
         statementService.createStatement(orderHeader, actorType, actorId);
 
@@ -341,6 +349,36 @@ public class OrderService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return actorId;
+    }
+
+    private void syncDeliveryDueSchedule(OrderHeader orderHeader) {
+        if (orderHeader.getCreatedAt() == null) {
+            return;
+        }
+        if (orderHeader.getDeal() == null || orderHeader.getDeal().getOwnerEmp() == null || orderHeader.getDeal().getOwnerEmp().getId() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+
+        Long assigneeUserId = userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
+                .getId();
+        LocalDateTime startAt = orderHeader.getCreatedAt().toLocalDate().atStartOfDay();
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                "ORD_" + orderHeader.getId() + "_DELIVERY_DUE",
+                orderHeader.getDeal().getId(),
+                orderHeader.getClient().getId(),
+                assigneeUserId,
+                DealScheduleEventType.DELIVERY_DUE,
+                DealDocType.ORD,
+                orderHeader.getId(),
+                null,
+                "납품 예정: " + orderHeader.getClient().getClientName(),
+                null,
+                startAt,
+                startAt.plusDays(1),
+                LocalDateTime.now()
+        ));
     }
 
     // ----------------------------------------------------------------

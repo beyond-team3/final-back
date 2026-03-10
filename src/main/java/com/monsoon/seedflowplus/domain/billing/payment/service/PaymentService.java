@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
@@ -20,12 +21,17 @@ import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListR
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentResponse;
 import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
 import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -37,8 +43,10 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
+    private final UserRepository userRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final DealScheduleSyncService dealScheduleSyncService;
 
     /**
      * 결제 처리
@@ -120,6 +128,7 @@ public class PaymentService {
                         new DealLogWriteService.DiffField("paymentMethod", "결제 수단", null, payment.getPaymentMethod().name(), "ENUM")
                 )
         );
+        syncPaymentReceivedSchedule(payment);
 
         return PaymentResponse.from(
                 payment,
@@ -224,5 +233,35 @@ public class PaymentService {
             current = current.getCause();
         }
         return "";
+    }
+
+    private void syncPaymentReceivedSchedule(Payment payment) {
+        if (payment.getCreatedAt() == null) {
+            return;
+        }
+        if (payment.getDeal() == null || payment.getDeal().getOwnerEmp() == null || payment.getDeal().getOwnerEmp().getId() == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+
+        Long assigneeUserId = userRepository.findByEmployeeId(payment.getDeal().getOwnerEmp().getId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND))
+                .getId();
+        LocalDateTime startAt = payment.getCreatedAt().toLocalDate().atStartOfDay();
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                "PAY_" + payment.getId() + "_PAYMENT_RECEIVED",
+                payment.getDeal().getId(),
+                payment.getClient().getId(),
+                assigneeUserId,
+                DealScheduleEventType.PAYMENT_RECEIVED,
+                DealDocType.PAY,
+                payment.getId(),
+                null,
+                "결제 완료: " + payment.getClient().getClientName(),
+                null,
+                startAt,
+                startAt.plusDays(1),
+                LocalDateTime.now()
+        ));
     }
 }
