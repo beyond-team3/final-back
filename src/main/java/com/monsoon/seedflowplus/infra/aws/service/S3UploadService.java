@@ -33,6 +33,7 @@ public class S3UploadService {
     private String region;
 
     private static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif", "webp");
+
     /**
      * 프론트엔드에서 전달받은 MultipartFile을 S3에 업로드하고 URL을 반환.
      */
@@ -69,7 +70,8 @@ public class S3UploadService {
             // S3에 파일 업로드 실행
             s3Template.upload(bucketName, s3Key, inputStream, metadata);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
+            log.error("S3 파일 업로드 중 오류 발생: {}", e.getMessage(), e);
             throw new CoreException(ErrorType.DEFAULT_ERROR); // "이미지 업로드 실패" 에러로 변경 추천
         }
 
@@ -105,8 +107,8 @@ public class S3UploadService {
      */
     private String getPublicUrl(String s3Key) {
         return s3Client.utilities().getUrl(builder -> builder
-                        .bucket(bucketName)
-                        .key(s3Key))
+                .bucket(bucketName)
+                .key(s3Key))
                 .toExternalForm();
     }
 }
