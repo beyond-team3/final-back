@@ -333,6 +333,7 @@ public class ApprovalCommandService {
         upsertContractApprovalSchedule(
                 contract,
                 assigneeUserId,
+                "START",
                 "계약 시작일: " + contract.getClient().getClientName(),
                 contract.getStartDate(),
                 occurredAt
@@ -340,6 +341,7 @@ public class ApprovalCommandService {
         upsertContractApprovalSchedule(
                 contract,
                 assigneeUserId,
+                "END",
                 "계약 만료일: " + contract.getClient().getClientName(),
                 contract.getEndDate(),
                 occurredAt
@@ -368,6 +370,7 @@ public class ApprovalCommandService {
     private void upsertContractApprovalSchedule(
             ContractHeader contract,
             Long assigneeUserId,
+            String scheduleBoundary,
             String title,
             java.time.LocalDate date,
             LocalDateTime occurredAt
@@ -377,7 +380,7 @@ public class ApprovalCommandService {
         }
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
-                "CNT_" + contract.getId() + "_DOC_APPROVED_" + date,
+                "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary + "_" + date,
                 contract.getDeal().getId(),
                 contract.getClient().getId(),
                 assigneeUserId,
