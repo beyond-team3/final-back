@@ -3,13 +3,18 @@ package com.monsoon.seedflowplus.domain.sales.request.dto.response;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public record QuotationRequestResponse(
         Long id,
         String requestCode,
+        Long clientId,
+        String clientCode,
         String clientName,
+        String managerName,
+        Long authorId,
         String requirements,
         QuotationRequestStatus status,
         LocalDateTime createdAt,
@@ -18,7 +23,12 @@ public record QuotationRequestResponse(
         return new QuotationRequestResponse(
                 header.getId(),
                 header.getRequestCode(),
+                header.getClient().getId(),
+                header.getClient().getClientCode(),
                 header.getClient().getClientName(),
+                header.getClient().getManagerName(),
+                header.getClient().getManagerEmployee() != null ? header.getClient().getManagerEmployee().getId()
+                        : null,
                 header.getRequirements(),
                 header.getStatus(),
                 header.getCreatedAt(),
@@ -33,7 +43,8 @@ public record QuotationRequestResponse(
             String productCategory,
             String productName,
             Integer quantity,
-            String unit) {
+            String unit,
+            BigDecimal unitPrice) {
         public static ItemResponse from(
                 com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestDetail detail) {
             return new ItemResponse(
@@ -42,7 +53,8 @@ public record QuotationRequestResponse(
                     detail.getProductCategory(),
                     detail.getProductName(),
                     detail.getQuantity(),
-                    detail.getUnit());
+                    detail.getUnit(),
+                    detail.getProduct() != null ? detail.getProduct().getPrice() : java.math.BigDecimal.ZERO);
         }
     }
 }

@@ -19,6 +19,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
@@ -44,8 +45,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
-import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractSimpleResponse;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -60,6 +59,87 @@ public class ContractService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+
+    public ContractPrefillResponse getPrefillData(Long quotationId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+
+        QuotationHeader quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+        // 1. 상태 검증: 최종 승인된 견적서만 가능
+        if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+        }
+
+        // 2. 권한 검증: 본인이 작성한 영업사원만 가능 (관리자, 거래처 등 차단)
+        validateQuotationAuthorAccess(quotation, userDetails);
+
+        return new ContractPrefillResponse(
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                quotation.getClient().getId(),
+                quotation.getClient().getClientName(),
+                quotation.getClient().getManagerName(),
+                quotation.getTotalAmount(),
+                quotation.getItems().stream()
+                        .map(item -> new ContractPrefillResponse.Item(
+                                item.getProduct() != null ? item.getProduct().getId() : null,
+                                item.getProductName(),
+                                item.getProductCategory(),
+                                item.getQuantity(),
+                                item.getUnit(),
+                                item.getUnitPrice(),
+                                item.getAmount()))
+                        .toList());
+    }
+
+    public ContractResponse getContractDetail(Long id) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        ContractHeader contract = contractRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        // 논리 삭제된 건 조회 불가
+        if (contract.getStatus() == ContractStatus.DELETED) {
+            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
+        }
+
+        // 권한 체크
+        validateAccess(contract, userDetails);
+
+        List<ContractResponse.ItemResponse> items = contract.getItems().stream()
+                .map(detail -> new ContractResponse.ItemResponse(
+                        detail.getId(), // reason: detail 식별자가 있어야 주문 요청에서 정확한 contractDetailId 선택 가능
+                        detail.getProduct() != null ? detail.getProduct().getId() : null,
+                        detail.getProductName(),
+                        detail.getProductCategory(),
+                        detail.getTotalQuantity(),
+                        detail.getUnit(),
+                        detail.getUnitPrice(),
+                        detail.getAmount()))
+                .toList();
+
+        return new ContractResponse(
+                contract.getId(),
+                contract.getContractCode(),
+                contract.getQuotation() != null ? contract.getQuotation().getId() : null,
+                contract.getClient().getId(),
+                contract.getClient().getClientName(),
+                contract.getAuthor() != null ? contract.getAuthor().getId() : null,
+                contract.getAuthor() != null ? contract.getAuthor().getEmployeeName() : null,
+                contract.getStatus(),
+                contract.getTotalAmount(),
+                contract.getStartDate(),
+                contract.getEndDate(),
+                contract.getBillingCycle(),
+                contract.getSpecialTerms(),
+                contract.getMemo(),
+                contract.getCreatedAt(),
+                items,
+                dealLogQueryService.getRecentDocumentLogs(
+                        contract.getDeal() != null ? contract.getDeal().getId() : null,
+                        DealType.CNT,
+                        contract.getId()));
+    }
 
     /**
      * 특정 거래처의 모든 계약 목록 조회 (이력 관리 및 일반 조회용)
@@ -131,85 +211,6 @@ public class ContractService {
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
-    public ContractPrefillResponse getPrefillData(Long quotationId) {
-        CustomUserDetails userDetails = getAuthenticatedUser();
-
-        QuotationHeader quotation = quotationRepository.findById(quotationId)
-                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
-
-        // 1. 상태 검증: 최종 승인된 견적서만 가능
-        if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
-            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-        }
-
-        // 2. 권한 검증: 본인이 작성한 영업사원만 가능 (관리자, 거래처 등 차단)
-        validateQuotationAuthorAccess(quotation, userDetails);
-
-        return new ContractPrefillResponse(
-                quotation.getId(),
-                quotation.getQuotationCode(),
-                quotation.getClient().getId(),
-                quotation.getClient().getClientName(),
-                quotation.getClient().getManagerName(),
-                quotation.getTotalAmount(),
-                quotation.getItems().stream()
-                        .map(item -> new ContractPrefillResponse.Item(
-                                item.getProduct() != null ? item.getProduct().getId() : null,
-                                item.getProductName(),
-                                item.getProductCategory(),
-                                item.getQuantity(),
-                                item.getUnit(),
-                                item.getUnitPrice(),
-                                item.getAmount()))
-                        .toList());
-    }
-
-    public ContractResponse getContractDetail(Long id) {
-        CustomUserDetails userDetails = getAuthenticatedUser();
-        ContractHeader contract = contractRepository.findById(id)
-                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
-
-        // 논리 삭제된 건 조회 불가
-        if (contract.getStatus() == ContractStatus.DELETED) {
-            throw new CoreException(ErrorType.CONTRACT_NOT_FOUND);
-        }
-
-        // 권한 체크
-        validateAccess(contract, userDetails);
-
-        List<ContractResponse.ItemResponse> items = contract.getItems().stream()
-                .map(detail -> new ContractResponse.ItemResponse(
-                        detail.getId(), // reason: detail 식별자가 있어야 주문 요청에서 정확한 contractDetailId 선택 가능
-                        detail.getProduct() != null ? detail.getProduct().getId() : null,
-                        detail.getProductName(),
-                        detail.getProductCategory(),
-                        detail.getTotalQuantity(),
-                        detail.getUnit(),
-                        detail.getUnitPrice(),
-                        detail.getAmount()))
-                .toList();
-
-        return new ContractResponse(
-                contract.getId(),
-                contract.getContractCode(),
-                contract.getQuotation() != null ? contract.getQuotation().getId() : null,
-                contract.getClient().getClientName(),
-                contract.getAuthor() != null ? contract.getAuthor().getEmployeeName() : null,
-                contract.getStatus(),
-                contract.getTotalAmount(),
-                contract.getStartDate(),
-                contract.getEndDate(),
-                contract.getBillingCycle(),
-                contract.getSpecialTerms(),
-                contract.getMemo(),
-                contract.getCreatedAt(),
-                items,
-                dealLogQueryService.getRecentDocumentLogs(
-                        contract.getDeal() != null ? contract.getDeal().getId() : null,
-                        DealType.CNT,
-                        contract.getId()));
-    }
-
     /**
      * 계약 상태 자동 동기화
      * 1. COMPLETED(완료) -> 시작일(startDate) 도래 시 ACTIVE_CONTRACT(진행중)로 변경
@@ -238,7 +239,12 @@ public class ContractService {
         }
 
         if (user.getRole() == Role.SALES_REP) {
-            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(user.getEmployeeId())) {
+            boolean isAuthor = contract.getAuthor() != null
+                    && contract.getAuthor().getId().equals(user.getEmployeeId());
+            boolean isManager = contract.getClient().getManagerEmployee() != null
+                    && contract.getClient().getManagerEmployee().getId().equals(user.getEmployeeId());
+
+            if (!isAuthor && !isManager) {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
             return;

@@ -9,11 +9,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record ContractResponse(
-        Long headerId, // reason: 계약 헤더 PK임을 detailId와 명확히 구분하기 위해 필드명을 headerId로 변경
+        Long id,
         String contractCode,
         Long quotationId,
+        Long clientId,
         String clientName,
-        String salesRepName,
+        Long authorId,
+        String salesRepName, // authorName 역할을 함
         ContractStatus status,
         BigDecimal totalAmount,
         LocalDate startDate,
