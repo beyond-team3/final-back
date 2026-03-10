@@ -67,6 +67,7 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
             DocumentSummarySearchCondition condition
     ) {
         return new Predicate[]{
+                excludePayType(),
                 roleScope(userDetails),
                 ownerEmpIdEq(condition.ownerEmpId()),
                 clientIdEq(condition.clientId()),
@@ -104,6 +105,10 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
 
     private BooleanExpression ownerEmpIdEq(Long ownerEmpId) {
         return ownerEmpId == null ? null : deal.ownerEmp.id.eq(ownerEmpId);
+    }
+
+    private BooleanExpression excludePayType() {
+        return documentSummary.docType.ne(DealType.PAY);
     }
 
     private BooleanExpression clientIdEq(Long clientId) {
