@@ -36,21 +36,24 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
-import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -68,7 +71,7 @@ public class ApprovalCommandService {
     private final DocStatusTransitionValidator docStatusTransitionValidator;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
-    private final DealScheduleSyncService dealScheduleSyncService;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
@@ -196,7 +199,7 @@ public class ApprovalCommandService {
                 step.getActorType(),
                 actorId
         );
-        syncContractApprovalSchedulesIfNeeded(request, step, dto.decision(), now, principal);
+        publishContractApprovalSchedulesSyncAfterCommitIfNeeded(request, step, dto.decision(), now, principal);
         publishApprovalEventsAfterDecision(request, step, dto.decision(), now);
 
         return toDetail(request);
@@ -312,7 +315,7 @@ public class ApprovalCommandService {
         };
     }
 
-    private void syncContractApprovalSchedulesIfNeeded(
+    private void publishContractApprovalSchedulesSyncAfterCommitIfNeeded(
             ApprovalRequest request,
             ApprovalStep step,
             DecisionType decision,
@@ -330,22 +333,8 @@ public class ApprovalCommandService {
         }
         Long assigneeUserId = resolveScheduleAssigneeUserId(contract.getDeal(), principal, contract.getClient().getId());
 
-        upsertContractApprovalSchedule(
-                contract,
-                assigneeUserId,
-                "START",
-                "계약 시작일: " + contract.getClient().getClientName(),
-                contract.getStartDate(),
-                occurredAt
-        );
-        upsertContractApprovalSchedule(
-                contract,
-                assigneeUserId,
-                "END",
-                "계약 만료일: " + contract.getClient().getClientName(),
-                contract.getEndDate(),
-                occurredAt
-        );
+        ContractApprovalSchedulesSyncEvent event = buildContractApprovalSchedulesSyncEvent(contract, assigneeUserId, occurredAt);
+        publishAfterCommit(event);
     }
 
     private Long resolveScheduleAssigneeUserId(SalesDeal deal, CustomUserDetails principal, Long clientId) {
@@ -367,7 +356,39 @@ public class ApprovalCommandService {
         throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
-    private void upsertContractApprovalSchedule(
+    private ContractApprovalSchedulesSyncEvent buildContractApprovalSchedulesSyncEvent(
+            ContractHeader contract,
+            Long assigneeUserId,
+            LocalDateTime occurredAt
+    ) {
+        List<DealScheduleUpsertCommand> upsertCommands = new ArrayList<>();
+        List<String> deleteExternalKeys = new ArrayList<>();
+        collectContractApprovalScheduleCommand(
+                upsertCommands,
+                deleteExternalKeys,
+                contract,
+                assigneeUserId,
+                "START",
+                "계약 시작일: " + contract.getClient().getClientName(),
+                contract.getStartDate(),
+                occurredAt
+        );
+        collectContractApprovalScheduleCommand(
+                upsertCommands,
+                deleteExternalKeys,
+                contract,
+                assigneeUserId,
+                "END",
+                "계약 만료일: " + contract.getClient().getClientName(),
+                contract.getEndDate(),
+                occurredAt
+        );
+        return new ContractApprovalSchedulesSyncEvent(upsertCommands, deleteExternalKeys);
+    }
+
+    private void collectContractApprovalScheduleCommand(
+            List<DealScheduleUpsertCommand> upsertCommands,
+            List<String> deleteExternalKeys,
             ContractHeader contract,
             Long assigneeUserId,
             String scheduleBoundary,
@@ -375,12 +396,14 @@ public class ApprovalCommandService {
             java.time.LocalDate date,
             LocalDateTime occurredAt
     ) {
+        String externalKey = "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary;
         if (date == null) {
+            deleteExternalKeys.add(externalKey);
             return;
         }
 
-        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
-                "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary,
+        upsertCommands.add(new DealScheduleUpsertCommand(
+                externalKey,
                 contract.getDeal().getId(),
                 contract.getClient().getId(),
                 assigneeUserId,
@@ -394,6 +417,20 @@ public class ApprovalCommandService {
                 date.plusDays(1).atStartOfDay(),
                 occurredAt
         ));
+    }
+
+    private void publishAfterCommit(Object event) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            applicationEventPublisher.publishEvent(event);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                applicationEventPublisher.publishEvent(event);
+            }
+        });
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {
