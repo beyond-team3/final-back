@@ -49,11 +49,12 @@ public class ProductWriteService {
 
         // S3 이미지 업로드 처리 로직 추가
         String uploadedImageUrl = null;
+        boolean isNewlyUploaded = false;
+
         if (productImage != null && !productImage.isEmpty()) {
-            // 파일이 있으면 S3에 올리고 URL을 받아옴
             uploadedImageUrl = s3UploadService.uploadProductImage(productImage);
+            isNewlyUploaded = true; // S3에 요금이 부과되는 새 파일이 올라갔음을 표시
         } else {
-            // 파일 없이 기존처럼 텍스트 URL로만 요청이 올 경우를 대비한 방어 코드
             uploadedImageUrl = request.getProductImageUrl();
         }
 
@@ -102,8 +103,18 @@ public class ProductWriteService {
             return savedProduct.getId();
 
         } catch (DataIntegrityViolationException e) {
-            // 동시에 다른 사람이 똑같은 코드를 등록해서 DB 유니크 에러가 터지면 중복 에러 고지
+            // 유니크 에러(중복)가 터졌을 때 보상 로직 실행
+            if (isNewlyUploaded) {
+                s3UploadService.deleteImageFromUrl(uploadedImageUrl); // S3에서 사진 삭-제!
+            }
             throw new CoreException(ErrorType.DUPLICATE_PRODUCT_CODE);
+
+        } catch (Exception e) {
+            // 그 외에 알 수 없는 DB 에러가 터졌을 때도 안전하게 삭제
+            if (isNewlyUploaded) {
+                s3UploadService.deleteImageFromUrl(uploadedImageUrl);
+            }
+            throw e; // 원래 발생한 에러를 그대로 다시 던짐
         }
     }
 

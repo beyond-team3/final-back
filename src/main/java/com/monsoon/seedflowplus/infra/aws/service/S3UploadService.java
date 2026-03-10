@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import io.awspring.cloud.s3.ObjectMetadata;
 import io.awspring.cloud.s3.S3Template;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -16,6 +17,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class S3UploadService {
@@ -73,6 +75,29 @@ public class S3UploadService {
 
         // 업로드된 이미지의 공개 URL을 생성하여 반환
         return getPublicUrl(s3Key);
+    }
+
+    /**
+     * S3 이미지 삭제 메서드 (보상 트랜잭션용)
+     * URL을 통째로 넘겨주면, 내부에서 S3 Key를 추출해 삭제합니다.
+     */
+    public void deleteImageFromUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+
+        try {
+            String urlPrefix = String.format("https://%s.s3.%s.amazonaws.com/", bucketName, region);
+
+            // 이미지 URL이 우리 S3 버킷 URL이 맞는지 확인 후 삭제
+            if (imageUrl.startsWith(urlPrefix)) {
+                String s3Key = imageUrl.substring(urlPrefix.length()); // "products/abcd.jpg" 부분만 추출
+                s3Template.deleteObject(bucketName, s3Key);
+                log.info("고아 객체 삭제 완료: {}", s3Key);
+            }
+        } catch (Exception e) {
+            log.error("S3 이미지 삭제 실패: {}", imageUrl, e);
+        }
     }
 
     /**
