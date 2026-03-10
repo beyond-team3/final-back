@@ -200,3 +200,48 @@ BUG-3. 결제 완료 파이프라인에서 schedule sync 호출이 빠져 일정
 
 ### 다음 단계
 실제 개발 DB에서 `@inv_id` 값을 채워 집계 대상 데이터 존재 여부 확인
+
+## [2026-03-10] BUG-6 일정 assignee fallback 보강
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.decideStep, syncContractApprovalSchedulesIfNeeded
+
+### 변경 내용
+계약 최종 승인 후 일정 동기화 시 deal owner에 연결된 user가 없으면 현재 승인 사용자 또는 거래처 user를 fallback assignee로 사용하도록 바꿨다.
+최종 승인 메서드에서 principal을 일정 동기화까지 전달하도록 시그니처를 조정해 런타임 user 조회 실패가 문서 승인 전체를 롤백시키지 않게 했다.
+
+### 변경 이유
+BUG-6. scenario1에서 CNT 최종 승인 시 일정 assignee 조회 예외로 500이 발생하던 흐름을 복구하기 위해서다.
+
+## [2026-03-10] BUG-6 주문/청구/결제 일정 assignee fallback 보강
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java
+- 클래스/메서드: OrderService.confirmOrder, syncDeliveryDueSchedule
+
+### 변경 내용
+ORD confirm 일정 동기화가 owner user 부재 시 현재 사용자 또는 거래처 user를 assignee로 사용하도록 보강했다.
+동시에 INV publish, PAY 처리 경로도 같은 fallback 정책을 적용해 일정 생성 실패가 본문서 상태 변경을 막지 않도록 정리했다.
+
+### 변경 이유
+BUG-6. 시나리오 후반부 ORD/INV/PAY 단계에서 동일한 assignee 해석 가정으로 500이 연쇄 발생하던 문제를 막기 위해서다.
+
+## [2026-03-10 12:04] BUG-6 일정 assignee fallback 적용
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — CNT 최종 승인 일정 동기화에 principal/client fallback assignee 해석 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java — ORD confirm 일정 동기화에 principal/client fallback assignee 해석 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java — INV publish 일정 동기화에 principal/client fallback assignee 해석 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentService.java — PAY 일정 동기화에 client user fallback assignee 해석 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — owner user 부재 시 계약 승인 일정이 현재 사용자로 생성되는 fallback 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java — owner user 부재 시 주문 일정 assignee fallback 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java — owner user 부재 시 청구 일정 assignee fallback 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentServiceTest.java — owner user 부재 시 결제 일정 assignee fallback 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+가능하면 로컬 서버에서 `api-test/http/pipeline/scenario1.http`를 다시 실행해 실제 500 재현 여부를 확인
