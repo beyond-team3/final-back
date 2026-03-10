@@ -380,7 +380,7 @@ public class ApprovalCommandService {
         }
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
-                "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary + "_" + date,
+                "CNT_" + contract.getId() + "_DOC_APPROVED_" + scheduleBoundary,
                 contract.getDeal().getId(),
                 contract.getClient().getId(),
                 assigneeUserId,

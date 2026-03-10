@@ -539,7 +539,10 @@ class ApprovalCommandServiceTest {
         verify(dealScheduleSyncService, times(2)).upsertFromEvent(commandCaptor.capture());
         assertThat(commandCaptor.getAllValues())
                 .extracting(DealScheduleUpsertCommand::externalKey)
-                .containsExactly("CNT_8001_DOC_APPROVED_2026-03-10", "CNT_8001_DOC_APPROVED_2026-03-20");
+                .containsExactly(
+                        "CNT_8001_DOC_APPROVED_START",
+                        "CNT_8001_DOC_APPROVED_END"
+                );
     }
 
     @Test
