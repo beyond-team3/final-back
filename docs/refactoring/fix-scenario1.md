@@ -245,3 +245,30 @@ BUG-6. 시나리오 후반부 ORD/INV/PAY 단계에서 동일한 assignee 해석
 
 ### 다음 단계
 가능하면 로컬 서버에서 `api-test/http/pipeline/scenario1.http`를 다시 실행해 실제 500 재현 여부를 확인
+
+## [2026-03-10] BUG-6 Statement 동일 트랜잭션 참여로 변경
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java
+- 클래스/메서드: StatementService.createStatement, createAndRecordStatement
+
+### 변경 내용
+주문 확정 시 명세서 생성 경로에서 `ObjectProvider<StatementService>` 자기 참조와 `createAndRecordStatementRequiresNew(...)` 분리 호출을 제거했다.
+명세서 저장과 STMT DealLog 기록이 `createStatement()`가 참여한 기존 주문 확정 트랜잭션 안에서 그대로 수행되도록 내부 private 메서드 호출 구조로 정리했다.
+
+### 변경 이유
+BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK insert의 별도 트랜잭션 충돌을 없애기 위해서다.
+
+## [2026-03-10 12:27] BUG-6 Statement REQUIRES_NEW 제거
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — 명세서 생성/DealLog 기록을 기존 주문 확정 트랜잭션에 참여하도록 `REQUIRES_NEW` 메서드와 self provider 제거
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java — 주문 확정 시 ORD DealLog 기록 후 일정 동기화와 STMT 생성 호출이 이어지는 회귀 테스트 추가
+- 수정 파일: docs/refactoring/fix-scenario1.md — BUG-6 구조 변경 및 작업 로그 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+로컬 서버에서 `PATCH /api/v1/orders/{id}/confirm`를 다시 호출해 lock wait timeout 재현이 사라졌는지 확인
