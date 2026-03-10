@@ -146,4 +146,36 @@ class InvoiceServiceTest {
         assertEquals(41L, response.getInvoiceId());
         assertEquals(InvoiceStatus.PUBLISHED, response.getStatus());
     }
+
+    @Test
+    void publishInvoiceShouldFallbackToPrincipalUserWhenOwnerUserMissing() {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        when(client.getId()).thenReturn(7L);
+        when(client.getClientName()).thenReturn("테스트 거래처");
+
+        Employee ownerEmployee = org.mockito.Mockito.mock(Employee.class);
+        when(ownerEmployee.getId()).thenReturn(12L);
+
+        com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal deal = org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class);
+        when(deal.getId()).thenReturn(88L);
+        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
+
+        Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
+        ReflectionTestUtils.setField(invoice, "id", 41L);
+
+        CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
+        when(principal.getRole()).thenReturn(Role.ADMIN);
+        when(principal.getEmployeeId()).thenReturn(100L);
+        when(principal.getUserId()).thenReturn(7002L);
+
+        when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
+        when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.empty());
+
+        invoiceService.publishInvoice(41L, principal);
+
+        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
+        verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
+        assertEquals(7002L, commandCaptor.getValue().assigneeUserId());
+    }
 }

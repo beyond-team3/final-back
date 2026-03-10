@@ -543,6 +543,39 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
+    @DisplayName("케이스 7-1: CNT CLIENT approve 시 owner user가 없어도 현재 사용자로 일정 동기화한다")
+    void approveContractByClientFallsBackToPrincipalUserForScheduleAssignee() {
+        ApprovalRequest request = cntRequest(601L, 8002L, 101L);
+        ApprovalStep step1 = step(63L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(64L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8002L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        CustomUserDetails principal = mockUserWithIds(Role.CLIENT, 9101L, null, 101L);
+
+        when(approvalRequestRepository.findById(601L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(64L, 601L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(601L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(601L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(64L)).thenReturn(false);
+        when(contractRepository.findById(8002L)).thenReturn(Optional.of(contract));
+        when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.empty());
+
+        approvalCommandService.decideStep(
+                601L,
+                64L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                principal
+        );
+
+        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
+        verify(dealScheduleSyncService, times(2)).upsertFromEvent(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(DealScheduleUpsertCommand::assigneeUserId)
+                .containsOnly(principal.getUserId());
+    }
+
+    @Test
     @DisplayName("케이스 8: step2를 step1 승인 전에 처리하면 예외")
     void failWhenStep2HandledBeforeStep1Approval() {
         ApprovalRequest request = cntRequest(700L, 8002L, 202L);

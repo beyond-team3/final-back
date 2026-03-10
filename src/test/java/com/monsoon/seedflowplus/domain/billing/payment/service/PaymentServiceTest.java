@@ -145,4 +145,55 @@ class PaymentServiceTest {
         assertEquals(51L, response.getPaymentId());
         assertEquals(com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus.COMPLETED, response.getStatus());
     }
+
+    @Test
+    void processPaymentShouldFallbackToClientUserWhenOwnerUserMissing() {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        when(client.getId()).thenReturn(7L);
+        when(client.getClientName()).thenReturn("테스트 거래처");
+
+        Employee ownerEmployee = org.mockito.Mockito.mock(Employee.class);
+        when(ownerEmployee.getId()).thenReturn(12L);
+
+        com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal deal = org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class);
+        when(deal.getId()).thenReturn(88L);
+        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
+
+        Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
+        ReflectionTestUtils.setField(invoice, "id", 41L);
+        invoice.publish();
+
+        PaymentCreateRequest request = new PaymentCreateRequest();
+        ReflectionTestUtils.setField(request, "invoiceId", 41L);
+        ReflectionTestUtils.setField(request, "paymentMethod", PaymentMethod.TRANSFER);
+
+        User clientUser = User.builder()
+                .loginId("client")
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.CLIENT)
+                .client(client)
+                .build();
+        ReflectionTestUtils.setField(clientUser, "id", 7003L);
+
+        when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
+        when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
+        when(paymentRepository.findMaxSuffixByPrefix(any())).thenReturn(Optional.of(0));
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
+            Payment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 51L);
+            ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
+            return saved;
+        });
+        when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.empty());
+        when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
+        when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
+
+        paymentService.processPayment(request, 7L);
+
+        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
+        verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
+        assertEquals(7003L, commandCaptor.getValue().assigneeUserId());
+    }
 }
