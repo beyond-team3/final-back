@@ -173,8 +173,13 @@ public class QuotationRequestService {
             }
 
             Client client = header.getClient();
-            if (client.getManagerEmployee() == null
-                    || !client.getManagerEmployee().getId().equals(employeeId)) {
+            boolean isManager = client.getManagerEmployee() != null
+                    && client.getManagerEmployee().getId().equals(employeeId);
+            boolean isDealOwner = header.getDeal() != null
+                    && header.getDeal().getOwnerEmp() != null
+                    && header.getDeal().getOwnerEmp().getId().equals(employeeId);
+
+            if (!isManager && !isDealOwner) {
                 throw new CoreException(ErrorType.QUOTATION_NOT_FOUND);
             }
             return QuotationRequestResponse.from(header);
@@ -246,7 +251,6 @@ public class QuotationRequestService {
     private SalesDeal createDealBootstrap(Client client) {
         Employee ownerEmp = client.getManagerEmployee();
         if (ownerEmp == null) {
-            // TODO(BAC-70): 거래처 담당 영업사원 미배정 상태의 Deal bootstrap 정책 확정 필요
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
         }
         SalesDeal newDeal = SalesDeal.builder()
