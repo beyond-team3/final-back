@@ -120,6 +120,17 @@ class DealScheduleSyncServiceTest {
                 .isEqualTo(ErrorType.INVALID_INPUT_VALUE);
     }
 
+    @Test
+    @DisplayName("externalKey로 기존 거래 일정을 삭제할 수 있다")
+    void deletesByExternalKey() {
+        when(dealScheduleRepository.deleteByExternalKey("ext-delete")).thenReturn(1L);
+
+        long deleted = dealScheduleSyncService.deleteByExternalKey(" ext-delete ");
+
+        assertThat(deleted).isEqualTo(1L);
+        verify(dealScheduleRepository).deleteByExternalKey("ext-delete");
+    }
+
     private DealScheduleUpsertCommand command(String externalKey, Long dealId, Long clientId, Long assigneeUserId) {
         return new DealScheduleUpsertCommand(
                 externalKey,

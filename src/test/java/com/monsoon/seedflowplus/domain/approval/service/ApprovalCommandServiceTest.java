@@ -32,7 +32,6 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
-import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -49,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -98,7 +98,7 @@ class ApprovalCommandServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private DealScheduleSyncService dealScheduleSyncService;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private Clock clock;
@@ -535,14 +535,16 @@ class ApprovalCommandServiceTest {
 
         assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
-        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
-        verify(dealScheduleSyncService, times(2)).upsertFromEvent(commandCaptor.capture());
-        assertThat(commandCaptor.getAllValues())
+        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
+                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().upsertCommands())
                 .extracting(DealScheduleUpsertCommand::externalKey)
                 .containsExactly(
                         "CNT_8001_DOC_APPROVED_START",
                         "CNT_8001_DOC_APPROVED_END"
                 );
+        assertThat(eventCaptor.getValue().deleteExternalKeys()).isEmpty();
     }
 
     @Test
@@ -571,11 +573,49 @@ class ApprovalCommandServiceTest {
                 principal
         );
 
-        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
-        verify(dealScheduleSyncService, times(2)).upsertFromEvent(commandCaptor.capture());
-        assertThat(commandCaptor.getAllValues())
+        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
+                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().upsertCommands())
                 .extracting(DealScheduleUpsertCommand::assigneeUserId)
                 .containsOnly(principal.getUserId());
+    }
+
+    @Test
+    @DisplayName("케이스 7-2: CNT CLIENT approve 시 승인일이 null이면 기존 stable key 일정을 삭제 대상으로 발행한다")
+    void approveContractByClientPublishesDeletesWhenApprovalDatesAreNull() {
+        ApprovalRequest request = cntRequest(602L, 8003L, 101L);
+        ApprovalStep step1 = step(65L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(66L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8003L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        ReflectionTestUtils.setField(contract, "startDate", null);
+        ReflectionTestUtils.setField(contract, "endDate", null);
+
+        when(approvalRequestRepository.findById(602L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(66L, 602L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(602L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(602L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(66L)).thenReturn(false);
+        when(contractRepository.findById(8003L)).thenReturn(Optional.of(contract));
+
+        approvalCommandService.decideStep(
+                602L,
+                66L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.CLIENT, null, 101L)
+        );
+
+        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
+                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().upsertCommands()).isEmpty();
+        assertThat(eventCaptor.getValue().deleteExternalKeys())
+                .containsExactly(
+                        "CNT_8003_DOC_APPROVED_START",
+                        "CNT_8003_DOC_APPROVED_END"
+                );
     }
 
     @Test
@@ -771,8 +811,8 @@ class ApprovalCommandServiceTest {
                 "memo"
         );
         ReflectionTestUtils.setField(contract, "id", id);
-        ReflectionTestUtils.setField(contract, "startDate", LocalDate.of(2026, 3, 10));
-        ReflectionTestUtils.setField(contract, "endDate", LocalDate.of(2026, 3, 20));
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.now().minusDays(1));
+        ReflectionTestUtils.setField(contract, "endDate", LocalDate.now().plusDays(9));
         contract.updateStatus(status);
         return contract;
     }
