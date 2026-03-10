@@ -188,3 +188,15 @@ BUG-3. 결제 완료 파이프라인에서 schedule sync 호출이 빠져 일정
 
 ### 다음 단계
 별도 태스크에서 Invoice 발행 알림 구현
+
+## [2026-03-10 11:40] BUG-5 통계 점검 SQL 추가
+
+### 작업 내용
+- 수정 파일: bug5-stat-check.sql — Invoice/InvoiceStatement/Statement/OrderDetail/ContractDetail 연결과 통계 집계 조건을 한 번에 점검할 수 있는 SQL 스크립트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → SQL 스크립트 파일 추가로 컴파일 대상 아님
+
+### 다음 단계
+실제 개발 DB에서 `@inv_id` 값을 채워 집계 대상 데이터 존재 여부 확인
