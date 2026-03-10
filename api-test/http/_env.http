@@ -7,11 +7,11 @@
 @baseUrl = http://localhost:8080
 
 ### 로그인 계정 (로컬/개발 전용)
-@client1LoginId = client_id_01
+@client1LoginId = sc1_client_20260310
 @client1LoginPw = password123
-@salesLoginId = idid
+@salesLoginId = sc1_sales_20260310
 @salesLoginPw = 12345678
-@adminLoginId = sales_admin
+@adminLoginId = sc1_admin_20260310
 @adminLoginPw = password123
 
 ### 수동 세팅이 필요한 ID (실제 코드 기준)
@@ -22,20 +22,20 @@
 ###   FROM tbl_contract_detail d
 ###   WHERE d.cnt_id = <contractId>
 ###   ORDER BY d.cnt_detail_id;
-@testContractId = 4
+@testContractId = 960001
 @testContractDetailId = 9
 
 ### fallback IDs (자동 추출 실패 시 수동 입력)
-@orderId = 1
-@statementId = 1
-@invoiceId = 1
-@invoicePublishedId = 1
-@invoiceDraftId = 1
-@paymentId = 1
-@dealId = 1
-@dealClientId = 1
-@dealLatestDocType = ORD
-@dealLatestRefId = 1
+@orderId = 960001
+@statementId = 965001
+@invoiceId = 966001
+@invoicePublishedId = 966001
+@invoiceDraftId = 966001
+@paymentId = 970001
+@dealId = 930001
+@dealClientId = 920001
+@dealLatestDocType = PAY
+@dealLatestRefId = 970001
 @dealLogId = 1
 
 ### 실패 케이스용 미존재 ID
