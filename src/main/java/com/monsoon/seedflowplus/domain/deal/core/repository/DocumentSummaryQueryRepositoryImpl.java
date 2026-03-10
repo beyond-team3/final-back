@@ -77,7 +77,7 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
 
     private BooleanExpression roleScope(CustomUserDetails userDetails) {
         if (userDetails == null || userDetails.getRole() == null) {
-            return null;
+            throw new AccessDeniedException("사용자 권한 정보가 없습니다.");
         }
 
         Role role = userDetails.getRole();

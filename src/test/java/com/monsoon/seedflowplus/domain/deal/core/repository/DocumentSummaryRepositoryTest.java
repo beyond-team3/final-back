@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.deal.core.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -13,6 +14,9 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.DocumentSummary;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
+import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
+import com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentMethod;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
@@ -20,6 +24,7 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +36,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.util.StreamUtils;
 
 @DataJpaTest
 @Import(QuerydslConfig.class)
@@ -46,21 +54,7 @@ class DocumentSummaryRepositoryTest {
     @BeforeEach
     void setUpView() {
         entityManager.createNativeQuery("DROP VIEW IF EXISTS v_document_summary").executeUpdate();
-        entityManager.createNativeQuery("""
-                CREATE VIEW v_document_summary AS
-                SELECT CONCAT('STMT-', s.statement_id) AS surrogate_id,
-                       'STMT' AS doc_type,
-                       s.statement_id AS doc_id,
-                       s.deal_id AS deal_id,
-                       d.client_id AS client_id,
-                       s.statement_code AS doc_code,
-                       s.total_amount AS amount,
-                       NULL AS expired_date,
-                       s.status AS status,
-                       s.created_at AS created_at
-                FROM tbl_statement s
-                JOIN tbl_sales_deal d ON d.deal_id = s.deal_id
-                """).executeUpdate();
+        entityManager.createNativeQuery(loadViewSql()).executeUpdate();
     }
 
     @Test
@@ -123,6 +117,47 @@ class DocumentSummaryRepositoryTest {
         assertThat(descending.getContent())
                 .extracting(DocumentSummary::getDocCode)
                 .containsExactly("STMT-SORT-2", "STMT-SORT-1");
+    }
+
+    @Test
+    @DisplayName("CLIENT 조회는 client_id가 null인 ORD INV PAY도 deal 기준으로 포함한다")
+    void searchDocumentsUsesDealClientForNullableClientDocs() {
+        Employee owner = persistEmployee("EMP-NULL-CLIENT");
+        Client client = persistClient("CLI-NULL-CLIENT", "333-33-33333", owner);
+        SalesDeal deal = persistDeal(client, owner, 301L, LocalDateTime.of(2026, 3, 10, 11, 0));
+        ContractHeader contract = persistContract(
+                client,
+                deal,
+                owner,
+                "CNT-NULL-CLIENT",
+                new BigDecimal("33000"),
+                LocalDateTime.of(2026, 3, 8, 11, 0)
+        );
+        OrderHeader order = persistOrder(contract, null, deal, owner, "ORD-NULL-CLIENT",
+                new BigDecimal("33000"), LocalDateTime.of(2026, 3, 9, 11, 0));
+        Invoice invoice = persistInvoice(10L, null, deal, owner, "INV-NULL-CLIENT",
+                new BigDecimal("33000"), LocalDateTime.of(2026, 3, 10, 11, 0));
+        persistPayment(invoice, null, deal, "PAY-NULL-CLIENT",
+                LocalDateTime.of(2026, 3, 10, 12, 0));
+        flushAndClear();
+
+        CustomUserDetails principal = clientPrincipal(client.getId());
+
+        assertThat(searchDocCodes(DealType.ORD, principal)).containsExactly("ORD-NULL-CLIENT");
+        assertThat(searchDocCodes(DealType.INV, principal)).containsExactly("INV-NULL-CLIENT");
+        assertThat(searchDocCodes(DealType.PAY, principal)).containsExactly("PAY-NULL-CLIENT");
+    }
+
+    @Test
+    @DisplayName("searchDocuments는 권한 정보가 없으면 AccessDeniedException을 던진다")
+    void searchDocumentsRejectsMissingUserDetails() {
+        assertThatThrownBy(() -> documentSummaryRepository.searchDocuments(
+                DocumentSummarySearchCondition.builder().build(),
+                PageRequest.of(0, 10),
+                null
+        ))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("사용자 권한 정보가 없습니다.");
     }
 
     private Employee persistEmployee(String code) {
@@ -211,6 +246,98 @@ class DocumentSummaryRepositoryTest {
         entityManager.persist(statement);
     }
 
+    private ContractHeader persistContract(
+            Client client,
+            SalesDeal deal,
+            Employee owner,
+            String contractCode,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+        ContractHeader contract = ContractHeader.create(
+                contractCode,
+                null,
+                client,
+                deal,
+                owner,
+                totalAmount,
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 12, 31),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        setModifiedAuditFields(contract, createdAt);
+        entityManager.persist(contract);
+        return contract;
+    }
+
+    private OrderHeader persistOrder(
+            ContractHeader contract,
+            Client client,
+            SalesDeal deal,
+            Employee owner,
+            String orderCode,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+        OrderHeader order = OrderHeader.create(contract, client, deal, owner, orderCode);
+        order.updateTotalAmount(totalAmount);
+        setCreatedAuditField(order, createdAt);
+        entityManager.persist(order);
+        return order;
+    }
+
+    private Invoice persistInvoice(
+            Long contractId,
+            Client client,
+            SalesDeal deal,
+            Employee owner,
+            String invoiceCode,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+        Invoice invoice = Invoice.create(
+                contractId,
+                client,
+                deal,
+                owner,
+                LocalDate.of(2026, 3, 10),
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 3, 31),
+                invoiceCode,
+                null
+        );
+        invoice.updateAmount(totalAmount);
+        setCreatedAuditField(invoice, createdAt);
+        entityManager.persist(invoice);
+        return invoice;
+    }
+
+    private void persistPayment(
+            Invoice invoice,
+            Client client,
+            SalesDeal deal,
+            String paymentCode,
+            LocalDateTime createdAt
+    ) {
+        Payment payment = Payment.create(invoice, client, deal, PaymentMethod.CREDIT_CARD, paymentCode);
+        setCreatedAuditField(payment, createdAt);
+        entityManager.persist(payment);
+    }
+
+    private java.util.List<String> searchDocCodes(DealType docType, CustomUserDetails principal) {
+        return documentSummaryRepository.searchDocuments(
+                        DocumentSummarySearchCondition.builder()
+                                .docType(docType)
+                                .build(),
+                        PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))),
+                        principal
+                )
+                .map(DocumentSummary::getDocCode)
+                .getContent();
+    }
+
     private CustomUserDetails clientPrincipal(Long clientId) {
         CustomUserDetails principal = mock(CustomUserDetails.class);
         when(principal.getRole()).thenReturn(Role.CLIENT);
@@ -236,5 +363,14 @@ class DocumentSummaryRepositoryTest {
     private void flushAndClear() {
         entityManager.flush();
         entityManager.clear();
+    }
+
+    private String loadViewSql() {
+        try {
+            ClassPathResource resource = new ClassPathResource("db/migration/V1__create_v_document_summary.sql");
+            return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("v_document_summary SQL을 읽을 수 없습니다.", e);
+        }
     }
 }
