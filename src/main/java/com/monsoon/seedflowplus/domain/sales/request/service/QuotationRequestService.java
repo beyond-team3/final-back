@@ -98,7 +98,8 @@ public class QuotationRequestService {
                     product,
                     itemRequest.productCategory(),
                     itemRequest.productName(),
-                    itemRequest.quantity());
+                    itemRequest.quantity(),
+                    itemRequest.unit());
             header.addItem(detail);
         });
 
@@ -130,17 +131,13 @@ public class QuotationRequestService {
                                 "요구사항",
                                 null,
                                 request.requirements(),
-                                "TEXT"
-                        ),
+                                "TEXT"),
                         new DealDiffField(
                                 "itemCount",
                                 "요청 품목 수",
                                 null,
                                 request.items().size(),
-                                "COUNT"
-                        )
-                )
-        );
+                                "COUNT")));
     }
 
     public QuotationRequestResponse getQuotationRequest(Long id) {

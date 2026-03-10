@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.product.dto.response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,7 +17,10 @@ public class ProductResponse {
     private Long id;
     private String category;
     private String name;
+    
+    @JsonProperty("desc")
     private String description;
+    
     private String imageUrl;
     private PriceData priceData;
     private Map<String, List<String>> tags;
