@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.deal.core.entity.QSalesDeal;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.ArrayList;
@@ -45,14 +46,7 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
         List<DocumentSummary> content = queryFactory
                 .selectFrom(documentSummary)
                 .leftJoin(deal).on(documentSummary.dealId.eq(deal.id))
-                .where(
-                        roleScope(userDetails),
-                        ownerEmpIdEq(condition.ownerEmpId()),
-                        clientIdEq(condition.clientId()),
-                        docTypeEq(condition.docType()),
-                        statusEq(condition.status()),
-                        keywordContains(condition.keyword())
-                )
+                .where(buildPredicates(userDetails, condition))
                 .orderBy(getOrderSpecifiers(pageable))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -62,17 +56,24 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
                 .select(documentSummary.count())
                 .from(documentSummary)
                 .leftJoin(deal).on(documentSummary.dealId.eq(deal.id))
-                .where(
-                        roleScope(userDetails),
-                        ownerEmpIdEq(condition.ownerEmpId()),
-                        clientIdEq(condition.clientId()),
-                        docTypeEq(condition.docType()),
-                        statusEq(condition.status()),
-                        keywordContains(condition.keyword())
-                )
+                .where(buildPredicates(userDetails, condition))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    private Predicate[] buildPredicates(
+            CustomUserDetails userDetails,
+            DocumentSummarySearchCondition condition
+    ) {
+        return new Predicate[]{
+                roleScope(userDetails),
+                ownerEmpIdEq(condition.ownerEmpId()),
+                clientIdEq(condition.clientId()),
+                docTypeEq(condition.docType()),
+                statusEq(condition.status()),
+                keywordContains(condition.keyword())
+        };
     }
 
     private BooleanExpression roleScope(CustomUserDetails userDetails) {
@@ -85,10 +86,18 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
             return null;
         }
         if (role == Role.SALES_REP) {
-            return deal.ownerEmp.id.eq(userDetails.getEmployeeId());
+            Long employeeId = userDetails.getEmployeeId();
+            if (employeeId == null) {
+                throw new IllegalArgumentException("SALES_REP 사용자에 employeeId가 없습니다.");
+            }
+            return deal.ownerEmp.id.eq(employeeId);
         }
         if (role == Role.CLIENT) {
-            return documentSummary.clientId.eq(userDetails.getClientId());
+            Long clientId = userDetails.getClientId();
+            if (clientId == null) {
+                throw new IllegalArgumentException("CLIENT 사용자에 clientId가 없습니다.");
+            }
+            return documentSummary.clientId.eq(clientId);
         }
         throw new AccessDeniedException("허용되지 않은 역할입니다: " + role);
     }

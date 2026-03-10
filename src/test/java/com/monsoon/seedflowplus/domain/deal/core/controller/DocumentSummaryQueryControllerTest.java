@@ -1,19 +1,24 @@
 package com.monsoon.seedflowplus.domain.deal.core.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.monsoon.seedflowplus.config.TestSecurityConfig;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.core.common.support.error.GlobalExceptionHandler;
 import com.monsoon.seedflowplus.domain.deal.core.dto.response.DocumentSummaryResponse;
 import com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummarySearchCondition;
 import com.monsoon.seedflowplus.domain.deal.core.service.DocumentSummaryQueryService;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,7 +31,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -48,9 +54,13 @@ class DocumentSummaryQueryControllerTest {
 
     @Test
     @DisplayName("sort=createdAt,asc 요청은 오름차순 Pageable로 QueryService에 전달된다")
-    @WithMockUser(roles = "ADMIN")
     void getDocumentsPassesAscendingSortToService() throws Exception {
-        when(documentSummaryQueryService.getDocuments(any(DocumentSummarySearchCondition.class), any(Pageable.class), isNull()))
+        CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
+        Collection<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(principal.getRole()).thenReturn(Role.ADMIN);
+        doReturn(authorities).when(principal).getAuthorities();
+
+        when(documentSummaryQueryService.getDocuments(any(DocumentSummarySearchCondition.class), any(Pageable.class), same(principal)))
                 .thenReturn(new PageImpl<>(List.of(new DocumentSummaryResponse(
                         "STMT-1",
                         null,
@@ -65,6 +75,11 @@ class DocumentSummaryQueryControllerTest {
                 ))));
 
         mockMvc.perform(get("/api/v1/documents")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                principal,
+                                null,
+                                principal.getAuthorities()
+                        )))
                         .param("docType", "STMT")
                         .param("sort", "createdAt,asc"))
                 .andExpect(status().isOk())
@@ -72,7 +87,7 @@ class DocumentSummaryQueryControllerTest {
                 .andExpect(jsonPath("$.data.content[0].docCode").value("STMT-001"));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(documentSummaryQueryService).getDocuments(any(DocumentSummarySearchCondition.class), pageableCaptor.capture(), isNull());
+        verify(documentSummaryQueryService).getDocuments(any(DocumentSummarySearchCondition.class), pageableCaptor.capture(), same(principal));
 
         Pageable pageable = pageableCaptor.getValue();
         org.assertj.core.api.Assertions.assertThat(pageable.getSort().getOrderFor("createdAt"))

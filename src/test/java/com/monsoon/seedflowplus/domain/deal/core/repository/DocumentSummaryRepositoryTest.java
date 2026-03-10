@@ -10,6 +10,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.ClientType;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.DocumentSummary;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -158,6 +161,48 @@ class DocumentSummaryRepositoryTest {
         ))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("사용자 권한 정보가 없습니다.");
+    }
+
+    @Test
+    @DisplayName("searchDocuments는 SALES_REP의 employeeId가 없으면 IllegalArgumentException을 던진다")
+    void searchDocumentsRejectsSalesRepWithoutEmployeeId() {
+        CustomUserDetails principal = new CustomUserDetails(User.builder()
+                .loginId("sales-rep-null")
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .build());
+
+        assertThatThrownBy(() -> documentSummaryRepository.searchDocuments(
+                DocumentSummarySearchCondition.builder().build(),
+                PageRequest.of(0, 10),
+                principal
+        ))
+                .isInstanceOf(InvalidDataAccessApiUsageException.class)
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SALES_REP 사용자에 employeeId가 없습니다.");
+    }
+
+    @Test
+    @DisplayName("searchDocuments는 CLIENT의 clientId가 없으면 IllegalArgumentException을 던진다")
+    void searchDocumentsRejectsClientWithoutClientId() {
+        CustomUserDetails principal = new CustomUserDetails(User.builder()
+                .loginId("client-null")
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.CLIENT)
+                .build());
+
+        assertThatThrownBy(() -> documentSummaryRepository.searchDocuments(
+                DocumentSummarySearchCondition.builder().build(),
+                PageRequest.of(0, 10),
+                principal
+        ))
+                .isInstanceOf(InvalidDataAccessApiUsageException.class)
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CLIENT 사용자에 clientId가 없습니다.");
     }
 
     private Employee persistEmployee(String code) {

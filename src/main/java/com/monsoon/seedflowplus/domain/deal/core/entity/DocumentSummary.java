@@ -14,10 +14,21 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Subselect;
+import org.hibernate.annotations.Synchronize;
 
 @Getter
 @Entity
 @Immutable
+@Synchronize({
+        "tbl_request_quotation_header",
+        "tbl_quotation_header",
+        "tbl_contract_header",
+        "tbl_order_header",
+        "tbl_statement",
+        "tbl_invoice",
+        "tbl_payment",
+        "tbl_sales_deal"
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Subselect("""
     SELECT surrogate_id, doc_type, doc_id, deal_id, client_id,
