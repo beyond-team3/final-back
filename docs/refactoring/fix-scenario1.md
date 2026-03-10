@@ -162,3 +162,17 @@ BUG-3. 결제 완료 파이프라인에서 schedule sync 호출이 빠져 일정
 
 ### 다음 단계
 없음
+
+## [2026-03-10 11:18] BUG-3 후속 doc_type VARCHAR 검증 보강
+
+### 작업 내용
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepositoryTest.java — `DealDocType.CNT` 기준 `DealSchedule` 저장/조회 JPA 슬라이스 테스트 신규 추가
+- 수정 파일: docs/refactoring/fix-scenario1.md — doc_type VARCHAR 후속 작업 결과와 제약 사항 기록
+- 참고: `tbl_deal_sked.doc_type` 직접 ALTER는 샌드박스 TCP 소켓 제한으로 이 세션에서 실행하지 못함
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+개발 DB에서 `ALTER TABLE tbl_deal_sked MODIFY COLUMN doc_type VARCHAR(20) NOT NULL;` 직접 실행 후 `DESCRIBE tbl_deal_sked;` 재확인
