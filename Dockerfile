@@ -1,11 +1,14 @@
-FROM openjdk:21-jdk-slim
+# 이미 Jenkins가 빌드한 jar를 가져와서 실행만 담당
+FROM eclipse-temurin:21-jdk-alpine
 
-# 필수 라이브러리 설치
-RUN apt-get update && apt-get install -y libstdc++6
+WORKDIR /app
 
-# 기존 설정 그대로 유지
-ARG JAR_FILE=build/libs/*.jar
-COPY ${JAR_FILE} app.jar
+# 타임존 설정 (한국 시간)
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone
 
-# ENTRYPOINT 설정
-ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "/app.jar"]
+# Jenkins workspace에 있는 jar 복사
+COPY build/libs/*.jar app.jar
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
