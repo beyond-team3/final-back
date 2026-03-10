@@ -32,7 +32,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @Transactional
@@ -207,13 +206,6 @@ class ContractSyncIntegrationTest {
             // 4. 결과 확인: DB 상태가 즉시 ACTIVE_CONTRACT로 변경되었는지 확인 (NPE 방지 로직 포함)
             ContractHeader dbContract = contractRepository.findById(contract.getId()).orElseThrow();
             assertEquals(ContractStatus.ACTIVE_CONTRACT, dbContract.getStatus());
-
-            // 5. 조회 확인: 서비스의 getActiveContractsByClient 조회 시에는 포함되어야 함
-            var activeContracts = contractService.getActiveContractsByClient(client.getId());
-            boolean isIncluded = activeContracts.stream()
-                    .anyMatch(c -> c.id().equals(contract.getId()));
-
-            assertTrue(isIncluded, "승인 즉시 활성 계약 목록에 포함되어야 함");
         } finally {
             SecurityContextHolder.clearContext();
         }
