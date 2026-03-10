@@ -119,7 +119,7 @@ public class ProductWriteService {
     }
 
     @Transactional
-    public void updateProduct(Long productId, ProductRequest request, Long userId) {
+    public void updateProduct(Long productId, ProductRequest request, MultipartFile productImage, Long userId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
@@ -129,6 +129,15 @@ public class ProductWriteService {
         Employee employee = user.getEmployee();
         if (employee == null) {
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        String uploadedImageUrl = product.getProductImageUrl();
+        if (productImage != null && !productImage.isEmpty()) {
+            uploadedImageUrl = s3UploadService.uploadProductImage(productImage);
+        } else if (request.getProductImageUrl() == null || request.getProductImageUrl().isEmpty()) {
+            uploadedImageUrl = null;
+        } else if (!request.getProductImageUrl().startsWith("data:image")) {
+            uploadedImageUrl = request.getProductImageUrl();
         }
 
         // 가격 변동 검사 및 이력 저장
@@ -146,7 +155,7 @@ public class ProductWriteService {
                 request.getProductName(),
                 request.getProductCategory(),
                 request.getProductDescription(),
-                request.getProductImageUrl(),
+                uploadedImageUrl,
                 request.getAmount(),
                 request.getUnit(),
                 request.getPrice(),
