@@ -5,7 +5,7 @@
 ###
 ### 주의 1) 실제 구현 기준으로 사전 생성/활성화된 ADMIN 계정이 필요하다.
 ### 주의 2) 실제 권한 흐름은 RFQ/ORD/PAY=CLIENT, QUO/CNT/INV=SALES_REP, QUO/CNT 승인=ADMIN→CLIENT 2단계다.
-### 주의 3) Schedule 검증은 현재 구현 enum 기준(DOC_APPROVED, DELIVERY_DUE, PAYMENT_DUE, PAYMENT_RECEIVED)으로 수행한다.
+### 주의 3) Schedule 검증은 현재 구현 enum 기준(eventType=DOC_APPROVED/DELIVERY_DUE/PAYMENT_DUE/PAYMENT_RECEIVED, docType=CONTRACT/ORDER/INVOICE/PAYMENT)으로 수행한다.
 
 @baseUrl = http://localhost:8080
 @adminEmail = admin@seedflow.com
@@ -687,7 +687,7 @@ Authorization: Bearer {{salesToken}}
 client.test("schedule contains contract approval event", function () {
   client.assert(response.status === 200, "status must be 200");
   const schedules = response.body.data || [];
-  client.assert(schedules.some((item) => item.docType === "CNT" && item.eventType === "DOC_APPROVED"), "CNT DOC_APPROVED schedule must exist");
+  client.assert(schedules.some((item) => item.docType === "CONTRACT" && item.eventType === "DOC_APPROVED"), "CONTRACT DOC_APPROVED schedule must exist");
 });
 %}
 
@@ -788,7 +788,7 @@ Authorization: Bearer {{salesToken}}
 client.test("schedule contains order event", function () {
   client.assert(response.status === 200, "status must be 200");
   const schedules = response.body.data || [];
-  client.assert(schedules.some((item) => item.docType === "ORD"), "ORD schedule entry must exist");
+  client.assert(schedules.some((item) => item.docType === "ORDER"), "ORDER schedule entry must exist");
 });
 %}
 

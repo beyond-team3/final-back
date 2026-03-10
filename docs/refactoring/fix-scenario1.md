@@ -24,3 +24,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 09:44] Scenario1 schedule 검증 정합화
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/scenario1.http — schedule 응답의 실제 docType enum(CONTRACT, ORDER 등)에 맞춰 assertion과 주석 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
