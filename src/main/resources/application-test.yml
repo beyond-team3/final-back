@@ -19,6 +19,17 @@ spring:
       host: localhost
       port: 6379
       password:
+
+  cloud:
+    aws:
+      s3:
+        bucket: test-dummy-bucket
+      credentials:
+        access-key: test-access-key
+        secret-key: test-secret-key
+      region:
+        static: ap-northeast-2
+
   mail:
       host: localhost
       port: 587

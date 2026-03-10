@@ -21,6 +21,7 @@ public enum ErrorCode {
     P001,
     P002,
     T001,
+    F001,F002,
 
     // 품종
     C101,
