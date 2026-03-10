@@ -73,31 +73,31 @@ JOIN tbl_sales_deal d ON d.deal_id = p.deal_id;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DELETE FROM tbl_payment
-WHERE payment_code IN ('SC1-20260310-PAY-OPEN', 'SC1-20260310-PAY-CLOSED');
+WHERE payment_code IN ('S1-260310-PY-O', 'S1-260310-PY-C');
 
 DELETE FROM tbl_invoice
-WHERE invoice_code IN ('SC1-20260310-INV-OPEN', 'SC1-20260310-INV-CLOSED');
+WHERE invoice_code IN ('S1-260310-IV-O', 'S1-260310-IV-C');
 
 DELETE FROM tbl_statement
-WHERE statement_code IN ('SC1-20260310-STMT-OPEN');
+WHERE statement_code IN ('S1-260310-ST-O');
 
 DELETE FROM tbl_order_header
-WHERE order_code IN ('SC1-20260310-ORD-OPEN', 'SC1-20260310-ORD-CLOSED');
+WHERE order_code IN ('S1-260310-OD-O', 'S1-260310-OD-C');
 
 DELETE FROM tbl_contract_header
-WHERE contract_code IN ('SC1-20260310-CNT-OPEN', 'SC1-20260310-CNT-CLOSED');
+WHERE contract_code IN ('S1-260310-CN-O', 'S1-260310-CN-C');
 
 DELETE FROM tbl_quotation_header
-WHERE quotation_code IN ('SC1-20260310-QUO-OPEN', 'SC1-20260310-QUO-PENDING');
+WHERE quotation_code IN ('S1-260310-QU-O', 'S1-260310-QU-P');
 
 DELETE FROM tbl_request_quotation_header
-WHERE request_code IN ('SC1-20260310-RFQ-OPEN', 'SC1-20260310-RFQ-PENDING', 'SC1-20260310-RFQ-CLOSED');
+WHERE request_code IN ('S1-260310-RF-O', 'S1-260310-RF-P', 'S1-260310-RF-C');
 
 DELETE FROM tbl_sales_deal
 WHERE latest_target_code IN (
-    'SC1-20260310-PAY-OPEN',
-    'SC1-20260310-QUO-PENDING',
-    'SC1-20260310-ORD-CLOSED'
+    'S1-260310-PY-O',
+    'S1-260310-QU-P',
+    'S1-260310-OD-C'
 )
 OR summary_memo LIKE 'SC1-20260310:%';
 
@@ -180,9 +180,9 @@ INSERT INTO tbl_sales_deal (
     created_at,
     updated_at
 ) VALUES
-    (930001, 920001, 910002, 'PAID', 'COMPLETED', 'PAY', 970001, 'SC1-20260310-PAY-OPEN', '2026-03-10 16:00:00', NULL, 'SC1-20260310: open full-chain deal for all document list', '2026-03-10 11:00:00', '2026-03-10 16:00:00'),
-    (930002, 920001, 910002, 'PENDING_ADMIN', 'WAITING_ADMIN', 'QUO', 950002, 'SC1-20260310-QUO-PENDING', '2026-03-10 14:00:00', NULL, 'SC1-20260310: open pending quotation deal for filter test', '2026-03-10 11:10:00', '2026-03-10 14:00:00'),
-    (930003, 920002, 910003, 'CANCELED', 'CANCELED', 'ORD', 960002, 'SC1-20260310-ORD-CLOSED', '2026-03-10 15:00:00', '2026-03-10 15:10:00', 'SC1-20260310: closed foreign-scope order deal for access filter test', '2026-03-10 11:20:00', '2026-03-10 15:10:00');
+    (930001, 920001, 910002, 'PAID', 'COMPLETED', 'PAY', 970001, 'S1-260310-PY-O', '2026-03-10 16:00:00', NULL, 'SC1-20260310: open full-chain deal for all document list', '2026-03-10 11:00:00', '2026-03-10 16:00:00'),
+    (930002, 920001, 910002, 'PENDING_ADMIN', 'WAITING_ADMIN', 'QUO', 950002, 'S1-260310-QU-P', '2026-03-10 14:00:00', NULL, 'SC1-20260310: open pending quotation deal for filter test', '2026-03-10 11:10:00', '2026-03-10 14:00:00'),
+    (930003, 920002, 910003, 'CANCELED', 'CANCELED', 'ORD', 960002, 'S1-260310-OD-C', '2026-03-10 15:00:00', '2026-03-10 15:10:00', 'SC1-20260310: closed foreign-scope order deal for access filter test', '2026-03-10 11:20:00', '2026-03-10 15:10:00');
 
 INSERT INTO tbl_request_quotation_header (
     rfq_id,
@@ -194,9 +194,9 @@ INSERT INTO tbl_request_quotation_header (
     created_at,
     updated_at
 ) VALUES
-    (940001, 'SC1-20260310-RFQ-OPEN', 920001, 930001, '통합 문서 조회용 완료 체인 RFQ', 'COMPLETED', '2026-03-10 11:30:00', '2026-03-10 11:40:00'),
-    (940002, 'SC1-20260310-RFQ-PENDING', 920001, 930002, '승인 대기 문서 조회용 RFQ', 'COMPLETED', '2026-03-10 11:35:00', '2026-03-10 11:45:00'),
-    (940003, 'SC1-20260310-RFQ-CLOSED', 920002, 930003, '다른 거래처/다른 영업사원 범위 확인용 RFQ', 'REVIEWING', '2026-03-10 11:40:00', '2026-03-10 11:50:00');
+    (940001, 'S1-260310-RF-O', 920001, 930001, '통합 문서 조회용 완료 체인 RFQ', 'COMPLETED', '2026-03-10 11:30:00', '2026-03-10 11:40:00'),
+    (940002, 'S1-260310-RF-P', 920001, 930002, '승인 대기 문서 조회용 RFQ', 'COMPLETED', '2026-03-10 11:35:00', '2026-03-10 11:45:00'),
+    (940003, 'S1-260310-RF-C', 920002, 930003, '다른 거래처/다른 영업사원 범위 확인용 RFQ', 'REVIEWING', '2026-03-10 11:40:00', '2026-03-10 11:50:00');
 
 INSERT INTO tbl_quotation_header (
     quo_id,
@@ -212,8 +212,8 @@ INSERT INTO tbl_quotation_header (
     created_at,
     updated_at
 ) VALUES
-    (950001, 940001, 'SC1-20260310-QUO-OPEN', 920001, 930001, 910002, 'COMPLETED', 1650000.00, '2026-04-09', 'SC1-20260310 open quotation', '2026-03-10 12:00:00', '2026-03-10 12:05:00'),
-    (950002, 940002, 'SC1-20260310-QUO-PENDING', 920001, 930002, 910002, 'WAITING_ADMIN', 770000.00, '2026-04-10', 'SC1-20260310 pending admin quotation', '2026-03-10 12:10:00', '2026-03-10 12:10:00');
+    (950001, 940001, 'S1-260310-QU-O', 920001, 930001, 910002, 'COMPLETED', 1650000.00, '2026-04-09', 'SC1-20260310 open quotation', '2026-03-10 12:00:00', '2026-03-10 12:05:00'),
+    (950002, 940002, 'S1-260310-QU-P', 920001, 930002, 910002, 'WAITING_ADMIN', 770000.00, '2026-04-10', 'SC1-20260310 pending admin quotation', '2026-03-10 12:10:00', '2026-03-10 12:10:00');
 
 INSERT INTO tbl_contract_header (
     cnt_id,
@@ -232,8 +232,8 @@ INSERT INTO tbl_contract_header (
     issue_date,
     updated_at
 ) VALUES
-    (960001,  'SC1-20260310-CNT-OPEN',   950001, 920001, 930001, 910002, 'ACTIVE_CONTRACT', 1650000.00, '2026-03-10', '2026-12-31', 'MONTHLY',   '월 1회 납품', 'SC1-20260310 open contract',   '2026-03-10 12:30:00', '2026-03-10 12:30:00'),
-    (9600021, 'SC1-20260310-CNT-CLOSED', NULL,   920002, 930003, 910003, 'COMPLETED',       350000.00,  '2026-03-10', '2026-06-30', 'QUARTERLY', '분기 납품',   'SC1-20260310 closed contract', '2026-03-10 12:40:00', '2026-03-10 12:40:00');
+    (960001,  'S1-260310-CN-O', 950001, 920001, 930001, 910002, 'ACTIVE_CONTRACT', 1650000.00, '2026-03-10', '2026-12-31', 'MONTHLY',   '월 1회 납품', 'SC1-20260310 open contract',   '2026-03-10 12:30:00', '2026-03-10 12:30:00'),
+    (9600021, 'S1-260310-CN-C', NULL,   920002, 930003, 910003, 'COMPLETED',       350000.00,  '2026-03-10', '2026-06-30', 'QUARTERLY', '분기 납품',   'SC1-20260310 closed contract', '2026-03-10 12:40:00', '2026-03-10 12:40:00');
 
 INSERT INTO tbl_order_header (
     order_id,
@@ -246,8 +246,8 @@ INSERT INTO tbl_order_header (
     status,
     created_at
 ) VALUES
-    (960001, 'SC1-20260310-ORD-OPEN', 960001, 920001, 930001, 910002, 1650000.00, 'CONFIRMED', '2026-03-10 13:00:00'),
-    (960002, 'SC1-20260310-ORD-CLOSED', 9600021, 920002, 930003, 910003, 350000.00, 'CANCELED', '2026-03-10 13:10:00');
+    (960001, 'S1-260310-OD-O', 960001, 920001, 930001, 910002, 1650000.00, 'CONFIRMED', '2026-03-10 13:00:00'),
+    (960002, 'S1-260310-OD-C', 9600021, 920002, 930003, 910003, 350000.00, 'CANCELED', '2026-03-10 13:10:00');
 
 INSERT INTO tbl_statement (
     statement_id,
@@ -260,7 +260,7 @@ INSERT INTO tbl_statement (
     status,
     created_at
 ) VALUES
-    (965001, 'SC1-20260310-STMT-OPEN', 960001, 930001, 1500000.00, 150000.00, 1650000.00, 'ISSUED', '2026-03-10 13:20:00');
+    (965001, 'S1-260310-ST-O', 960001, 930001, 1500000.00, 150000.00, 1650000.00, 'ISSUED', '2026-03-10 13:20:00');
 
 INSERT INTO tbl_invoice (
     invoice_id,
@@ -279,8 +279,8 @@ INSERT INTO tbl_invoice (
     memo,
     created_at
 ) VALUES
-    (966001, 'SC1-20260310-INV-OPEN', 960001, 920001, 930001, 910002, '2026-03-10', '2026-03-01', '2026-03-31', 1500000.00, 150000.00, 1650000.00, 'PAID', 'SC1-20260310 open invoice', '2026-03-10 13:40:00'),
-    (966002, 'SC1-20260310-INV-CLOSED', 9600021, 920002, 930003, 910003, '2026-03-10', '2026-03-01', '2026-03-31', 318181.82, 31818.18, 350000.00, 'CANCELED', 'SC1-20260310 closed invoice', '2026-03-10 13:50:00');
+    (966001, 'S1-260310-IV-O', 960001, 920001, 930001, 910002, '2026-03-10', '2026-03-01', '2026-03-31', 1500000.00, 150000.00, 1650000.00, 'PAID', 'SC1-20260310 open invoice', '2026-03-10 13:40:00'),
+    (966002, 'S1-260310-IV-C', 9600021, 920002, 930003, 910003, '2026-03-10', '2026-03-01', '2026-03-31', 318181.82, 31818.18, 350000.00, 'CANCELED', 'SC1-20260310 closed invoice', '2026-03-10 13:50:00');
 
 INSERT INTO tbl_payment (
     payment_id,
@@ -293,8 +293,8 @@ INSERT INTO tbl_payment (
     status,
     created_at
 ) VALUES
-    (970001, 'SC1-20260310-PAY-OPEN', 966001, 920001, 930001, 1650000.00, 'TRANSFER', 'COMPLETED', '2026-03-10 16:00:00'),
-    (970002, 'SC1-20260310-PAY-CLOSED', 966002, 920002, 930003, 350000.00, 'CASH', 'FAILED', '2026-03-10 14:00:00');
+    (970001, 'S1-260310-PY-O', 966001, 920001, 930001, 1650000.00, 'TRANSFER', 'COMPLETED', '2026-03-10 16:00:00'),
+    (970002, 'S1-260310-PY-C', 966002, 920002, 930003, 350000.00, 'CASH', 'FAILED', '2026-03-10 14:00:00');
 
 -- 확인용 샘플 쿼리 1: 계정/권한
 SELECT user_id, login_id, role, employee_id, client_id
@@ -311,12 +311,12 @@ ORDER BY deal_id;
 -- 확인용 샘플 쿼리 3: 모든 DealType 포함 여부
 SELECT doc_type, COUNT(*) AS doc_count
 FROM v_document_summary
-WHERE doc_code LIKE 'SC1-20260310-%'
+WHERE doc_code LIKE 'S1-260310-%'
 GROUP BY doc_type
 ORDER BY doc_type;
 
 -- 확인용 샘플 쿼리 4: 문서 목록 조회 확인
 SELECT surrogate_id, doc_type, doc_code, amount, expired_date, status, created_at
 FROM v_document_summary
-WHERE doc_code LIKE 'SC1-20260310-%'
+WHERE doc_code LIKE 'S1-260310-%'
 ORDER BY created_at DESC, surrogate_id DESC;
