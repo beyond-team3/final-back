@@ -91,3 +91,74 @@ schedule 도메인 전용 문서 타입 enum을 deal 공통 `DealType`과 같은
 
 ### 다음 단계
 BUG-3 트리거 연결 작업 재개
+
+## [2026-03-10] BUG-3 일정 동기화 트리거 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.decideStep, syncContractApprovalSchedulesIfNeeded
+
+### 변경 내용
+CLIENT 최종 계약 승인 이후 `DealScheduleSyncService`를 통해 계약 시작일/만료일 일정을 자동 upsert하도록 연결했다.
+승인 서비스에 일정 동기화 의존성과 담당자 사용자 해석(`UserRepository`)을 추가하고, CNT 승인 시 두 개의 schedule command를 생성하는 내부 헬퍼를 보강했다.
+
+### 변경 이유
+BUG-3. 계약 승인 파이프라인에서 `DOC_APPROVED` 일정이 생성되지 않던 연결 누락을 보완하기 위해서다.
+
+## [2026-03-10] BUG-3 주문/청구/결제 일정 동기화 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java
+- 클래스/메서드: OrderService.confirmOrder, syncDeliveryDueSchedule
+
+### 변경 내용
+ORD confirm 이후 주문 생성일 기준 `DELIVERY_DUE` 일정을 upsert하도록 연결했다.
+서비스에 일정 동기화 의존성과 담당자 사용자 해석을 추가하고, `externalKey`와 제목/기간 생성 규칙을 내부 헬퍼로 고정했다.
+
+### 변경 이유
+BUG-3. 주문 확정 이후 생산 일정 파이프라인이 끊겨 조회 캘린더에 납품 예정 일정이 누락되던 문제를 막기 위해서다.
+
+## [2026-03-10] BUG-3 청구/결제 일정 동기화 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java
+- 클래스/메서드: InvoiceService.publishInvoice, syncPaymentDueSchedule
+
+### 변경 내용
+INV publish 이후 `invoiceDate`를 기준으로 `PAYMENT_DUE` 일정을 upsert하도록 연결했다.
+청구 서비스에 일정 동기화 의존성과 담당자 사용자 해석을 추가해 발행 직후 시스템 일정이 생성되도록 보강했다.
+
+### 변경 이유
+BUG-3. 청구서 발행 후 결제 마감 일정이 생성되지 않던 연결 누락을 보완하기 위해서다.
+
+## [2026-03-10] BUG-3 결제 수신 일정 동기화 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentService.java
+- 클래스/메서드: PaymentService.processPayment, syncPaymentReceivedSchedule
+
+### 변경 내용
+PAY 완료 처리 직후 `createdAt` 기준 `PAYMENT_RECEIVED` 일정을 upsert하도록 연결했다.
+결제 서비스에 일정 동기화 의존성과 담당자 사용자 해석을 추가해 결제 완료 캘린더 이벤트가 자동 생성되도록 맞췄다.
+
+### 변경 이유
+BUG-3. 결제 완료 파이프라인에서 schedule sync 호출이 빠져 일정 이력이 누락되던 문제를 해결하기 위해서다.
+
+## [2026-03-10 10:41] BUG-3 DealScheduleSyncService 트리거 연결
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — CNT CLIENT 최종 승인 직후 계약 시작일/만료일 `DOC_APPROVED` 일정 2건을 upsert하도록 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java — ORD confirm 직후 주문 생성일 기준 `DELIVERY_DUE` 일정 upsert 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java — INV publish 직후 `invoiceDate` 기준 `PAYMENT_DUE` 일정 upsert 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentService.java — PAY 완료 직후 `createdAt` 기준 `PAYMENT_RECEIVED` 일정 upsert 연결
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — CNT CLIENT 최종 승인 시 일정 upsert 2건 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java — ORD confirm 시 일정 upsert 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java — INV publish 일정 upsert 단위 테스트 신규 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentServiceTest.java — PAY 완료 일정 upsert 단위 테스트 신규 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+없음
