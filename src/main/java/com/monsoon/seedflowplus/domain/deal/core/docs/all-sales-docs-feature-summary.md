@@ -20,6 +20,7 @@ all-sales-docs 기능은 RFQ, QUO, CNT, ORD, STMT, INV, PAY 문서를 하나의 
 - 특징:
   - `@Immutable`
   - `@Subselect` 기반 읽기 전용 엔티티
+  - `@Synchronize`로 뷰 의존 테이블 query space 명시
   - `v_document_summary`를 직접 매핑
 
 ### 3. 검색 조건
@@ -40,8 +41,10 @@ all-sales-docs 기능은 RFQ, QUO, CNT, ORD, STMT, INV, PAY 문서를 하나의 
   - QueryDSL 기반 목록 조회
   - `DocumentSummary`와 `SalesDeal`를 `deal_id` 기준으로 조인
   - 권한 범위 필터 및 조건 검색 처리
-  - `createdAt DESC` 정렬
+  - content/count 쿼리에서 동일 predicate 조합 재사용
+  - `Pageable`의 `createdAt` 정렬 방향 반영, 미지정 시 `createdAt DESC`
   - count 쿼리 분리
+  - 쓰기 메서드를 노출하지 않는 읽기 전용 repository 표면 유지
 
 ## 권한 정책
 
@@ -49,10 +52,17 @@ all-sales-docs 기능은 RFQ, QUO, CNT, ORD, STMT, INV, PAY 문서를 하나의 
   - 전체 문서 조회 가능
 - `SALES_REP`
   - `deal.ownerEmp.id == userDetails.employeeId` 범위만 조회
+  - `employeeId`가 없으면 즉시 예외 처리
 - `CLIENT`
   - `documentSummary.clientId == userDetails.clientId` 범위만 조회
+  - `clientId`가 없으면 즉시 예외 처리
 - 그 외 역할
   - `AccessDeniedException` 발생
+
+## 예외 처리 메모
+
+- repository 구현 내부에서는 역할 식별자 누락 시 `IllegalArgumentException`으로 fail-fast 한다.
+- Spring Data JPA repository 프록시를 통해 호출될 때는 이 예외가 `InvalidDataAccessApiUsageException`으로 번역될 수 있다.
 
 ## API
 
