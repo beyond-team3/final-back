@@ -26,6 +26,7 @@ public enum ErrorType implements ErrorCodeProvider {
     DUPLICATE_PRODUCT_CODE(HttpStatus.BAD_REQUEST, ErrorCode.P001, "이미 존재하는 상품입니다.", LogLevel.WARN),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P002, "존재하지 않는 상품입니다.", LogLevel.WARN),
     DUPLICATE_TAG(HttpStatus.BAD_REQUEST, ErrorCode.T001, "이미 존재하는 태그입니다.", LogLevel.WARN),
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.F001, "파일이 비어있습니다.", LogLevel.WARN),
 
     // 주문
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.O001, "주문을 찾을 수 없습니다.", LogLevel.WARN),
