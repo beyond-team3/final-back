@@ -31,7 +31,6 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -52,6 +51,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -538,18 +539,16 @@ class ApprovalCommandServiceTest {
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().upsertCommands())
-                .extracting(DealScheduleUpsertCommand::externalKey)
-                .containsExactly(
-                        "CNT_8001_DOC_APPROVED_START",
-                        "CNT_8001_DOC_APPROVED_END"
-                );
-        assertThat(eventCaptor.getValue().deleteExternalKeys()).isEmpty();
+        assertThat(eventCaptor.getValue().targetId()).isEqualTo(8001L);
+        assertThat(eventCaptor.getValue().dealType()).isEqualTo(DealType.CNT);
+        assertThat(eventCaptor.getValue().stepOrder()).isEqualTo(2);
+        assertThat(eventCaptor.getValue().actorType()).isEqualTo(ActorType.CLIENT);
+        assertThat(eventCaptor.getValue().decision()).isEqualTo(DecisionType.APPROVE);
     }
 
     @Test
-    @DisplayName("케이스 7-1: CNT CLIENT approve 시 owner user가 없어도 현재 사용자로 일정 동기화한다")
-    void approveContractByClientFallsBackToPrincipalUserForScheduleAssignee() {
+    @DisplayName("케이스 7-1: CNT CLIENT approve 시 현재 사용자 ID를 lightweight 이벤트에 담는다")
+    void approveContractByClientPublishesPrincipalUserIdInLightweightEvent() {
         ApprovalRequest request = cntRequest(601L, 8002L, 101L);
         ApprovalStep step1 = step(63L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
         ApprovalStep step2 = step(64L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
@@ -564,7 +563,6 @@ class ApprovalCommandServiceTest {
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(601L)).thenReturn(List.of(step1, step2));
         when(approvalDecisionRepository.existsByApprovalStepId(64L)).thenReturn(false);
         when(contractRepository.findById(8002L)).thenReturn(Optional.of(contract));
-        when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.empty());
 
         approvalCommandService.decideStep(
                 601L,
@@ -576,46 +574,29 @@ class ApprovalCommandServiceTest {
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().upsertCommands())
-                .extracting(DealScheduleUpsertCommand::assigneeUserId)
-                .containsOnly(principal.getUserId());
+        assertThat(eventCaptor.getValue().principalUserId()).isEqualTo(principal.getUserId());
     }
 
     @Test
-    @DisplayName("케이스 7-2: CNT CLIENT approve 시 승인일이 null이면 기존 stable key 일정을 삭제 대상으로 발행한다")
-    void approveContractByClientPublishesDeletesWhenApprovalDatesAreNull() {
-        ApprovalRequest request = cntRequest(602L, 8003L, 101L);
-        ApprovalStep step1 = step(65L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
-        ApprovalStep step2 = step(66L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
-        request.addStep(step1);
-        request.addStep(step2);
-        ContractHeader contract = contract(8003L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
-        ReflectionTestUtils.setField(contract, "startDate", null);
-        ReflectionTestUtils.setField(contract, "endDate", null);
+    @DisplayName("케이스 7-2: afterCommit publish 실패는 호출자에게 전파되지 않는다")
+    void publishAfterCommitSwallowsListenerFailure() {
+        try {
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            RuntimeException failure = new RuntimeException("boom");
+            doThrow(failure).when(applicationEventPublisher).publishEvent("event");
 
-        when(approvalRequestRepository.findById(602L)).thenReturn(Optional.of(request));
-        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(66L, 602L)).thenReturn(Optional.of(step2));
-        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(602L, 1)).thenReturn(Optional.of(step1));
-        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(602L)).thenReturn(List.of(step1, step2));
-        when(approvalDecisionRepository.existsByApprovalStepId(66L)).thenReturn(false);
-        when(contractRepository.findById(8003L)).thenReturn(Optional.of(contract));
+            ReflectionTestUtils.invokeMethod(approvalCommandService, "publishAfterCommit", "event");
 
-        approvalCommandService.decideStep(
-                602L,
-                66L,
-                new DecideApprovalRequest(DecisionType.APPROVE, null),
-                mockUser(Role.CLIENT, null, 101L)
-        );
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(synchronizations).hasSize(1);
+            synchronizations.get(0).afterCommit();
 
-        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
-                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
-        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().upsertCommands()).isEmpty();
-        assertThat(eventCaptor.getValue().deleteExternalKeys())
-                .containsExactly(
-                        "CNT_8003_DOC_APPROVED_START",
-                        "CNT_8003_DOC_APPROVED_END"
-                );
+            verify(applicationEventPublisher).publishEvent("event");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     @Test
