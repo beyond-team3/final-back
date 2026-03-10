@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -277,6 +279,100 @@ class OrderServiceTest {
         assertEquals(LocalDateTime.of(2026, 3, 11, 0, 0), command.endAt());
         assertEquals(orderId, response.getOrderId());
         assertEquals(OrderStatus.CONFIRMED, response.getStatus());
+    }
+
+    @Test
+    void confirmOrderShouldCreateStatementAfterOrderLogAndScheduleSync() {
+        Long orderId = 31L;
+        Long clientId = 7L;
+        Long ownerEmployeeId = 12L;
+        Long assigneeUserId = 99L;
+
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("테스트 거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", clientId);
+
+        Employee ownerEmployee = Employee.builder()
+                .employeeCode("EMP-1")
+                .employeeName("담당 영업")
+                .employeeEmail("owner@test.com")
+                .employeePhone("010-1111-1111")
+                .address("서울")
+                .build();
+        ReflectionTestUtils.setField(ownerEmployee, "id", ownerEmployeeId);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        when(deal.getId()).thenReturn(55L);
+        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
+
+        Employee orderEmployee = org.mockito.Mockito.mock(Employee.class);
+        when(orderEmployee.getId()).thenReturn(3L);
+
+        ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
+        when(contract.getId()).thenReturn(11L);
+
+        OrderHeader orderHeader = OrderHeader.create(contract, client, deal, orderEmployee, "ORD-20260310-001");
+        ReflectionTestUtils.setField(orderHeader, "id", orderId);
+        ReflectionTestUtils.setField(orderHeader, "createdAt", LocalDateTime.of(2026, 3, 10, 15, 30));
+
+        User assigneeUser = User.builder()
+                .loginId("sales")
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(ownerEmployee)
+                .build();
+        ReflectionTestUtils.setField(assigneeUser, "id", assigneeUserId);
+
+        CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
+        when(principal.getRole()).thenReturn(Role.CLIENT);
+        when(principal.getClientId()).thenReturn(clientId);
+        when(orderHeaderRepository.findById(orderId)).thenReturn(Optional.of(orderHeader));
+        when(userRepository.findByEmployeeId(ownerEmployeeId)).thenReturn(Optional.of(assigneeUser));
+        OrderDetail orderDetail = org.mockito.Mockito.mock(OrderDetail.class);
+        when(orderDetail.getId()).thenReturn(71L);
+        when(orderDetail.getContractDetail()).thenReturn(org.mockito.Mockito.mock(ContractDetail.class));
+        when(orderDetail.getQuantity()).thenReturn(1L);
+        when(orderDetail.getShippingName()).thenReturn("테스트 물류센터");
+        when(orderDetail.getShippingPhone()).thenReturn("010-1111-2222");
+        when(orderDetail.getShippingAddress()).thenReturn("서울시 강남구");
+        when(orderDetail.getShippingAddressDetail()).thenReturn("101호");
+        when(orderDetail.getDeliveryRequest()).thenReturn("문 앞 배송");
+        ContractDetail detailContract = orderDetail.getContractDetail();
+        when(detailContract.getId()).thenReturn(21L);
+        when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenReturn(List.of(orderDetail));
+        when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
+
+        orderService.confirmOrder(orderId, principal);
+
+        InOrder inOrder = inOrder(dealPipelineFacade, dealScheduleSyncService, statementService);
+        inOrder.verify(dealPipelineFacade).recordAndSync(
+                eq(deal),
+                eq(DealType.ORD),
+                eq(orderId),
+                eq("ORD-20260310-001"),
+                eq(DealStage.IN_PROGRESS),
+                eq(DealStage.CONFIRMED),
+                eq(OrderStatus.PENDING.name()),
+                eq(OrderStatus.CONFIRMED.name()),
+                eq(ActionType.CONFIRM),
+                isNull(),
+                eq(ActorType.CLIENT),
+                eq(clientId),
+                isNull(),
+                any()
+        );
+        inOrder.verify(dealScheduleSyncService).upsertFromEvent(any(DealScheduleUpsertCommand.class));
+        inOrder.verify(statementService).createStatement(orderHeader, ActorType.CLIENT, clientId);
     }
 
     @Test
