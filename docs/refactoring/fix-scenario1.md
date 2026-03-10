@@ -71,3 +71,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 13:55] 문서 목록에서 PAY 제외 반영
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — `/api/v1/documents` 조회에서 PAY 문서를 공통 제외하도록 필터 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java — PAY 제외 정책에 맞춰 repository 테스트 기대값과 검증 케이스 보강
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
