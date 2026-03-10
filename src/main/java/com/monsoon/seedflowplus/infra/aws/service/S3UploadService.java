@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,8 +22,9 @@ public class S3UploadService {
 
     // Spring Cloud AWS가 제공하는 S3 전용 템플릿 객체
     private final S3Template s3Template;
+    private final S3Client s3Client;
 
-    @Value("${spring.cloud.aws.s3.bucket:monsoon-dummy-bucket}")
+    @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
 
     @Value("${spring.cloud.aws.region.static:ap-northeast-2}")
@@ -77,6 +79,9 @@ public class S3UploadService {
      * S3에 저장된 객체의 퍼블릭 URL을 만들어주는 헬퍼 메서드
      */
     private String getPublicUrl(String s3Key) {
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, s3Key);
+        return s3Client.utilities().getUrl(builder -> builder
+                        .bucket(bucketName)
+                        .key(s3Key))
+                .toExternalForm();
     }
 }
