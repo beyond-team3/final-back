@@ -120,6 +120,26 @@ public class OrderService {
         // 7. 총액 업데이트
         orderHeader.updateTotalAmount(totalAmount);
 
+        // ORD도 다른 문서와 동일하게 생성 완료 시점의 CREATE 로그를 남겨야 타임라인이 누락되지 않는다.
+        dealPipelineFacade.recordAndSync(
+                orderHeader.getDeal(),
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                orderHeader.getDeal().getCurrentStage(),
+                mapOrderStage(orderHeader.getStatus()),
+                orderHeader.getStatus().name(),
+                orderHeader.getStatus().name(),
+                ActionType.CREATE,
+                null,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(
+                        new DealLogWriteService.DiffField("totalAmount", "주문 총액", null, totalAmount, "MONEY"),
+                        new DealLogWriteService.DiffField("itemCount", "주문 품목 수", null, request.getItems().size(), "COUNT"))
+        );
+
         return toOrderResponse(orderHeader);
     }
 
