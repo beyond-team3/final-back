@@ -258,3 +258,38 @@ Repository 조회 정렬이 고정 `createdAt DESC` 대신 `Pageable`의 `create
 
 ### 다음 단계
 없음
+
+## [2026-03-10] DocumentSummary 조회 안전성 및 읽기 전용 구조 보강
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java
+- 클래스/메서드: DocumentSummaryQueryRepositoryImpl#searchDocuments, #roleScope
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepository.java
+- 클래스/메서드: DocumentSummaryRepository
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/DocumentSummary.java
+- 클래스/메서드: DocumentSummary
+
+### 변경 내용
+Repository where 절 생성 로직을 `buildPredicates(...)`로 통합해 content/count 쿼리 조건 드리프트를 막았다.
+`roleScope(...)`에서 SALES_REP/CLIENT의 식별자 null을 선검증하고 즉시 실패하도록 방어 로직을 추가했다.
+`DocumentSummaryRepository`를 쓰기 메서드가 노출되지 않는 읽기 전용 repository 표면으로 조정했다.
+`DocumentSummary`에 `@Synchronize`를 추가해 `v_document_summary` 기반 조회의 flush/query space 추적 대상을 명시했다.
+
+### 변경 이유
+조회 전용 모델의 안전성과 유지보수성을 높이고, null 식별자 누락을 조기에 차단하기 위해.
+
+## [2026-03-10 09:50] DocumentSummary 조회 방어 로직 및 테스트 정합성 보강
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java — 역할 식별자 null fail-fast와 where predicate 조합 helper 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepository.java — 읽기 전용 repository 인터페이스로 축소
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/DocumentSummary.java — `@Synchronize`로 뷰 의존 테이블 명시
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/controller/DocumentSummaryQueryControllerTest.java — `CustomUserDetails` principal을 실제 authentication으로 주입하도록 보정
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java — null 식별자 방어 로직과 Spring Data 예외 번역 경계 검증 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
