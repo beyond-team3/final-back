@@ -64,7 +64,7 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
                 9101L
         );
 
-        when(contractRepository.findById(8001L)).thenReturn(Optional.of(contract));
+        when(contractRepository.findByIdWithScheduleRelations(8001L)).thenReturn(Optional.of(contract));
         when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.of(ownerUser));
 
         handler.handle(event);
@@ -96,7 +96,7 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
                 null
         );
 
-        when(contractRepository.findById(8002L)).thenReturn(Optional.of(contract));
+        when(contractRepository.findByIdWithScheduleRelations(8002L)).thenReturn(Optional.of(contract));
         when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.empty());
         when(userRepository.findByClientId(101L)).thenReturn(Optional.empty());
 

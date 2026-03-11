@@ -193,3 +193,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-11 15:22] 계약 승인 일정 동기화 테스트 mock 대상 정합화
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandlerTest.java` — 핸들러 구현이 호출하는 `findByIdWithScheduleRelations(...)`에 맞춰 repository stub 대상을 교체
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
