@@ -276,3 +276,18 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-11 17:50] 승인 검색 정렬 alias 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/controller/ApprovalController.java` — 승인 검색 기본 정렬을 `id desc`로 지정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — `approvalId` 정렬 요청을 엔티티 `id`로 정규화하는 pageable 보정 로직 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 프론트 정렬 alias 회귀 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 승인 검색 정렬 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

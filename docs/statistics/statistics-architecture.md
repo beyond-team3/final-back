@@ -121,3 +121,19 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 정책 결정 사항의 공통 통계 API 구조와 역할별 조회 범위를 반영하기 위함
+
+## [2026-03-11] 승인 검색 정렬 alias 정규화
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/controller/ApprovalController.java`
+- 클래스/메서드: `ApprovalController#search`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java`
+- 클래스/메서드: `ApprovalCommandService#search`, `normalizeApprovalSearchPageable`
+
+### 변경 내용
+승인 검색 API의 기본 페이지 정렬을 `id desc`로 고정했다.
+서비스는 프론트가 보내는 `approvalId` 정렬 요청을 엔티티 필드명인 `id`로 정규화한 뒤 저장소 검색에 전달한다.
+이로써 Spring Data가 존재하지 않는 `ar.approvalId` 정렬 절을 JPQL에 추가하지 않도록 보정했다.
+
+### 변경 이유
+승인 요청 엔티티 식별자 필드와 프론트 정렬 파라미터 이름이 달라 조회가 실패했기 때문이다.
