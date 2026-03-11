@@ -15,10 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -70,20 +67,32 @@ public class RagSeedService {
 
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combined, scopeDesc);
 
+            // [교차 검증 필터] AI가 반환한 근거 ID 중 실제 컨텍스트에 존재하는 ID만 필터링
+            Set<Long> validContextIds = extractIdsFromSegments(combined);
+            List<Long> verifiedEvidenceIds = analyzedResult.getEvidenceNoteIds().stream()
+                    .filter(validContextIds::contains)
+                    .collect(Collectors.toList());
+
             SalesBriefing briefing = briefingRepository.findByClientId(clientId)
                     .map(existing -> {
                         existing.updateAnalysis(
                                 analyzedResult.getStatusChange(),
                                 analyzedResult.getLongTermPattern(),
-                                analyzedResult.getEvidenceNoteIds(),
+                                verifiedEvidenceIds, // 검증된 ID만 반영
                                 analyzedResult.getStrategySuggestion()
                         );
                         return existing;
                     })
-                    .orElse(analyzedResult);
+                    .orElse(SalesBriefing.builder()
+                            .clientId(analyzedResult.getClientId())
+                            .statusChange(analyzedResult.getStatusChange())
+                            .longTermPattern(analyzedResult.getLongTermPattern())
+                            .evidenceNoteIds(verifiedEvidenceIds) // 검증된 ID만 반영
+                            .strategySuggestion(analyzedResult.getStrategySuggestion())
+                            .build());
 
             briefingRepository.save(briefing);
-            log.info("[RAGseed] 표준 브리핑 갱신 완료");
+            log.info("[RAGseed] 표준 브리핑 갱신 완료 (검증된 근거 개수: {})", verifiedEvidenceIds.size());
 
         } finally {
             lock.unlock();
@@ -144,28 +153,35 @@ public class RagSeedService {
 
         String aiResponse = aiClient.generateTargetedResponse(hiddenPrompt, combined, scopeDesc);
         
-        List<Long> evidenceIds = combined.stream()
-                .map(s -> {
-                    String idStr = s.metadata().containsKey("id") 
-                            ? s.metadata().get("id").toString() 
-                            : (s.metadata().containsKey("productId") ? s.metadata().get("productId").toString() : null);
-                    if (idStr == null) return null;
-                    try {
-                        return Long.valueOf(idStr);
-                    } catch (NumberFormatException e) {
-                        log.warn("[RAGseed] 유효하지 않은 근거 ID 형식: {}", idStr);
-                        return null;
-                    }
-                })
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
+        // 실제 인출된 데이터의 ID들을 결과에 포함 (공통 메서드 활용)
+        List<Long> evidenceIds = new ArrayList<>(extractIdsFromSegments(combined));
 
         return RagSeedResponseDto.builder()
                 .content(aiResponse)
                 .evidenceIds(evidenceIds)
                 .attribution(String.format("Powered by RAGseed - %s 기반 분석", scopeDesc))
                 .build();
+    }
+
+    /**
+     * TextSegment 리스트에서 유효한 ID(노트 ID 또는 상품 ID) 세트를 추출합니다.
+     */
+    private Set<Long> extractIdsFromSegments(List<TextSegment> segments) {
+        return segments.stream()
+                .map(s -> {
+                    String idStr = s.metadata().containsKey("id")
+                            ? s.metadata().get("id").toString()
+                            : (s.metadata().containsKey("productId") ? s.metadata().get("productId").toString() : null);
+                    if (idStr == null) return null;
+                    try {
+                        return Long.valueOf(idStr);
+                    } catch (NumberFormatException e) {
+                        log.warn("[RAGseed] 유효하지 않은 ID 형식 무시됨: {}", idStr);
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     /**
