@@ -119,16 +119,6 @@ public class ContractHeader extends BaseModifyEntity {
         if (status == null) {
             throw new IllegalArgumentException("변경할 상태 값이 존재하지 않습니다.");
         }
-
-        // 거래처 승인 완료(COMPLETED) 시점에 시작일이 오늘/과거이고 종료일이 도래하지 않았으면
-        // 즉시 계약진행중(ACTIVE_CONTRACT)으로 변경하여 가시성 확보 (NPE 방지 포함)
-        if (status == ContractStatus.COMPLETED && startDate != null && !startDate.isAfter(LocalDate.now())) {
-            if (endDate == null || !endDate.isBefore(LocalDate.now())) {
-                this.status = ContractStatus.ACTIVE_CONTRACT;
-                return;
-            }
-        }
-
         this.status = status;
     }
 

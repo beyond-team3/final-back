@@ -36,6 +36,7 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -49,8 +50,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -292,6 +291,7 @@ public class ApprovalCommandService {
         );
 
         contract.updateStatus(ContractStatus.valueOf(toStatus));
+        syncUpstreamDocumentsAfterContractDecision(contract, step, decision);
 
         return new DocumentDecisionResult(
                 fromStatus,
@@ -299,6 +299,30 @@ public class ApprovalCommandService {
                 toDealStageName(fromStatus),
                 toDealStageName(toStatus)
         );
+    }
+
+    private void syncUpstreamDocumentsAfterContractDecision(
+            ContractHeader contract,
+            ApprovalStep step,
+            DecisionType decision
+    ) {
+        if (step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
+            return;
+        }
+
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation == null) {
+            return;
+        }
+
+        if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
+            quotation.updateStatus(QuotationStatus.COMPLETED);
+        }
+
+        if (quotation.getQuotationRequest() != null
+                && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
+            quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
+        }
     }
 
     private DocumentDecisionResult resolveAndApplyDocumentDecision(
@@ -333,25 +357,7 @@ public class ApprovalCommandService {
                 occurredAt,
                 principal == null ? null : principal.getUserId()
         );
-        publishAfterCommit(event);
-    }
-
-    private void publishAfterCommit(Object event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()
-                || !TransactionSynchronizationManager.isActualTransactionActive()) {
-            applicationEventPublisher.publishEvent(event);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    applicationEventPublisher.publishEvent(event);
-                } catch (Throwable t) {
-                    log.error("Failed to publish event after transaction commit. event={}", event, t);
-                }
-            }
-        });
+        applicationEventPublisher.publishEvent(event);
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {

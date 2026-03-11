@@ -30,6 +30,8 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
@@ -51,8 +53,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -518,7 +518,9 @@ class ApprovalCommandServiceTest {
         ApprovalStep step2 = step(62L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
         request.addStep(step1);
         request.addStep(step2);
-        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        QuotationRequestHeader rfq = quotationRequest(9001L, QuotationRequestStatus.COMPLETED, 101L, salesDeal(501L));
+        QuotationHeader quotation = quotation(7001L, QuotationStatus.WAITING_CONTRACT, 101L, salesDeal(501L), rfq);
+        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L), quotation);
 
         when(approvalRequestRepository.findById(600L)).thenReturn(Optional.of(request));
         when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(62L, 600L)).thenReturn(Optional.of(step2));
@@ -534,7 +536,9 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.CLIENT, null, 101L)
         );
 
-        assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.COMPLETED);
+        assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.COMPLETED);
+        assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.COMPLETED);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
@@ -575,28 +579,6 @@ class ApprovalCommandServiceTest {
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
         assertThat(eventCaptor.getValue().principalUserId()).isEqualTo(principal.getUserId());
-    }
-
-    @Test
-    @DisplayName("케이스 7-2: afterCommit publish 실패는 호출자에게 전파되지 않는다")
-    void publishAfterCommitSwallowsListenerFailure() {
-        try {
-            TransactionSynchronizationManager.initSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(true);
-            RuntimeException failure = new RuntimeException("boom");
-            doThrow(failure).when(applicationEventPublisher).publishEvent("event");
-
-            ReflectionTestUtils.invokeMethod(approvalCommandService, "publishAfterCommit", "event");
-
-            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
-            assertThat(synchronizations).hasSize(1);
-            synchronizations.get(0).afterCommit();
-
-            verify(applicationEventPublisher).publishEvent("event");
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(false);
-        }
     }
 
     @Test
@@ -741,10 +723,14 @@ class ApprovalCommandServiceTest {
     }
 
     private QuotationHeader quotation(Long id, QuotationStatus status, Long clientId, SalesDeal deal) {
+        return quotation(id, status, clientId, deal, null);
+    }
+
+    private QuotationHeader quotation(Long id, QuotationStatus status, Long clientId, SalesDeal deal, QuotationRequestHeader rfq) {
         Client client = org.mockito.Mockito.mock(Client.class);
         lenient().when(client.getId()).thenReturn(clientId);
         QuotationHeader quotation = QuotationHeader.create(
-                null,
+                rfq,
                 "Q-" + id,
                 client,
                 deal,
@@ -766,6 +752,10 @@ class ApprovalCommandServiceTest {
     }
 
     private ContractHeader contract(Long id, ContractStatus status, Long clientId, SalesDeal deal) {
+        return contract(id, status, clientId, deal, null);
+    }
+
+    private ContractHeader contract(Long id, ContractStatus status, Long clientId, SalesDeal deal, QuotationHeader quotation) {
         Client client = Client.builder()
                 .clientCode("C-" + clientId)
                 .clientName("거래처-" + clientId)
@@ -780,7 +770,7 @@ class ApprovalCommandServiceTest {
         ReflectionTestUtils.setField(client, "id", clientId);
         ContractHeader contract = ContractHeader.create(
                 "C-" + id,
-                null,
+                quotation,
                 client,
                 deal,
                 org.mockito.Mockito.mock(Employee.class),
@@ -796,6 +786,15 @@ class ApprovalCommandServiceTest {
         ReflectionTestUtils.setField(contract, "endDate", LocalDate.now().plusDays(9));
         contract.updateStatus(status);
         return contract;
+    }
+
+    private QuotationRequestHeader quotationRequest(Long id, QuotationRequestStatus status, Long clientId, SalesDeal deal) {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        lenient().when(client.getId()).thenReturn(clientId);
+        QuotationRequestHeader rfq = QuotationRequestHeader.create(client, "requirements", deal);
+        ReflectionTestUtils.setField(rfq, "id", id);
+        rfq.updateStatus(status);
+        return rfq;
     }
 
     private SalesDeal salesDeal(Long ownerEmployeeId) {

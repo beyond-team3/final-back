@@ -15,8 +15,10 @@ import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @Slf4j
@@ -27,7 +29,8 @@ public class ContractApprovalSchedulesSyncEventHandler {
     private final UserRepository userRepository;
     private final DealScheduleSyncService dealScheduleSyncService;
 
-    @EventListener
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(ContractApprovalSchedulesSyncEvent event) {
         if (!supports(event)) {
             return;

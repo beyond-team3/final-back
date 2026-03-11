@@ -281,12 +281,9 @@ public class QuotationService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        // 2. 상태 체크: FINAL_APPROVED, WAITING_CONTRACT, COMPLETED, EXPIRED인 경우 삭제 불가
+        // 2. 상태 체크: 관리자 승인 이전인 WAITING_ADMIN 상태에서만 삭제 가능
         QuotationStatus status = quotation.getStatus();
-        if (status == QuotationStatus.FINAL_APPROVED ||
-                status == QuotationStatus.WAITING_CONTRACT ||
-                status == QuotationStatus.COMPLETED ||
-                status == QuotationStatus.EXPIRED) {
+        if (status != QuotationStatus.WAITING_ADMIN) {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
