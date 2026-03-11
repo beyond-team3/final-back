@@ -278,6 +278,10 @@ public class ContractService {
             }
         }
 
+        if (contract.getStatus() != ContractStatus.WAITING_ADMIN) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+        }
+
         contract.delete();
 
         // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)

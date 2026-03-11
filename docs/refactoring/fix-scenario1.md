@@ -1,3 +1,27 @@
+## [2026-03-10] Schedule 구현 요약 문서 정합화
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/doc/schedule-implementation-summary.md
+- 클래스/메서드: 문서 업데이트, 구조 변경 없음
+
+### 변경 내용
+현재 schedule 구현과 요약 문서를 대조해 패키지 구조, API 경로, 엔티티 스키마,
+권한/검증 정책 설명을 실제 코드 기준으로 수정했다.
+문서성 변경만 수행했으며 메서드 시그니처, 클래스 구성, 의존 방향은 바뀌지 않았다.
+
+### 변경 이유
+구현 문서와 실제 코드의 불일치를 제거하기 위한 문서 정합화
+
+## [2026-03-10 09:32] Schedule 구현 요약 문서 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/doc/schedule-implementation-summary.md — 현재 구현 기준으로 패키지 구조, API, 엔티티, 정책 설명 정리
+- 수정 파일: docs/refactoring/fix-scenario1.md — 작업 기록 및 아키텍처 변경 여부 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
 ## [2026-03-10] order confirm client actor policy fix
 
 ### 변경 대상
@@ -37,6 +61,15 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-10 09:44] Scenario1 schedule 검증 정합화
+
+### 작업 내용
+- 수정 파일: api-test/http/pipeline/scenario1.http — schedule 응답의 실제 docType enum(CONTRACT, ORDER 등)에 맞춰 assertion과 주석 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
 
 ## [2026-03-10] schedule doc type contract 표기 제거
 
@@ -371,3 +404,29 @@ BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK
 
 ### 다음 단계
 없음
+
+## [2026-03-11 15:10] 계약 승인 일정 조회와 scenario1 검증 보정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java — 계약 승인 이벤트 처리 시 일정 동기화 전용 fetch join 조회 메서드를 사용하도록 변경
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java — deal owner/client를 함께 로드하는 `findByIdWithScheduleRelations` 조회 추가
+- 수정 파일: api-test/http/pipeline/scenario1.http — 재실행 전 전역 변수 초기화, 고정 상품 선택, approval 대상 알림 검증, deal log 최신 ref 선택, 최종 일정 assertion 보강
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `./gradlew compileJava`
+
+### 다음 단계
+로컬 서버에서 `api-test/http/pipeline/scenario1.http` 전체를 다시 실행해 계약 승인 이후 일정/알림 흐름이 안정적으로 통과하는지 확인
+
+## [2026-03-11 15:13] 견적요청 생성 principal 로그 추가
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java — 견적요청 생성 시작 시 principal의 loginId/role/clientId/employeeId를 기록하는 info 로그 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 로그 추가 변경으로 별도 컴파일 미실행, 직전 `./gradlew compileJava` 성공 상태 유지
+
+### 다음 단계
+필요 시 로그 확인 후 민감도와 운영 노이즈를 검토해 유지 여부 판단

@@ -15,8 +15,12 @@ import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @Slf4j
@@ -27,20 +31,30 @@ public class ContractApprovalSchedulesSyncEventHandler {
     private final UserRepository userRepository;
     private final DealScheduleSyncService dealScheduleSyncService;
 
-    @EventListener
+    @Async("notificationTaskExecutor")
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(ContractApprovalSchedulesSyncEvent event) {
         if (!supports(event)) {
             return;
         }
 
         try {
-            contractRepository.findById(event.targetId()).ifPresentOrElse(
+            contractRepository.findByIdWithScheduleRelations(event.targetId()).ifPresentOrElse(
                     contract -> syncContractSchedules(contract, event),
                     () -> log.warn("Skipping contract approval schedule sync because contract was not found. contractId={}", event.targetId())
             );
         } catch (Throwable t) {
             log.error("Failed to handle contract approval schedule sync event. event={}", event, t);
+            throw propagate(t);
         }
+    }
+
+    private RuntimeException propagate(Throwable throwable) {
+        if (throwable instanceof RuntimeException runtimeException) {
+            return runtimeException;
+        }
+        return new RuntimeException(throwable);
     }
 
     private boolean supports(ContractApprovalSchedulesSyncEvent event) {

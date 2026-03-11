@@ -36,6 +36,9 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationService;
+import com.monsoon.seedflowplus.domain.sales.request.service.QuotationRequestService;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -49,8 +52,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -70,6 +71,8 @@ public class ApprovalCommandService {
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final QuotationService quotationService;
+    private final QuotationRequestService quotationRequestService;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
@@ -163,7 +166,13 @@ public class ApprovalCommandService {
         LocalDateTime now = now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
-        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
+        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(
+                request,
+                step,
+                dto.decision(),
+                now,
+                actorId
+        );
 
         try {
             approvalDecisionRepository.save(ApprovalDecision.builder()
@@ -268,7 +277,9 @@ public class ApprovalCommandService {
     private DocumentDecisionResult applyContractDecision(
             ApprovalRequest request,
             ApprovalStep step,
-            DecisionType decision
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
     ) {
         ContractHeader contract = contractRepository.findById(request.getTargetId())
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
@@ -292,6 +303,7 @@ public class ApprovalCommandService {
         );
 
         contract.updateStatus(ContractStatus.valueOf(toStatus));
+        syncUpstreamDocumentsAfterContractDecision(contract, step, decision, actionAt, actorId);
 
         return new DocumentDecisionResult(
                 fromStatus,
@@ -301,14 +313,47 @@ public class ApprovalCommandService {
         );
     }
 
+    private void syncUpstreamDocumentsAfterContractDecision(
+            ContractHeader contract,
+            ApprovalStep step,
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
+    ) {
+        if (step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
+            return;
+        }
+
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation == null) {
+            return;
+        }
+
+        if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
+            quotationService.completeAfterContractApproval(quotation, step.getActorType(), actorId, actionAt);
+        }
+
+        if (quotation.getQuotationRequest() != null
+                && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
+            quotationRequestService.completeAfterContractApproval(
+                    quotation.getQuotationRequest(),
+                    step.getActorType(),
+                    actorId,
+                    actionAt
+            );
+        }
+    }
+
     private DocumentDecisionResult resolveAndApplyDocumentDecision(
             ApprovalRequest request,
             ApprovalStep step,
-            DecisionType decision
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
     ) {
         return switch (request.getDealType()) {
             case QUO -> applyQuotationDecision(request, step, decision);
-            case CNT -> applyContractDecision(request, step, decision);
+            case CNT -> applyContractDecision(request, step, decision, actionAt, actorId);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
     }
@@ -333,25 +378,7 @@ public class ApprovalCommandService {
                 occurredAt,
                 principal == null ? null : principal.getUserId()
         );
-        publishAfterCommit(event);
-    }
-
-    private void publishAfterCommit(Object event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()
-                || !TransactionSynchronizationManager.isActualTransactionActive()) {
-            applicationEventPublisher.publishEvent(event);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    applicationEventPublisher.publishEvent(event);
-                } catch (Throwable t) {
-                    log.error("Failed to publish event after transaction commit. event={}", event, t);
-                }
-            }
-        });
+        applicationEventPublisher.publishEvent(event);
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {

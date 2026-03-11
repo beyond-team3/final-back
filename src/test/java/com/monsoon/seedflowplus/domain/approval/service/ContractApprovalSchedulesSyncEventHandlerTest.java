@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.approval.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -64,7 +65,7 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
                 9101L
         );
 
-        when(contractRepository.findById(8001L)).thenReturn(Optional.of(contract));
+        when(contractRepository.findByIdWithScheduleRelations(8001L)).thenReturn(Optional.of(contract));
         when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.of(ownerUser));
 
         handler.handle(event);
@@ -96,7 +97,7 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
                 null
         );
 
-        when(contractRepository.findById(8002L)).thenReturn(Optional.of(contract));
+        when(contractRepository.findByIdWithScheduleRelations(8002L)).thenReturn(Optional.of(contract));
         when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.empty());
         when(userRepository.findByClientId(101L)).thenReturn(Optional.empty());
 
@@ -105,6 +106,33 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
         verify(dealScheduleSyncService).deleteByExternalKey("CNT_8002_DOC_APPROVED_START");
         verify(dealScheduleSyncService).deleteByExternalKey("CNT_8002_DOC_APPROVED_END");
         verify(dealScheduleSyncService, never()).upsertFromEvent(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("일정 동기화 중 예외가 발생하면 로그 후 예외를 다시 던진다")
+    void handleRethrowsScheduleSyncFailure() {
+        ContractHeader contract = contract(8003L, 101L, salesDeal(501L));
+        ContractApprovalSchedulesSyncEvent event = new ContractApprovalSchedulesSyncEvent(
+                8003L,
+                DealType.CNT,
+                2,
+                ActorType.CLIENT,
+                DecisionType.APPROVE,
+                LocalDateTime.of(2026, 3, 10, 9, 0),
+                9101L
+        );
+
+        when(contractRepository.findByIdWithScheduleRelations(8003L)).thenReturn(Optional.of(contract));
+        Employee owner = contract.getDeal().getOwnerEmp();
+        User ownerUser = user(9301L, owner);
+        when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.of(ownerUser));
+        RuntimeException failure = new RuntimeException("schedule sync failed");
+        org.mockito.Mockito.doThrow(failure)
+                .when(dealScheduleSyncService)
+                .upsertFromEvent(org.mockito.ArgumentMatchers.any(DealScheduleUpsertCommand.class));
+
+        assertThatThrownBy(() -> handler.handle(event))
+                .isSameAs(failure);
     }
 
     private ContractHeader contract(Long id, Long clientId, SalesDeal deal) {

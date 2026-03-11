@@ -44,6 +44,8 @@ WHERE client_id IN (
     FROM tbl_client
     WHERE client_brn = '123-45-67890'
        OR manager_email = 'client@seedflow.com'
+       OR client_brn = '223-45-67890'
+       OR manager_email = 'client2@seedflow.com'
 );
 
 DELETE FROM tbl_client_crops
@@ -52,6 +54,8 @@ WHERE client_id IN (
     FROM tbl_client
     WHERE client_brn = '123-45-67890'
        OR manager_email = 'client@seedflow.com'
+       OR client_brn = '223-45-67890'
+       OR manager_email = 'client2@seedflow.com'
 );
 
 DELETE FROM tbl_product_bookmark;
@@ -216,6 +220,77 @@ SET client_code = CONCAT('CLNT-', LPAD(client_id, 4, '0')),
     updated_at = NOW()
 WHERE client_id = @client_id;
 
+INSERT INTO tbl_client (
+    client_code,
+    client_name,
+    client_brn,
+    ceo_name,
+    company_phone,
+    address,
+    latitude,
+    longitude,
+    client_type,
+    manager_name,
+    manager_phone,
+    manager_email,
+    employee_id,
+    total_credit,
+    used_credit,
+    created_at,
+    updated_at
+)
+SELECT
+    'TEMP-CLIENT-2',
+    '시드플로우 거래처2',
+    '223-45-67890',
+    '거래처대표2',
+    '02-2234-5678',
+    '서울특별시 강동구 올림픽로 620',
+    NULL,
+    NULL,
+    'DISTRIBUTOR',
+    '거래처담당자2',
+    '010-0000-0004',
+    'client2@seedflow.com',
+    @sales_employee_id,
+    50000000.00,
+    0.00,
+    NOW(),
+    NOW()
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tbl_client
+    WHERE client_brn = '223-45-67890'
+       OR manager_email = 'client2@seedflow.com'
+);
+
+SET @client2_id := (
+    SELECT client_id
+    FROM tbl_client
+    WHERE client_brn = '223-45-67890'
+       OR manager_email = 'client2@seedflow.com'
+    LIMIT 1
+);
+
+UPDATE tbl_client
+SET client_code = CONCAT('CLNT-', LPAD(client_id, 4, '0')),
+    client_name = '시드플로우 거래처2',
+    client_brn = '223-45-67890',
+    ceo_name = '거래처대표2',
+    company_phone = '02-2234-5678',
+    address = '서울특별시 강동구 올림픽로 620',
+    latitude = NULL,
+    longitude = NULL,
+    client_type = 'DISTRIBUTOR',
+    manager_name = '거래처담당자2',
+    manager_phone = '010-0000-0004',
+    manager_email = 'client2@seedflow.com',
+    employee_id = @sales_employee_id,
+    total_credit = 50000000.00,
+    used_credit = 0.00,
+    updated_at = NOW()
+WHERE client_id = @client2_id;
+
 INSERT INTO tbl_user (
     login_id,
     login_pw,
@@ -323,5 +398,41 @@ SET login_pw = @bcrypt_pw,
     client_id = @client_id,
     updated_at = NOW()
 WHERE login_id = 'client@seedflow.com';
+
+INSERT INTO tbl_user (
+    login_id,
+    login_pw,
+    status,
+    role,
+    employee_id,
+    client_id,
+    last_login_at,
+    created_at,
+    updated_at
+)
+SELECT
+    'client2@seedflow.com',
+    @bcrypt_pw,
+    'ACTIVATE',
+    'CLIENT',
+    NULL,
+    @client2_id,
+    NULL,
+    NOW(),
+    NOW()
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tbl_user
+    WHERE login_id = 'client2@seedflow.com'
+);
+
+UPDATE tbl_user
+SET login_pw = @bcrypt_pw,
+    status = 'ACTIVATE',
+    role = 'CLIENT',
+    employee_id = NULL,
+    client_id = @client2_id,
+    updated_at = NOW()
+WHERE login_id = 'client2@seedflow.com';
 
 COMMIT;

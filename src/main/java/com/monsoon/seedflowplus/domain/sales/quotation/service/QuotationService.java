@@ -57,6 +57,7 @@ public class QuotationService {
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
 
     @Transactional
@@ -269,6 +270,40 @@ public class QuotationService {
     }
 
     @Transactional
+    public void completeAfterContractApproval(
+            QuotationHeader quotation,
+            ActorType actorType,
+            Long actorId,
+            LocalDateTime actionAt
+    ) {
+        if (quotation == null) {
+            throw new IllegalArgumentException("quotation must not be null");
+        }
+
+        String fromStatus = quotation.getStatus().name();
+        String toStatus = QuotationStatus.COMPLETED.name();
+        dealPipelineFacade.validateTransitionOrThrow(DealType.QUO, fromStatus, ActionType.CONVERT, toStatus);
+
+        quotation.updateStatus(QuotationStatus.COMPLETED);
+        dealLogWriteService.write(
+                quotation.getDeal(),
+                DealType.QUO,
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                DealStage.APPROVED,
+                DealStage.APPROVED,
+                fromStatus,
+                toStatus,
+                ActionType.CONVERT,
+                actionAt,
+                actorType,
+                actorId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, toStatus, "STATUS"))
+        );
+    }
+
+    @Transactional
     public void deleteQuotation(Long id) {
         CustomUserDetails userDetails = getAuthenticatedUser();
         QuotationHeader quotation = quotationRepository.findById(id)
@@ -281,12 +316,9 @@ public class QuotationService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        // 2. 상태 체크: FINAL_APPROVED, WAITING_CONTRACT, COMPLETED, EXPIRED인 경우 삭제 불가
+        // 2. 상태 체크: 관리자 승인 이전인 WAITING_ADMIN 상태에서만 삭제 가능
         QuotationStatus status = quotation.getStatus();
-        if (status == QuotationStatus.FINAL_APPROVED ||
-                status == QuotationStatus.WAITING_CONTRACT ||
-                status == QuotationStatus.COMPLETED ||
-                status == QuotationStatus.EXPIRED) {
+        if (status != QuotationStatus.WAITING_ADMIN) {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 

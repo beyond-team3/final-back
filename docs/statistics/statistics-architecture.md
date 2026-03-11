@@ -79,3 +79,21 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 웹 어댑터 패키지 명명 규칙 일관성 유지
+
+## [2026-03-11] 승인 후속 상태 동기화 서비스 경로 분리
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java`
+- 클래스/메서드: `ApprovalCommandService#syncUpstreamDocumentsAfterContractDecision`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java`
+- 클래스/메서드: `QuotationService#completeAfterContractApproval`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java`
+- 클래스/메서드: `QuotationRequestService#completeAfterContractApproval`
+
+### 변경 내용
+계약 최종 승인 시 상위 문서 상태를 직접 `updateStatus(...)`로 바꾸던 경로를
+견적서/견적요청서 전용 완료 메서드 호출로 분리했다.
+새 서비스 메서드는 상태 전이 검증과 DealLog 기록을 함께 수행해 recentLogs 생성 경로를 표준화한다.
+
+### 변경 이유
+후속 문서 상태 변경에도 전이 검증과 감사 로그를 일관되게 적용하기 위함

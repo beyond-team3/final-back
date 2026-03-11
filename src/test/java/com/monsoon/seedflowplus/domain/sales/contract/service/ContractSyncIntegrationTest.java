@@ -126,7 +126,7 @@ class ContractSyncIntegrationTest {
     }
 
     @Test
-    @DisplayName("즉시 활성화 테스트: 오늘 시작하는 계약 승인 시 즉시 ACTIVE_CONTRACT로 전이되는지 확인")
+    @DisplayName("오늘 시작하는 계약도 승인 직후에는 COMPLETED로 유지된다")
     void immediateActivationTest_TodayContract() {
         // given
         LocalDate today = LocalDate.now();
@@ -203,9 +203,9 @@ class ContractSyncIntegrationTest {
 
         try {
             // then
-            // 4. 결과 확인: DB 상태가 즉시 ACTIVE_CONTRACT로 변경되었는지 확인 (NPE 방지 로직 포함)
+            // 승인 시점에는 COMPLETED로 유지하고, ACTIVE_CONTRACT 전이는 별도 상태 동기화가 담당한다.
             ContractHeader dbContract = contractRepository.findById(contract.getId()).orElseThrow();
-            assertEquals(ContractStatus.ACTIVE_CONTRACT, dbContract.getStatus());
+            assertEquals(ContractStatus.COMPLETED, dbContract.getStatus());
         } finally {
             SecurityContextHolder.clearContext();
         }

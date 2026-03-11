@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public interface ContractRepository extends JpaRepository<ContractHeader, Long> {
@@ -34,6 +35,16 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
     List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
 
     List<ContractHeader> findByClientAndStatusOrderByEndDateAsc(Client client, ContractStatus status);
+
+    @Query("""
+            SELECT c
+            FROM ContractHeader c
+            JOIN FETCH c.deal d
+            LEFT JOIN FETCH d.ownerEmp
+            JOIN FETCH c.client
+            WHERE c.id = :contractId
+            """)
+    Optional<ContractHeader> findByIdWithScheduleRelations(@Param("contractId") Long contractId);
 
     @Query("SELECT c FROM ContractHeader c WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) AND c.status <> :status ORDER BY c.createdAt DESC")
     List<ContractHeader> findByAuthorIdOrClientManagerEmployeeIdAndStatusNot(@Param("employeeId") Long employeeId,
