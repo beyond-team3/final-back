@@ -13,6 +13,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
@@ -51,16 +52,12 @@ public class QuotationRequestService {
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogWriteService dealLogWriteService;
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
         CustomUserDetails userDetails = getAuthenticatedUser();
-        log.info(
-                "[QuotationRequestService] createQuotationRequest principal loginId={}, role={}, clientId={}, employeeId={}",
-                userDetails.getLoginId(),
-                userDetails.getRole(),
-                userDetails.getClientId(),
-                userDetails.getEmployeeId());
+        log.debug("[QuotationRequestService] createQuotationRequest role={}", userDetails.getRole());
 
         // 1. Role 검증: CLIENT만 가능
         if (userDetails.getRole() != Role.CLIENT) {
@@ -215,6 +212,40 @@ public class QuotationRequestService {
         return requests.stream()
                 .map(QuotationRequestListResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public void completeAfterContractApproval(
+            QuotationRequestHeader quotationRequest,
+            ActorType actorType,
+            Long actorId,
+            LocalDateTime actionAt
+    ) {
+        if (quotationRequest == null) {
+            throw new IllegalArgumentException("quotationRequest must not be null");
+        }
+
+        String fromStatus = quotationRequest.getStatus().name();
+        String toStatus = QuotationRequestStatus.COMPLETED.name();
+        dealPipelineFacade.validateTransitionOrThrow(DealType.RFQ, fromStatus, ActionType.APPROVE, toStatus);
+
+        quotationRequest.updateStatus(QuotationRequestStatus.COMPLETED);
+        dealLogWriteService.write(
+                quotationRequest.getDeal(),
+                DealType.RFQ,
+                quotationRequest.getId(),
+                quotationRequest.getRequestCode(),
+                DealStage.IN_PROGRESS,
+                DealStage.APPROVED,
+                fromStatus,
+                toStatus,
+                ActionType.APPROVE,
+                actionAt,
+                actorType,
+                actorId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, toStatus, "STATUS"))
+        );
     }
 
     @Transactional

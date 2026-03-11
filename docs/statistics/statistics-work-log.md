@@ -205,3 +205,23 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-11 15:41] 승인 후속 문서 전이 및 일정 동기화 경로 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 계약 승인 후 견적서/RFQ 완료 처리를 전용 서비스 메서드 호출로 변경
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 계약 승인 후 견적서 완료 전이 검증 및 DealLog 기록 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — 계약 승인 후 RFQ 완료 전이 검증 및 DealLog 기록 메서드 추가, 생성 로그 민감정보 축소
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicy.java` — `WAITING_CONTRACT -> COMPLETED` 전이 규칙 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/docs/deal-log-integration-guide.md` — 견적서 완료 전이 가이드 업데이트
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java` — 지정 executor 및 이벤트 전용 새 트랜잭션 경계 적용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java` — 공용 upsert가 호출자 트랜잭션에 참여하도록 REQUIRES_NEW 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 후속 완료 서비스 호출 검증으로 테스트 보강
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

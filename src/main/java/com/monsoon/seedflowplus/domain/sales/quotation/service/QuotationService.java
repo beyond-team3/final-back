@@ -57,6 +57,7 @@ public class QuotationService {
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
 
     @Transactional
@@ -266,6 +267,40 @@ public class QuotationService {
                             items);
                 })
                 .toList();
+    }
+
+    @Transactional
+    public void completeAfterContractApproval(
+            QuotationHeader quotation,
+            ActorType actorType,
+            Long actorId,
+            LocalDateTime actionAt
+    ) {
+        if (quotation == null) {
+            throw new IllegalArgumentException("quotation must not be null");
+        }
+
+        String fromStatus = quotation.getStatus().name();
+        String toStatus = QuotationStatus.COMPLETED.name();
+        dealPipelineFacade.validateTransitionOrThrow(DealType.QUO, fromStatus, ActionType.CONVERT, toStatus);
+
+        quotation.updateStatus(QuotationStatus.COMPLETED);
+        dealLogWriteService.write(
+                quotation.getDeal(),
+                DealType.QUO,
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                DealStage.APPROVED,
+                DealStage.APPROVED,
+                fromStatus,
+                toStatus,
+                ActionType.CONVERT,
+                actionAt,
+                actorType,
+                actorId,
+                null,
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, toStatus, "STATUS"))
+        );
     }
 
     @Transactional

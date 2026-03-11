@@ -36,6 +36,8 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationService;
+import com.monsoon.seedflowplus.domain.sales.request.service.QuotationRequestService;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
@@ -69,6 +71,8 @@ public class ApprovalCommandService {
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final QuotationService quotationService;
+    private final QuotationRequestService quotationRequestService;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
@@ -162,7 +166,13 @@ public class ApprovalCommandService {
         LocalDateTime now = now();
         String trimmedReason = StringUtils.hasText(dto.reason()) ? dto.reason().trim() : null;
         Long actorId = resolveActorIdByActorType(step.getActorType(), principal);
-        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(request, step, dto.decision());
+        DocumentDecisionResult documentDecisionResult = resolveAndApplyDocumentDecision(
+                request,
+                step,
+                dto.decision(),
+                now,
+                actorId
+        );
 
         try {
             approvalDecisionRepository.save(ApprovalDecision.builder()
@@ -267,7 +277,9 @@ public class ApprovalCommandService {
     private DocumentDecisionResult applyContractDecision(
             ApprovalRequest request,
             ApprovalStep step,
-            DecisionType decision
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
     ) {
         ContractHeader contract = contractRepository.findById(request.getTargetId())
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
@@ -291,7 +303,7 @@ public class ApprovalCommandService {
         );
 
         contract.updateStatus(ContractStatus.valueOf(toStatus));
-        syncUpstreamDocumentsAfterContractDecision(contract, step, decision);
+        syncUpstreamDocumentsAfterContractDecision(contract, step, decision, actionAt, actorId);
 
         return new DocumentDecisionResult(
                 fromStatus,
@@ -304,7 +316,9 @@ public class ApprovalCommandService {
     private void syncUpstreamDocumentsAfterContractDecision(
             ContractHeader contract,
             ApprovalStep step,
-            DecisionType decision
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
     ) {
         if (step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
             return;
@@ -316,23 +330,30 @@ public class ApprovalCommandService {
         }
 
         if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
-            quotation.updateStatus(QuotationStatus.COMPLETED);
+            quotationService.completeAfterContractApproval(quotation, step.getActorType(), actorId, actionAt);
         }
 
         if (quotation.getQuotationRequest() != null
                 && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
-            quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
+            quotationRequestService.completeAfterContractApproval(
+                    quotation.getQuotationRequest(),
+                    step.getActorType(),
+                    actorId,
+                    actionAt
+            );
         }
     }
 
     private DocumentDecisionResult resolveAndApplyDocumentDecision(
             ApprovalRequest request,
             ApprovalStep step,
-            DecisionType decision
+            DecisionType decision,
+            LocalDateTime actionAt,
+            Long actorId
     ) {
         return switch (request.getDealType()) {
             case QUO -> applyQuotationDecision(request, step, decision);
-            case CNT -> applyContractDecision(request, step, decision);
+            case CNT -> applyContractDecision(request, step, decision, actionAt, actorId);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
     }

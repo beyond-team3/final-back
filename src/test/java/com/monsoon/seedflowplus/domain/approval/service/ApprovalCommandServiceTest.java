@@ -30,9 +30,11 @@ import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractReposit
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationService;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.sales.request.service.QuotationRequestService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -58,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -100,6 +103,12 @@ class ApprovalCommandServiceTest {
 
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
+
+    @Mock
+    private QuotationService quotationService;
+
+    @Mock
+    private QuotationRequestService quotationRequestService;
 
     @Mock
     private Clock clock;
@@ -518,7 +527,7 @@ class ApprovalCommandServiceTest {
         ApprovalStep step2 = step(62L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
         request.addStep(step1);
         request.addStep(step2);
-        QuotationRequestHeader rfq = quotationRequest(9001L, QuotationRequestStatus.COMPLETED, 101L, salesDeal(501L));
+        QuotationRequestHeader rfq = quotationRequest(9001L, QuotationRequestStatus.REVIEWING, 101L, salesDeal(501L));
         QuotationHeader quotation = quotation(7001L, QuotationStatus.WAITING_CONTRACT, 101L, salesDeal(501L), rfq);
         ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L), quotation);
 
@@ -528,6 +537,16 @@ class ApprovalCommandServiceTest {
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(600L)).thenReturn(List.of(step1, step2));
         when(approvalDecisionRepository.existsByApprovalStepId(62L)).thenReturn(false);
         when(contractRepository.findById(8001L)).thenReturn(Optional.of(contract));
+        doAnswer(invocation -> {
+            QuotationHeader target = invocation.getArgument(0);
+            target.updateStatus(QuotationStatus.COMPLETED);
+            return null;
+        }).when(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        doAnswer(invocation -> {
+            QuotationRequestHeader target = invocation.getArgument(0);
+            target.updateStatus(QuotationRequestStatus.COMPLETED);
+            return null;
+        }).when(quotationRequestService).completeAfterContractApproval(eq(rfq), eq(ActorType.CLIENT), eq(101L), any());
 
         approvalCommandService.decideStep(
                 600L,
@@ -540,6 +559,8 @@ class ApprovalCommandServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.COMPLETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.COMPLETED);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+        verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        verify(quotationRequestService).completeAfterContractApproval(eq(rfq), eq(ActorType.CLIENT), eq(101L), any());
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());

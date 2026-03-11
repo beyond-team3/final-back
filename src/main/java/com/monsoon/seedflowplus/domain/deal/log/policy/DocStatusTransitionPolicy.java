@@ -98,6 +98,7 @@ public final class DocStatusTransitionPolicy {
                 transition(QuotationStatus.WAITING_CLIENT, ActionType.REJECT, QuotationStatus.REJECTED_CLIENT),
                 transition(QuotationStatus.REJECTED_CLIENT, ActionType.RESUBMIT, QuotationStatus.WAITING_CLIENT),
                 transition(QuotationStatus.FINAL_APPROVED, ActionType.CONVERT, QuotationStatus.COMPLETED),
+                transition(QuotationStatus.WAITING_CONTRACT, ActionType.CONVERT, QuotationStatus.COMPLETED),
                 transition(QuotationStatus.WAITING_ADMIN, ActionType.EXPIRE, QuotationStatus.EXPIRED),
                 transition(QuotationStatus.WAITING_CLIENT, ActionType.EXPIRE, QuotationStatus.EXPIRED)
         ));
