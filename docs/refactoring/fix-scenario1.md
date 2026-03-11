@@ -404,3 +404,17 @@ BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK
 
 ### 다음 단계
 없음
+
+## [2026-03-11 15:10] 계약 승인 일정 조회와 scenario1 검증 보정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java — 계약 승인 이벤트 처리 시 일정 동기화 전용 fetch join 조회 메서드를 사용하도록 변경
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java — deal owner/client를 함께 로드하는 `findByIdWithScheduleRelations` 조회 추가
+- 수정 파일: api-test/http/pipeline/scenario1.http — 재실행 전 전역 변수 초기화, 고정 상품 선택, approval 대상 알림 검증, deal log 최신 ref 선택, 최종 일정 assertion 보강
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `./gradlew compileJava`
+
+### 다음 단계
+로컬 서버에서 `api-test/http/pipeline/scenario1.http` 전체를 다시 실행해 계약 승인 이후 일정/알림 흐름이 안정적으로 통과하는지 확인
