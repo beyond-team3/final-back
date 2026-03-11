@@ -54,6 +54,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -658,9 +659,10 @@ class ApprovalCommandServiceTest {
     void searchUsesClientScopedRepositoryQuery() {
         ApprovalRequest accessible = quoRequest(901L, 7100L, 77L);
         ApprovalStep accessibleStep = step(91L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
 
-        when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
+        when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(901L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
@@ -673,8 +675,8 @@ class ApprovalCommandServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10));
-        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
+        verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, normalizedPageable);
+        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, normalizedPageable);
     }
 
     @Test
@@ -682,9 +684,10 @@ class ApprovalCommandServiceTest {
     void searchUsesSalesRepScopedRepositoryQuery() {
         ApprovalRequest accessible = quoRequest(902L, 7200L, 88L);
         ApprovalStep accessibleStep = step(92L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
 
-        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
+        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(902L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
@@ -696,8 +699,32 @@ class ApprovalCommandServiceTest {
         );
 
         assertThat(result.getContent()).hasSize(1);
-        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10));
-        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
+        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable);
+        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, normalizedPageable);
+    }
+
+    @Test
+    @DisplayName("케이스 11-1: approvalId 정렬 요청은 엔티티 id 정렬로 정규화한다")
+    void searchNormalizesApprovalIdSortAlias() {
+        ApprovalRequest accessible = quoRequest(903L, 7300L, 99L);
+        ApprovalStep accessibleStep = step(93L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest frontendPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("approvalId")));
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
+
+        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(903L)).thenReturn(List.of(accessibleStep));
+
+        var result = approvalCommandService.search(
+                null,
+                DealType.QUO,
+                null,
+                frontendPageable,
+                mockUser(Role.SALES_REP, 501L, null)
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable);
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {
