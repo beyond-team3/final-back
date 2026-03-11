@@ -418,3 +418,15 @@ BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK
 
 ### 다음 단계
 로컬 서버에서 `api-test/http/pipeline/scenario1.http` 전체를 다시 실행해 계약 승인 이후 일정/알림 흐름이 안정적으로 통과하는지 확인
+
+## [2026-03-11 15:13] 견적요청 생성 principal 로그 추가
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java — 견적요청 생성 시작 시 principal의 loginId/role/clientId/employeeId를 기록하는 info 로그 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 로그 추가 변경으로 별도 컴파일 미실행, 직전 `./gradlew compileJava` 성공 상태 유지
+
+### 다음 단계
+필요 시 로그 확인 후 민감도와 운영 노이즈를 검토해 유지 여부 판단

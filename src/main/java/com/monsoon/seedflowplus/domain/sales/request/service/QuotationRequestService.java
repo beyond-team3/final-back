@@ -25,6 +25,7 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -53,6 +55,12 @@ public class QuotationRequestService {
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
         CustomUserDetails userDetails = getAuthenticatedUser();
+        log.info(
+                "[QuotationRequestService] createQuotationRequest principal loginId={}, role={}, clientId={}, employeeId={}",
+                userDetails.getLoginId(),
+                userDetails.getRole(),
+                userDetails.getClientId(),
+                userDetails.getEmployeeId());
 
         // 1. Role 검증: CLIENT만 가능
         if (userDetails.getRole() != Role.CLIENT) {
