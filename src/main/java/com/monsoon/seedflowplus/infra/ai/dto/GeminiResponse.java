@@ -21,6 +21,4 @@ public class GeminiResponse {
 
     @JsonProperty("evidence_note_ids")
     private List<Long> evidenceNoteIds;
-
-    private String version;
 }

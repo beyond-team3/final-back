@@ -76,8 +76,7 @@ public class RagSeedService {
                                 analyzedResult.getStatusChange(),
                                 analyzedResult.getLongTermPattern(),
                                 analyzedResult.getEvidenceNoteIds(),
-                                analyzedResult.getStrategySuggestion(),
-                                analyzedResult.getVersion()
+                                analyzedResult.getStrategySuggestion()
                         );
                         return existing;
                     })
@@ -109,24 +108,24 @@ public class RagSeedService {
 
         switch (normalizedQueryType.toUpperCase()) {
             case "RECAP":
-                hiddenPrompt = "[RAGseed: 지난 맥락 인출] 선택된 범위 내의 최근 노트를 분석하여 핵심 결정 사항을 요약하라.\n불필요한 인사말 없이 '마크다운 형식'의 본문 내용만 직접 답변하세요.";
+                hiddenPrompt = "[RAGseed: 지난 맥락 인출] 선택된 범위 내의 최근 노트를 분석하여 핵심 결정 사항을 요약하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 요약 내용\" }";
                 searchQuery = "최근 미팅 결정 사항 및 업무 진행 현황";
                 break;
             case "RISK":
-                hiddenPrompt = "[RAGseed: 리스크 탐지] 선택된 범위 내 데이터 중 클레임, 병해충 피해, 불만 사항 등 리스크를 추출하라.\n불필요한 인사말 없이 '마크다운 형식'의 본문 내용만 직접 답변하세요.";
+                hiddenPrompt = "[RAGseed: 리스크 탐지] 선택된 범위 내 데이터 중 클레임, 병해충 피해, 불만 사항 등 리스크를 추출하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 탐지된 리스크 상세 내용\" }";
                 searchQuery = "클레임 병해충 불만 경쟁사 리스크 문제";
                 break;
             case "MATCHING":
-                hiddenPrompt = "[RAGseed: 최적 종자 매칭] 분석 범위 내의 고객 선호도와 농가 환경을 바탕으로 최적 품종을 매칭하라.\n불필요한 인사말 없이 '마크다운 형식'의 본문 내용만 직접 답변하세요.";
+                hiddenPrompt = "[RAGseed: 최적 종자 매칭] 분석 범위 내의 고객 선호도와 농가 환경을 바탕으로 최적 품종을 매칭하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 종자 추천 내용\" }";
                 searchQuery = "고객 선호 품종 및 재배 환경 특이사항";
                 maxResults = 8;
                 break;
             case "CHECKLIST":
-                hiddenPrompt = "[RAGseed: 미팅 체크리스트] 선택된 범위 내에서 언급된 약속 사항 및 다음 방문 To-Do를 추출하라.\n불필요한 인사말 없이 '마크다운 형식'의 본문 내용만 직접 답변하세요.";
+                hiddenPrompt = "[RAGseed: 미팅 체크리스트] 선택된 범위 내에서 언급된 약속 사항 및 다음 방문 To-Do를 추출하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 체크리스트 내용\" }";
                 searchQuery = "약속 사항 향후 일정 확인 필요 사항";
                 break;
             default:
-                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 마크다운 형식으로 답변하라: " + normalizedQueryType;
+                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 인출하라: " + normalizedQueryType + "\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 사용자 질의에 대한 답변\" }";
                 searchQuery = normalizedQueryType;
         }
 
@@ -165,7 +164,6 @@ public class RagSeedService {
         return RagSeedResponseDto.builder()
                 .content(aiResponse)
                 .evidenceIds(evidenceIds)
-                .version("RAGseed-Targeted-v1.3")
                 .attribution(String.format("Powered by RAGseed - %s 기반 분석", scopeDesc))
                 .build();
     }
