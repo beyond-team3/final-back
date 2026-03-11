@@ -48,7 +48,9 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -228,8 +230,30 @@ public class ApprovalCommandService {
             Pageable pageable,
             CustomUserDetails principal
     ) {
-        Page<ApprovalRequest> page = searchAccessibleRequests(status, dealType, targetId, pageable, principal);
+        Page<ApprovalRequest> page = searchAccessibleRequests(
+                status,
+                dealType,
+                targetId,
+                normalizeApprovalSearchPageable(pageable),
+                principal
+        );
         return page.map(this::toDetail);
+    }
+
+    private Pageable normalizeApprovalSearchPageable(Pageable pageable) {
+        if (pageable == null) {
+            return PageRequest.of(0, 20, Sort.by(Sort.Order.desc("id")));
+        }
+
+        Sort normalizedSort = pageable.getSort().isSorted()
+                ? Sort.by(pageable.getSort().stream()
+                        .map(order -> "approvalId".equals(order.getProperty())
+                                ? new Sort.Order(order.getDirection(), "id")
+                                : order)
+                        .toList())
+                : Sort.by(Sort.Order.desc("id"));
+
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), normalizedSort);
     }
 
     private void validateSupportedDealType(DealType dealType) {
