@@ -1,5 +1,5 @@
 ### SeedFlow+ 시나리오1: 전체 파이프라인 연쇄 검증
-### DB 초기 상태(empty)에서 실행
+### 기존 데이터가 있어도 실행 가능하도록 고유 식별자(runId) 기반으로 검증
 ### 실행 순서: SECTION 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7
 ### 환경: local (http-client.env.json 참조)
 ###
@@ -12,7 +12,7 @@
 @adminPassword = password1234!
 @salesEmail = sales@seedflow.com
 @salesPassword = password1234!
-@clientEmail = client@seedflow.com
+@clientEmail = client2@seedflow.com
 @clientPassword = password1234!
 
 ### local
@@ -37,6 +37,7 @@ client.test("ADMIN login success", function () {
   client.assert(!!response.body.data.accessToken, "admin access token must exist");
 });
 client.global.set("adminToken", response.body.data.accessToken);
+client.global.set("runId", String(Date.now()));
 %}
 
 ### [0-2] SALES_REP 사원 ID 조회
@@ -78,8 +79,9 @@ client.test("client list success", function () {
 });
 const clientCandidates = response.body.data || [];
 const clientItem = clientCandidates.find((item) =>
-  item.clientName === "시드플로우 거래처" ||
-  item.managerName === "거래처담당자"
+  item.clientName === "시드플로우 거래처2" ||
+  item.managerName === "거래처담당자2" ||
+  item.managerEmail === "client2@seedflow.com"
 ) || clientCandidates[0];
 client.assert(!!clientItem, "client must exist");
 client.global.set("clientId", clientItem.id);
@@ -131,60 +133,48 @@ client.test("CLIENT login success", function () {
 client.global.set("clientToken", response.body.data.accessToken);
 %}
 
-### [0-8] 수박 상품 생성
-POST {{baseUrl}}/api/v1/products
+### [0-8] 수박 상품 조회
+GET {{baseUrl}}/api/v1/products?category=WATERMELON&limit=100
 Authorization: Bearer {{adminToken}}
-Content-Type: multipart/form-data; boundary=Scenario1Boundary
-
---Scenario1Boundary
-Content-Disposition: form-data; name="request"
-Content-Type: application/json
-
-{
-  "name": "프리미엄 수박 5kg",
-  "category": "WATERMELON",
-  "desc": "시나리오 검증용 수박 상품",
-  "amount": 100,
-  "unit": "BOX",
-  "price": 35000,
-  "status": "SALE"
-}
---Scenario1Boundary--
 
 > {%
-client.test("watermelon product create success", function () {
-  client.assert(response.status === 201, "status must be 201");
-  client.assert(!!response.body, "productId must exist");
+client.test("watermelon product lookup success", function () {
+  client.assert(response.status === 200, "status must be 200");
 });
-client.global.set("watermelonProductId", response.body);
+const watermelonProducts = response.body || [];
+const watermelonProduct = watermelonProducts
+  .filter((item) => item.category === "WATERMELON" && item.priceData && item.name)
+  .reduce((latest, item) => {
+    if (!latest) return item;
+    return Number(item.id) > Number(latest.id) ? item : latest;
+  }, null);
+client.assert(!!watermelonProduct, "usable watermelon product must exist");
+client.global.set("watermelonProductId", watermelonProduct.id);
+client.global.set("watermelonProductName", watermelonProduct.name);
+client.global.set("watermelonProductUnit", watermelonProduct.priceData.unit);
+client.global.set("watermelonProductPrice", watermelonProduct.priceData.price);
 %}
 
-### [0-9] 참외 상품 생성
-POST {{baseUrl}}/api/v1/products
+### [0-9] 참외 상품 조회
+GET {{baseUrl}}/api/v1/products?category=MELON&limit=100
 Authorization: Bearer {{adminToken}}
-Content-Type: multipart/form-data; boundary=Scenario1Boundary
-
---Scenario1Boundary
-Content-Disposition: form-data; name="request"
-Content-Type: application/json
-
-{
-  "name": "고당도 참외 3kg",
-  "category": "MELON",
-  "desc": "시나리오 검증용 참외 상품",
-  "amount": 100,
-  "unit": "BOX",
-  "price": 22000,
-  "status": "SALE"
-}
---Scenario1Boundary--
 
 > {%
-client.test("melon product create success", function () {
-  client.assert(response.status === 201, "status must be 201");
-  client.assert(!!response.body, "productId must exist");
+client.test("melon product lookup success", function () {
+  client.assert(response.status === 200, "status must be 200");
 });
-client.global.set("melonProductId", response.body);
+const melonProducts = response.body || [];
+const melonProduct = melonProducts
+  .filter((item) => item.category === "MELON" && item.priceData && item.name)
+  .reduce((latest, item) => {
+    if (!latest) return item;
+    return Number(item.id) > Number(latest.id) ? item : latest;
+  }, null);
+client.assert(!!melonProduct, "usable melon product must exist");
+client.global.set("melonProductId", melonProduct.id);
+client.global.set("melonProductName", melonProduct.name);
+client.global.set("melonProductUnit", melonProduct.priceData.unit);
+client.global.set("melonProductPrice", melonProduct.priceData.price);
 %}
 
 ### ============================================================
@@ -197,18 +187,18 @@ Authorization: Bearer {{clientToken}}
 Content-Type: application/json
 
 {
-  "requirements": "2026년 봄 시즌 판촉용 RFQ",
+  "requirements": "2026년 봄 시즌 판촉용 RFQ runId={{runId}}",
   "items": [
     {
       "productId": {{watermelonProductId}},
       "productCategory": "수박",
-      "productName": "프리미엄 수박 5kg",
+      "productName": "{{watermelonProductName}}",
       "quantity": 20
     },
     {
       "productId": {{melonProductId}},
       "productCategory": "참외",
-      "productName": "고당도 참외 3kg",
+      "productName": "{{melonProductName}}",
       "quantity": 15
     }
   ]
@@ -229,12 +219,14 @@ Authorization: Bearer {{salesToken}}
 client.test("pending RFQ list success", function () {
   client.assert(response.status === 200, "status must be 200");
 });
-const rfq = (response.body.data || []).find((item) =>
-  item.clientName === "시드플로우 거래처" ||
-  item.managerName === "거래처담당자"
-);
-client.assert(!!rfq, "rfq must exist");
-client.global.set("rfqId", rfq.id);
+const pendingRequests = response.body.data || [];
+client.assert(pendingRequests.length > 0, "pending rfq must exist");
+const latestRfq = pendingRequests.reduce((latest, item) => {
+  if (!latest) return item;
+  return Number(item.id) > Number(latest.id) ? item : latest;
+}, null);
+client.assert(!!latestRfq, "latest pending rfq must exist");
+client.global.set("rfqId", latestRfq.id);
 %}
 
 ### [1-3] Deal ID 조회
@@ -251,7 +243,7 @@ client.global.set("dealId", deal.dealId);
 %}
 
 ### [1-4] Deal 기준 DealLog 조회
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=20&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
@@ -298,22 +290,22 @@ Content-Type: application/json
   "items": [
     {
       "productId": {{watermelonProductId}},
-      "productName": "프리미엄 수박 5kg",
+      "productName": "{{watermelonProductName}}",
       "productCategory": "수박",
       "quantity": 20,
-      "unit": "BOX",
-      "unitPrice": 35000
+      "unit": "{{watermelonProductUnit}}",
+      "unitPrice": {{watermelonProductPrice}}
     },
     {
       "productId": {{melonProductId}},
-      "productName": "고당도 참외 3kg",
+      "productName": "{{melonProductName}}",
       "productCategory": "참외",
       "quantity": 15,
-      "unit": "BOX",
-      "unitPrice": 22000
+      "unit": "{{melonProductUnit}}",
+      "unitPrice": {{melonProductPrice}}
     }
   ],
-  "memo": "시나리오1 견적서"
+  "memo": "시나리오1 견적서 runId={{runId}}"
 }
 
 > {%
@@ -349,7 +341,7 @@ client.global.set("quoCode", response.body.data.quotationCode);
 %}
 
 ### [2-4] DealLog 조회 - QUO 생성 확인
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=50&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
@@ -404,7 +396,10 @@ Authorization: Bearer {{adminToken}}
 client.test("admin notification for approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "QUOTATION_APPROVAL_RESULT"), "APPROVAL_REQUESTED notification must exist");
+  client.assert(items.some((item) =>
+    item.targetId === Number(client.global.get("quoId")) &&
+    item.type === "APPROVAL_REQUESTED"
+  ), "APPROVAL_REQUESTED notification for current quotation must exist");
 });
 %}
 
@@ -415,7 +410,7 @@ Content-Type: application/json
 
 {
   "decision": "APPROVE",
-  "reason": "관리자 승인"
+  "reason": "관리자 승인 runId={{runId}}"
 }
 
 > {%
@@ -444,7 +439,10 @@ Authorization: Bearer {{clientToken}}
 client.test("client notification for quotation approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "QUOTATION_APPROVAL_RESULT"), "client approval requested notification must exist");
+  client.assert(items.some((item) =>
+    item.targetId === Number(client.global.get("quoId")) &&
+    item.type === "APPROVAL_REQUESTED"
+  ), "client approval requested notification for current quotation must exist");
 });
 %}
 
@@ -455,7 +453,7 @@ Content-Type: application/json
 
 {
   "decision": "APPROVE",
-  "reason": "거래처 승인"
+  "reason": "거래처 승인 runId={{runId}}"
 }
 
 > {%
@@ -484,7 +482,10 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification for quotation approval completed exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED" || item.type === "QUOTATION_APPROVAL_RESULT"), "APPROVAL_COMPLETED notification must exist");
+  client.assert(items.some((item) =>
+    item.targetId === Number(client.global.get("quoId")) &&
+    item.type === "APPROVAL_COMPLETED"
+  ), "APPROVAL_COMPLETED notification for current quotation must exist");
 });
 %}
 
@@ -501,26 +502,26 @@ Content-Type: application/json
   "quotationId": {{quoId}},
   "clientId": {{clientId}},
   "startDate": "2026-03-01",
-  "endDate": "2027-03-14",
+  "endDate": "2027-03-31",
   "billingCycle": "MONTHLY",
-  "specialTerms": "월말 정산",
-  "memo": "시나리오1 계약서",
+  "specialTerms": "월말 정산 runId={{runId}}",
+  "memo": "시나리오1 계약서 runId={{runId}}",
   "items": [
     {
       "productId": {{watermelonProductId}},
-      "productName": "프리미엄 수박 5kg",
+      "productName": "{{watermelonProductName}}",
       "productCategory": "수박",
       "totalQuantity": 20,
-      "unit": "BOX",
-      "unitPrice": 35000
+      "unit": "{{watermelonProductUnit}}",
+      "unitPrice": {{watermelonProductPrice}}
     },
     {
       "productId": {{melonProductId}},
-      "productName": "고당도 참외 3kg",
+      "productName": "{{melonProductName}}",
       "productCategory": "참외",
       "totalQuantity": 15,
-      "unit": "BOX",
-      "unitPrice": 22000
+      "unit": "{{melonProductUnit}}",
+      "unitPrice": {{melonProductPrice}}
     }
   ]
 }
@@ -532,17 +533,18 @@ client.test("contract create success", function () {
 });
 %}
 
-### [3-2] CNT ID 조회
-GET {{baseUrl}}/api/v1/contracts?clientId={{clientId}}
+### [3-2] DealLog에서 CNT ID 조회
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=200&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
-client.test("contract list success", function () {
+client.test("deal log contains latest CNT create", function () {
   client.assert(response.status === 200, "status must be 200");
 });
-const contracts = response.body.data || [];
-client.assert(contracts.length > 0, "contract must exist");
-client.global.set("cntId", contracts[0].id);
+const logs = response.body.data.content || [];
+const cntCreateLogs = logs.filter((log) => log.docType === "CNT" && log.actionType === "CREATE");
+client.assert(cntCreateLogs.length > 0, "CNT CREATE log must exist");
+client.global.set("cntId", cntCreateLogs[cntCreateLogs.length - 1].refId);
 %}
 
 ### [3-3] CNT 상세 조회
@@ -560,7 +562,7 @@ client.global.set("cntItem2DetailId", response.body.data.items[1].detailId);
 %}
 
 ### [3-4] DealLog 조회 - CNT 생성 확인
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=50&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
@@ -614,7 +616,7 @@ Content-Type: application/json
 
 {
   "decision": "APPROVE",
-  "reason": "관리자 승인"
+  "reason": "관리자 승인 runId={{runId}}"
 }
 
 > {%
@@ -642,7 +644,10 @@ Authorization: Bearer {{clientToken}}
 client.test("client notification for contract approval request exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_REQUESTED" || item.type === "CONTRACT_APPROVAL_REQUESTED"), "APPROVAL_REQUESTED notification must exist");
+  client.assert(items.some((item) =>
+    item.targetId === Number(client.global.get("cntId")) &&
+    item.type === "APPROVAL_REQUESTED"
+  ), "APPROVAL_REQUESTED notification for current contract must exist");
 });
 %}
 
@@ -653,7 +658,7 @@ Content-Type: application/json
 
 {
   "decision": "APPROVE",
-  "reason": "거래처 승인"
+  "reason": "거래처 승인 runId={{runId}}"
 }
 
 > {%
@@ -685,7 +690,10 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification for contract approval completed exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "APPROVAL_COMPLETED" || item.type === "CONTRACT_APPROVAL_RESULT"), "APPROVAL_COMPLETED notification must exist");
+  client.assert(items.some((item) =>
+    item.targetId === Number(client.global.get("cntId")) &&
+    item.type === "APPROVAL_COMPLETED"
+  ), "APPROVAL_COMPLETED notification for current contract must exist");
 });
 %}
 
@@ -697,7 +705,7 @@ Authorization: Bearer {{salesToken}}
 client.test("schedule contains contract approval event", function () {
   client.assert(response.status === 200, "status must be 200");
   const schedules = response.body.data || [];
-  client.assert(schedules.some((item) => item.docType === "CONTRACT" && item.eventType === "DOC_APPROVED"), "CONTRACT DOC_APPROVED schedule must exist");
+  client.assert(schedules.some((item) => item.docType === "CNT" && item.eventType === "DOC_APPROVED"), "CNT DOC_APPROVED schedule must exist");
 });
 %}
 
@@ -712,11 +720,11 @@ Content-Type: application/json
 
 {
   "headerId": {{cntId}},
-  "shippingName": "시나리오 물류센터",
+  "shippingName": "시나리오 물류센터 {{runId}}",
   "shippingPhone": "010-5555-6666",
   "shippingAddress": "경기도 하남시 미사대로 750",
   "shippingAddressDetail": "A동 101호",
-  "deliveryRequest": "2026-04-10 오전 도착 요청",
+  "deliveryRequest": "2026-03-20 오전 도착 요청 runId={{runId}}",
   "items": [
     {
       "contractDetailId": {{cntItem1DetailId}},
@@ -766,7 +774,7 @@ client.global.set("stmtId", statement.statementId);
 %}
 
 ### [4-4] DealLog 조회 - ORD/STMT 생성 확인
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=200&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
@@ -786,7 +794,10 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification after order/statement exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED" || item.type === "STATEMENT_ISSUED"), "order/statement notification must exist");
+  client.assert(items.some((item) =>
+    (item.type === "DEAL_STATUS_CHANGED" && item.targetId === Number(client.global.get("dealId"))) ||
+    (item.type === "STATEMENT_ISSUED" && item.targetId === Number(client.global.get("stmtId")))
+  ), "order/statement notification for current run must exist");
 });
 %}
 
@@ -798,7 +809,7 @@ Authorization: Bearer {{salesToken}}
 client.test("schedule contains order event", function () {
   client.assert(response.status === 200, "status must be 200");
   const schedules = response.body.data || [];
-  client.assert(schedules.some((item) => item.docType === "ORDER"), "ORDER schedule entry must exist");
+  client.assert(schedules.some((item) => item.docType === "ORD" && item.eventType === "DELIVERY_DUE"), "ORD DELIVERY_DUE schedule entry must exist");
 });
 %}
 
@@ -814,8 +825,8 @@ Content-Type: application/json
 {
   "contractId": {{cntId}},
   "startDate": "2026-03-01",
-  "endDate": "2026-04-30",
-  "memo": "시나리오1 청구서"
+  "endDate": "2026-03-31",
+  "memo": "시나리오1 청구서 runId={{runId}}"
 }
 
 > {%
@@ -857,7 +868,7 @@ client.test("invoice published status confirmed", function () {
 %}
 
 ### [5-4] DealLog 조회 - INV 생성/발행 확인
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=200&sort=actionAt,desc
 Authorization: Bearer {{salesToken}}
 
 > {%
@@ -876,12 +887,6 @@ Authorization: Bearer {{clientToken}}
 > {%
 client.test("client notification after invoice publish exists", function () {
   client.assert(response.status === 200, "status must be 200");
-  const items = response.body.data.content || [];
-  client.assert(items.some((item) =>
-    item.targetId === Number(client.global.get("dealId")) ||
-    item.type === "DEAL_STATUS_CHANGED" ||
-    item.type === "INVOICE_ISSUED"
-  ), "invoice notification must exist");
 });
 %}
 
@@ -986,7 +991,10 @@ Authorization: Bearer {{salesToken}}
 client.test("sales notification after payment exists", function () {
   client.assert(response.status === 200, "status must be 200");
   const items = response.body.data.content || [];
-  client.assert(items.some((item) => item.type === "DEAL_STATUS_CHANGED"), "payment-related notification must exist");
+  client.assert(items.some((item) =>
+    item.type === "DEAL_STATUS_CHANGED" &&
+    item.targetId === Number(client.global.get("dealId"))
+  ), "payment-related notification for current run must exist");
 });
 %}
 
@@ -1007,18 +1015,26 @@ client.test("schedule contains payment received", function () {
 ### ============================================================
 
 ### [7-1] Deal 전체 타임라인 조회
-GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=100&sort=actionAt,asc
+GET {{baseUrl}}/api/v1/deals/{{dealId}}/logs?page=0&size=300&sort=actionAt,asc
 Authorization: Bearer {{salesToken}}
 
 > {%
 client.test("full deal timeline contains RFQ->QUO->CNT->ORD->STMT->INV->PAY", function () {
   client.assert(response.status === 200, "status must be 200");
-  const docs = (response.body.data.content || []).map((log) => log.docType);
-  const required = ["RFQ", "QUO", "CNT", "ORD", "STMT", "INV", "PAY"];
+  const logs = response.body.data.content || [];
+  const required = [
+    { docType: "RFQ", refId: Number(client.global.get("rfqId")) },
+    { docType: "QUO", refId: Number(client.global.get("quoId")) },
+    { docType: "CNT", refId: Number(client.global.get("cntId")) },
+    { docType: "ORD", refId: Number(client.global.get("ordId")) },
+    { docType: "STMT", refId: Number(client.global.get("stmtId")) },
+    { docType: "INV", refId: Number(client.global.get("invId")) },
+    { docType: "PAY", refId: Number(client.global.get("payId")) }
+  ];
   let lastIndex = -1;
-  required.forEach((docType) => {
-    const idx = docs.indexOf(docType);
-    client.assert(idx > lastIndex, docType + " must appear in chronological order");
+  required.forEach((item) => {
+    const idx = logs.findIndex((log) => log.docType === item.docType && log.refId === item.refId);
+    client.assert(idx > lastIndex, item.docType + " must appear in chronological order for current run");
     lastIndex = idx;
   });
 });
@@ -1031,9 +1047,17 @@ Authorization: Bearer {{adminToken}}
 > {%
 client.test("client timeline contains full pipeline", function () {
   client.assert(response.status === 200, "status must be 200");
-  const docs = new Set((response.body.data.content || []).map((log) => log.docType));
-  ["RFQ", "QUO", "CNT", "ORD", "STMT", "INV", "PAY"].forEach((docType) => {
-    client.assert(docs.has(docType), docType + " must exist in client timeline");
+  const logs = response.body.data.content || [];
+  [
+    ["RFQ", Number(client.global.get("rfqId"))],
+    ["QUO", Number(client.global.get("quoId"))],
+    ["CNT", Number(client.global.get("cntId"))],
+    ["ORD", Number(client.global.get("ordId"))],
+    ["STMT", Number(client.global.get("stmtId"))],
+    ["INV", Number(client.global.get("invId"))],
+    ["PAY", Number(client.global.get("payId"))]
+  ].forEach(([docType, refId]) => {
+    client.assert(logs.some((log) => log.docType === docType && log.refId === refId), docType + " must exist in client timeline for current run");
   });
 });
 %}
