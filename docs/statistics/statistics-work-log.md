@@ -225,3 +225,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-11 16:02] 계약 승인 일정 동기화 예외 전파 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java` — 일정 동기화 중 예외 발생 시 로그 후 예외를 다시 던져 `REQUIRES_NEW` 트랜잭션이 정상적으로 롤백되도록 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandlerTest.java` — 일정 동기화 서비스 실패 시 예외가 삼켜지지 않고 호출자에게 전파되는 회귀 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

@@ -46,7 +46,15 @@ public class ContractApprovalSchedulesSyncEventHandler {
             );
         } catch (Throwable t) {
             log.error("Failed to handle contract approval schedule sync event. event={}", event, t);
+            throw propagate(t);
         }
+    }
+
+    private RuntimeException propagate(Throwable throwable) {
+        if (throwable instanceof RuntimeException runtimeException) {
+            return runtimeException;
+        }
+        return new RuntimeException(throwable);
     }
 
     private boolean supports(ContractApprovalSchedulesSyncEvent event) {
