@@ -180,3 +180,16 @@
 
 ### 다음 단계
 pipeline 변경 파일 컴파일 확인 후 목적별 커밋 분리
+
+## [2026-03-10 14:20] 통계 전용 더미데이터 bootstrap 및 HTTP 시나리오 추가
+
+### 작업 내용
+- 신규 파일: api-test/http/statistics/bootstrap-billing-revenue.sql — scenario1 SECTION 0 계정 설정을 기준으로 admin/sales/client 계정과 수박/참외 상품을 보장하고, `sales_deal -> contract -> order -> statement -> invoice -> invoice_statement` FK 체인을 초기화 후 재주입하는 통계 전용 bootstrap SQL 추가
+- 신규 파일: api-test/http/statistics/billing-revenue.http — 월별/품종별/월별+품종별/권한 차단 케이스를 bootstrap SQL의 고정 기대값으로 검증하는 IntelliJ HTTP Client 시나리오 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음
+
+### 다음 단계
+local DB에 bootstrap SQL 실행 후 HTTP 시나리오 실검증

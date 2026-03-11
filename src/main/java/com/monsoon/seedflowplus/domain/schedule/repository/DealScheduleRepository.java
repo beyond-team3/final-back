@@ -11,6 +11,8 @@ public interface DealScheduleRepository extends JpaRepository<DealSchedule, Long
 
     Optional<DealSchedule> findByExternalKey(String externalKey);
 
+    long deleteByExternalKey(String externalKey);
+
     @EntityGraph(attributePaths = {"assigneeUser", "client", "deal"})
     List<DealSchedule> findByStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
             LocalDateTime rangeEnd,

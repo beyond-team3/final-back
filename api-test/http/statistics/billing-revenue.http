@@ -1,0 +1,200 @@
+### Billing revenue statistics 전용 검증 시나리오
+### 사전 준비:
+### 1) api-test/http/statistics/bootstrap-billing-revenue.sql 실행
+### 2) 애플리케이션 local 기동
+### 참고:
+### - 계정/기본 변수는 api-test/http/pipeline/scenario1.http 의 SECTION 0 설정을 따른다.
+### - 기대 집계값은 bootstrap SQL 기준이다.
+
+@baseUrl = http://localhost:8080
+@adminEmail = admin@seedflow.com
+@adminPassword = password1234!
+@salesEmail = sales@seedflow.com
+@salesPassword = password1234!
+@clientEmail = client@seedflow.com
+@clientPassword = password1234!
+
+### ============================================================
+### SECTION 0. 계정 준비
+### ============================================================
+
+### [0-1] ADMIN 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminEmail}}",
+  "loginPw": "{{adminPassword}}"
+}
+
+> {%
+client.test("ADMIN login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.accessToken, "admin access token must exist");
+});
+client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+### [0-2] SALES_REP 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{salesEmail}}",
+  "loginPw": "{{salesPassword}}"
+}
+
+> {%
+client.test("SALES_REP login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.accessToken, "sales access token must exist");
+});
+client.global.set("salesToken", response.body.data.accessToken);
+%}
+
+### [0-3] CLIENT 로그인
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{clientEmail}}",
+  "loginPw": "{{clientPassword}}"
+}
+
+> {%
+client.test("CLIENT login success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(!!response.body.data.accessToken, "client access token must exist");
+});
+client.global.set("clientToken", response.body.data.accessToken);
+%}
+
+### ============================================================
+### SECTION 1. 월별 매출
+### ============================================================
+
+### [1-1] ADMIN 월별 매출 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("admin monthly revenue matches seeded rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 2, "monthly rows must be 2");
+  const jan = rows.find((row) => row.month === "2026-01");
+  const feb = rows.find((row) => row.month === "2026-02");
+  client.assert(!!jan, "2026-01 row must exist");
+  client.assert(!!feb, "2026-02 row must exist");
+  client.assert(Number(jan.billedRevenue) === 460000, "2026-01 billedRevenue must be 460000");
+  client.assert(Number(feb.billedRevenue) === 180000, "2026-02 billedRevenue must be 180000");
+});
+%}
+
+### [1-2] SALES_REP 월별 매출 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("sales monthly revenue matches scoped seeded rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 2, "monthly rows must be 2");
+  const total = rows.reduce((sum, row) => sum + Number(row.billedRevenue), 0);
+  client.assert(total === 640000, "scoped billedRevenue total must be 640000");
+});
+%}
+
+### [1-3] ADMIN 월별 매출 조회 - 수박 필터
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31&category=%EC%88%98%EB%B0%95
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("watermelon monthly revenue matches seeded rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 2, "watermelon monthly rows must be 2");
+  const jan = rows.find((row) => row.month === "2026-01");
+  const feb = rows.find((row) => row.month === "2026-02");
+  client.assert(Number(jan.billedRevenue) === 350000, "2026-01 watermelon billedRevenue must be 350000");
+  client.assert(Number(feb.billedRevenue) === 180000, "2026-02 watermelon billedRevenue must be 180000");
+});
+%}
+
+### ============================================================
+### SECTION 2. 품종별 매출
+### ============================================================
+
+### [2-1] ADMIN 품종별 매출 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/by-category?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("category revenue matches seeded rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 2, "category rows must be 2");
+  const watermelon = rows.find((row) => row.category === "수박");
+  const melon = rows.find((row) => row.category === "참외");
+  client.assert(!!watermelon, "watermelon row must exist");
+  client.assert(!!melon, "melon row must exist");
+  client.assert(Number(watermelon.billedRevenue) === 530000, "watermelon billedRevenue must be 530000");
+  client.assert(Number(melon.billedRevenue) === 110000, "melon billedRevenue must be 110000");
+});
+%}
+
+### [2-2] ADMIN 품종별 매출 조회 - 참외 필터
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/by-category?from=2026-01-01&to=2026-12-31&category=%EC%B0%B8%EC%99%B8
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("melon category revenue excludes non-included rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 1, "melon category row must be 1");
+  client.assert(rows[0].category === "참외", "category must be 참외");
+  client.assert(Number(rows[0].billedRevenue) === 110000, "melon billedRevenue must be 110000");
+});
+%}
+
+### ============================================================
+### SECTION 3. 월별+품종별 매출
+### ============================================================
+
+### [3-1] ADMIN 월별+품종별 매출 조회
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly-by-category?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+client.test("monthly by category revenue matches seeded rows", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const rows = response.body.data || [];
+  client.assert(rows.length === 3, "monthly-by-category rows must be 3");
+  const asMap = {};
+  rows.forEach((row) => {
+    asMap[row.month + "|" + row.category] = Number(row.billedRevenue);
+  });
+  client.assert(asMap["2026-01|수박"] === 350000, "2026-01|수박 must be 350000");
+  client.assert(asMap["2026-01|참외"] === 110000, "2026-01|참외 must be 110000");
+  client.assert(asMap["2026-02|수박"] === 180000, "2026-02|수박 must be 180000");
+});
+%}
+
+### ============================================================
+### SECTION 4. 권한 검증
+### ============================================================
+
+### [4-1] CLIENT 통계 접근 차단
+GET {{baseUrl}}/api/v1/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{clientToken}}
+
+> {%
+client.test("client statistics access denied", function () {
+  client.assert(response.status === 403, "status must be 403");
+  client.assert(response.body.result === "ERROR", "result must be ERROR");
+});
+%}

@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.approval.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
@@ -40,15 +41,20 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class ApprovalCommandService {
@@ -63,6 +69,7 @@ public class ApprovalCommandService {
     private final DocStatusTransitionValidator docStatusTransitionValidator;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
@@ -190,6 +197,7 @@ public class ApprovalCommandService {
                 step.getActorType(),
                 actorId
         );
+        publishContractApprovalSchedulesSyncAfterCommitIfNeeded(request, step, dto.decision(), now, principal);
         publishApprovalEventsAfterDecision(request, step, dto.decision(), now);
 
         return toDetail(request);
@@ -303,6 +311,47 @@ public class ApprovalCommandService {
             case CNT -> applyContractDecision(request, step, decision);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
+    }
+
+    private void publishContractApprovalSchedulesSyncAfterCommitIfNeeded(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision,
+            LocalDateTime occurredAt,
+            CustomUserDetails principal
+    ) {
+        if (request.getDealType() != DealType.CNT || step.getActorType() != ActorType.CLIENT || decision != DecisionType.APPROVE) {
+            return;
+        }
+
+        ContractApprovalSchedulesSyncEvent event = new ContractApprovalSchedulesSyncEvent(
+                request.getTargetId(),
+                request.getDealType(),
+                step.getStepOrder(),
+                step.getActorType(),
+                decision,
+                occurredAt,
+                principal == null ? null : principal.getUserId()
+        );
+        publishAfterCommit(event);
+    }
+
+    private void publishAfterCommit(Object event) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            applicationEventPublisher.publishEvent(event);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    applicationEventPublisher.publishEvent(event);
+                } catch (Throwable t) {
+                    log.error("Failed to publish event after transaction commit. event={}", event, t);
+                }
+            }
+        });
     }
 
     private void validateStepOrder(ApprovalStep step, ApprovalRequest request) {

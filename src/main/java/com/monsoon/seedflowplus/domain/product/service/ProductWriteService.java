@@ -17,10 +17,12 @@ import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
+import com.monsoon.seedflowplus.infra.aws.service.S3UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -40,9 +42,21 @@ public class ProductWriteService {
     private final ProductCompareItemRepository productCompareItemRepository;
     private final UserRepository userRepository;
     private final ProductCompareRepository productCompareRepository;
+    private final S3UploadService s3UploadService;
 
     @Transactional
-    public Long createProduct(ProductRequest request) {
+    public Long createProduct(ProductRequest request, MultipartFile productImage) {
+
+        // S3 이미지 업로드 처리 로직 추가
+        String uploadedImageUrl = null;
+        boolean isNewlyUploaded = false;
+
+        if (productImage != null && !productImage.isEmpty()) {
+            uploadedImageUrl = s3UploadService.uploadProductImage(productImage);
+            isNewlyUploaded = true; // S3에 요금이 부과되는 새 파일이 올라갔음을 표시
+        } else {
+            uploadedImageUrl = request.getProductImageUrl();
+        }
 
         ProductCategory category = ProductCategory.valueOf(request.getProductCategory());
         String generatedCode = generateProductCode(category);
@@ -50,13 +64,13 @@ public class ProductWriteService {
         Product newProduct = Product.builder()
                 .productCode(generatedCode)
                 .productName(request.getProductName())
-                .productCategory(category) // 위에서 변환한 category 객체 재사용
+                .productCategory(category)
                 .productDescription(request.getProductDescription())
-                .productImageUrl(request.getProductImageUrl())
+                .productImageUrl(uploadedImageUrl)
                 .amount(request.getAmount())
                 .unit(request.getUnit())
                 .price(request.getPrice())
-                .status(ProductStatus.valueOf(request.getStatus())) // String -> Enum
+                .status(ProductStatus.valueOf(request.getStatus()))
                 .tags(request.getTags())
                 .build();
 
@@ -89,13 +103,23 @@ public class ProductWriteService {
             return savedProduct.getId();
 
         } catch (DataIntegrityViolationException e) {
-            // 동시에 다른 사람이 똑같은 코드를 등록해서 DB 유니크 에러가 터지면 중복 에러 고지
+            // 유니크 에러(중복)가 터졌을 때 보상 로직 실행
+            if (isNewlyUploaded) {
+                s3UploadService.deleteImageFromUrl(uploadedImageUrl); // S3에서 사진 삭-제!
+            }
             throw new CoreException(ErrorType.DUPLICATE_PRODUCT_CODE);
+
+        } catch (Exception e) {
+            // 그 외에 알 수 없는 DB 에러가 터졌을 때도 안전하게 삭제
+            if (isNewlyUploaded) {
+                s3UploadService.deleteImageFromUrl(uploadedImageUrl);
+            }
+            throw e; // 원래 발생한 에러를 그대로 다시 던짐
         }
     }
 
     @Transactional
-    public void updateProduct(Long productId, ProductRequest request, Long userId) {
+    public void updateProduct(Long productId, ProductRequest request, MultipartFile productImage, Long userId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
@@ -105,6 +129,15 @@ public class ProductWriteService {
         Employee employee = user.getEmployee();
         if (employee == null) {
             throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        String uploadedImageUrl = product.getProductImageUrl();
+        if (productImage != null && !productImage.isEmpty()) {
+            uploadedImageUrl = s3UploadService.uploadProductImage(productImage);
+        } else if (request.getProductImageUrl() == null || request.getProductImageUrl().isEmpty()) {
+            uploadedImageUrl = null;
+        } else if (!request.getProductImageUrl().startsWith("data:image")) {
+            uploadedImageUrl = request.getProductImageUrl();
         }
 
         // 가격 변동 검사 및 이력 저장
@@ -122,7 +155,7 @@ public class ProductWriteService {
                 request.getProductName(),
                 request.getProductCategory(),
                 request.getProductDescription(),
-                request.getProductImageUrl(),
+                uploadedImageUrl,
                 request.getAmount(),
                 request.getUnit(),
                 request.getPrice(),

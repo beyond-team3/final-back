@@ -35,6 +35,10 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
 
     List<ContractHeader> findByClientAndStatusOrderByEndDateAsc(Client client, ContractStatus status);
 
+    @Query("SELECT c FROM ContractHeader c WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) AND c.status <> :status ORDER BY c.createdAt DESC")
+    List<ContractHeader> findByAuthorIdOrClientManagerEmployeeIdAndStatusNot(@Param("employeeId") Long employeeId,
+                                                                             @Param("status") ContractStatus status);
+
     /**
      * 거래처별 활성 계약 조회 (실제 ACTIVE_CONTRACT + 승인 즉시 활성 간주되는 COMPLETED 포함)
      */

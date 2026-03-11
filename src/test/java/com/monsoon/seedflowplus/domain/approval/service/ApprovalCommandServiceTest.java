@@ -5,6 +5,8 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.response.CreateApprovalRequestResponse;
@@ -33,6 +35,7 @@ import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -44,9 +47,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -91,6 +97,9 @@ class ApprovalCommandServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private Clock clock;
@@ -509,7 +518,7 @@ class ApprovalCommandServiceTest {
         ApprovalStep step2 = step(62L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
         request.addStep(step1);
         request.addStep(step2);
-        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT);
+        ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
 
         when(approvalRequestRepository.findById(600L)).thenReturn(Optional.of(request));
         when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(62L, 600L)).thenReturn(Optional.of(step2));
@@ -525,8 +534,69 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.CLIENT, null, 101L)
         );
 
-        assertThat(contract.getStatus()).isEqualTo(ContractStatus.COMPLETED);
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
+                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().targetId()).isEqualTo(8001L);
+        assertThat(eventCaptor.getValue().dealType()).isEqualTo(DealType.CNT);
+        assertThat(eventCaptor.getValue().stepOrder()).isEqualTo(2);
+        assertThat(eventCaptor.getValue().actorType()).isEqualTo(ActorType.CLIENT);
+        assertThat(eventCaptor.getValue().decision()).isEqualTo(DecisionType.APPROVE);
+    }
+
+    @Test
+    @DisplayName("케이스 7-1: CNT CLIENT approve 시 현재 사용자 ID를 lightweight 이벤트에 담는다")
+    void approveContractByClientPublishesPrincipalUserIdInLightweightEvent() {
+        ApprovalRequest request = cntRequest(601L, 8002L, 101L);
+        ApprovalStep step1 = step(63L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(64L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8002L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        CustomUserDetails principal = mockUserWithIds(Role.CLIENT, 9101L, null, 101L);
+
+        when(approvalRequestRepository.findById(601L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(64L, 601L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(601L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(601L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(64L)).thenReturn(false);
+        when(contractRepository.findById(8002L)).thenReturn(Optional.of(contract));
+
+        approvalCommandService.decideStep(
+                601L,
+                64L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                principal
+        );
+
+        ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
+                ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().principalUserId()).isEqualTo(principal.getUserId());
+    }
+
+    @Test
+    @DisplayName("케이스 7-2: afterCommit publish 실패는 호출자에게 전파되지 않는다")
+    void publishAfterCommitSwallowsListenerFailure() {
+        try {
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            RuntimeException failure = new RuntimeException("boom");
+            doThrow(failure).when(applicationEventPublisher).publishEvent("event");
+
+            ReflectionTestUtils.invokeMethod(approvalCommandService, "publishAfterCommit", "event");
+
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(synchronizations).hasSize(1);
+            synchronizations.get(0).afterCommit();
+
+            verify(applicationEventPublisher).publishEvent("event");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     @Test
@@ -696,8 +766,18 @@ class ApprovalCommandServiceTest {
     }
 
     private ContractHeader contract(Long id, ContractStatus status, Long clientId, SalesDeal deal) {
-        Client client = org.mockito.Mockito.mock(Client.class);
-        lenient().when(client.getId()).thenReturn(clientId);
+        Client client = Client.builder()
+                .clientCode("C-" + clientId)
+                .clientName("거래처-" + clientId)
+                .clientBrn("123-45-" + clientId)
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", clientId);
         ContractHeader contract = ContractHeader.create(
                 "C-" + id,
                 null,
@@ -712,12 +792,15 @@ class ApprovalCommandServiceTest {
                 "memo"
         );
         ReflectionTestUtils.setField(contract, "id", id);
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.now().minusDays(1));
+        ReflectionTestUtils.setField(contract, "endDate", LocalDate.now().plusDays(9));
         contract.updateStatus(status);
         return contract;
     }
 
     private SalesDeal salesDeal(Long ownerEmployeeId) {
         SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        lenient().when(deal.getId()).thenReturn(9900L + (ownerEmployeeId == null ? 0L : ownerEmployeeId));
         if (ownerEmployeeId == null) {
             lenient().when(deal.getOwnerEmp()).thenReturn(null);
             return deal;
@@ -726,6 +809,15 @@ class ApprovalCommandServiceTest {
         Employee owner = org.mockito.Mockito.mock(Employee.class);
         lenient().when(owner.getId()).thenReturn(ownerEmployeeId);
         lenient().when(deal.getOwnerEmp()).thenReturn(owner);
+        User assigneeUser = User.builder()
+                .loginId("sales-" + ownerEmployeeId)
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(owner)
+                .build();
+        ReflectionTestUtils.setField(assigneeUser, "id", 8800L + ownerEmployeeId);
+        lenient().when(userRepository.findByEmployeeId(ownerEmployeeId)).thenReturn(Optional.of(assigneeUser));
         return deal;
     }
 

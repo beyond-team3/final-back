@@ -1,0 +1,32 @@
+### [debug] ORD 생성
+POST {{baseUrl}}/api/v1/orders
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "headerId": {{cntId}},
+  "shippingName": "버그 재현 물류센터",
+  "shippingPhone": "010-5555-6666",
+  "shippingAddress": "경기도 하남시 미사대로 750",
+  "shippingAddressDetail": "A동 101호",
+  "deliveryRequest": "2026-04-10 오전 도착 요청",
+  "items": [
+    {
+      "contractDetailId": {{cntItem1DetailId}},
+      "quantity": 20
+    },
+    {
+      "contractDetailId": {{cntItem2DetailId}},
+      "quantity": 15
+    }
+  ]
+}
+
+> {% client.global.set("debugOrdId", response.body.data.orderId) %}
+
+### [debug] ORD confirm (수정 후 200 기대)
+PATCH {{baseUrl}}/api/v1/orders/{{debugOrdId}}/confirm
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{}

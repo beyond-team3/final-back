@@ -20,6 +20,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.web.multipart.MultipartFile;
+import com.monsoon.seedflowplus.infra.aws.service.S3UploadService;
+
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
@@ -59,6 +62,9 @@ class ProductWriteServiceTest {
         @Mock
         private UserRepository userRepository;
 
+        @Mock
+        private S3UploadService s3UploadService;
+
         @InjectMocks
         private ProductWriteService productWriteService;
 
@@ -90,12 +96,125 @@ class ProductWriteServiceTest {
                                 .thenReturn(Optional.empty());
                 when(productRepository.saveAndFlush(any(Product.class))).thenReturn(savedProduct);
 
-                // when
-                Long productId = productWriteService.createProduct(request);
+                // when (이미지 없는 경우)
+                Long productId = productWriteService.createProduct(request, null);
 
                 // then
                 assertThat(productId).isEqualTo(1L);
                 verify(productRepository, times(1)).saveAndFlush(any(Product.class));
+                verify(s3UploadService, never()).uploadProductImage(any());
+        }
+
+        @Test
+        @DisplayName("이미지 파일과 함께 신규 상품을 등록하면 S3 업로드 서비스가 호출되어야 한다")
+        void testCreateProductWithImage() {
+                // given
+                ProductRequest request = mock(ProductRequest.class);
+                when(request.getProductCategory()).thenReturn("WATERMELON");
+                when(request.getProductName()).thenReturn("수박 씨앗");
+                when(request.getAmount()).thenReturn(100);
+                when(request.getUnit()).thenReturn("BOX");
+                when(request.getPrice()).thenReturn(new BigDecimal("50000"));
+                when(request.getStatus()).thenReturn("SALE");
+                when(request.getTags()).thenReturn(Map.of());
+
+                MultipartFile mockImage = mock(MultipartFile.class);
+                when(mockImage.isEmpty()).thenReturn(false);
+                String expectedImageUrl = "https://s3.aws.com/products/image.jpg";
+                when(s3UploadService.uploadProductImage(mockImage)).thenReturn(expectedImageUrl);
+
+                Product savedProduct = Product.builder()
+                                .productCode("WM002")
+                                .productName("수박 씨앗")
+                                .productCategory(ProductCategory.WATERMELON)
+                                .amount(100)
+                                .unit("BOX")
+                                .price(new BigDecimal("50000"))
+                                .status(ProductStatus.SALE)
+                                .productImageUrl(expectedImageUrl)
+                                .build();
+                org.springframework.test.util.ReflectionTestUtils.setField(savedProduct, "id", 2L);
+
+                when(productRepository.findTopByProductCategoryOrderByIdDesc(ProductCategory.WATERMELON))
+                                .thenReturn(Optional.empty());
+                when(productRepository.saveAndFlush(any(Product.class))).thenReturn(savedProduct);
+
+                // when
+                Long productId = productWriteService.createProduct(request, mockImage);
+
+                // then
+                assertThat(productId).isEqualTo(2L);
+                verify(s3UploadService, times(1)).uploadProductImage(mockImage);
+                verify(productRepository, times(1)).saveAndFlush(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("이미지 업로드 후 데이터 무결성 예외(중복 등) 발생 시 S3 이미지가 삭제되어야 한다")
+        void testCreateProductWithImage_DuplicateCode() {
+                // given
+                ProductRequest request = mock(ProductRequest.class);
+                when(request.getProductCategory()).thenReturn("WATERMELON");
+                when(request.getProductName()).thenReturn("수박 씨앗");
+                when(request.getAmount()).thenReturn(100);
+                when(request.getUnit()).thenReturn("BOX");
+                when(request.getPrice()).thenReturn(new BigDecimal("50000"));
+                when(request.getStatus()).thenReturn("SALE");
+                when(request.getTags()).thenReturn(Map.of());
+
+                MultipartFile mockImage = mock(MultipartFile.class);
+                when(mockImage.isEmpty()).thenReturn(false);
+                String expectedImageUrl = "https://s3.aws.com/products/image.jpg";
+                when(s3UploadService.uploadProductImage(mockImage)).thenReturn(expectedImageUrl);
+
+                when(productRepository.findTopByProductCategoryOrderByIdDesc(ProductCategory.WATERMELON))
+                                .thenReturn(Optional.empty());
+
+                when(productRepository.saveAndFlush(any(Product.class)))
+                                .thenThrow(org.springframework.dao.DataIntegrityViolationException.class);
+
+                // when & then
+                org.assertj.core.api.Assertions
+                                .assertThatThrownBy(() -> productWriteService.createProduct(request, mockImage))
+                                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class)
+                                .hasFieldOrPropertyWithValue("errorType",
+                                                com.monsoon.seedflowplus.core.common.support.error.ErrorType.DUPLICATE_PRODUCT_CODE);
+
+                verify(s3UploadService, times(1)).uploadProductImage(mockImage);
+                verify(s3UploadService, times(1)).deleteImageFromUrl(expectedImageUrl);
+        }
+
+        @Test
+        @DisplayName("이미지 업로드 후 알 수 없는 예외 발생 시 원래 예외가 던져지고 S3 이미지는 삭제되어야 한다")
+        void testCreateProductWithImage_GenericException() {
+                // given
+                ProductRequest request = mock(ProductRequest.class);
+                when(request.getProductCategory()).thenReturn("WATERMELON");
+                when(request.getProductName()).thenReturn("수박 씨앗");
+                when(request.getAmount()).thenReturn(100);
+                when(request.getUnit()).thenReturn("BOX");
+                when(request.getPrice()).thenReturn(new BigDecimal("50000"));
+                when(request.getStatus()).thenReturn("SALE");
+                when(request.getTags()).thenReturn(Map.of());
+
+                MultipartFile mockImage = mock(MultipartFile.class);
+                when(mockImage.isEmpty()).thenReturn(false);
+                String expectedImageUrl = "https://s3.aws.com/products/image.jpg";
+                when(s3UploadService.uploadProductImage(mockImage)).thenReturn(expectedImageUrl);
+
+                when(productRepository.findTopByProductCategoryOrderByIdDesc(ProductCategory.WATERMELON))
+                                .thenReturn(Optional.empty());
+
+                when(productRepository.saveAndFlush(any(Product.class)))
+                                .thenThrow(new RuntimeException("DB 알 수 없는 에러"));
+
+                // when & then
+                org.assertj.core.api.Assertions
+                                .assertThatThrownBy(() -> productWriteService.createProduct(request, mockImage))
+                                .isInstanceOf(RuntimeException.class)
+                                .hasMessage("DB 알 수 없는 에러");
+
+                verify(s3UploadService, times(1)).uploadProductImage(mockImage);
+                verify(s3UploadService, times(1)).deleteImageFromUrl(expectedImageUrl);
         }
 
         @Test
@@ -136,7 +255,7 @@ class ProductWriteServiceTest {
                 when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
 
                 // when
-                productWriteService.updateProduct(productId, request, userId);
+                productWriteService.updateProduct(productId, request, null, userId);
 
                 // then
                 assertThat(product.getPrice()).isEqualByComparingTo("60000"); // 엔티티 수정 확인
@@ -181,7 +300,7 @@ class ProductWriteServiceTest {
                 when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
 
                 // when
-                productWriteService.updateProduct(productId, request, userId);
+                productWriteService.updateProduct(productId, request, null, userId);
 
                 // then
                 verify(productPriceHistoryRepository, never()).save(any()); // 이력 저장 호출 안 됨 확인

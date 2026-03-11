@@ -89,6 +89,14 @@ public class DealScheduleSyncService {
         }
     }
 
+    @Transactional
+    public long deleteByExternalKey(String externalKey) {
+        if (externalKey == null || externalKey.isBlank()) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+        return dealScheduleRepository.deleteByExternalKey(externalKey.trim());
+    }
+
     private void validateCommand(DealScheduleUpsertCommand command) {
         if (command == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
