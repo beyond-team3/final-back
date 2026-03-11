@@ -37,7 +37,7 @@ public class ContractApprovalSchedulesSyncEventHandler {
         }
 
         try {
-            contractRepository.findById(event.targetId()).ifPresentOrElse(
+            contractRepository.findByIdWithScheduleRelations(event.targetId()).ifPresentOrElse(
                     contract -> syncContractSchedules(contract, event),
                     () -> log.warn("Skipping contract approval schedule sync because contract was not found. contractId={}", event.targetId())
             );
