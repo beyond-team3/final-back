@@ -10,6 +10,32 @@
 ### 다음 단계
 없음
 
+## [2026-03-11 16:34] 공통 통계 API 신규 구현 및 보안 매핑 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsFilter.java` — 공통 요청 파라미터 모델과 limit 정규화용 복사 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsPeriod.java` — 월/분기 기간 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsRankingType.java` — 랭킹 축 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesTrendDto.java` — 시계열 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesTrendItemDto.java` — period/sales 항목 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesRankingDto.java` — 랭킹 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/repository/StatisticsRepository.java` — QueryDSL 기반 추이/랭킹 집계 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/service/StatisticsQueryService.java` — 필터 검증, 빈 구간 0 채우기, SALES_REP 담당 거래처 범위 필터링 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/controller/StatisticsController.java` — `/api/v1/statistics/**` 6개 엔드포인트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 신규 통계 경로별 권한 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 경로 매처 동기화
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/controller/StatisticsControllerTest.java` — 경로별 200/401/403/400 컨트롤러 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/service/StatisticsQueryServiceTest.java` — 검증, 0 채우기, SALES_REP 범위 적용 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/repository/StatisticsRepositoryTest.java` — PAID 기준 집계, 버킷, 랭킹 limit, 품종 필터 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 공통 통계 API 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+커밋
+
 ## [2026-03-06 10:41] 서비스 검증 정책 테스트 고정
 
 ### 작업 내용

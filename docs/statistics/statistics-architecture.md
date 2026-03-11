@@ -97,3 +97,27 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 후속 문서 상태 변경에도 전이 검증과 감사 로그를 일관되게 적용하기 위함
+
+## [2026-03-11] 공통 통계 API 신규 구조 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/controller/StatisticsController.java`
+- 클래스/메서드: `StatisticsController`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/service/StatisticsQueryService.java`
+- 클래스/메서드: `StatisticsQueryService#getMySalesTrend`, `getAdminSalesTrend`, `getSalesTrendByEmployee`, `getSalesTrendByClient`, `getSalesTrendByVariety`, `getRanking`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/repository/StatisticsRepository.java`
+- 클래스/메서드: `StatisticsRepository`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/*.java`
+- 클래스/메서드: `StatisticsFilter`, `StatisticsPeriod`, `StatisticsRankingType`, `SalesTrendDto`, `SalesTrendItemDto`, `SalesRankingDto`
+- 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java`
+- 클래스/메서드: `SecurityConfig#filterChain`
+- 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java`
+- 클래스/메서드: `TestSecurityConfig#filterChain`
+
+### 변경 내용
+기존 billing 전용 통계와 별도로 `/api/v1/statistics/**` 공통 통계 API 계층을 신규 추가했다.
+컨트롤러는 6개 엔드포인트를 제공하고, 서비스는 기간 검증·0 채우기·영업사원 담당 거래처 범위 주입을 담당하며,
+리포지토리는 QueryDSL로 사원/거래처/품종/랭킹 집계를 수행하도록 역할을 분리했다.
+
+### 변경 이유
+정책 결정 사항의 공통 통계 API 구조와 역할별 조회 범위를 반영하기 위함
