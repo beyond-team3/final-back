@@ -28,6 +28,8 @@ public interface OrderHeaderRepository extends JpaRepository<OrderHeader, Long> 
 
     long countByOrderCodeStartingWith(String prefix);
 
+    List<OrderHeader> findByEmployee_Id(Long employeeId);
+
 
     // 모든 주문 존재 거래처 ID 집합 조회
     @Query("SELECT DISTINCT o.client.id FROM OrderHeader o")
@@ -70,4 +72,11 @@ public interface OrderHeaderRepository extends JpaRepository<OrderHeader, Long> 
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("startOfNextMonth") LocalDateTime startOfNextMonth
     );
+
+    // OrderHeaderRepository.java
+    @Query("SELECT o FROM OrderHeader o LEFT JOIN FETCH o.contract WHERE o.employee.id = :employeeId")
+    List<OrderHeader> findByEmployee_IdWithContract(@Param("employeeId") Long employeeId);
+
+    @Query("SELECT o FROM OrderHeader o LEFT JOIN FETCH o.contract WHERE o.client.id = :clientId")
+    List<OrderHeader> findByClient_IdWithContract(@Param("clientId") Long clientId);
 }

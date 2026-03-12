@@ -152,9 +152,16 @@ public class OrderService {
         return toOrderResponse(orderHeader);
     }
 
-    // 주문 목록 조회
+    // 주문 목록 조회 (거래처 기준 - CLIENT)
     public List<OrderListResponse> getOrders(Long clientId) {
-        return orderHeaderRepository.findByClient_Id(clientId).stream()
+        return orderHeaderRepository.findByClient_IdWithContract(clientId).stream()
+                .map(this::toOrderListResponse)
+                .toList();
+    }
+
+    // 주문 목록 조회 (영업사원 기준 - SALES_REP / ADMIN)
+    public List<OrderListResponse> getOrdersByEmployee(Long employeeId) {
+        return orderHeaderRepository.findByEmployee_IdWithContract(employeeId).stream()
                 .map(this::toOrderListResponse)
                 .toList();
     }
@@ -300,6 +307,7 @@ public class OrderService {
         return OrderListResponse.builder()
                 .orderId(orderHeader.getId())
                 .orderCode(orderHeader.getOrderCode())
+                .headerId(orderHeader.getContract() != null ? orderHeader.getContract().getId() : null)
                 .totalAmount(orderHeader.getTotalAmount())
                 .status(orderHeader.getStatus())
                 .createdAt(orderHeader.getCreatedAt())
