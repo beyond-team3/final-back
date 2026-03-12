@@ -61,6 +61,30 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleContractCompleted(ContractCompletedEvent event) {
+        Notification saved = documentNotificationService.createContractCompletedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleStatementIssued(StatementIssuedEvent event) {
+        Notification saved = documentNotificationService.createStatementIssuedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleInvoiceIssued(InvoiceIssuedEvent event) {
+        Notification saved = documentNotificationService.createInvoiceIssuedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
     private void sendIfPresent(Long userId, Notification saved) {
         if (saved == null) {
             return;

@@ -30,6 +30,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValid
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalRejectedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
@@ -804,6 +805,7 @@ public class ApprovalCommandService {
                             occurredAt
                     ))
             );
+            publishContractCompletedEventsIfNeeded(request, occurredAt);
             return;
         }
 
@@ -820,6 +822,49 @@ public class ApprovalCommandService {
                                 nextStep.getActorType(),
                                 occurredAt
                         ))));
+    }
+
+    private void publishContractCompletedEventsIfNeeded(ApprovalRequest request, LocalDateTime occurredAt) {
+        if (request.getDealType() != DealType.CNT) {
+            return;
+        }
+
+        contractRepository.findById(request.getTargetId()).ifPresent(contract -> {
+            userRepository.findAllByRole(Role.ADMIN).stream()
+                    .map(User::getId)
+                    .distinct()
+                    .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ContractCompletedEvent(
+                            userId,
+                            contract.getId(),
+                            contract.getContractCode(),
+                            contract.getClient().getClientName(),
+                            occurredAt
+                    )));
+
+            resolveContractRecipientUserIds(contract).forEach(userId ->
+                    notificationEventPublisher.publishAfterCommit(new ContractCompletedEvent(
+                            userId,
+                            contract.getId(),
+                            contract.getContractCode(),
+                            contract.getClient().getClientName(),
+                            occurredAt
+                    )));
+        });
+    }
+
+    private List<Long> resolveContractRecipientUserIds(ContractHeader contract) {
+        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        if (contract.getDeal() != null && contract.getDeal().getOwnerEmp() != null && contract.getDeal().getOwnerEmp().getId() != null) {
+            userRepository.findByEmployeeId(contract.getDeal().getOwnerEmp().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        if (contract.getClient() != null && contract.getClient().getId() != null) {
+            userRepository.findByClientId(contract.getClient().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        return userIds.stream().toList();
     }
 
     private List<Long> resolveApproverUserIds(ActorType actorType, ApprovalRequest request) {

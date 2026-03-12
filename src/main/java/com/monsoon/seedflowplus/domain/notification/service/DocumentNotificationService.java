@@ -9,7 +9,10 @@ import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import jakarta.persistence.EntityManager;
@@ -38,6 +41,45 @@ public class DocumentNotificationService {
                 event.quotationRequestId(),
                 "견적요청서가 접수되었습니다",
                 buildQuotationRequestCreatedContent(event.requestCode(), event.clientName()),
+                event.occurredAt()
+        );
+    }
+
+    public Notification createContractCompletedNotification(ContractCompletedEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        return createIfNotDuplicated(
+                event.userId(),
+                NotificationType.CONTRACT_COMPLETED,
+                NotificationTargetType.CONTRACT,
+                event.contractId(),
+                "계약이 체결되었습니다",
+                buildContractCompletedContent(event.contractCode(), event.clientName()),
+                event.occurredAt()
+        );
+    }
+
+    public Notification createStatementIssuedNotification(StatementIssuedEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        return createIfNotDuplicated(
+                event.userId(),
+                NotificationType.STATEMENT_ISSUED,
+                NotificationTargetType.STATEMENT,
+                event.statementId(),
+                "명세서가 발급되었습니다",
+                buildStatementIssuedContent(event.statementCode(), event.orderCode()),
+                event.occurredAt()
+        );
+    }
+
+    public Notification createInvoiceIssuedNotification(InvoiceIssuedEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        return createIfNotDuplicated(
+                event.userId(),
+                NotificationType.INVOICE_ISSUED,
+                NotificationTargetType.INVOICE,
+                event.invoiceId(),
+                "청구서가 발행되었습니다",
+                buildInvoiceIssuedContent(event.invoiceCode(), event.clientName()),
                 event.occurredAt()
         );
     }
@@ -116,5 +158,23 @@ public class DocumentNotificationService {
         return String.format("%s 거래처의 견적요청서 %s가 등록되었습니다.",
                 clientName == null || clientName.isBlank() ? "거래처" : clientName,
                 requestCode == null || requestCode.isBlank() ? "" : "(" + requestCode + ")");
+    }
+
+    private String buildContractCompletedContent(String contractCode, String clientName) {
+        return String.format("%s 거래처와 계약 %s가 최종 체결되었습니다.",
+                clientName == null || clientName.isBlank() ? "거래처" : clientName,
+                contractCode == null || contractCode.isBlank() ? "" : "(" + contractCode + ")");
+    }
+
+    private String buildStatementIssuedContent(String statementCode, String orderCode) {
+        return String.format("주문 %s 기준 명세서 %s가 발급되었습니다.",
+                orderCode == null || orderCode.isBlank() ? "" : "(" + orderCode + ")",
+                statementCode == null || statementCode.isBlank() ? "" : "(" + statementCode + ")");
+    }
+
+    private String buildInvoiceIssuedContent(String invoiceCode, String clientName) {
+        return String.format("%s 거래처 대상 청구서 %s가 발행되었습니다.",
+                clientName == null || clientName.isBlank() ? "거래처" : clientName,
+                invoiceCode == null || invoiceCode.isBlank() ? "" : "(" + invoiceCode + ")");
     }
 }

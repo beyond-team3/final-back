@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.billing.statement.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -10,6 +12,8 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementListResponse;
 import com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementResponse;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
@@ -36,6 +40,8 @@ public class StatementService {
     private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final UserRepository userRepository;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
@@ -239,6 +245,38 @@ public class StatementService {
                         new DealLogWriteService.DiffField("orderCode", "주문 번호", null, orderHeader.getOrderCode(), "REFERENCE")
                 )
         );
+        publishStatementIssuedNotifications(statement, orderHeader);
         return statement;
+    }
+
+    private void publishStatementIssuedNotifications(Statement statement, OrderHeader orderHeader) {
+        resolveStatementRecipientUserIds(orderHeader).forEach(userId ->
+                notificationEventPublisher.publishAfterCommit(new StatementIssuedEvent(
+                        userId,
+                        statement.getId(),
+                        statement.getStatementCode(),
+                        orderHeader.getOrderCode(),
+                        statement.getCreatedAt() != null ? statement.getCreatedAt() : java.time.LocalDateTime.now()
+                )));
+    }
+
+    private List<Long> resolveStatementRecipientUserIds(OrderHeader orderHeader) {
+        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
+            userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        } else if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+                && orderHeader.getDeal().getOwnerEmp().getId() != null) {
+            userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        if (orderHeader.getClient() != null && orderHeader.getClient().getId() != null) {
+            userRepository.findByClientId(orderHeader.getClient().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        return userIds.stream().toList();
     }
 }

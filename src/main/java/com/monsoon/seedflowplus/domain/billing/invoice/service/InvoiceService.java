@@ -30,6 +30,8 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
@@ -61,6 +63,7 @@ public class InvoiceService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     /**
      * 청구서 수동 생성 (영업사원)
@@ -189,6 +192,7 @@ public class InvoiceService {
                 List.of(new DealLogWriteService.DiffField("status", "청구서 상태", fromStatus, InvoiceStatus.PUBLISHED.name(), "STATUS"))
         );
         syncPaymentDueSchedule(invoice, principal);
+        publishInvoiceIssuedNotification(invoice);
         return InvoicePublishResponse.from(invoice);
     }
 
@@ -500,5 +504,20 @@ public class InvoiceService {
             return;
         }
         throw new CoreException(ErrorType.ACCESS_DENIED);
+    }
+
+    private void publishInvoiceIssuedNotification(Invoice invoice) {
+        if (invoice.getClient() == null || invoice.getClient().getId() == null) {
+            return;
+        }
+        userRepository.findByClientId(invoice.getClient().getId())
+                .map(User::getId)
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
+                        userId,
+                        invoice.getId(),
+                        invoice.getInvoiceCode(),
+                        invoice.getClient().getClientName(),
+                        invoice.getCreatedAt() != null ? invoice.getCreatedAt() : java.time.LocalDateTime.now()
+                )));
     }
 }

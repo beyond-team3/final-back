@@ -6,6 +6,7 @@ public enum NotificationType {
     QUOTATION_APPROVAL_RESULT,      // 견적서 승인 처리 완료(승인or반려)
     CONTRACT_APPROVAL_REQUESTED,    // 계약서 승인 요청
     CONTRACT_APPROVAL_RESULT,       // 계약서 승인 처리 완료
+    CONTRACT_COMPLETED,             // 계약 체결
     INVOICE_ISSUED,                 // 청구서 발행
     STATEMENT_ISSUED,               // 명세서 발행
     STOCK_CHANGED,                  // 재고 변경
