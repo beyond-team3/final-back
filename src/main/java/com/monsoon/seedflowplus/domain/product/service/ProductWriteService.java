@@ -171,14 +171,14 @@ public class ProductWriteService {
     }
 
     private void updateCultivationTime(Product product, List<CultivationTimeDto> ctDtoList) {
+        // 기존 데이터 조회 후 개별 삭제 + flush 하여 EntityManager 동기화 보장
         List<CultivationTime> currentCts = cultivationTimeRepository.findByProductId(product.getId());
-
-        // 기존 데이터가 있다면 모두 삭제 후 재등록
         if (currentCts != null && !currentCts.isEmpty()) {
-            cultivationTimeRepository.deleteAllInBatch(currentCts); // 즉시 삭제 반영
+            cultivationTimeRepository.deleteAll(currentCts);
+            cultivationTimeRepository.flush();
         }
 
-        // DTO가 없는 경우
+        // 새 데이터가 없으면 종료
         if (ctDtoList == null || ctDtoList.isEmpty()) {
             return;
         }
@@ -187,19 +187,22 @@ public class ProductWriteService {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
-        List<CultivationTime> newCts = ctDtoList.stream().map(ctDto -> CultivationTime.builder()
-                .product(product)
-                .croppingSystem(ctDto.getCroppingSystem())
-                .region(ctDto.getRegion())
-                .sowingStart(ctDto.getSowingStart())
-                .sowingEnd(ctDto.getSowingEnd())
-                .plantingStart(ctDto.getPlantingStart())
-                .plantingEnd(ctDto.getPlantingEnd())
-                .harvestingStart(ctDto.getHarvestingStart())
-                .harvestingEnd(ctDto.getHarvestingEnd())
-                .build()).toList();
-
-        cultivationTimeRepository.saveAll(newCts);
+        // 기존 데이터 삭제 후 새 데이터 재등록
+        for (CultivationTimeDto ctDto : ctDtoList) {
+            CultivationTime ct = CultivationTime.builder()
+                    .product(product)
+                    .croppingSystem(ctDto.getCroppingSystem())
+                    .region(ctDto.getRegion())
+                    .sowingStart(ctDto.getSowingStart())
+                    .sowingEnd(ctDto.getSowingEnd())
+                    .plantingStart(ctDto.getPlantingStart())
+                    .plantingEnd(ctDto.getPlantingEnd())
+                    .harvestingStart(ctDto.getHarvestingStart())
+                    .harvestingEnd(ctDto.getHarvestingEnd())
+                    .build();
+            cultivationTimeRepository.save(ct);
+        }
+        cultivationTimeRepository.flush();
     }
 
     @Transactional
