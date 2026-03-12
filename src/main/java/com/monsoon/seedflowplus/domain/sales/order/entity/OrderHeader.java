@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -46,6 +47,14 @@ public class OrderHeader extends BaseCreateEntity {
     @Column(name = "status", nullable = false)
     private OrderStatus status;
 
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
+
+    public void confirm() {
+        this.status = OrderStatus.CONFIRMED;
+        this.deliveryDate = LocalDate.now().plusDays(3);
+    }
+
     // 생성
     public static OrderHeader create(ContractHeader contract, Client client, SalesDeal deal, Employee employee, String orderCode) {
         OrderHeader order = new OrderHeader();
@@ -62,11 +71,6 @@ public class OrderHeader extends BaseCreateEntity {
     // 총액 업데이트
     public void updateTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
-    }
-
-    // 상태 변경
-    public void confirm() {
-        this.status = OrderStatus.CONFIRMED;
     }
 
     public void cancel() {

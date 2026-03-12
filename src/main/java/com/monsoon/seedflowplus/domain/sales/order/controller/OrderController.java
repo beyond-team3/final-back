@@ -3,6 +3,8 @@ package com.monsoon.seedflowplus.domain.sales.order.controller;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.order.dto.request.OrderCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderCancelResponse;
 import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderListResponse;
@@ -27,6 +29,7 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final ContractRepository contractHeaderRepository; // 임시 추가
 
     @Operation(summary = "주문 생성", description = "계약 기반으로 주문을 생성합니다.")
     @PostMapping
@@ -84,5 +87,16 @@ public class OrderController {
             @PathVariable Long clientId
     ) {
         return ApiResult.success(orderService.getTradeSummary(clientId));
+    }
+
+
+    @GetMapping("/test/contract/{id}")
+    public ApiResult<String> testContract(@PathVariable Long id) {
+        ContractHeader contract = contractHeaderRepository.findById(id)
+                .orElse(null);
+        if (contract == null) {
+            return ApiResult.success("NOT FOUND - id: " + id);
+        }
+        return ApiResult.success("FOUND - id: " + contract.getId() + ", code: " + contract.getContractCode() + ", status: " + contract.getStatus());
     }
 }
