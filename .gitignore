@@ -45,3 +45,6 @@ application-*.yml
 
 ### Local agent instructions ###
 AGENTS.md
+
+# QueryDSL generated
+**/generated/
