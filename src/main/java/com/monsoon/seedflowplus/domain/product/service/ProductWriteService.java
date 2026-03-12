@@ -187,7 +187,7 @@ public class ProductWriteService {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
 
-        // 각 항목을 개별 save로 순차 저장 (2개 이상 배치 insert 시 cache 충돌 방지)
+        // 기존 데이터 삭제 후 새 데이터 재등록
         for (CultivationTimeDto ctDto : ctDtoList) {
             CultivationTime ct = CultivationTime.builder()
                     .product(product)
