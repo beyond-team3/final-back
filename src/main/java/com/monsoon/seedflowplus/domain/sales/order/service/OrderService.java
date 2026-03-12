@@ -231,6 +231,7 @@ public class OrderService {
 
         orderHeader.confirm();
 
+
         ActorType actorType = resolveActorType(principal);
         Long actorId = resolveActorId(actorType, principal);
         dealPipelineFacade.recordAndSync(
@@ -285,6 +286,7 @@ public class OrderService {
                 .shippingAddress(firstDetail.getShippingAddress())
                 .shippingAddressDetail(firstDetail.getShippingAddressDetail())
                 .deliveryRequest(firstDetail.getDeliveryRequest())
+                .deliveryDate(orderHeader.getDeliveryDate())
                 .items(items)
                 .recentLogs(dealLogQueryService.getRecentDocumentLogs(
                         orderHeader.getDeal() != null ? orderHeader.getDeal().getId() : null,
@@ -354,7 +356,7 @@ public class OrderService {
     }
 
     private void syncDeliveryDueSchedule(OrderHeader orderHeader, CustomUserDetails principal) {
-        if (orderHeader.getCreatedAt() == null) {
+        if (orderHeader.getDeliveryDate() == null) {
             return;
         }
         if (orderHeader.getDeal() == null) {
@@ -362,7 +364,7 @@ public class OrderService {
         }
 
         Long assigneeUserId = resolveScheduleAssigneeUserId(orderHeader.getDeal(), principal, orderHeader.getClient().getId());
-        LocalDateTime startAt = orderHeader.getCreatedAt().toLocalDate().atStartOfDay();
+        LocalDateTime startAt = orderHeader.getDeliveryDate().atStartOfDay();
 
         dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
                 "ORD_" + orderHeader.getId() + "_DELIVERY_DUE",

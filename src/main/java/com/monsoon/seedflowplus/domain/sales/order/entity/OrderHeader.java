@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.sales.order.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
@@ -10,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -46,6 +49,18 @@ public class OrderHeader extends BaseCreateEntity {
     @Column(name = "status", nullable = false)
     private OrderStatus status;
 
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
+
+    public void confirm() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
+        }
+        this.status = OrderStatus.CONFIRMED;
+        this.deliveryDate = LocalDate.now().plusDays(3); // 주문 확정 시점 +3일 배송일
+
+    }
+
     // 생성
     public static OrderHeader create(ContractHeader contract, Client client, SalesDeal deal, Employee employee, String orderCode) {
         OrderHeader order = new OrderHeader();
@@ -62,11 +77,6 @@ public class OrderHeader extends BaseCreateEntity {
     // 총액 업데이트
     public void updateTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
-    }
-
-    // 상태 변경
-    public void confirm() {
-        this.status = OrderStatus.CONFIRMED;
     }
 
     public void cancel() {

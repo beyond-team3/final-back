@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,6 +30,7 @@ public class OrderResponse {
     private String shippingAddress;
     private String shippingAddressDetail;
     private String deliveryRequest;
+    private LocalDate deliveryDate;
 
     private List<OrderDetailResponse> items;
     private List<DealLogSummaryDto> recentLogs;
