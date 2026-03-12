@@ -281,3 +281,28 @@ SKIP LOCKED 조회 실패 fallback은 비원자 non-locking 선점 경로를 중
 
 ### 변경 이유
 리뷰 이슈 [1]~[9] 중 수정 제외 항목을 제외한 발송 원자성/중복 전송/소프트삭제 우회/설정 하드코딩 결함을 수정하기 위함
+
+## [2026-03-12] Approval 알림 문맥 payload 확장
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java
+- 클래스/메서드: ApprovalRequestedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java
+- 클래스/메서드: ApprovalCompletedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java
+- 클래스/메서드: ApprovalRejectedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java
+- 클래스/메서드: ApprovalSubmissionService.publishApprovalRequestedForFirstApprovers
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.publishApprovalRequestedForFirstApprovers, publishApprovalEventsAfterDecision
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java
+- 클래스/메서드: DealApprovalNotificationService.createApprovalRequestedNotification, createApprovalCompletedNotification, createApprovalRejectedNotification
+
+### 변경 내용
+승인 이벤트 3종 record에 `targetCode`, `actorType`를 추가해 문서 코드와 승인 단계 액터를 after-commit 시점까지 그대로 전달하도록 바꿨다.
+ApprovalSubmissionService/ApprovalCommandService는 이벤트 발행 시 `ApprovalRequest.targetCodeSnapshot`과 현재/다음 step의 `actorType`을 함께 실어 보낸다.
+DealApprovalNotificationService는 알림 `type`은 generic 3종을 유지하면서도 `targetType/targetId`를 실제 문서(`QUOTATION`, `CONTRACT`, `ORDER`)로 저장하고, title/content를 문서 종류+승인 단계 문맥으로 생성한다.
+승인 완료/반려 알림 dedup은 stage별 content 키를 사용해 동일 문서에서 관리자/거래처 처리 알림이 같은 날 연속 발생해도 서로 누락되지 않게 했다.
+
+### 변경 이유
+Phase 1 정책 1번(승인 알림 generic 유지 + 문서/액터 문맥 노출) 반영

@@ -235,3 +235,25 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-12 21:18] Approval 알림 문맥 확장
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java — 1차 승인 요청 이벤트에 단계 액터 문맥 전달
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 승인 요청/완료/반려 이벤트에 문서 코드와 단계 액터 전달
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java — generic approval type 유지, 실제 문서 target과 문맥형 title/content 생성
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 변경된 ApprovalRequestedEvent payload 반영
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationServiceTest.java — 승인 알림 문맥/target/dedup 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — 승인 요청 이벤트 payload 문맥 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+견적요청서 생성 알림 구현
