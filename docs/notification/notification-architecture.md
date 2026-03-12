@@ -306,3 +306,24 @@ DealApprovalNotificationService는 알림 `type`은 generic 3종을 유지하면
 
 ### 변경 이유
 Phase 1 정책 1번(승인 알림 generic 유지 + 문서/액터 문맥 노출) 반영
+
+## [2026-03-12] 견적요청서 생성 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/QuotationRequestCreatedEvent.java
+- 클래스/메서드: QuotationRequestCreatedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: DocumentNotificationService.createQuotationRequestCreatedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: NotificationEventHandler.handleQuotationRequestCreated
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java
+- 클래스/메서드: QuotationRequestService.createQuotationRequest
+
+### 변경 내용
+견적요청서 생성 전용 이벤트 `QuotationRequestCreatedEvent`와 문서 알림 서비스 `DocumentNotificationService`를 추가했다.
+QuotationRequestService는 저장/코드 발급/딜 로그 기록 후 `client.managerEmployee -> UserRepository.findByEmployeeId(...)` 경로로 담당 영업사원 사용자 1명을 해석해 after-commit 이벤트를 발행한다.
+NotificationEventHandler는 신규 이벤트를 비동기 수신해 `QUOTATION_REQUEST_CREATED` 알림을 저장하고, 기존 SSE payload 형식(`NotificationListItemResponse`)으로 즉시 전송한다.
+알림은 `targetType=QUOTATION_REQUEST`, `targetId=rfqId`로 저장되어 기존 목록/SSE 응답 구조를 변경하지 않는다.
+
+### 변경 이유
+Phase 1 정책 4번(견적요청서 생성 알림 수신 대상은 담당 영업사원 1명) 반영
