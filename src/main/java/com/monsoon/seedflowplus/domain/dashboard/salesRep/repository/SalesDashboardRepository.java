@@ -183,24 +183,19 @@ public class SalesDashboardRepository {
     // 4. 최근 영업 히스토리
     // ──────────────────────────────────────────────
 
-    /**
-     * 본인이 actor 인 최근 활동 5건
-     * tbl_sales_history + tbl_client (client_name)
-     */
     public List<Map<String, Object>> recentActivities(Long employeeId) {
         String sql = """
-                SELECT sh.action_datetime,
-                       sh.doc_type,
-                       sh.action_type,
-                       sh.target_code,
-                       sh.to_stage,
-                       cl.client_name
-                FROM tbl_sales_history sh
-                JOIN tbl_client cl ON cl.client_id = sh.client_id
-                WHERE sh.actor_emp_id = :empId
-                ORDER BY sh.action_datetime DESC
-                LIMIT 5
-                """;
+            SELECT d.last_activity_at  AS action_datetime,
+                   d.latest_doc_type   AS doc_type,
+                   d.current_stage     AS to_stage,
+                   d.latest_target_code AS target_code,
+                   cl.client_name
+            FROM tbl_sales_deal d
+            JOIN tbl_client cl ON cl.client_id = d.client_id
+            WHERE d.owner_emp_id = :empId
+            ORDER BY d.last_activity_at DESC
+            LIMIT 5
+            """;
         return jdbc.queryForList(sql,
                 new MapSqlParameterSource().addValue("empId", employeeId));
     }
