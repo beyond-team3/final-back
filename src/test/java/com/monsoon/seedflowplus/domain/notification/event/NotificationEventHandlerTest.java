@@ -81,6 +81,21 @@ class NotificationEventHandlerTest {
         verify(notificationSseService).send(eq(200L), any());
     }
 
+    @Test
+    @DisplayName("InvoiceIssued 이벤트 수신 시 생성 서비스 위임 후 SSE 전송한다")
+    void handleInvoiceIssued() {
+        InvoiceIssuedEvent event = new InvoiceIssuedEvent(
+                300L, 41L, "INV-20260312-41", "새봄농산", LocalDateTime.now());
+        Notification saved = notification(3L);
+
+        when(documentNotificationService.createInvoiceIssuedNotification(event)).thenReturn(saved);
+
+        notificationEventHandler.handleInvoiceIssued(event);
+
+        verify(documentNotificationService).createInvoiceIssuedNotification(event);
+        verify(notificationSseService).send(eq(300L), any());
+    }
+
     private Notification notification(Long id) {
         Notification notification = Notification.builder()
                 .user(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.User.class))

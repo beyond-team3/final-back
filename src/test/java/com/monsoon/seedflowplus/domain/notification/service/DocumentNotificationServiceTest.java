@@ -11,7 +11,10 @@ import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import jakarta.persistence.EntityManager;
@@ -83,5 +86,47 @@ class DocumentNotificationServiceTest {
         assertThat(notification.getTitle()).isEqualTo("견적요청서가 접수되었습니다");
         assertThat(notification.getContent()).contains("새봄농산");
         assertThat(notification.getContent()).contains("RFQ-20260312-31");
+    }
+
+    @Test
+    @DisplayName("계약 체결 알림은 계약 문서 기준으로 저장된다")
+    void createContractCompletedNotification() {
+        LocalDateTime occurredAt = LocalDateTime.of(2026, 3, 12, 16, 0);
+        ContractCompletedEvent event = new ContractCompletedEvent(101L, 71L, "CNT-20260312-71", "새봄농산", occurredAt);
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 101L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                eq(101L), eq(NotificationType.CONTRACT_COMPLETED), eq(NotificationTargetType.CONTRACT), eq(71L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification saved = documentNotificationService.createContractCompletedNotification(event);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getType()).isEqualTo(NotificationType.CONTRACT_COMPLETED);
+        assertThat(saved.getTargetType()).isEqualTo(NotificationTargetType.CONTRACT);
+    }
+
+    @Test
+    @DisplayName("명세서 발급 알림과 청구서 발행 알림은 기존 SSE payload와 호환되는 targetType을 사용한다")
+    void createStatementAndInvoiceNotifications() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 201L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(entityManager.find(User.class, 202L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                eq(201L), eq(NotificationType.STATEMENT_ISSUED), eq(NotificationTargetType.STATEMENT), eq(81L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                eq(202L), eq(NotificationType.INVOICE_ISSUED), eq(NotificationTargetType.INVOICE), eq(91L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification statementNotification = documentNotificationService.createStatementIssuedNotification(
+                new StatementIssuedEvent(201L, 81L, "STMT-20260312-81", "ORD-20260312-41", LocalDateTime.now()));
+        Notification invoiceNotification = documentNotificationService.createInvoiceIssuedNotification(
+                new InvoiceIssuedEvent(202L, 91L, "INV-20260312-91", "새봄농산", LocalDateTime.now()));
+
+        assertThat(statementNotification.getTargetType()).isEqualTo(NotificationTargetType.STATEMENT);
+        assertThat(invoiceNotification.getTargetType()).isEqualTo(NotificationTargetType.INVOICE);
     }
 }

@@ -23,6 +23,8 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
@@ -60,6 +62,8 @@ class InvoiceServiceTest {
     private DealLogQueryService dealLogQueryService;
     @Mock
     private DealScheduleSyncService dealScheduleSyncService;
+    @Mock
+    private NotificationEventPublisher notificationEventPublisher;
 
     private InvoiceService invoiceService;
 
@@ -74,7 +78,8 @@ class InvoiceServiceTest {
                 userRepository,
                 dealPipelineFacade,
                 dealLogQueryService,
-                dealScheduleSyncService
+                dealScheduleSyncService,
+                notificationEventPublisher
         );
     }
 
@@ -126,6 +131,8 @@ class InvoiceServiceTest {
                 .employee(ownerEmployee)
                 .build();
         ReflectionTestUtils.setField(assigneeUser, "id", 99L);
+        User clientUser = org.mockito.Mockito.mock(User.class);
+        when(clientUser.getId()).thenReturn(199L);
 
         CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
         when(principal.getRole()).thenReturn(Role.ADMIN);
@@ -133,6 +140,7 @@ class InvoiceServiceTest {
 
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
         when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(assigneeUser));
+        when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
 
         InvoicePublishResponse response = invoiceService.publishInvoice(41L, principal);
 
@@ -146,6 +154,11 @@ class InvoiceServiceTest {
         assertEquals(LocalDate.of(2026, 3, 16).atStartOfDay(), command.endAt());
         assertEquals(41L, response.getInvoiceId());
         assertEquals(InvoiceStatus.PUBLISHED, response.getStatus());
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(notificationEventPublisher).publishAfterCommit(eventCaptor.capture());
+        InvoiceIssuedEvent event = (InvoiceIssuedEvent) eventCaptor.getValue();
+        assertEquals(41L, event.invoiceId());
+        assertEquals("INV-20260310-001", event.invoiceCode());
     }
 
     @Test

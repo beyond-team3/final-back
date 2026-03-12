@@ -26,6 +26,7 @@ import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepositor
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
@@ -71,6 +72,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -618,6 +620,43 @@ class ApprovalCommandServiceTest {
         assertThat(eventCaptor.getValue().stepOrder()).isEqualTo(2);
         assertThat(eventCaptor.getValue().actorType()).isEqualTo(ActorType.CLIENT);
         assertThat(eventCaptor.getValue().decision()).isEqualTo(DecisionType.APPROVE);
+    }
+
+    @Test
+    @DisplayName("계약 최종 승인 시 계약 체결 알림을 영업사원, 관리자, 거래처에 발행한다")
+    void approveContractByClientPublishesContractCompletedNotifications() {
+        ApprovalRequest request = cntRequest(601L, 8003L, 101L);
+        ApprovalStep step1 = step(63L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(64L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8003L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        User adminUser = user(3001L, Role.ADMIN, 901L, null);
+        User clientUser = user(3002L, Role.CLIENT, null, 101L);
+
+        when(approvalRequestRepository.findById(601L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(64L, 601L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(601L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(601L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(64L)).thenReturn(false);
+        when(contractRepository.findById(8003L)).thenReturn(Optional.of(contract));
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
+        when(userRepository.findByClientId(101L)).thenReturn(Optional.of(clientUser));
+
+        approvalCommandService.decideStep(
+                601L,
+                64L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.CLIENT, null, 101L)
+        );
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(notificationEventPublisher, atLeast(3)).publishAfterCommit(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues().stream()
+                .filter(ContractCompletedEvent.class::isInstance)
+                .map(ContractCompletedEvent.class::cast)
+                .map(ContractCompletedEvent::userId))
+                .contains(3001L, 3002L, 9301L);
     }
 
     @Test
