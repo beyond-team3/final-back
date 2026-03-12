@@ -329,3 +329,24 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-12 17:02] 주문 승인 절차 및 자동 승인 요청 연계 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/controller/OrderController.java` — 주문 생성 컨트롤러가 principal 포함 `createOrder(...)`만 호출하도록 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — 주문 생성 principal 검증 및 생성 직후 ORD 승인 요청 자동 제출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalFlowPolicy.java` — 문서 타입별 승인 단계 정의와 마지막 단계 판정 공통화
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java` — ORD 제출 지원, 주문 상태/소유권 검증, 1단계 SALES_REP 알림 대상 계산 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인/반려 처리, 주문 확정 서비스 연계, 마지막 단계 일반화, ORD 알림 대상 계산 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java` — ORD 승인 요청 submit 로그가 주문 PENDING 상태를 유지하도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java` — 주문 생성 자동 승인 요청 호출 및 null principal 예외 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionServiceTest.java` — ORD 승인 요청 생성/상태/소유권 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — ORD 승인/반려/권한/최종 승인 상태 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음

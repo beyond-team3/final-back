@@ -178,3 +178,23 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 문서가 삭제된 뒤에도 진행 중 승인 요청이 남아 관리자 승인 목록과 실제 문서 상태가 어긋나는 문제를 방지하기 위함
+
+## [2026-03-12] 주문 승인 단계 정책 및 주문 생성 연계 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java`
+- 클래스/메서드: `OrderService#createOrder`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalFlowPolicy.java`
+- 클래스/메서드: `ApprovalFlowPolicy#createSteps`, `isLastStep`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java`
+- 클래스/메서드: `submitFromDocumentCreation`, `publishApprovalRequestedForFirstApprovers`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java`
+- 클래스/메서드: `createApprovalRequest`, `decideStep`, `updateRequestStatus`
+
+### 변경 내용
+주문 생성 서비스 시그니처를 principal 포함 형태로 단일화하고, 주문 저장 및 CREATE 로그 기록 직후 자동 승인 요청을 생성하도록 연결했다.
+승인 단계 정의를 `ApprovalFlowPolicy`로 분리해 QUO/CNT는 `ADMIN -> CLIENT`, ORD는 `SALES_REP` 단일 단계로 공통 생성한다.
+승인 명령 서비스는 마지막 단계 판정, ORD 승인 시 `OrderService.confirmOrder(...)` 재사용, ORD 전용 알림 대상 계산을 공통 흐름 안에서 처리하도록 일반화했다.
+
+### 변경 이유
+주문 문서에도 기존 승인 모듈을 재사용해 자동 승인 요청과 주문 확정/명세서 발급 흐름을 일관되게 연결하기 위함
