@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.sales.order.entity;
 
 import com.monsoon.seedflowplus.core.common.entity.BaseCreateEntity;
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
@@ -51,8 +53,12 @@ public class OrderHeader extends BaseCreateEntity {
     private LocalDate deliveryDate;
 
     public void confirm() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
+        }
         this.status = OrderStatus.CONFIRMED;
-        this.deliveryDate = LocalDate.now().plusDays(3);
+        this.deliveryDate = LocalDate.now().plusDays(3); // 주문 확정 시점 +3일 배송일
+
     }
 
     // 생성
