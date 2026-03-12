@@ -137,3 +137,25 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 승인 요청 엔티티 식별자 필드와 프론트 정렬 파라미터 이름이 달라 조회가 실패했기 때문이다.
+
+## [2026-03-12] 문서 생성 승인 자동화 구조 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java`
+- 클래스/메서드: `ApprovalSubmissionService#createApprovalRequest`, `submitFromDocumentCreation`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java`
+- 클래스/메서드: `QuotationService#createQuotation`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java`
+- 클래스/메서드: `ContractService#createContract`
+- 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java`
+- 클래스/메서드: `SecurityConfig#filterChain`
+- 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java`
+- 클래스/메서드: `TestSecurityConfig#filterChain`
+
+### 변경 내용
+문서 생성 직후 승인 요청을 자동 생성하는 전용 서비스 `ApprovalSubmissionService`를 추가했다.
+견적서/계약서 생성 서비스는 문서 저장과 딜 로그 기록 후 이 서비스를 호출해 승인 요청을 생성하며,
+수동 `POST /api/v1/approvals` 경로는 ADMIN만 접근하도록 보안 매처를 강화했다.
+
+### 변경 이유
+견적서·계약서 생성 이후 프론트의 별도 승인 요청 호출 없이 관리자 승인 흐름이 이어지도록 승인 생성 경로를 백엔드로 일원화하기 위함

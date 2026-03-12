@@ -10,6 +10,25 @@
 ### 다음 단계
 없음
 
+## [2026-03-12 11:19] 문서 생성 시 승인 요청 자동 생성 적용
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java` — 문서 생성/수동 생성 승인 요청 전용 서비스 추가 및 자동 생성 정책 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적서 생성 직후 승인 요청 자동 생성 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 계약서 생성 직후 승인 요청 자동 생성 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 수동 승인 요청 생성 API를 ADMIN 전용으로 제한
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 설정에 승인 생성 권한 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionServiceTest.java` — 자동 승인 생성, 상태 검증, 중복 차단 테스트 추가
+- 수정 파일: `output.txt` — 프론트 반영용 API 변경 프롬프트 작성
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+프론트에서 견적/계약 생성 후 수동 승인 요청 API 호출 제거 및 관리자 승인 목록 재조회 흐름 점검
+
 ## [2026-03-11 16:34] 공통 통계 API 신규 구현 및 보안 매핑 추가
 
 ### 작업 내용
