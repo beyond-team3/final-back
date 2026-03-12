@@ -63,6 +63,22 @@ public class ApprovalDealLogWriter {
             Long actorId
     ) {
         SalesDeal deal = resolveDeal(request);
+        if (request.getDealType() == DealType.ORD) {
+            writeOrderDecisionLog(
+                    request,
+                    step,
+                    decision,
+                    fromStatus,
+                    toStatus,
+                    fromStage,
+                    toStage,
+                    reason,
+                    actorType,
+                    actorId,
+                    deal
+            );
+            return;
+        }
         DealStage actualFromStage = resolveDecisionFromStage(deal, fromStage);
 
         dealPipelineFacade.recordAndSync(
@@ -71,6 +87,42 @@ public class ApprovalDealLogWriter {
                 request.getTargetId(),
                 request.getTargetCodeSnapshot(),
                 actualFromStage,
+                parseDealStageOrThrow(toStage),
+                fromStatus,
+                toStatus,
+                toActionType(decision),
+                null,
+                actorType,
+                actorId,
+                reason,
+                List.of(
+                        diffField("status", "문서 상태", fromStatus, toStatus, "STATUS"),
+                        diffField("approvalRequestId", "Approval Request ID", null, request.getId(), "REFERENCE"),
+                        diffField("stepOrder", "Approval Step Order", null, step.getStepOrder(), "REFERENCE"),
+                        diffField("decision", "Approval Decision", null, decision.name(), "ACTION")
+                )
+        );
+    }
+
+    private void writeOrderDecisionLog(
+            ApprovalRequest request,
+            ApprovalStep step,
+            DecisionType decision,
+            String fromStatus,
+            String toStatus,
+            String fromStage,
+            String toStage,
+            String reason,
+            ActorType actorType,
+            Long actorId,
+            SalesDeal deal
+    ) {
+        dealLogWriteService.write(
+                deal,
+                request.getDealType(),
+                request.getTargetId(),
+                request.getTargetCodeSnapshot(),
+                parseDealStageOrThrow(fromStage),
                 parseDealStageOrThrow(toStage),
                 fromStatus,
                 toStatus,
