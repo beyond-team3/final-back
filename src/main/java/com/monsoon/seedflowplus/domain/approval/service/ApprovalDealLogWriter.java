@@ -14,6 +14,7 @@ import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -123,6 +124,18 @@ public class ApprovalDealLogWriter {
 
     private SubmitLogContext buildSubmitContext(ApprovalRequest request) {
         SalesDeal deal = resolveDeal(request);
+        if (request.getDealType() == DealType.ORD) {
+            return new SubmitLogContext(
+                    deal,
+                    request.getDealType(),
+                    request.getTargetId(),
+                    request.getTargetCodeSnapshot(),
+                    deal.getCurrentStage(),
+                    deal.getCurrentStage(),
+                    OrderStatus.PENDING.name(),
+                    OrderStatus.PENDING.name()
+            );
+        }
         return new SubmitLogContext(
                 deal,
                 request.getDealType(),

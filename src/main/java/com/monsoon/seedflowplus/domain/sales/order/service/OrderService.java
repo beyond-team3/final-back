@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -59,10 +60,14 @@ public class OrderService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final ApprovalSubmissionService approvalSubmissionService;
 
 
     @Transactional
-    public OrderResponse createOrder(OrderCreateRequest request, Long clientId) {
+    public OrderResponse createOrder(OrderCreateRequest request, Long clientId, CustomUserDetails principal) {
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
 
         // 1. 계약 조회
         ContractHeader contract = contractHeaderRepository.findById(request.getHeaderId()) // reason: 주문 입력에서 계약 헤더 식별자 필드를 headerId로 명시적으로 사용
@@ -147,6 +152,13 @@ public class OrderService {
                 List.of(
                         new DealLogWriteService.DiffField("totalAmount", "주문 총액", null, totalAmount, "MONEY"),
                         new DealLogWriteService.DiffField("itemCount", "주문 품목 수", null, request.getItems().size(), "COUNT"))
+        );
+
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                principal
         );
 
         return toOrderResponse(orderHeader);

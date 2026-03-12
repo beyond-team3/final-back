@@ -9,8 +9,6 @@ import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalReques
 import com.monsoon.seedflowplus.domain.approval.dto.response.CreateApprovalRequestResponse;
 import com.monsoon.seedflowplus.domain.approval.entity.ApprovalRequest;
 import com.monsoon.seedflowplus.domain.approval.entity.ApprovalStatus;
-import com.monsoon.seedflowplus.domain.approval.entity.ApprovalStep;
-import com.monsoon.seedflowplus.domain.approval.entity.ApprovalStepStatus;
 import com.monsoon.seedflowplus.domain.approval.repository.ApprovalRequestRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
@@ -20,6 +18,9 @@ import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPubli
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -40,8 +41,10 @@ public class ApprovalSubmissionService {
 
     private final ApprovalRequestRepository approvalRequestRepository;
     private final ApprovalDealLogWriter approvalDealLogWriter;
+    private final ApprovalFlowPolicy approvalFlowPolicy;
     private final QuotationRepository quotationRepository;
     private final ContractRepository contractRepository;
+    private final OrderHeaderRepository orderHeaderRepository;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
     private final Clock clock;
@@ -67,7 +70,7 @@ public class ApprovalSubmissionService {
             CreateApprovalRequestRequest dto,
             CustomUserDetails principal
     ) {
-        validateSupportedDealType(dto.dealType());
+        approvalFlowPolicy.validateSupportedDealType(dto.dealType());
         validateDocumentReadyForSubmission(dto.dealType(), dto.targetId());
 
         if (approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(
@@ -93,19 +96,7 @@ public class ApprovalSubmissionService {
                 .targetCodeSnapshot(targetCodeSnapshot)
                 .build();
 
-        request.addStep(ApprovalStep.builder()
-                .stepOrder(1)
-                .actorType(ActorType.ADMIN)
-                .status(ApprovalStepStatus.WAITING)
-                .build());
-
-        if (dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) {
-            request.addStep(ApprovalStep.builder()
-                    .stepOrder(2)
-                    .actorType(ActorType.CLIENT)
-                    .status(ApprovalStepStatus.WAITING)
-                    .build());
-        }
+        approvalFlowPolicy.createSteps(dto.dealType()).forEach(request::addStep);
 
         ApprovalRequest saved;
         try {
@@ -153,13 +144,15 @@ public class ApprovalSubmissionService {
                     throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
                 }
             }
+            case ORD -> {
+                OrderStatus status = orderHeaderRepository.findById(targetId)
+                        .map(OrderHeader::getStatus)
+                        .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+                if (status != OrderStatus.PENDING) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                }
+            }
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
-        }
-    }
-
-    private void validateSupportedDealType(DealType dealType) {
-        if (dealType != DealType.QUO && dealType != DealType.CNT) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "approval supports only QUO/CNT");
         }
     }
 
@@ -217,6 +210,16 @@ public class ApprovalSubmissionService {
             ActorType submitActorType,
             CustomUserDetails principal
     ) {
+        if (dealType == DealType.ORD) {
+            Long orderClientId = orderHeaderRepository.findById(targetId)
+                    .map(order -> order.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+            if (principal == null || principal.getClientId() == null || !Objects.equals(orderClientId, principal.getClientId())) {
+                throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+            }
+            return;
+        }
+
         if (submitActorType != ActorType.SALES_REP) {
             return;
         }
@@ -247,6 +250,9 @@ public class ApprovalSubmissionService {
             case CNT -> contractRepository.findById(dto.targetId())
                     .map(contract -> contract.getClient().getId())
                     .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            case ORD -> orderHeaderRepository.findById(dto.targetId())
+                    .map(order -> order.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
 
@@ -267,6 +273,9 @@ public class ApprovalSubmissionService {
             case CNT -> contractRepository.findById(dto.targetId())
                     .map(ContractHeader::getContractCode)
                     .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            case ORD -> orderHeaderRepository.findById(dto.targetId())
+                    .map(OrderHeader::getOrderCode)
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
     }
@@ -294,8 +303,11 @@ public class ApprovalSubmissionService {
     }
 
     private void publishApprovalRequestedForFirstApprovers(ApprovalRequest request, LocalDateTime occurredAt) {
-        userRepository.findAllByRole(Role.ADMIN).stream()
-                .map(User::getId)
+        request.getSteps().stream()
+                .filter(step -> step.getStepOrder() == 1)
+                .findFirst()
+                .stream()
+                .flatMap(step -> resolveApproverUserIds(step.getActorType(), request).stream())
                 .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
                         userId,
                         request.getId(),
@@ -303,6 +315,29 @@ public class ApprovalSubmissionService {
                         request.getTargetId(),
                         occurredAt
                 )));
+    }
+
+    private List<Long> resolveApproverUserIds(ActorType actorType, ApprovalRequest request) {
+        if (actorType == ActorType.ADMIN) {
+            return userRepository.findAllByRole(Role.ADMIN).stream()
+                    .map(User::getId)
+                    .toList();
+        }
+        if (actorType == ActorType.SALES_REP) {
+            return orderHeaderRepository.findById(request.getTargetId())
+                    .map(OrderHeader::getDeal)
+                    .map(SalesDeal::getOwnerEmp)
+                    .map(owner -> owner == null ? null : owner.getId())
+                    .flatMap(userRepository::findByEmployeeId)
+                    .map(user -> List.of(user.getId()))
+                    .orElseGet(List::of);
+        }
+        if (actorType == ActorType.CLIENT && request.getClientIdSnapshot() != null) {
+            return userRepository.findByClientId(request.getClientIdSnapshot())
+                    .map(user -> List.of(user.getId()))
+                    .orElseGet(List::of);
+        }
+        return List.of();
     }
 
     private LocalDateTime now() {

@@ -38,7 +38,7 @@ public class OrderController {
             @RequestBody @Valid OrderCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ApiResult.success(orderService.createOrder(request, userDetails.getClientId()));
+        return ApiResult.success(orderService.createOrder(request, userDetails.getClientId(), userDetails));
     }
 
     @Operation(summary = "주문 목록 조회", description = "거래처의 주문 목록을 조회합니다.")
