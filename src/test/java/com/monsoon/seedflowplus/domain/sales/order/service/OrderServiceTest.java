@@ -1,12 +1,16 @@
 package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -90,6 +94,9 @@ class OrderServiceTest {
     @Mock
     private DealScheduleSyncService dealScheduleSyncService;
 
+    @Mock
+    private ApprovalSubmissionService approvalSubmissionService;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -105,7 +112,8 @@ class OrderServiceTest {
                 statementService,
                 dealPipelineFacade,
                 dealLogQueryService,
-                dealScheduleSyncService
+                dealScheduleSyncService,
+                approvalSubmissionService
         );
     }
 
@@ -171,7 +179,9 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenAnswer(invocation -> List.of(savedDetailRef.get()));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        OrderResponse response = orderService.createOrder(request, clientId);
+        CustomUserDetails principal = mock(CustomUserDetails.class);
+
+        OrderResponse response = orderService.createOrder(request, clientId, principal);
 
         ArgumentCaptor<List<DealLogWriteService.DiffField>> diffCaptor = ArgumentCaptor.forClass(List.class);
         verify(dealPipelineFacade).recordAndSync(
@@ -193,6 +203,26 @@ class OrderServiceTest {
         assertEquals(orderId, response.getOrderId());
         assertEquals(OrderStatus.PENDING, response.getStatus());
         assertTrue(diffCaptor.getValue().size() >= 2);
+        verify(approvalSubmissionService).submitFromDocumentCreation(
+                DealType.ORD,
+                orderId,
+                response.getOrderCode(),
+                principal
+        );
+    }
+
+    @Test
+    void createOrderShouldRejectNullPrincipal() {
+        OrderCreateRequest request = new OrderCreateRequest();
+        ReflectionTestUtils.setField(request, "headerId", 11L);
+
+        CoreException exception = assertThrows(
+                CoreException.class,
+                () -> orderService.createOrder(request, 7L, null)
+        );
+
+        assertEquals(ErrorType.UNAUTHORIZED, exception.getErrorType());
+        verifyNoInteractions(approvalSubmissionService);
     }
 
     @Test

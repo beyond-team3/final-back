@@ -29,6 +29,10 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -47,6 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -66,6 +71,9 @@ class ApprovalSubmissionServiceTest {
     private ContractRepository contractRepository;
 
     @Mock
+    private OrderHeaderRepository orderHeaderRepository;
+
+    @Mock
     private NotificationEventPublisher notificationEventPublisher;
 
     @Mock
@@ -73,6 +81,9 @@ class ApprovalSubmissionServiceTest {
 
     @Mock
     private Clock clock;
+
+    @Spy
+    private ApprovalFlowPolicy approvalFlowPolicy = new ApprovalFlowPolicy();
 
     @InjectMocks
     private ApprovalSubmissionService approvalSubmissionService;
@@ -164,6 +175,72 @@ class ApprovalSubmissionServiceTest {
                 .isEqualTo(ErrorType.APPROVAL_REQUEST_DUPLICATED);
     }
 
+    @Test
+    @DisplayName("주문 생성 자동 제출은 client snapshot과 SALES_REP 1단계 step을 생성한다")
+    void submitFromDocumentCreationCreatesApprovalForOrder() {
+        OrderHeader order = order(800L, OrderStatus.PENDING, 77L, 501L);
+        ArgumentCaptor<ApprovalRequest> captor = ArgumentCaptor.forClass(ApprovalRequest.class);
+
+        when(orderHeaderRepository.findById(800L)).thenReturn(Optional.of(order));
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.ORD, 800L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 980L);
+            return saved;
+        });
+        when(userRepository.findByEmployeeId(501L)).thenReturn(Optional.of(salesRepEntityUser(7001L, 501L)));
+
+        CreateApprovalRequestResponse response = approvalSubmissionService.submitFromDocumentCreation(
+                DealType.ORD,
+                800L,
+                "ORD-800",
+                clientUser(77L)
+        );
+
+        assertThat(response.approvalId()).isEqualTo(980L);
+        verify(approvalRequestRepository).save(captor.capture());
+        ApprovalRequest saved = captor.getValue();
+        assertThat(saved.getClientIdSnapshot()).isEqualTo(77L);
+        assertThat(saved.getTargetCodeSnapshot()).isEqualTo("ORD-800");
+        assertThat(saved.getSteps()).hasSize(1);
+        assertThat(saved.getSteps().get(0).getActorType()).isEqualTo(ActorType.SALES_REP);
+    }
+
+    @Test
+    @DisplayName("PENDING이 아닌 주문은 자동 승인 요청을 만들 수 없다")
+    void submitFromDocumentCreationRejectsNonPendingOrder() {
+        when(orderHeaderRepository.findById(801L)).thenReturn(Optional.of(order(801L, OrderStatus.CONFIRMED, 77L, 501L)));
+
+        assertThatThrownBy(() -> approvalSubmissionService.submitFromDocumentCreation(
+                DealType.ORD,
+                801L,
+                "ORD-801",
+                clientUser(77L)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.INVALID_DOCUMENT_STATUS);
+    }
+
+    @Test
+    @DisplayName("본인 거래처 주문이 아니면 자동 승인 요청을 만들 수 없다")
+    void submitFromDocumentCreationRejectsOrderOfAnotherClient() {
+        when(orderHeaderRepository.findById(802L)).thenReturn(Optional.of(order(802L, OrderStatus.PENDING, 77L, 501L)));
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.ORD, 802L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> approvalSubmissionService.submitFromDocumentCreation(
+                DealType.ORD,
+                802L,
+                "ORD-802",
+                clientUser(88L)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.APPROVAL_CLIENT_MISMATCH);
+    }
+
     private QuotationHeader quotation(Long quotationId, QuotationStatus status, Long clientId, Long ownerEmployeeId) {
         Employee owner = employee(ownerEmployeeId);
         Client client = client(clientId, owner);
@@ -238,6 +315,28 @@ class ApprovalSubmissionServiceTest {
                 .build());
     }
 
+    private CustomUserDetails clientUser(Long clientId) {
+        return new CustomUserDetails(User.builder()
+                .loginId("client-" + clientId)
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.CLIENT)
+                .client(client(clientId, employee(501L)))
+                .build());
+    }
+
+    private User salesRepEntityUser(Long userId, Long employeeId) {
+        User user = User.builder()
+                .loginId("sales-entity-" + employeeId)
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(employee(employeeId))
+                .build();
+        ReflectionTestUtils.setField(user, "id", userId);
+        return user;
+    }
+
     private User adminUser(Long userId) {
         User user = User.builder()
                 .loginId("admin-" + userId)
@@ -249,5 +348,34 @@ class ApprovalSubmissionServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "id", userId);
         return user;
+    }
+
+    private OrderHeader order(Long orderId, OrderStatus status, Long clientId, Long ownerEmployeeId) {
+        Employee owner = employee(ownerEmployeeId);
+        Client client = client(clientId, owner);
+        SalesDeal deal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(owner)
+                .currentStage(DealStage.IN_PROGRESS)
+                .currentStatus(OrderStatus.PENDING.name())
+                .latestDocType(DealType.ORD)
+                .latestRefId(orderId)
+                .latestTargetCode("ORD-" + orderId)
+                .lastActivityAt(java.time.LocalDateTime.now())
+                .closedAt(null)
+                .summaryMemo(null)
+                .build();
+        OrderHeader order = OrderHeader.create(
+                org.mockito.Mockito.mock(ContractHeader.class),
+                client,
+                deal,
+                owner,
+                "ORD-" + orderId
+        );
+        ReflectionTestUtils.setField(order, "id", orderId);
+        if (status == OrderStatus.CONFIRMED) {
+            order.confirm();
+        }
+        return order;
     }
 }
