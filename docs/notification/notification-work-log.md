@@ -277,3 +277,30 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 문서 라이프사이클 알림 구현
+
+## [2026-03-12 21:38] 문서 라이프사이클 알림 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java — 계약 체결 전용 알림 타입 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ContractCompletedEvent.java — 계약 체결 알림 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/StatementIssuedEvent.java — 명세서 발급 알림 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/InvoiceIssuedEvent.java — 청구서 발행 알림 이벤트 정의
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java — 계약/명세서/청구서 문서 알림 생성 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — 신규 문서 라이프사이클 이벤트 수신/SSE 전송 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 계약 최종 승인 후 계약 체결 알림 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — 주문 확정 직후 명세서 발급 알림 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java — 청구서 publish 시 거래처 알림 발행
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — 계약 체결 알림 수신자 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java — 명세서 발급 알림 이벤트 발행 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java — 청구서 발행 알림 이벤트 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 청구서 발행 이벤트 핸들러 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationServiceTest.java — 계약/명세서/청구서 문서 알림 저장 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+통합 테스트 보강 및 전체 검증

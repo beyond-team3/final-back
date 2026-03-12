@@ -327,3 +327,34 @@ NotificationEventHandler는 신규 이벤트를 비동기 수신해 `QUOTATION_R
 
 ### 변경 이유
 Phase 1 정책 4번(견적요청서 생성 알림 수신 대상은 담당 영업사원 1명) 반영
+
+## [2026-03-12] 문서 라이프사이클 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java
+- 클래스/메서드: NotificationType
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ContractCompletedEvent.java
+- 클래스/메서드: ContractCompletedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/StatementIssuedEvent.java
+- 클래스/메서드: StatementIssuedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/InvoiceIssuedEvent.java
+- 클래스/메서드: InvoiceIssuedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: createContractCompletedNotification, createStatementIssuedNotification, createInvoiceIssuedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: handleContractCompleted, handleStatementIssued, handleInvoiceIssued
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: publishContractCompletedEventsIfNeeded
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java
+- 클래스/메서드: createAndRecordStatement, publishStatementIssuedNotifications
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java
+- 클래스/메서드: publishInvoice, publishInvoiceIssuedNotification
+
+### 변경 내용
+계약 체결 알림을 승인 처리 알림과 분리하기 위해 `NotificationType.CONTRACT_COMPLETED`와 이벤트 3종(contract/statment/invoice)을 추가했다.
+ApprovalCommandService는 계약서 최종 승인 완료 후 영업사원, 전체 관리자, 거래처 사용자에게 `ContractCompletedEvent`를 after-commit 발행한다.
+StatementService는 주문 확정 직후 자동 생성된 명세서에 대해 영업사원/거래처 양쪽으로 `StatementIssuedEvent`를 발행하고, InvoiceService는 publish 시 거래처 대상 `InvoiceIssuedEvent`를 발행한다.
+NotificationEventHandler와 DocumentNotificationService는 이 이벤트들을 기존 Notification 저장/SSE 전송 흐름에 연결해 API 응답 포맷과 SSE payload 형식을 그대로 유지한다.
+
+### 변경 이유
+Phase 1 정책 2~3번(계약 체결 알림 분리, 명세서 즉시 발송, 청구서 발행 알림) 반영
