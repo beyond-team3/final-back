@@ -40,6 +40,27 @@ public class ProductFeedbackController {
         return ResponseEntity.ok(responses);
     }
 
+    @PutMapping("/{feedbackId}")
+    public ResponseEntity<Void> updateFeedback(
+            @PathVariable Long productId,
+            @PathVariable Long feedbackId,
+            @Valid @RequestBody FeedbackRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+        productFeedbackService.updateFeedback(feedbackId, userId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{feedbackId}")
+    public ResponseEntity<Void> deleteFeedback(
+            @PathVariable Long productId,
+            @PathVariable Long feedbackId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = extractUserIdFromUserDetails(userDetails);
+        productFeedbackService.deleteFeedback(feedbackId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     // UserId 추출 헬퍼 메서드 (ProductController와 동일한 방식 사용)
     private Long extractUserIdFromUserDetails(UserDetails userDetails) {
         if (userDetails instanceof User user) {
