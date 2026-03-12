@@ -6,6 +6,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -15,6 +16,8 @@ import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
@@ -53,6 +56,8 @@ public class QuotationRequestService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogWriteService dealLogWriteService;
+    private final UserRepository userRepository;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
@@ -143,6 +148,15 @@ public class QuotationRequestService {
                                 null,
                                 request.items().size(),
                                 "COUNT")));
+
+        resolveNotificationRecipientUserId(client)
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new QuotationRequestCreatedEvent(
+                        userId,
+                        header.getId(),
+                        requestCode,
+                        client.getClientName(),
+                        LocalDateTime.now()
+                )));
     }
 
     public QuotationRequestResponse getQuotationRequest(Long id) {
@@ -305,5 +319,13 @@ public class QuotationRequestService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private java.util.Optional<Long> resolveNotificationRecipientUserId(Client client) {
+        if (client.getManagerEmployee() == null || client.getManagerEmployee().getId() == null) {
+            return java.util.Optional.empty();
+        }
+        return userRepository.findByEmployeeId(client.getManagerEmployee().getId())
+                .map(user -> user.getId());
     }
 }
