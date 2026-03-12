@@ -89,14 +89,4 @@ public class OrderController {
         return ApiResult.success(orderService.getTradeSummary(clientId));
     }
 
-
-    @GetMapping("/test/contract/{id}")
-    public ApiResult<String> testContract(@PathVariable Long id) {
-        ContractHeader contract = contractHeaderRepository.findById(id)
-                .orElse(null);
-        if (contract == null) {
-            return ApiResult.success("NOT FOUND - id: " + id);
-        }
-        return ApiResult.success("FOUND - id: " + contract.getId() + ", code: " + contract.getContractCode() + ", status: " + contract.getStatus());
-    }
 }
