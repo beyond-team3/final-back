@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.notification.command.NotificationSseService;
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
@@ -36,7 +37,8 @@ class NotificationEventHandlerTest {
     @Test
     @DisplayName("ApprovalRequested 이벤트 수신 시 생성 서비스 위임 후 SSE 전송한다")
     void handleApprovalRequested() {
-        ApprovalRequestedEvent event = new ApprovalRequestedEvent(100L, 11L, DealType.QUO, 501L, LocalDateTime.now());
+        ApprovalRequestedEvent event = new ApprovalRequestedEvent(
+                100L, 11L, DealType.QUO, 501L, "QUO-501", ActorType.ADMIN, LocalDateTime.now());
         Notification saved = notification(1L);
 
         when(dealApprovalNotificationService.createApprovalRequestedNotification(event)).thenReturn(saved);
@@ -50,7 +52,8 @@ class NotificationEventHandlerTest {
     @Test
     @DisplayName("중복으로 알림이 생성되지 않으면 SSE는 전송하지 않는다")
     void handleApprovalRequestedNoSendWhenDuplicated() {
-        ApprovalRequestedEvent event = new ApprovalRequestedEvent(100L, 11L, DealType.QUO, 501L, LocalDateTime.now());
+        ApprovalRequestedEvent event = new ApprovalRequestedEvent(
+                100L, 11L, DealType.QUO, 501L, "QUO-501", ActorType.ADMIN, LocalDateTime.now());
         when(dealApprovalNotificationService.createApprovalRequestedNotification(event)).thenReturn(null);
 
         notificationEventHandler.handleApprovalRequested(event);
@@ -65,8 +68,8 @@ class NotificationEventHandlerTest {
                 .type(NotificationType.APPROVAL_REQUESTED)
                 .title("title")
                 .content("content")
-                .targetType(NotificationTargetType.APPROVAL)
-                .targetId(11L)
+                .targetType(NotificationTargetType.QUOTATION)
+                .targetId(501L)
                 .build();
         ReflectionTestUtils.setField(notification, "id", id);
         ReflectionTestUtils.setField(notification, "createdAt", LocalDateTime.now());

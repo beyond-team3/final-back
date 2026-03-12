@@ -25,6 +25,7 @@ import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
@@ -253,6 +254,37 @@ class ApprovalCommandServiceTest {
         approvalCommandService.createApprovalRequest(dto, principal);
 
         verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.CLIENT), eq(88L));
+    }
+
+    @Test
+    @DisplayName("승인 요청 이벤트에는 문서 코드와 승인 단계 액터가 포함된다")
+    void createApprovalRequestPublishesApprovalRequestedEventWithContext() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 504L, 77L, "Q-504");
+        CustomUserDetails principal = mockUser(Role.ADMIN, 321L, null);
+        QuotationHeader quotation = quotation(504L, QuotationStatus.WAITING_ADMIN, 77L);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 504L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(quotationRepository.findById(504L)).thenReturn(Optional.of(quotation));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 904L);
+            return saved;
+        });
+        User adminUser = user(2000L, Role.ADMIN, 400L, null);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
+
+        approvalCommandService.createApprovalRequest(dto, principal);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(notificationEventPublisher).publishAfterCommit(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(ApprovalRequestedEvent.class);
+        ApprovalRequestedEvent event = (ApprovalRequestedEvent) eventCaptor.getValue();
+        assertThat(event.dealType()).isEqualTo(DealType.QUO);
+        assertThat(event.targetId()).isEqualTo(504L);
+        assertThat(event.targetCode()).isEqualTo("Q-504");
+        assertThat(event.actorType()).isEqualTo(ActorType.ADMIN);
+        assertThat(event.userId()).isEqualTo(2000L);
     }
 
     @Test
@@ -1033,6 +1065,23 @@ class ApprovalCommandServiceTest {
         ReflectionTestUtils.setField(assigneeUser, "id", 8800L + ownerEmployeeId);
         lenient().when(userRepository.findByEmployeeId(ownerEmployeeId)).thenReturn(Optional.of(assigneeUser));
         return deal;
+    }
+
+    private User user(Long userId, Role role, Long employeeId, Long clientId) {
+        User user = org.mockito.Mockito.mock(User.class);
+        lenient().when(user.getId()).thenReturn(userId);
+        lenient().when(user.getRole()).thenReturn(role);
+        if (employeeId != null) {
+            Employee employee = org.mockito.Mockito.mock(Employee.class);
+            lenient().when(employee.getId()).thenReturn(employeeId);
+            lenient().when(user.getEmployee()).thenReturn(employee);
+        }
+        if (clientId != null) {
+            Client client = org.mockito.Mockito.mock(Client.class);
+            lenient().when(client.getId()).thenReturn(clientId);
+            lenient().when(user.getClient()).thenReturn(client);
+        }
+        return user;
     }
 
     private CustomUserDetails mockUser(Role role, Long employeeId, Long clientId) {
