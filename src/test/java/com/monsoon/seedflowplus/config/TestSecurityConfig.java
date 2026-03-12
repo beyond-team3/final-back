@@ -18,6 +18,7 @@ public class TestSecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/approvals").hasRole("ADMIN")
                         .requestMatchers("/api/v1/statistics/billing/revenue/**").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/sales-rep").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/admin").hasRole("ADMIN")

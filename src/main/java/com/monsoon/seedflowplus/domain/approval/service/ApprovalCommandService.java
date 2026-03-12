@@ -3,7 +3,6 @@ package com.monsoon.seedflowplus.domain.approval.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
-import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
@@ -528,7 +527,6 @@ public class ApprovalCommandService {
         };
 
         if (deal.getOwnerEmp() == null || deal.getOwnerEmp().getId() == null) {
-            // TODO: ErrorType.DEAL_NOT_ASSIGNED 추가 후 UNAUTHORIZED 임시 처리 교체
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         if (!Objects.equals(deal.getOwnerEmp().getId(), principal.getEmployeeId())) {

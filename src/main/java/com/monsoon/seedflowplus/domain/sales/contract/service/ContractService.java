@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -59,6 +60,7 @@ public class ContractService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final ApprovalSubmissionService approvalSubmissionService;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -444,6 +446,13 @@ public class ContractService {
                                 "ENUM"),
                         new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(),
                                 "COUNT")));
+
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.CNT,
+                contract.getId(),
+                finalCode,
+                userDetails
+        );
 
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {

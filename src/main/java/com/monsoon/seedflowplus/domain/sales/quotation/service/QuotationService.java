@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -59,6 +60,7 @@ public class QuotationService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
+    private final ApprovalSubmissionService approvalSubmissionService;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -178,6 +180,13 @@ public class QuotationService {
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
                         new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(),
                                 "COUNT")));
+
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.QUO,
+                quotation.getId(),
+                finalCode,
+                userDetails
+        );
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
