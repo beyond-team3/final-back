@@ -32,4 +32,8 @@ public class ProductFeedback extends BaseModifyEntity {
         this.employee = employee;
         this.content = content;
     }
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
 }

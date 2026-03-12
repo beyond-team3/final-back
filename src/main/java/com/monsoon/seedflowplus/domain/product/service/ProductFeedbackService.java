@@ -68,4 +68,34 @@ public class ProductFeedbackService {
                 .build())
                 .collect(Collectors.toList());
     }
+
+    public void updateFeedback(Long feedbackId, Long userId, FeedbackRequest request) {
+        ProductFeedback feedback = productFeedbackRepository.findById(feedbackId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        Employee employee = user.getEmployee();
+        if (employee == null || !feedback.getEmployee().getId().equals(employee.getId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        feedback.updateContent(request.getContent());
+    }
+
+    public void deleteFeedback(Long feedbackId, Long userId) {
+        ProductFeedback feedback = productFeedbackRepository.findById(feedbackId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+
+        Employee employee = user.getEmployee();
+        if (employee == null || !feedback.getEmployee().getId().equals(employee.getId())) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        productFeedbackRepository.delete(feedback);
+    }
 }
