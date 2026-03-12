@@ -306,15 +306,16 @@ public class ApprovalSubmissionService {
         request.getSteps().stream()
                 .filter(step -> step.getStepOrder() == 1)
                 .findFirst()
-                .stream()
-                .flatMap(step -> resolveApproverUserIds(step.getActorType(), request).stream())
-                .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
-                        userId,
-                        request.getId(),
-                        request.getDealType(),
-                        request.getTargetId(),
-                        occurredAt
-                )));
+                .ifPresent(step -> resolveApproverUserIds(step.getActorType(), request)
+                        .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
+                                userId,
+                                request.getId(),
+                                request.getDealType(),
+                                request.getTargetId(),
+                                request.getTargetCodeSnapshot(),
+                                step.getActorType(),
+                                occurredAt
+                        ))));
     }
 
     private List<Long> resolveApproverUserIds(ActorType actorType, ApprovalRequest request) {
