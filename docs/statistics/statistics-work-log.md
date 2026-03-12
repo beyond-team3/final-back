@@ -218,6 +218,7 @@
 
 ### 작업 내용
 - 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsController.java` — 통계 API base path를 `/api/v1/statistics/billing/revenue`로 변경
+
 - 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 통계 API 보안 매처를 새 base path로 동기화
 - 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — 신규 경로 반영, 구 경로 404 검증, 엔드포인트별 200/401/403 보안 회귀 테스트 추가 및 WebMvcTest 슬라이스 설정 정리
 - 수정 파일: `build.gradle` — `spring-security-test` 의존성 추가
@@ -350,3 +351,16 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-12 19:26] 주문 승인 decision 로그 상태 검증 분리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java` — ORD 승인 decision은 주문 확정과 명세서 발행으로 deal snapshot이 선행 이동해도 snapshot 재동기화 없이 승인 로그만 기록하도록 분기 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriterTest.java` — ORD 승인 시 deal stage가 `ISSUED`로 바뀐 뒤에도 decision 로그가 예외 없이 기록되는 회귀 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+프론트 `/approval` 경로에서 ORD 승인 재검증
