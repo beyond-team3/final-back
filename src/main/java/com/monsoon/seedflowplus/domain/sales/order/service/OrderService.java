@@ -231,6 +231,7 @@ public class OrderService {
 
         orderHeader.confirm();
 
+
         ActorType actorType = resolveActorType(principal);
         Long actorId = resolveActorId(actorType, principal);
         dealPipelineFacade.recordAndSync(
