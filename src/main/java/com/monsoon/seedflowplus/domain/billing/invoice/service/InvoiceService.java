@@ -160,6 +160,15 @@ public class InvoiceService {
                 InvoiceStatus.PUBLISHED.name()
         );
 
+        // publish 시점에 included=true 명세서 금액 합산 후 반영
+        List<InvoiceStatement> includedStatements =
+                invoiceStatementRepository.findAllByInvoiceId(invoiceId);
+        BigDecimal publishTotalAmount = includedStatements.stream()
+                .filter(InvoiceStatement::isIncluded)
+                .map(is -> is.getStatement().getTotalAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        invoice.updateAmount(publishTotalAmount);
+
         invoice.publish();
         ActorType actorType = resolveActorType(principal);
         Long actorId = resolveActorId(actorType, principal);
@@ -186,7 +195,8 @@ public class InvoiceService {
     /**
      * 명세서 포함/제외 토글 (영업사원)
      * - 제외 시 included=false → 다음 청구 주기에 재포함 대상
-     * - 금액 재계산
+     * - tbl_invoice UPDATE 제거: 동시 다건 토글 시 데드락 원인이었음
+     * - 금액 재계산은 publishInvoice() 시점에 일괄 처리
      */
     @Transactional
     public InvoiceDetailResponse toggleStatement(Long invoiceId, Long statementId, CustomUserDetails principal) {
@@ -203,47 +213,19 @@ public class InvoiceService {
                 .findFirst()
                 .orElseThrow(() -> new CoreException(ErrorType.STATEMENT_NOT_FOUND));
 
-        // 포함/제외 토글
-        boolean includedBefore = invoiceStatement.isIncluded();
-        if (includedBefore) {
+        // 포함/제외 토글 (tbl_invoice_statement.is_included 만 변경)
+        if (invoiceStatement.isIncluded()) {
             invoiceStatement.exclude();
         } else {
             invoiceStatement.include();
         }
 
-        // 금액 재계산 (included=true인 것만)
+        // tbl_invoice UPDATE 제거 (데드락 원인)
+        // dealPipelineFacade.recordAndSync 제거 (toggle마다 딜로그 불필요)
+        // → 금액 반영 및 로그는 publishInvoice() 에서 일괄 처리
+
         List<InvoiceStatement> allStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
-        BigDecimal totalAmount = allStatements.stream()
-                .filter(InvoiceStatement::isIncluded)
-                .map(is -> is.getStatement().getTotalAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal beforeAmount = invoice.getTotalAmount();
-        invoice.updateAmount(totalAmount);
-
-        ActorType actorType = resolveActorType(principal);
-        Long actorId = resolveActorId(actorType, principal);
-        String status = invoice.getStatus().name();
-        dealPipelineFacade.recordAndSync(
-                invoice.getDeal(),
-                DealType.INV,
-                invoice.getId(),
-                invoice.getInvoiceCode(),
-                mapInvoiceStage(invoice.getStatus()),
-                mapInvoiceStage(invoice.getStatus()),
-                status,
-                status,
-                ActionType.UPDATE,
-                null,
-                actorType,
-                actorId,
-                null,
-                List.of(
-                        new DealLogWriteService.DiffField("included", "명세서 포함 여부", includedBefore, !includedBefore, "BOOLEAN"),
-                        new DealLogWriteService.DiffField("statementId", "명세서 ID", null, statementId, "REFERENCE"),
-                        new DealLogWriteService.DiffField("totalAmount", "청구서 금액", beforeAmount, totalAmount, "MONEY")
-                )
-        );
 
         return InvoiceDetailResponse.of(
                 invoice,
