@@ -558,7 +558,7 @@ class ApprovalCommandServiceTest {
             QuotationHeader target = invocation.getArgument(0);
             target.updateStatus(QuotationStatus.COMPLETED);
             return null;
-        }).when(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        }).when(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.SYSTEM), eq(null), any());
         doAnswer(invocation -> {
             QuotationRequestHeader target = invocation.getArgument(0);
             target.updateStatus(QuotationRequestStatus.COMPLETED);
@@ -576,7 +576,7 @@ class ApprovalCommandServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.COMPLETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.COMPLETED);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
-        verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.SYSTEM), eq(null), any());
         verify(quotationRequestService).completeAfterContractApproval(eq(rfq), eq(ActorType.CLIENT), eq(101L), any());
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);

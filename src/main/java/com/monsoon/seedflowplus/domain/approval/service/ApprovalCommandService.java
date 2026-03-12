@@ -344,7 +344,7 @@ public class ApprovalCommandService {
         }
 
         if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
-            quotationService.completeAfterContractApproval(quotation, step.getActorType(), actorId, actionAt);
+            quotationService.completeAfterContractApproval(quotation, ActorType.SYSTEM, null, actionAt);
         }
 
         if (quotation.getQuotationRequest() != null
