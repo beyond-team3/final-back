@@ -14,6 +14,12 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
 
     Optional<ApprovalRequest> findByDealTypeAndTargetId(DealType dealType, Long targetId);
 
+    Optional<ApprovalRequest> findByDealTypeAndTargetIdAndStatus(
+            DealType dealType,
+            Long targetId,
+            ApprovalStatus status
+    );
+
     boolean existsByDealTypeAndTargetIdAndStatus(DealType dealType, Long targetId, ApprovalStatus status);
 
     @Query(

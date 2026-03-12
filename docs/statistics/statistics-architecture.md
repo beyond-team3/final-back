@@ -159,3 +159,22 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 견적서·계약서 생성 이후 프론트의 별도 승인 요청 호출 없이 관리자 승인 흐름이 이어지도록 승인 생성 경로를 백엔드로 일원화하기 위함
+
+## [2026-03-12] 문서 삭제 시 승인 요청 취소 처리 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationService.java`
+- 클래스/메서드: `ApprovalCancellationService#cancelPendingRequest`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepository.java`
+- 클래스/메서드: `ApprovalRequestRepository#findByDealTypeAndTargetIdAndStatus`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java`
+- 클래스/메서드: `QuotationService#deleteQuotation`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java`
+- 클래스/메서드: `ContractService#deleteContract`
+
+### 변경 내용
+문서 삭제 시 연결된 `PENDING` 승인 요청을 찾아 `CANCELED`로 종료하는 전용 서비스를 추가했다.
+견적서/계약서 삭제 로직은 문서 상태를 삭제 처리한 직후 이 서비스를 호출해 더 이상 유효하지 않은 승인 요청이 관리자 목록에 남지 않도록 보정했다.
+
+### 변경 이유
+문서가 삭제된 뒤에도 진행 중 승인 요청이 남아 관리자 승인 목록과 실제 문서 상태가 어긋나는 문제를 방지하기 위함

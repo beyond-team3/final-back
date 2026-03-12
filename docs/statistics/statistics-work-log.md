@@ -29,6 +29,25 @@
 ### 다음 단계
 프론트에서 견적/계약 생성 후 수동 승인 요청 API 호출 제거 및 관리자 승인 목록 재조회 흐름 점검
 
+## [2026-03-12 12:01] 문서 삭제 시 승인 요청 취소 처리 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationService.java` — 삭제된 문서에 연결된 진행 중 승인 요청을 취소하는 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepository.java` — 문서와 상태 기준으로 승인 요청을 조회하는 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적 삭제 시 진행 중 승인 요청 취소 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 계약 삭제 시 진행 중 승인 요청 취소 호출 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationServiceTest.java` — 승인 취소 서비스 단위 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 견적 삭제 시 승인 요청 취소 검증 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 계약 삭제 시 승인 요청 취소 및 상위 문서 복구 검증 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+수동 승인 생성 API가 동일한 문서 상태 검증 정책을 타도록 승인 생성 경로 일원화 검토
+
 ## [2026-03-11 16:34] 공통 통계 API 신규 구현 및 보안 매핑 추가
 
 ### 작업 내용

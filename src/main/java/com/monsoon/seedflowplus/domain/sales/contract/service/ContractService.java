@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -61,6 +62,7 @@ public class ContractService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
 
     public ContractPrefillResponse getPrefillData(Long quotationId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -285,6 +287,7 @@ public class ContractService {
         }
 
         contract.delete();
+        approvalCancellationService.cancelPendingRequest(DealType.CNT, contract.getId());
 
         // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
         QuotationHeader quotation = contract.getQuotation();

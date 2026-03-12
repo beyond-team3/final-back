@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -61,6 +62,7 @@ public class QuotationService {
     private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
     private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -333,6 +335,7 @@ public class QuotationService {
 
         // 3. 논리 삭제 처리
         quotation.updateStatus(QuotationStatus.DELETED);
+        approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
 
         // 4. 관련 RFQ 상태 복구 (검토 중인 경우 다시 대기 상태로)
         if (quotation.getQuotationRequest() != null
