@@ -364,3 +364,16 @@
 
 ### 다음 단계
 프론트 `/approval` 경로에서 ORD 승인 재검증
+
+## [2026-03-12 20:11] 계약 거래처 승인 후 견적 CONVERT actor 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 계약서 거래처 승인 후 자동 완료되는 견적서 CONVERT 로그는 사용자 직접 행위가 아니라 후속 동기화이므로 `SYSTEM` actor로 호출하도록 변경
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 계약 거래처 승인 시 견적 완료 후처리가 `SYSTEM/null actorId`로 호출되는지 기대값 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+프론트 계약 거래처 승인 재검증
