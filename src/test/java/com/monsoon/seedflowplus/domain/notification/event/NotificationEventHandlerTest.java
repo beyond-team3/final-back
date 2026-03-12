@@ -12,6 +12,7 @@ import com.monsoon.seedflowplus.domain.notification.command.NotificationSseServi
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
+import com.monsoon.seedflowplus.domain.notification.service.DocumentNotificationService;
 import com.monsoon.seedflowplus.domain.notification.service.DealApprovalNotificationService;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,9 @@ class NotificationEventHandlerTest {
 
     @Mock
     private DealApprovalNotificationService dealApprovalNotificationService;
+
+    @Mock
+    private DocumentNotificationService documentNotificationService;
 
     @Mock
     private NotificationSseService notificationSseService;
@@ -60,6 +64,21 @@ class NotificationEventHandlerTest {
 
         verify(dealApprovalNotificationService).createApprovalRequestedNotification(event);
         verify(notificationSseService, never()).send(any(), any());
+    }
+
+    @Test
+    @DisplayName("QuotationRequestCreated 이벤트 수신 시 생성 서비스 위임 후 SSE 전송한다")
+    void handleQuotationRequestCreated() {
+        QuotationRequestCreatedEvent event = new QuotationRequestCreatedEvent(
+                200L, 31L, "RFQ-20260312-31", "새봄농산", LocalDateTime.now());
+        Notification saved = notification(2L);
+
+        when(documentNotificationService.createQuotationRequestCreatedNotification(event)).thenReturn(saved);
+
+        notificationEventHandler.handleQuotationRequestCreated(event);
+
+        verify(documentNotificationService).createQuotationRequestCreatedNotification(event);
+        verify(notificationSseService).send(eq(200L), any());
     }
 
     private Notification notification(Long id) {
