@@ -128,15 +128,12 @@ public class ScheduledNotificationService {
             Long targetId,
             LocalDateTime scheduledAt
     ) {
-        LocalDateTime from = scheduledAt.toLocalDate().atStartOfDay();
-        LocalDateTime to = from.plusDays(1);
-        return notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+        return notificationDeliveryRepository.existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
                 userId,
                 type,
                 targetType,
                 targetId,
-                from,
-                to
+                scheduledAt
         );
     }
 

@@ -3,6 +3,8 @@ package com.monsoon.seedflowplus.domain.notification.repository;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
+import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
+import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -55,6 +57,44 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
     List<NotificationDelivery> findAllWithNotificationAndUserByIdInOrderByScheduledAtAsc(
             @Param("deliveryIds") List<Long> deliveryIds
     );
+
+    @Query("""
+            SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END
+            FROM NotificationDelivery d
+            JOIN d.notification n
+            WHERE n.user.id = :userId
+              AND n.type = :type
+              AND n.targetType = :targetType
+              AND n.targetId = :targetId
+              AND d.scheduledAt = :scheduledAt
+            """)
+    boolean existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
+            @Param("userId") Long userId,
+            @Param("type") NotificationType type,
+            @Param("targetType") NotificationTargetType targetType,
+            @Param("targetId") Long targetId,
+            @Param("scheduledAt") LocalDateTime scheduledAt
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            value = """
+                    UPDATE tbl_notification_delivery d
+                    JOIN tbl_notification n ON n.notification_id = d.notification_id
+                    SET d.is_deleted = true
+                    WHERE n.user_id = :userId
+                      AND d.is_deleted = false
+                      AND EXISTS (
+                          SELECT 1
+                          FROM tbl_notification_delivery visible_d
+                          WHERE visible_d.notification_id = n.notification_id
+                            AND visible_d.status = 'SENT'
+                            AND visible_d.is_deleted = false
+                      )
+                    """,
+            nativeQuery = true
+    )
+    int deleteVisibleByNotification_User_Id(@Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
