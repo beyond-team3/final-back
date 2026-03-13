@@ -96,6 +96,9 @@ class QuotationServiceTest {
 
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.DELETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.PENDING);
+        assertThat(deal.getCurrentStatus()).isEqualTo(QuotationRequestStatus.PENDING.name());
+        assertThat(deal.getLatestDocType()).isEqualTo(DealType.RFQ);
+        assertThat(deal.getLatestRefId()).isEqualTo(rfq.getId());
         verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 100L);
         verify(dealLogWriteService).write(
                 eq(deal),
@@ -165,7 +168,7 @@ class QuotationServiceTest {
     }
 
     private SalesDeal deal(Client client, Employee employee) {
-        return SalesDeal.builder()
+        SalesDeal deal = SalesDeal.builder()
                 .client(client)
                 .ownerEmp(employee)
                 .currentStage(DealStage.PENDING_ADMIN)
@@ -177,5 +180,7 @@ class QuotationServiceTest {
                 .closedAt(null)
                 .summaryMemo(null)
                 .build();
+        ReflectionTestUtils.setField(deal, "id", 500L);
+        return deal;
     }
 }

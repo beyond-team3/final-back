@@ -6,6 +6,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
@@ -40,6 +41,9 @@ class QuotationSyncTest {
 
     @Mock
     private SalesDealRepository salesDealRepository;
+
+    @Mock
+    private DealLogWriteService dealLogWriteService;
 
     @Test
     @DisplayName("서비스 계층 상태 전이 및 복구 검증: 벌크 업데이트 메서드 호출 확인")
@@ -76,6 +80,8 @@ class QuotationSyncTest {
         when(deal.getId()).thenReturn(10L);
 
         QuotationHeader quotation = org.mockito.Mockito.mock(QuotationHeader.class);
+        when(quotation.getId()).thenReturn(101L);
+        when(quotation.getQuotationCode()).thenReturn("QUO-101");
         when(quotation.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
@@ -99,5 +105,22 @@ class QuotationSyncTest {
         quotationService.syncQuotationStatuses();
 
         assertThat(managedDeal.getClosedAt()).isNotNull();
+        assertThat(managedDeal.getCurrentStatus()).isEqualTo(QuotationStatus.EXPIRED.name());
+        verify(dealLogWriteService).write(
+                eq(managedDeal),
+                eq(DealType.QUO),
+                eq(101L),
+                eq("QUO-101"),
+                eq(DealStage.PENDING_ADMIN),
+                eq(DealStage.EXPIRED),
+                eq(QuotationStatus.WAITING_ADMIN.name()),
+                eq(QuotationStatus.EXPIRED.name()),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.EXPIRE),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SYSTEM),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(java.util.List.class)
+        );
     }
 }

@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,9 @@ class ContractSyncTest {
 
     @Mock
     private SalesDealRepository salesDealRepository;
+
+    @Mock
+    private DealLogWriteService dealLogWriteService;
 
     @Test
     @DisplayName("계약 상태 변경 로직 검증: 벌크 업데이트 메서드 호출 확인 (가시화 대체)")
@@ -68,6 +72,8 @@ class ContractSyncTest {
         when(deal.getId()).thenReturn(20L);
 
         ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
+        when(contract.getId()).thenReturn(201L);
+        when(contract.getContractCode()).thenReturn("CNT-201");
         when(contract.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
@@ -91,5 +97,22 @@ class ContractSyncTest {
         contractService.syncContractStatuses();
 
         org.assertj.core.api.Assertions.assertThat(managedDeal.getClosedAt()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(managedDeal.getCurrentStatus()).isEqualTo(ContractStatus.EXPIRED.name());
+        verify(dealLogWriteService).write(
+                eq(managedDeal),
+                eq(DealType.CNT),
+                eq(201L),
+                eq("CNT-201"),
+                eq(DealStage.CONFIRMED),
+                eq(DealStage.EXPIRED),
+                eq(ContractStatus.ACTIVE_CONTRACT.name()),
+                eq(ContractStatus.EXPIRED.name()),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.EXPIRE),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SYSTEM),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(java.util.List.class)
+        );
     }
 }

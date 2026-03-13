@@ -230,6 +230,9 @@ class QuotationRequestServiceTest {
 
         assertThat(header.getStatus().name()).isEqualTo("DELETED");
         assertThat(deal.getClosedAt()).isNotNull();
+        assertThat(deal.getCurrentStatus()).isEqualTo("DELETED");
+        assertThat(deal.getLatestDocType()).isEqualTo(DealType.RFQ);
+        assertThat(deal.getLatestRefId()).isEqualTo(31L);
         verify(dealLogWriteService).write(
                 any(SalesDeal.class),
                 eq(DealType.RFQ),

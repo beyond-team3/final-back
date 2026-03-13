@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,7 +88,36 @@ class ScheduledNotificationServiceTest {
         verify(notificationDeliveryRepository, org.mockito.Mockito.never()).save(any(NotificationDelivery.class));
     }
 
+    @Test
+    @DisplayName("30일 미만 남은 계약은 종료 예정 알림을 과거 시각으로 예약하지 않는다")
+    void scheduleContractLifecycleNotificationsSkipsPastEndingSoonNotification() {
+        ContractHeader contract = contract(
+                72L,
+                "CNT-20260312-72",
+                LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(10)
+        );
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationDeliveryRepository.existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
+                any(), any(), eq(NotificationTargetType.CONTRACT), eq(72L), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        scheduledNotificationService.scheduleContractLifecycleNotifications(contract, List.of(100L));
+
+        ArgumentCaptor<NotificationDelivery> deliveryCaptor = ArgumentCaptor.forClass(NotificationDelivery.class);
+        verify(notificationDeliveryRepository, org.mockito.Mockito.times(2)).save(deliveryCaptor.capture());
+        assertThat(deliveryCaptor.getAllValues())
+                .extracting(delivery -> delivery.getNotification().getType())
+                .doesNotContain(NotificationType.CONTRACT_ENDING_SOON);
+    }
+
     private ContractHeader contract(Long id, String code) {
+        return contract(id, code, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 15));
+    }
+
+    private ContractHeader contract(Long id, String code, LocalDate startDate, LocalDate endDate) {
         Client client = Client.builder()
                 .clientCode("C-1")
                 .clientName("거래처")
@@ -108,8 +138,8 @@ class ScheduledNotificationServiceTest {
                 org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),
                 org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Employee.class),
                 BigDecimal.TEN,
-                LocalDate.of(2026, 4, 1),
-                LocalDate.of(2026, 4, 15),
+                startDate,
+                endDate,
                 null,
                 "terms",
                 "memo"

@@ -115,6 +115,9 @@ class ContractServiceTest {
         assertThat(contract.getStatus()).isEqualTo(ContractStatus.DELETED);
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.FINAL_APPROVED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.REVIEWING);
+        assertThat(deal.getCurrentStatus()).isEqualTo(QuotationStatus.FINAL_APPROVED.name());
+        assertThat(deal.getLatestDocType()).isEqualTo(DealType.QUO);
+        assertThat(deal.getLatestRefId()).isEqualTo(quotation.getId());
         verify(approvalCancellationService).cancelPendingRequest(DealType.CNT, 200L);
         verify(dealLogWriteService).write(
                 eq(deal),
@@ -184,7 +187,7 @@ class ContractServiceTest {
     }
 
     private SalesDeal deal(Client client, Employee employee) {
-        return SalesDeal.builder()
+        SalesDeal deal = SalesDeal.builder()
                 .client(client)
                 .ownerEmp(employee)
                 .currentStage(DealStage.PENDING_ADMIN)
@@ -196,5 +199,7 @@ class ContractServiceTest {
                 .closedAt(null)
                 .summaryMemo(null)
                 .build();
+        ReflectionTestUtils.setField(deal, "id", 600L);
+        return deal;
     }
 }
