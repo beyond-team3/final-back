@@ -428,7 +428,7 @@ public class QuotationService {
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal().getId(),
+                            q.getDeal() != null ? q.getDeal().getId() : null,
                             (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
                                     : null,
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
