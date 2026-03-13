@@ -49,8 +49,8 @@ class QuotationSyncIntegrationTest {
     private EmployeeRepository employeeRepository;
 
     @Test
-    @DisplayName("RFQ 복구 테스트: 모든 연결된 견적이 만료된 경우 RFQ가 PENDING으로 복구되어야 함")
-    void recoverStatus_Pending() {
+    @DisplayName("RFQ 상태 유지 테스트: 모든 견적이 만료되어도 재작성을 위해 REVIEWING 상태가 유지되어야 함")
+    void persistStatus_Reviewing() {
         // given
         String uniqueSuffix = "REC1-" + System.currentTimeMillis() % 10000;
 
@@ -80,8 +80,8 @@ class QuotationSyncIntegrationTest {
     }
 
     @Test
-    @DisplayName("RFQ 복구 방지 테스트: 진행 중인 견적이 하나라도 있으면 RFQ가 복구되지 않아야 함")
-    void recoverStatus_NoPending() {
+    @DisplayName("RFQ 상태 유지 테스트: 진행 중인 견적이 하나라도 있으면 REVIEWING 상태가 그대로 유지되어야 함")
+    void persistStatus_NoChange() {
         // given
         String uniqueSuffix = "REC2-" + System.currentTimeMillis() % 10000;
 
