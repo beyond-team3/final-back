@@ -25,6 +25,8 @@ public record QuotationListResponse(
 
         @Schema(description = "견적서 상태") QuotationStatus status,
 
+        @Schema(description = "참조 견적 요청서 ID") Long requestId,
+
         @Schema(description = "영업 딜(Deal) ID") Long dealId,
 
         @Schema(description = "견적 품목 목록") List<QuotationResponse.QuotationItemResponse> items) {
