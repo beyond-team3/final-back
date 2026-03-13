@@ -29,14 +29,15 @@ class QuotationSyncTest {
     private QuotationRequestRepository quotationRequestRepository;
 
     @Test
-    @DisplayName("서비스 계층 상태 전이 및 복구 검증: 벌크 업데이트 메서드 호출 확인")
-    void syncStatus_ShouldCallBulkUpdateMethods() {
+    @DisplayName("견적서 만료 시 RFQ 미복구 및 상태 전이 검증")
+    void syncStatus_NoRecovery_ShouldExpireQuotation() {
         // given
         LocalDate today = LocalDate.now();
         when(quotationRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
-        when(quotationRequestRepository.recoverStatusByExpiredQuotation(any(), any(), any())).thenReturn(1);
+        // RFQ 복구는 호출되지 않지만 stubbing은 유지 (필요 시)
+        // when(quotationRequestRepository.recoverStatusByExpiredQuotation(any(), any(), any())).thenReturn(1);
 
-        System.out.println("\n[견적서 테스트] 벌크 업데이트 및 RFQ 복구 검증 시작");
+        System.out.println("\n[견적서 테스트] 견적서 만료 처리 검증 시작 (RFQ 복구 미수행)");
 
         // when
         quotationService.syncQuotationStatuses();
@@ -45,10 +46,10 @@ class QuotationSyncTest {
         verify(quotationRepository, times(1)).updateStatusForExpiration(
                 eq(QuotationStatus.WAITING_ADMIN), eq(QuotationStatus.EXPIRED), eq(today));
         
-        // RFQ 상태 복구 로직이 주석 처리되었으므로 호출되지 않아야 함
+        // RFQ 상태 복구 로직이 주석 처리되었으므로 호출되지 않아야 함을 검증
         verify(quotationRequestRepository, never()).recoverStatusByExpiredQuotation(any(), any(), any());
 
-        System.out.println(">>> Repository 벌크 업데이트 메서드(Quotation Expiration) 호출 확인 완료 (RFQ 복구 생략)");
+        System.out.println(">>> 견적서 만료(Expiration) 처리 확인 완료 (RFQ 상태는 유지됨)");
         System.out.println("[견적서 테스트] 완료");
     }
 }
