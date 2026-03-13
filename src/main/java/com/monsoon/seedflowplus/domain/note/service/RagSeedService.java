@@ -69,9 +69,15 @@ public class RagSeedService {
 
             // [교차 검증 필터] AI가 반환한 근거 ID 중 실제 컨텍스트에 존재하는 ID만 필터링
             Set<Long> validContextIds = extractIdsFromSegments(combined);
-            List<Long> verifiedEvidenceIds = analyzedResult.getEvidenceNoteIds().stream()
-                    .filter(validContextIds::contains)
-                    .collect(Collectors.toList());
+            // 만약 productContexts에만 존재하는 ID가 있다면 그것도 포함 (combined에 이미 포함되어 있으나 명시적 결합)
+            validContextIds.addAll(extractIdsFromSegments(productContexts));
+
+            List<Long> rawEvidenceIds = analyzedResult.getEvidenceNoteIds();
+            List<Long> verifiedEvidenceIds = (rawEvidenceIds != null)
+                    ? rawEvidenceIds.stream()
+                        .filter(validContextIds::contains)
+                        .collect(Collectors.toList())
+                    : new ArrayList<>();
 
             SalesBriefing briefing = briefingRepository.findByClientId(clientId)
                     .map(existing -> {
@@ -96,7 +102,6 @@ public class RagSeedService {
 
         } finally {
             lock.unlock();
-            clientLocks.remove(clientId, lock);
         }
     }
 
