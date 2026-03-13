@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.notification.command;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,7 +42,7 @@ class NotificationCommandServiceTest {
     @DisplayName("단건 삭제는 소유 검증 후 delivery와 notification을 함께 삭제한다")
     void deleteOne() {
         Notification notification = notification(10L);
-        when(notificationRepository.findByIdAndUser_Id(10L, 100L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findVisibleByIdAndUserId(10L, 100L)).thenReturn(Optional.of(notification));
 
         notificationCommandService.deleteOne(100L, 10L);
 
@@ -52,7 +53,7 @@ class NotificationCommandServiceTest {
     @Test
     @DisplayName("단건 삭제 시 소유 알림이 없으면 NOTIFICATION_NOT_FOUND")
     void deleteOneNotFound() {
-        when(notificationRepository.findByIdAndUser_Id(10L, 100L)).thenReturn(Optional.empty());
+        when(notificationRepository.findVisibleByIdAndUserId(10L, 100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> notificationCommandService.deleteOne(100L, 10L))
                 .isInstanceOf(CoreException.class)
@@ -68,8 +69,54 @@ class NotificationCommandServiceTest {
     void deleteAll() {
         notificationCommandService.deleteAll(100L);
 
-        verify(notificationDeliveryRepository).deleteByNotification_User_Id(100L);
-        verify(notificationRepository).deleteByUser_Id(100L);
+        verify(notificationDeliveryRepository).deleteVisibleByNotification_User_Id(100L);
+        verify(notificationRepository).deleteVisibleByUser_Id(100L);
+    }
+
+    @Test
+    @DisplayName("단건 읽음 처리도 visible 알림만 허용한다")
+    void markAsReadVisibleOnly() {
+        Notification notification = notification(10L);
+        when(notificationRepository.findVisibleByIdAndUserId(10L, 100L)).thenReturn(Optional.of(notification));
+
+        notificationCommandService.markAsRead(100L, 10L, java.time.LocalDateTime.of(2026, 3, 13, 10, 0));
+
+        org.assertj.core.api.Assertions.assertThat(notification.getReadAt())
+                .isEqualTo(java.time.LocalDateTime.of(2026, 3, 13, 10, 0));
+    }
+
+    @Test
+    @DisplayName("예약 상태의 숨은 알림은 단건 읽음 처리할 수 없다")
+    void markAsReadHiddenNotificationNotFound() {
+        when(notificationRepository.findVisibleByIdAndUserId(10L, 100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> notificationCommandService.markAsRead(
+                100L, 10L, java.time.LocalDateTime.of(2026, 3, 13, 10, 0)))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.NOTIFICATION_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("전체 읽음 처리는 visible 알림만 대상으로 한다")
+    void markAllAsReadVisibleOnly() {
+        notificationCommandService.markAllAsRead(100L, java.time.LocalDateTime.of(2026, 3, 13, 10, 0));
+
+        verify(notificationRepository).markAllVisibleAsRead(100L, java.time.LocalDateTime.of(2026, 3, 13, 10, 0));
+    }
+
+    @Test
+    @DisplayName("예약 상태의 숨은 알림은 단건 삭제할 수 없다")
+    void deleteOneHiddenNotificationNotFound() {
+        when(notificationRepository.findVisibleByIdAndUserId(10L, 100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> notificationCommandService.deleteOne(100L, 10L))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.NOTIFICATION_NOT_FOUND);
+
+        verify(notificationDeliveryRepository, never()).deleteByNotification_Id(10L);
+        verify(notificationRepository, never()).delete(org.mockito.ArgumentMatchers.any(Notification.class));
     }
 
     private Notification notification(Long id) {

@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.notification.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
@@ -50,42 +51,45 @@ public class DealApprovalNotificationService {
 
     public Notification createApprovalRequestedNotification(ApprovalRequestedEvent event) {
         Objects.requireNonNull(event, "event must not be null");
+        String content = buildApprovalRequestedContent(event.dealType(), event.targetCode(), event.actorType());
         return createIfNotDuplicated(
                 event.userId(),
                 NotificationType.APPROVAL_REQUESTED,
-                NotificationTargetType.APPROVAL,
-                event.approvalRequestId(),
-                "승인 요청이 도착했습니다",
-                buildApprovalRequestedContent(event.dealType(), event.targetId()),
-                null,
+                resolveTargetType(event.dealType()),
+                event.targetId(),
+                buildApprovalRequestedTitle(event.dealType(), event.actorType()),
+                content,
+                content,
                 event.occurredAt()
         );
     }
 
     public Notification createApprovalCompletedNotification(ApprovalCompletedEvent event) {
         Objects.requireNonNull(event, "event must not be null");
+        String content = buildApprovalCompletedContent(event.dealType(), event.targetCode(), event.actorType());
         return createIfNotDuplicated(
                 event.userId(),
                 NotificationType.APPROVAL_COMPLETED,
-                NotificationTargetType.APPROVAL,
-                event.approvalRequestId(),
-                "승인이 완료되었습니다",
-                buildApprovalCompletedContent(event.dealType(), event.targetId()),
-                null,
+                resolveTargetType(event.dealType()),
+                event.targetId(),
+                buildApprovalCompletedTitle(event.dealType(), event.actorType()),
+                content,
+                content,
                 event.occurredAt()
         );
     }
 
     public Notification createApprovalRejectedNotification(ApprovalRejectedEvent event) {
         Objects.requireNonNull(event, "event must not be null");
+        String content = buildApprovalRejectedContent(event.dealType(), event.targetCode(), event.actorType());
         return createIfNotDuplicated(
                 event.userId(),
                 NotificationType.APPROVAL_REJECTED,
-                NotificationTargetType.APPROVAL,
-                event.approvalRequestId(),
-                "승인이 반려되었습니다",
-                buildApprovalRejectedContent(event.dealType(), event.targetId()),
-                null,
+                resolveTargetType(event.dealType()),
+                event.targetId(),
+                buildApprovalRejectedTitle(event.dealType(), event.actorType()),
+                content,
+                content,
                 event.occurredAt()
         );
     }
@@ -177,16 +181,80 @@ public class DealApprovalNotificationService {
         return String.format("딜 상태가 %s에서 %s로 변경되었습니다.", nullToDash(fromStatus), nullToDash(toStatus));
     }
 
-    private String buildApprovalRequestedContent(DealType dealType, Long targetId) {
-        return String.format("%s 문서(%d)에 대한 승인 요청이 등록되었습니다.", dealType.name(), targetId);
+    private String buildApprovalRequestedTitle(DealType dealType, ActorType actorType) {
+        return String.format("%s %s 승인 요청", toDealLabel(dealType), toActorLabel(actorType));
     }
 
-    private String buildApprovalCompletedContent(DealType dealType, Long targetId) {
-        return String.format("%s 문서(%d) 승인 절차가 완료되었습니다.", dealType.name(), targetId);
+    private String buildApprovalRequestedContent(DealType dealType, String targetCode, ActorType actorType) {
+        return String.format("%s %s 문서 %s의 승인이 필요합니다.",
+                toDealLabel(dealType),
+                formatDocumentCode(targetCode),
+                toActorActionLabel(actorType));
     }
 
-    private String buildApprovalRejectedContent(DealType dealType, Long targetId) {
-        return String.format("%s 문서(%d) 승인 요청이 반려되었습니다.", dealType.name(), targetId);
+    private String buildApprovalCompletedTitle(DealType dealType, ActorType actorType) {
+        return String.format("%s %s 승인 완료", toDealLabel(dealType), toActorLabel(actorType));
+    }
+
+    private String buildApprovalCompletedContent(DealType dealType, String targetCode, ActorType actorType) {
+        return String.format("%s %s 문서가 %s 승인되었습니다.",
+                toDealLabel(dealType),
+                formatDocumentCode(targetCode),
+                toActorLabel(actorType));
+    }
+
+    private String buildApprovalRejectedTitle(DealType dealType, ActorType actorType) {
+        return String.format("%s %s 승인 반려", toDealLabel(dealType), toActorLabel(actorType));
+    }
+
+    private String buildApprovalRejectedContent(DealType dealType, String targetCode, ActorType actorType) {
+        return String.format("%s %s 문서가 %s 반려되었습니다.",
+                toDealLabel(dealType),
+                formatDocumentCode(targetCode),
+                toActorLabel(actorType));
+    }
+
+    private NotificationTargetType resolveTargetType(DealType dealType) {
+        return switch (dealType) {
+            case QUO -> NotificationTargetType.QUOTATION;
+            case CNT -> NotificationTargetType.CONTRACT;
+            case ORD -> NotificationTargetType.ORDER;
+            default -> NotificationTargetType.APPROVAL;
+        };
+    }
+
+    private String toDealLabel(DealType dealType) {
+        return switch (dealType) {
+            case QUO -> "견적서";
+            case CNT -> "계약서";
+            case ORD -> "주문서";
+            default -> dealType.name();
+        };
+    }
+
+    private String toActorLabel(ActorType actorType) {
+        return switch (actorType) {
+            case ADMIN -> "관리자";
+            case CLIENT -> "거래처";
+            case SALES_REP -> "영업사원";
+            case SYSTEM -> "시스템";
+        };
+    }
+
+    private String toActorActionLabel(ActorType actorType) {
+        return switch (actorType) {
+            case ADMIN -> "관리자";
+            case CLIENT -> "거래처";
+            case SALES_REP -> "영업사원";
+            case SYSTEM -> "시스템";
+        };
+    }
+
+    private String formatDocumentCode(String targetCode) {
+        if (targetCode == null || targetCode.isBlank()) {
+            return "";
+        }
+        return "(" + targetCode + ")";
     }
 
     private String nullToDash(String value) {

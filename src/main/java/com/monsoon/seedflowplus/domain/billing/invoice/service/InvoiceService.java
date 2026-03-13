@@ -32,11 +32,14 @@ import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -63,6 +67,7 @@ public class InvoiceService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final NotificationEventPublisher notificationEventPublisher;
     private final PaymentRepository paymentRepository;
 
     /**
@@ -206,6 +211,7 @@ public class InvoiceService {
                 List.of(new DealLogWriteService.DiffField("status", "청구서 상태", fromStatus, InvoiceStatus.PUBLISHED.name(), "STATUS"))
         );
         syncPaymentDueSchedule(invoice, principal);
+        publishInvoiceIssuedNotification(invoice);
         return InvoicePublishResponse.from(invoice);
     }
 
@@ -533,6 +539,23 @@ public class InvoiceService {
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
+    private void publishInvoiceIssuedNotification(Invoice invoice) {
+        if (invoice.getClient() == null || invoice.getClient().getId() == null) {
+            log.warn("Skipping invoice issued notification due to missing client or client id. invoiceId={}, client={}",
+                    invoice.getId(), invoice.getClient());
+            return;
+        }
+        userRepository.findByClientId(invoice.getClient().getId())
+                .map(User::getId)
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
+                        userId,
+                        invoice.getId(),
+                        invoice.getInvoiceCode(),
+                        invoice.getClient().getClientName(),
+                        LocalDateTime.now()
+                )));
+    }
+}
     public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
         return invoiceRepository.findAllByEmployeeId(employeeId).stream()
                 .map(invoice -> InvoiceListResponse.from(

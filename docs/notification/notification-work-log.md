@@ -235,3 +235,153 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 없음
+
+## [2026-03-12 21:18] Approval 알림 문맥 확장
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java — 문서 코드/승인 단계 액터 payload 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java — 1차 승인 요청 이벤트에 단계 액터 문맥 전달
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 승인 요청/완료/반려 이벤트에 문서 코드와 단계 액터 전달
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java — generic approval type 유지, 실제 문서 target과 문맥형 title/content 생성
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 변경된 ApprovalRequestedEvent payload 반영
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationServiceTest.java — 승인 알림 문맥/target/dedup 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — 승인 요청 이벤트 payload 문맥 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+견적요청서 생성 알림 구현
+
+## [2026-03-12 21:31] 견적요청서 생성 알림 구현
+
+### 작업 내용
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/QuotationRequestCreatedEvent.java — 견적요청서 생성 알림 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java — 견적요청서 생성 문서 알림 저장 서비스 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — 견적요청서 생성 이벤트 수신/SSE 전송 경로 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java — 담당 영업사원 1명 해석 후 afterCommit 알림 이벤트 발행
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 견적요청서 생성 이벤트 핸들러 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationServiceTest.java — 견적요청서 생성 알림 저장 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java — 견적요청서 생성 시 담당 영업사원 1명 대상 이벤트 발행 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+문서 라이프사이클 알림 구현
+
+## [2026-03-12 21:38] 문서 라이프사이클 알림 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java — 계약 체결 전용 알림 타입 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ContractCompletedEvent.java — 계약 체결 알림 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/StatementIssuedEvent.java — 명세서 발급 알림 이벤트 정의
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/InvoiceIssuedEvent.java — 청구서 발행 알림 이벤트 정의
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java — 계약/명세서/청구서 문서 알림 생성 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — 신규 문서 라이프사이클 이벤트 수신/SSE 전송 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java — 계약 최종 승인 후 계약 체결 알림 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — 주문 확정 직후 명세서 발급 알림 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java — 청구서 publish 시 거래처 알림 발행
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java — 계약 체결 알림 수신자 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java — 명세서 발급 알림 이벤트 발행 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java — 청구서 발행 알림 이벤트 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 청구서 발행 이벤트 핸들러 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationServiceTest.java — 계약/명세서/청구서 문서 알림 저장 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+통합 테스트 보강 및 전체 검증
+
+## [2026-03-13 09:01] 계약 예약 알림 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java — 계약 시작/종료예정/종료 알림 타입 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java — 계약 예약 알림 생성 서비스 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java — 계약 승인 후 스케줄 upsert와 함께 예약 알림 생성 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — 발송 완료 알림 visible query 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryService.java — visible query 기준으로 목록/미읽음 조회 전환
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandlerTest.java — 계약 예약 알림 호출 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java — 계약 예약 시각(오전 9시) 및 3종 생성 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryServiceTest.java — 미래 예약 알림 비노출용 visible query 사용 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+계정 활성화 알림 구현
+
+## [2026-03-13 09:05] 계정 활성화 알림 구현
+
+### 작업 내용
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/AccountActivatedEvent.java — 계정 활성화 이벤트 정의
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/account/service/AccountService.java — `DEACTIVATE -> ACTIVATE` 전이일 때만 afterCommit 알림 이벤트 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java — 계정 활성화 알림 저장 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — 계정 활성화 이벤트 수신/SSE 전송 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/account/service/AccountServiceTest.java — 상태 전이 조건 검증 테스트 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 계정 활성화 이벤트 핸들러 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationServiceTest.java — 계정 활성화 알림 저장 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+상품 등록 알림 구현
+
+## [2026-03-13 09:11] 상품 등록 알림 구현
+
+### 작업 내용
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ProductCreatedEvent.java — 상품 등록 이벤트 정의
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductWriteService.java — 상품 저장 후 전체 영업사원 대상 afterCommit 알림 이벤트 발행
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java — 상품 등록 알림 저장 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java — 상품 등록 이벤트 수신/SSE 전송 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductWriteServiceTest.java — 전체 영업사원 대상 이벤트 발행 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandlerTest.java — 상품 등록 이벤트 핸들러 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationServiceTest.java — 상품 등록 알림 저장 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+관련 테스트 묶음 재검증 및 결과 정리
+
+## [2026-03-13 09:40] 예약 알림 visible 경계 정합성 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java — 예약 알림 dedup 기준을 `scheduledAt` 기반으로 전환
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java — 예약 dedup exists query와 visible bulk delete 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — `EXISTS` 기반 visible 조회/카운트, visible 단건 조회 및 bulk read/delete 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java — 단건/전체 읽음·삭제를 visible 알림 기준으로 제한
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java — 같은 예약 시각 중복 생성 방지 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandServiceTest.java — 숨은 예약 알림의 읽음/삭제 차단 및 visible bulk 처리 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryServiceTest.java — visible query 사용 검증 유지
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
