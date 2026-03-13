@@ -96,6 +96,21 @@ class NotificationEventHandlerTest {
         verify(notificationSseService).send(eq(300L), any());
     }
 
+    @Test
+    @DisplayName("AccountActivated 이벤트 수신 시 생성 서비스 위임 후 SSE 전송한다")
+    void handleAccountActivated() {
+        AccountActivatedEvent event = new AccountActivatedEvent(
+                400L, com.monsoon.seedflowplus.domain.account.entity.Role.CLIENT, LocalDateTime.now());
+        Notification saved = notification(4L);
+
+        when(documentNotificationService.createAccountActivatedNotification(event)).thenReturn(saved);
+
+        notificationEventHandler.handleAccountActivated(event);
+
+        verify(documentNotificationService).createAccountActivatedNotification(event);
+        verify(notificationSseService).send(eq(400L), any());
+    }
+
     private Notification notification(Long id) {
         Notification notification = Notification.builder()
                 .user(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.User.class))

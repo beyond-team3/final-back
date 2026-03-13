@@ -15,6 +15,7 @@ import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent
 import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.AccountActivatedEvent;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import jakarta.persistence.EntityManager;
@@ -128,5 +129,23 @@ class DocumentNotificationServiceTest {
 
         assertThat(statementNotification.getTargetType()).isEqualTo(NotificationTargetType.STATEMENT);
         assertThat(invoiceNotification.getTargetType()).isEqualTo(NotificationTargetType.INVOICE);
+    }
+
+    @Test
+    @DisplayName("계정 활성화 알림은 ACCOUNT targetType으로 즉시 저장된다")
+    void createAccountActivatedNotification() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 301L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                eq(301L), eq(NotificationType.ACCOUNT_ACTIVATED), eq(NotificationTargetType.ACCOUNT), eq(301L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification notification = documentNotificationService.createAccountActivatedNotification(
+                new AccountActivatedEvent(301L, com.monsoon.seedflowplus.domain.account.entity.Role.SALES_REP, LocalDateTime.now()));
+
+        assertThat(notification.getType()).isEqualTo(NotificationType.ACCOUNT_ACTIVATED);
+        assertThat(notification.getTargetType()).isEqualTo(NotificationTargetType.ACCOUNT);
+        assertThat(notification.getTargetId()).isEqualTo(301L);
     }
 }
