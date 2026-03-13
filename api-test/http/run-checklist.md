@@ -53,7 +53,8 @@ ORDER BY d.cnt_detail_id;
 
 ## 6) 파일별 최소 확인 포인트
 - `order.http`
-  - 성공: create(201) -> get(200) -> confirm(200, CONFIRMED)
+  - 성공: create(201) -> get(200) -> ORD 승인 완료 이벤트 후 상태/명세서 확인
+  - 주문 확정은 공개 `PATCH /api/v1/orders/{orderId}/confirm`가 아니라 승인 흐름에서 `OrderApprovalConfirmedEvent` 후 `OrderService.confirmOrderFromApproval()`로 내부 처리됨
   - 실패: `C004`, `A001`, `O001`, `O002`, `A002`, `O007`
 - `statement.http`
   - 성공: list/get

@@ -3,7 +3,7 @@
 ### 1) _env.http 로그인 3개(CLIENT #1 / SALES_REP / ADMIN) 실행
 ### 2) 아래 [SETUP] SQL로 유효기간 내 계약 헤더/상세 생성 후 testContractId/testContractDetailId 값 세팅
 ### 3) 필요 시 _common.http 실행
-### 4) 아래 SUCCESS 시나리오 실행 (create -> get -> confirm -> list)
+### 4) 아래 SUCCESS 시나리오 실행 (create -> get -> 승인 흐름 확인 -> list)
 ### 5) 아래 FAILURE 시나리오 실행
 
 @baseUrl = http://localhost:8080
@@ -80,17 +80,8 @@ client.test("order get success", function () {
 });
 %}
 
-### [S3] 주문 확정 (PENDING -> CONFIRMED)
-PATCH {{baseUrl}}/api/v1/orders/{{orderId}}/confirm
-Authorization: Bearer {{salesAccessToken}}
-
-> {%
-client.test("order confirm success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
-  client.assert(response.body.data.status === "CONFIRMED", "status must be CONFIRMED");
-});
-%}
+### [S3] 주문 확정은 공개 PATCH API가 아니라 승인 완료 이벤트 기반 내부 흐름으로 처리됨
+### ORD 승인 요청/결정 API를 통해 최종 승인 후, 주문 상세 조회와 명세서 조회로 CONFIRMED/STMT 생성 여부를 확인한다.
 
 ### [S4] 주문 목록 조회
 GET {{baseUrl}}/api/v1/orders
@@ -188,15 +179,4 @@ client.test("order cancel by sales rep denied -> A002", function () {
 });
 %}
 
-### [F6] 상태 전이 위반: 이미 CONFIRMED 주문 재확정
-### 기대: ErrorType.ORDER_ALREADY_CONFIRMED -> ErrorCode.O007
-PATCH {{baseUrl}}/api/v1/orders/{{orderId}}/confirm
-Authorization: Bearer {{salesAccessToken}}
-
-> {%
-client.test("order confirm twice -> O007", function () {
-  client.assert(response.status === 400, "status must be 400");
-  client.assert(response.body.result === "ERROR", "result must be ERROR");
-  client.assert(response.body.error.code === "O007", "error.code must be O007");
-});
-%}
+### [F6] 상태 전이 위반: 이미 CONFIRMED 주문에 대해 승인 완료 이벤트가 다시 들어오면 내부 confirmOrderFromApproval 흐름에서 O007로 차단되어야 함
