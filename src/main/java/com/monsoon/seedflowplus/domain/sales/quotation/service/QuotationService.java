@@ -88,9 +88,19 @@ public class QuotationService {
             quotationRequest = quotationRequestRepository.findById(request.requestId())
                     .orElseThrow(() -> new CoreException(ErrorType.RFQ_NOT_FOUND));
 
-            // 상태가 PENDING이어야 함
-            if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING) {
+            // 상태가 PENDING이거나 REVIEWING이어야 함
+            if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING &&
+                quotationRequest.getStatus() != QuotationRequestStatus.REVIEWING) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // REVIEWING인 경우, 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
+            if (quotationRequest.getStatus() == QuotationRequestStatus.REVIEWING) {
+                boolean hasActiveQuotation = quotationRepository.findByQuotationRequestId(quotationRequest.getId()).stream()
+                        .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN || q.getStatus() == QuotationStatus.WAITING_CLIENT);
+                if (hasActiveQuotation) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                }
             }
 
             // 요청된 제품 목록이 일치하는지 검증 (상품 정보만 비교)
@@ -112,7 +122,15 @@ public class QuotationService {
                     ? quotationRequest.getDeal()
                     : resolveOrCreateOpenDeal(client, author);
         } else {
+            // 3-2. 일반 견적 작성 시 검증
             deal = resolveOrCreateOpenDeal(client, author);
+
+            // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
+            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
+                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN || q.getStatus() == QuotationStatus.WAITING_CLIENT);
+            if (hasActiveQuotation) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
         }
 
         // 4. 총액 계산
@@ -263,6 +281,51 @@ public class QuotationService {
                             q.getAuthor() != null ? q.getAuthor().getId() : null,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
+                            q.getDeal().getId(),
+                            items);
+                })
+                .toList();
+    }
+
+    /**
+     * 반려 또는 만료된 견적서 목록을 조회합니다 (데이터 복사용).
+     */
+    public List<QuotationListResponse> getRejectedQuotations() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        List<QuotationHeader> quotations = quotationRepository.findByAuthorIdAndStatuses(
+                user.getEmployeeId(),
+                List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED)
+        );
+
+        return quotations.stream()
+                .map(q -> {
+                    List<QuotationResponse.QuotationItemResponse> items = q.getItems().stream()
+                            .map(item -> new QuotationResponse.QuotationItemResponse(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList();
+
+                    return new QuotationListResponse(
+                            q.getId(),
+                            q.getQuotationCode(),
+                            q.getClient().getId(),
+                            q.getClient().getClientName(),
+                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            q.getCreatedAt().toLocalDate(),
+                            q.getStatus(),
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
                             items);
                 })
@@ -374,8 +437,12 @@ public class QuotationService {
                 QuotationStatus.WAITING_ADMIN, QuotationStatus.EXPIRED, today);
 
         // 2. 연관된 견적 요청서(RFQ) 상태 복구 (만료된 견적서와 연결된 REVIEWING 상태의 RFQ를 PENDING으로)
+        // [수정] 반려/만료 기반 재작성을 위해 PENDING으로 복구하지 않고 REVIEWING을 유지하도록 변경
+        /*
         int recoveredRfqCount = quotationRequestRepository.recoverStatusByExpiredQuotation(
                 QuotationRequestStatus.REVIEWING, QuotationRequestStatus.PENDING, QuotationStatus.EXPIRED);
+        */
+        int recoveredRfqCount = 0;
 
         if (expiredQuoCount > 0 || recoveredRfqCount > 0) {
             log.info("[QuotationService] 상태 동기화 완료: 견적 만료 {}건, RFQ 복구 {}건",
