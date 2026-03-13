@@ -32,6 +32,25 @@
 ### 다음 단계
 없음
 
+## [2026-03-13 13:50] schedule 견적 만료일 추가 및 결제 완료 일정 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적 생성 시 만료일 deal 일정 upsert, 견적 완료/삭제 시 만료 일정 삭제 로직 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentService.java` — 결제 완료 `PAYMENT_RECEIVED` 일정 생성 경로와 관련 의존 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 견적 만료 일정 생성 및 삭제 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentServiceTest.java` — 결제 처리 테스트를 일정 비생성 정책 기준으로 보정
+- 수정 파일: `docs/statistics/statistics-architecture.md` — schedule 정책 반영 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+커밋
+
+### 다음 단계
+없음
+
 ## [2026-03-12 11:19] 문서 생성 시 승인 요청 자동 생성 적용
 
 ### 작업 내용
