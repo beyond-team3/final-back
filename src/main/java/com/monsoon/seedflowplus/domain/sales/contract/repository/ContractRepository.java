@@ -16,70 +16,70 @@ import java.util.stream.Collectors;
 
 public interface ContractRepository extends JpaRepository<ContractHeader, Long> {
 
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
-            "WHERE c.status = :oldStatus AND c.startDate <= :today")
-    int updateStatusForActivation(@Param("oldStatus") ContractStatus oldStatus,
-                                  @Param("newStatus") ContractStatus newStatus,
-                                  @Param("today") LocalDate today);
+        @Modifying(clearAutomatically = true)
+        @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
+                        "WHERE c.status = :oldStatus AND c.startDate <= :today")
+        int updateStatusForActivation(@Param("oldStatus") ContractStatus oldStatus,
+                        @Param("newStatus") ContractStatus newStatus,
+                        @Param("today") LocalDate today);
 
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
-            "WHERE c.status = :oldStatus AND c.endDate < :today")
-    int updateStatusForExpiration(@Param("oldStatus") ContractStatus oldStatus,
-                                  @Param("newStatus") ContractStatus newStatus,
-                                  @Param("today") LocalDate today);
+        @Modifying(clearAutomatically = true)
+        @Query("UPDATE ContractHeader c SET c.status = :newStatus " +
+                        "WHERE c.status = :oldStatus AND c.endDate < :today")
+        int updateStatusForExpiration(@Param("oldStatus") ContractStatus oldStatus,
+                        @Param("newStatus") ContractStatus newStatus,
+                        @Param("today") LocalDate today);
 
-    List<ContractHeader> findAllByStatus(ContractStatus status);
+        List<ContractHeader> findAllByStatus(ContractStatus status);
 
-    List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
+        List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
 
-    List<ContractHeader> findByClientAndStatusOrderByEndDateAsc(Client client, ContractStatus status);
+        List<ContractHeader> findByClientAndStatusOrderByEndDateAsc(Client client, ContractStatus status);
 
-    @Query("""
-            SELECT c
-            FROM ContractHeader c
-            JOIN FETCH c.deal d
-            LEFT JOIN FETCH d.ownerEmp
-            JOIN FETCH c.client
-            WHERE c.id = :contractId
-            """)
-    Optional<ContractHeader> findByIdWithScheduleRelations(@Param("contractId") Long contractId);
+        @Query("""
+                        SELECT c
+                        FROM ContractHeader c
+                        JOIN FETCH c.deal d
+                        LEFT JOIN FETCH d.ownerEmp
+                        JOIN FETCH c.client
+                        WHERE c.id = :contractId
+                        """)
+        Optional<ContractHeader> findByIdWithScheduleRelations(@Param("contractId") Long contractId);
 
-    @Query("SELECT c FROM ContractHeader c WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) AND c.status <> :status ORDER BY c.createdAt DESC")
-    List<ContractHeader> findByAuthorIdOrClientManagerEmployeeIdAndStatusNot(@Param("employeeId") Long employeeId,
-                                                                             @Param("status") ContractStatus status);
+        @Query("SELECT c FROM ContractHeader c WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) AND c.status <> :status ORDER BY c.createdAt DESC")
+        List<ContractHeader> findByAuthorIdOrClientManagerEmployeeIdAndStatusNot(@Param("employeeId") Long employeeId,
+                        @Param("status") ContractStatus status);
 
-    /**
-     * 거래처별 활성 계약 조회 (실제 ACTIVE_CONTRACT + 승인 즉시 활성 간주되는 COMPLETED 포함)
-     */
-    @Query("SELECT c FROM ContractHeader c " +
-            "WHERE c.client = :client " +
-            "AND (c.status = :activeStatus " +
-            "OR (c.status = :completedStatus AND c.startDate <= :today AND c.endDate >= :today)) " +
-            "ORDER BY c.endDate ASC")
-    List<ContractHeader> findActiveContractsByClient(@Param("client") Client client,
-                                                     @Param("today") LocalDate today,
-                                                     @Param("activeStatus") ContractStatus activeStatus,
-                                                     @Param("completedStatus") ContractStatus completedStatus);
+        /**
+         * 거래처별 활성 계약 조회 (실제 ACTIVE_CONTRACT + 승인 즉시 활성 간주되는 COMPLETED 포함)
+         */
+        @Query("SELECT c FROM ContractHeader c " +
+                        "WHERE c.client = :client " +
+                        "AND (c.status = :activeStatus " +
+                        "OR (c.status = :completedStatus AND c.startDate <= :today AND c.endDate >= :today)) " +
+                        "ORDER BY c.endDate ASC")
+        List<ContractHeader> findActiveContractsByClient(@Param("client") Client client,
+                        @Param("today") LocalDate today,
+                        @Param("activeStatus") ContractStatus activeStatus,
+                        @Param("completedStatus") ContractStatus completedStatus);
 
-    // 계약 코드와 거래처 ID로 계약 존재 여부 확인
-    boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
+        // 계약 코드와 거래처 ID로 계약 존재 여부 확인
+        boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
 
-    // 상태와 시작일을 기준으로 계약 조회
-    List<ContractHeader> findByStatusAndStartDateLessThanEqual(ContractStatus status, LocalDate date);
+        // 상태와 시작일을 기준으로 계약 조회
+        List<ContractHeader> findByStatusAndStartDateLessThanEqual(ContractStatus status, LocalDate date);
 
-    // 상태와 종료일을 기준으로 계약 조회
-    List<ContractHeader> findByStatusAndEndDateLessThan(ContractStatus status, LocalDate date);
+        // 상태와 종료일을 기준으로 계약 조회
+        List<ContractHeader> findByStatusAndEndDateLessThan(ContractStatus status, LocalDate date);
 
-    // 거래처별 모든 계약 종료일 조회
-    @Query("SELECT c.client.id, c.endDate FROM ContractHeader c ORDER BY c.endDate ASC")
-    List<Object[]> findAllClientEndDatesRaw();
+        // 거래처별 모든 계약 종료일 조회
+        @Query("SELECT c.client.id, c.endDate FROM ContractHeader c ORDER BY c.endDate ASC")
+        List<Object[]> findAllClientEndDatesRaw();
 
-    default Map<Long, List<LocalDate>> findAllClientEndDates() {
-        return findAllClientEndDatesRaw().stream()
-                .collect(Collectors.groupingBy(
-                        row -> (Long) row[0],
-                        Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())));
-    }
+        default Map<Long, List<LocalDate>> findAllClientEndDates() {
+                return findAllClientEndDatesRaw().stream()
+                                .collect(Collectors.groupingBy(
+                                                row -> (Long) row[0],
+                                                Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())));
+        }
 }
