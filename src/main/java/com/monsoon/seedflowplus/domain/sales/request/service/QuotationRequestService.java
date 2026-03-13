@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
@@ -222,6 +223,38 @@ public class QuotationRequestService {
         } else {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
+
+        return requests.stream()
+                .map(QuotationRequestListResponse::from)
+                .toList();
+    }
+
+    /**
+     * 반려 또는 만료된 견적서만 존재하는 견적요청서 목록을 조회합니다.
+     * (재작성 대상)
+     */
+    public List<QuotationRequestListResponse> getRejectedQuotationRequests() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        if (userDetails.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Long employeeId = userDetails.getEmployeeId();
+        if (employeeId == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        List<QuotationStatus> rejectedStatuses = List.of(
+                QuotationStatus.REJECTED_ADMIN,
+                QuotationStatus.REJECTED_CLIENT,
+                QuotationStatus.EXPIRED
+        );
+
+        List<QuotationRequestHeader> requests = quotationRequestRepository.findRejectedRequests(
+                QuotationRequestStatus.REVIEWING,
+                employeeId,
+                rejectedStatuses
+        );
 
         return requests.stream()
                 .map(QuotationRequestListResponse::from)
