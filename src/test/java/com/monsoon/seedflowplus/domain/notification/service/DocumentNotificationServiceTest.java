@@ -16,6 +16,7 @@ import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.AccountActivatedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ProductCreatedEvent;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
 import jakarta.persistence.EntityManager;
@@ -147,5 +148,23 @@ class DocumentNotificationServiceTest {
         assertThat(notification.getType()).isEqualTo(NotificationType.ACCOUNT_ACTIVATED);
         assertThat(notification.getTargetType()).isEqualTo(NotificationTargetType.ACCOUNT);
         assertThat(notification.getTargetId()).isEqualTo(301L);
+    }
+
+    @Test
+    @DisplayName("상품 등록 알림은 PRODUCT targetType으로 저장된다")
+    void createProductCreatedNotification() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 401L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                eq(401L), eq(NotificationType.PRODUCT_CREATED), eq(NotificationTargetType.PRODUCT), eq(91L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification notification = documentNotificationService.createProductCreatedNotification(
+                new ProductCreatedEvent(401L, 91L, "VEG-26-01", "신품종 상추", LocalDateTime.now()));
+
+        assertThat(notification.getType()).isEqualTo(NotificationType.PRODUCT_CREATED);
+        assertThat(notification.getTargetType()).isEqualTo(NotificationTargetType.PRODUCT);
+        assertThat(notification.getTargetId()).isEqualTo(91L);
     }
 }

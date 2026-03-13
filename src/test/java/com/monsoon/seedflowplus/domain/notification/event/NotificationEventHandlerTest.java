@@ -111,6 +111,21 @@ class NotificationEventHandlerTest {
         verify(notificationSseService).send(eq(400L), any());
     }
 
+    @Test
+    @DisplayName("ProductCreated 이벤트 수신 시 생성 서비스 위임 후 SSE 전송한다")
+    void handleProductCreated() {
+        ProductCreatedEvent event = new ProductCreatedEvent(
+                500L, 51L, "VEG-26-01", "신품종 상추", LocalDateTime.now());
+        Notification saved = notification(5L);
+
+        when(documentNotificationService.createProductCreatedNotification(event)).thenReturn(saved);
+
+        notificationEventHandler.handleProductCreated(event);
+
+        verify(documentNotificationService).createProductCreatedNotification(event);
+        verify(notificationSseService).send(eq(500L), any());
+    }
+
     private Notification notification(Long id) {
         Notification notification = Notification.builder()
                 .user(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.User.class))
