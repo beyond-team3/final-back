@@ -124,14 +124,25 @@ public class QuotationService {
 
             // 상태를 REVIEWING으로 변경
             quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
-            deal = quotationRequest.getDeal() != null
+            SalesDeal resolvedDeal = quotationRequest.getDeal() != null
                     ? quotationRequest.getDeal()
                     : resolveOrCreateOpenDeal(client, author);
+
+            // RFQ 분기에서도 Deal 락을 획득하고 중복 활성 견적 체크 (CodeRabbit 지적사항)
+            deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
+
+            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
+                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
+                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
+            if (hasActiveQuotation) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
         } else {
             // 3-2. 일반 견적 작성 시 검증
-            SalesDeal tempDeal = resolveOrCreateOpenDeal(client, author);
+            SalesDeal resolvedDeal = resolveOrCreateOpenDeal(client, author);
             // 동시성 제어를 위해 Deal에 락을 획득하여 다시 조회
-            deal = salesDealRepository.findByIdWithLock(tempDeal.getId())
+            deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
 
             // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (비관적 락으로 동시성 보호됨)
@@ -305,7 +316,7 @@ public class QuotationService {
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
-                            q.getMemo(),
+                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
                             reasonsMap.get(q.getId()), // 맵에서 조회 (N+1 해결)
                             items);
@@ -375,7 +386,7 @@ public class QuotationService {
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
-                            q.getMemo(),
+                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
                             reasonsMap.get(q.getId()), // 맵에서 미리 조회해둔 반려 사유를 가져옴 (N+1 해결)
                             items);
@@ -515,6 +526,11 @@ public class QuotationService {
         if (clientId == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
+
+        // Deal 생성 시점에 레이스 컨디션을 방지하기 위해 Client에 락을 획득
+        clientRepository.findByIdWithLock(clientId)
+                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+
         return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
                 .orElseGet(() -> createDealBootstrap(client, ownerEmp));
     }
