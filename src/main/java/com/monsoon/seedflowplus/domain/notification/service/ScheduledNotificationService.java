@@ -39,6 +39,7 @@ public class ScheduledNotificationService {
         if (recipientUserIds == null || recipientUserIds.isEmpty()) {
             return;
         }
+        LocalDateTime now = LocalDateTime.now();
 
         for (Long userId : recipientUserIds.stream().distinct().toList()) {
             if (userId == null) {
@@ -56,15 +57,18 @@ public class ScheduledNotificationService {
                 );
             }
             if (contract.getEndDate() != null) {
-                createScheduledNotification(
-                        userId,
-                        NotificationType.CONTRACT_ENDING_SOON,
-                        NotificationTargetType.CONTRACT,
-                        contract.getId(),
-                        "계약 종료 예정 알림",
-                        buildContractEndingSoonContent(contract),
-                        atNineAm(contract.getEndDate().minusDays(30))
-                );
+                LocalDateTime endingSoonScheduledAt = atNineAm(contract.getEndDate().minusDays(30));
+                if (endingSoonScheduledAt.isAfter(now)) {
+                    createScheduledNotification(
+                            userId,
+                            NotificationType.CONTRACT_ENDING_SOON,
+                            NotificationTargetType.CONTRACT,
+                            contract.getId(),
+                            "계약 종료 예정 알림",
+                            buildContractEndingSoonContent(contract),
+                            endingSoonScheduledAt
+                    );
+                }
                 createScheduledNotification(
                         userId,
                         NotificationType.CONTRACT_ENDED,

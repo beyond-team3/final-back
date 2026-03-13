@@ -46,6 +46,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -228,6 +229,18 @@ public class ContractService {
         LocalDate today = LocalDate.now();
         List<ContractHeader> expiringContracts = contractRepository
                 .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
+        Map<Long, ExpiringContractContext> expiringContextByDealId = expiringContracts.stream()
+                .filter(contract -> contract.getDeal() != null && contract.getDeal().getId() != null)
+                .collect(Collectors.toMap(
+                        contract -> contract.getDeal().getId(),
+                        contract -> new ExpiringContractContext(
+                                contract.getId(),
+                                contract.getContractCode(),
+                                contract.getDeal().getId()
+                        ),
+                        (left, right) -> left,
+                        java.util.LinkedHashMap::new
+                ));
 
         // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
         int activatedCount = contractRepository.updateStatusForActivation(
@@ -241,14 +254,7 @@ public class ContractService {
             log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
         }
 
-        closeDeals(
-                expiringContracts.stream()
-                        .map(ContractHeader::getDeal)
-                        .filter(java.util.Objects::nonNull)
-                        .map(SalesDeal::getId)
-                        .collect(Collectors.toCollection(LinkedHashSet::new)),
-                LocalDateTime.now()
-        );
+        expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -340,6 +346,8 @@ public class ContractService {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
             }
         }
+
+        restoreDealSnapshotAfterContractDelete(contract);
     }
 
     @Transactional
@@ -587,5 +595,108 @@ public class ContractService {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
         deal.close(actionAt);
+    }
+
+    private void restoreDealSnapshotAfterContractDelete(ContractHeader contract) {
+        SalesDeal deal = contract.getDeal();
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        LocalDateTime actionAt = LocalDateTime.now();
+
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation != null && quotation.getStatus() == QuotationStatus.FINAL_APPROVED) {
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationStage(quotation.getStatus()),
+                    quotation.getStatus().name(),
+                    DealType.QUO,
+                    quotation.getId(),
+                    quotation.getQuotationCode(),
+                    actionAt
+            );
+            return;
+        }
+
+        syncDealSnapshot(
+                deal,
+                DealStage.CANCELED,
+                ContractStatus.DELETED.name(),
+                DealType.CNT,
+                contract.getId(),
+                contract.getContractCode(),
+                actionAt
+        );
+    }
+
+    private DealStage mapQuotationStage(QuotationStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private void syncDealSnapshot(
+            SalesDeal deal,
+            DealStage stage,
+            String status,
+            DealType dealType,
+            Long refId,
+            String targetCode,
+            LocalDateTime actionAt
+    ) {
+        deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
+    }
+
+    private void expireDeals(Map<Long, ExpiringContractContext> expiringContextByDealId, LocalDateTime actionAt) {
+        if (expiringContextByDealId.isEmpty()) {
+            return;
+        }
+        salesDealRepository.findAllById(expiringContextByDealId.keySet())
+                .forEach(deal -> {
+                    ExpiringContractContext context = expiringContextByDealId.get(deal.getId());
+                    if (context == null) {
+                        return;
+                    }
+                    dealLogWriteService.write(
+                            deal,
+                            DealType.CNT,
+                            context.contractId(),
+                            context.contractCode(),
+                            DealStage.CONFIRMED,
+                            DealStage.EXPIRED,
+                            ContractStatus.ACTIVE_CONTRACT.name(),
+                            ContractStatus.EXPIRED.name(),
+                            ActionType.EXPIRE,
+                            actionAt,
+                            ActorType.SYSTEM,
+                            null,
+                            null,
+                            List.of(new DealLogWriteService.DiffField(
+                                    "status",
+                                    "문서 상태",
+                                    ContractStatus.ACTIVE_CONTRACT.name(),
+                                    ContractStatus.EXPIRED.name(),
+                                    "STATUS"))
+                    );
+                    syncDealSnapshot(
+                            deal,
+                            DealStage.EXPIRED,
+                            ContractStatus.EXPIRED.name(),
+                            DealType.CNT,
+                            context.contractId(),
+                            context.contractCode(),
+                            actionAt
+                    );
+                    closeDealIfOpen(deal, actionAt);
+                });
+    }
+
+    private record ExpiringContractContext(Long contractId, String contractCode, Long dealId) {
     }
 }

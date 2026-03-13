@@ -310,6 +310,15 @@ public class QuotationRequestService {
                         QuotationRequestStatus.DELETED.name(),
                         "STATUS"))
         );
+        syncDealSnapshot(
+                deal,
+                DealStage.CANCELED,
+                QuotationRequestStatus.DELETED.name(),
+                DealType.RFQ,
+                header.getId(),
+                header.getRequestCode(),
+                actionAt
+        );
 
         closeDealIfOpen(deal, actionAt);
     }
@@ -339,6 +348,18 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
         deal.close(actionAt);
+    }
+
+    private void syncDealSnapshot(
+            SalesDeal deal,
+            DealStage stage,
+            String status,
+            DealType dealType,
+            Long refId,
+            String targetCode,
+            LocalDateTime actionAt
+    ) {
+        deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
     }
 
     private CustomUserDetails getAuthenticatedUser() {
