@@ -65,7 +65,7 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
     @Query("SELECT q FROM QuotationHeader q " +
             "WHERE (q.author.id = :employeeId OR q.client.managerEmployee.id = :employeeId) " +
             "AND q.status = :waitingStatus " +
-            "AND EXISTS (SELECT 1 FROM ContractHeader c WHERE c.quotation.id = q.id) " +
+            "AND EXISTS (SELECT 1 FROM ContractHeader c WHERE c.quotation.id = q.id AND c.status IN :rejectedStatuses) " +
             "AND NOT EXISTS (SELECT 1 FROM ContractHeader c2 WHERE c2.quotation.id = q.id AND c2.status NOT IN :rejectedStatuses AND c2.status <> :deletedStatus)")
     List<QuotationHeader> findQuotationsReadyForContractRewrite(
             @Param("employeeId") Long employeeId,
