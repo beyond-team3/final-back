@@ -292,16 +292,17 @@ public class ContractService {
 
         List<ContractHeader> expiringContracts = contractRepository
                 .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
-        Map<Long, ExpiringContractContext> expiringContextByDealId = expiringContracts.stream()
+        Map<Long, List<ExpiringContractContext>> expiringContextByDealId = expiringContracts.stream()
                 .filter(contract -> contract.getDeal() != null && contract.getDeal().getId() != null)
-                .collect(Collectors.toMap(
+                .collect(Collectors.groupingBy(
                         contract -> contract.getDeal().getId(),
-                        contract -> new ExpiringContractContext(
-                                contract.getId(),
-                                contract.getContractCode(),
-                                contract.getDeal().getId()),
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new));
+                        java.util.LinkedHashMap::new,
+                        Collectors.mapping(
+                                contract -> new ExpiringContractContext(
+                                        contract.getId(),
+                                        contract.getContractCode(),
+                                        contract.getDeal().getId()),
+                                Collectors.toList())));
 
         // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
         int expiredCount = contractRepository.updateStatusForExpiration(
@@ -819,18 +820,20 @@ public class ContractService {
         deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
     }
 
-    private void expireDeals(Map<Long, ExpiringContractContext> expiringContextByDealId, LocalDateTime actionAt) {
+    private void expireDeals(Map<Long, List<ExpiringContractContext>> expiringContextByDealId, LocalDateTime actionAt) {
         if (expiringContextByDealId.isEmpty()) {
             return;
         }
         salesDealRepository.findAllById(expiringContextByDealId.keySet())
                 .forEach(deal -> {
-                    ExpiringContractContext context = expiringContextByDealId.get(deal.getId());
-                    if (context == null) {
+                    List<ExpiringContractContext> contexts = expiringContextByDealId.get(deal.getId());
+                    if (contexts == null || contexts.isEmpty()) {
                         return;
                     }
-                    // 1. 개별 계약서 만료 로그 기록
-                    dealLogWriteService.write(
+
+                    for (ExpiringContractContext context : contexts) {
+                        // 1. 개별 계약서 만료 로그 기록
+                        dealLogWriteService.write(
                             deal,
                             DealType.CNT,
                             context.contractId(),
@@ -850,6 +853,7 @@ public class ContractService {
                                     ContractStatus.ACTIVE_CONTRACT.name(),
                                     ContractStatus.EXPIRED.name(),
                                     "STATUS")));
+                    }
                     
                     // 2. 다중 문서 제안을 고려하여 Deal Snapshot 재계산
                     recomputeDealSnapshot(deal);
@@ -938,25 +942,28 @@ public class ContractService {
 
     private int getContractStatusPriority(ContractStatus status) {
         return switch (status) {
-            case ACTIVE_CONTRACT, COMPLETED -> 1;
-            case WAITING_CLIENT -> 2;
-            case WAITING_ADMIN -> 3;
-            case REJECTED_CLIENT -> 4;
-            case REJECTED_ADMIN -> 5;
-            case EXPIRED -> 6;
-            default -> 7;
+            case ACTIVE_CONTRACT -> 1;
+            case COMPLETED -> 2;
+            case WAITING_CLIENT -> 3;
+            case WAITING_ADMIN -> 4;
+            case REJECTED_CLIENT -> 5;
+            case REJECTED_ADMIN -> 6;
+            case EXPIRED -> 7;
+            default -> 8;
         };
     }
 
     private int getQuotationStatusPriority(QuotationStatus status) {
         return switch (status) {
-            case COMPLETED, WAITING_CONTRACT -> 1;
-            case FINAL_APPROVED, WAITING_CLIENT -> 2;
-            case WAITING_ADMIN -> 3;
-            case REJECTED_CLIENT -> 4;
-            case REJECTED_ADMIN -> 5;
-            case EXPIRED -> 6;
-            default -> 7;
+            case COMPLETED -> 1;
+            case WAITING_CONTRACT -> 2;
+            case FINAL_APPROVED -> 3;
+            case WAITING_CLIENT -> 4;
+            case WAITING_ADMIN -> 5;
+            case REJECTED_CLIENT -> 6;
+            case REJECTED_ADMIN -> 7;
+            case EXPIRED -> 8;
+            default -> 9;
         };
     }
 
