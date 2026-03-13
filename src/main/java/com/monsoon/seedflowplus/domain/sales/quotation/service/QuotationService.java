@@ -88,8 +88,8 @@ public class QuotationService {
         QuotationRequestHeader quotationRequest = null;
         SalesDeal deal;
         if (request.requestId() != null) {
-            // 3. 견적요청서 기반 작성 시 검증
-            quotationRequest = quotationRequestRepository.findById(request.requestId())
+            // 3. 견적요청서 기반 작성 시 검증 (비관적 락 사용으로 동시성 문제 해결)
+            quotationRequest = quotationRequestRepository.findByIdWithLock(request.requestId())
                     .orElseThrow(() -> new CoreException(ErrorType.RFQ_NOT_FOUND));
 
             // 상태가 PENDING이거나 REVIEWING이어야 함
@@ -129,9 +129,12 @@ public class QuotationService {
                     : resolveOrCreateOpenDeal(client, author);
         } else {
             // 3-2. 일반 견적 작성 시 검증
-            deal = resolveOrCreateOpenDeal(client, author);
+            SalesDeal tempDeal = resolveOrCreateOpenDeal(client, author);
+            // 동시성 제어를 위해 Deal에 락을 획득하여 다시 조회
+            deal = salesDealRepository.findByIdWithLock(tempDeal.getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
 
-            // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
+            // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (비관적 락으로 동시성 보호됨)
             boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
                     .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
                             || q.getStatus() == QuotationStatus.WAITING_CLIENT);
