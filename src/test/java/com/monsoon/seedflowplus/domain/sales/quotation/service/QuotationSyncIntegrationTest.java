@@ -22,7 +22,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -63,10 +65,11 @@ class QuotationSyncIntegrationTest {
         rfq.updateStatus(QuotationRequestStatus.REVIEWING);
         quotationRequestRepository.save(rfq);
 
-        // 만료된 견적 생성
+        // 만료될 예정인 승인 대기 견적 생성
         QuotationHeader expiredQuo = QuotationHeader.create(rfq, "QUO-EXP-" + uniqueSuffix, client, deal, employee,
                 BigDecimal.valueOf(100000), "Expired Memo");
-        expiredQuo.updateStatus(QuotationStatus.EXPIRED);
+        // 만료일을 어제로 설정하여 만료 대상이 되도록 함
+        ReflectionTestUtils.setField(expiredQuo, "expiredDate", LocalDate.now().minusDays(1));
         quotationRepository.save(expiredQuo);
         quotationRepository.flush();
 
@@ -74,8 +77,12 @@ class QuotationSyncIntegrationTest {
         quotationService.syncQuotationStatuses();
 
         // then
+        // 1. 견적서 상태가 EXPIRED로 변경되었는지 확인
+        QuotationHeader updatedQuo = quotationRepository.findById(expiredQuo.getId()).orElseThrow();
+        assertEquals(QuotationStatus.EXPIRED, updatedQuo.getStatus());
+
+        // 2. RFQ 상태가 여전히 REVIEWING인지 확인
         QuotationRequestHeader updatedRfq = quotationRequestRepository.findById(rfq.getId()).orElseThrow();
-        // [수정] 반려/만료 시에도 재작성을 위해 REVIEWING 상태를 유지해야 함
         assertEquals(QuotationRequestStatus.REVIEWING, updatedRfq.getStatus());
     }
 
