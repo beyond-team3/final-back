@@ -46,6 +46,10 @@ public class OrderController {
     public ApiResult<List<OrderListResponse>> getOrders(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        String role = userDetails.getRole() != null ? userDetails.getRole().name() : "";
+        if ("SALES_REP".equals(role) || "ADMIN".equals(role)) {
+            return ApiResult.success(orderService.getOrdersByEmployee(userDetails.getEmployeeId()));
+        }
         return ApiResult.success(orderService.getOrders(userDetails.getClientId()));
     }
 
