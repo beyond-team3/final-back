@@ -29,5 +29,11 @@ public record QuotationListResponse(
 
         @Schema(description = "영업 딜(Deal) ID") Long dealId,
 
+        @Schema(description = "내부 비고(메모)") String memo,
+
+        @Schema(description = "견적 요청서 요구사항") String requirements,
+
+        @Schema(description = "반려 사유") String rejectionReason,
+
         @Schema(description = "견적 품목 목록") List<QuotationResponse.QuotationItemResponse> items) {
 }
