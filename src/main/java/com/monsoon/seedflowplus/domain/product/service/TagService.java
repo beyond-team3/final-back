@@ -7,7 +7,6 @@ import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -24,7 +23,7 @@ public class TagService {
     }
 
 
-    // 단건 태그 생성 (관리자 화면용 - 에러 발생시킴)
+    // 단건 태그 생성 (관리자 화면용)
     @Transactional
     public void createNewTag(String categoryCode, String inputTagName) {
 
@@ -48,8 +47,8 @@ public class TagService {
     }
 
     // 태그 조회 또는 생성 (상품 등록/수정 시 사용)
-    // REQUIRES_NEW 사용으로 인한 고아(Orphan) 태그 발생 허용 (토글 버튼형식 재사용 의도)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // 외부 트랜잭션(createProduct/updateProduct)에 참여하여 snapshot visibility 충돌 방지
+    @Transactional
     public Tag getOrCreateTag(String categoryCode, String inputTagName) {
 
         if (categoryCode == null || categoryCode.isBlank()) {
@@ -68,21 +67,11 @@ public class TagService {
             return existingTag.get();
         }
 
-        // 없으면 새로 저장 시도
-        try {
-            Tag newTag = Tag.builder()
-                    .categoryCode(categoryCode)
-                    .tagName(normalized)
-                    .build();
-
-            // 강제 중복 검사
-            return tagRepository.saveAndFlush(newTag);
-
-        } catch (DataIntegrityViolationException e) {
-            /* 동시에 다른 사람이 먼저 똑같은 태그를 만들어서 유니크 에러발생시
-            다른 사람이 방금 만든 그 태그를 조회해서 반환 */
-            return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
-                    .orElseThrow(() -> new CoreException(ErrorType.DEFAULT_ERROR));
-        }
+        // 없으면 외부 트랜잭션 안에서 저장 (flush는 외부 tx 커밋 시점에 일괄 수행)
+        Tag newTag = Tag.builder()
+                .categoryCode(categoryCode)
+                .tagName(normalized)
+                .build();
+        return tagRepository.save(newTag);
     }
 }
