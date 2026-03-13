@@ -4,10 +4,10 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.product.entity.Tag;
 import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -17,6 +17,7 @@ import java.util.Optional;
 public class TagService {
 
     private final TagRepository tagRepository;
+    private final EntityManager entityManager;
 
     // 공백 제거
     private String normalizeTagName(String tagName) {
@@ -24,7 +25,7 @@ public class TagService {
     }
 
 
-    // 단건 태그 생성 (관리자 화면용 - 에러 발생시킴)
+    // 단건 태그 생성 (관리자 화면용)
     @Transactional
     public void createNewTag(String categoryCode, String inputTagName) {
 
@@ -48,8 +49,8 @@ public class TagService {
     }
 
     // 태그 조회 또는 생성 (상품 등록/수정 시 사용)
-    // REQUIRES_NEW 사용으로 인한 고아(Orphan) 태그 발생 허용 (토글 버튼형식 재사용 의도)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // 외부 트랜잭션(createProduct/updateProduct)에 참여하여 snapshot visibility 충돌 방지
+    @Transactional
     public Tag getOrCreateTag(String categoryCode, String inputTagName) {
 
         if (categoryCode == null || categoryCode.isBlank()) {
@@ -68,19 +69,17 @@ public class TagService {
             return existingTag.get();
         }
 
-        // 없으면 새로 저장 시도
+        // 없으면 외부 트랜잭션 안에서 저장 및 즉시 flush하여 제약 조건 위반을 이 메서드 내에서 처리
+        Tag newTag = Tag.builder()
+                .categoryCode(categoryCode)
+                .tagName(normalized)
+                .build();
         try {
-            Tag newTag = Tag.builder()
-                    .categoryCode(categoryCode)
-                    .tagName(normalized)
-                    .build();
-
-            // 강제 중복 검사
             return tagRepository.saveAndFlush(newTag);
-
         } catch (DataIntegrityViolationException e) {
-            /* 동시에 다른 사람이 먼저 똑같은 태그를 만들어서 유니크 에러발생시
-            다른 사람이 방금 만든 그 태그를 조회해서 반환 */
+            // 동시 요청으로 같은 태그가 먼저 생성된 경우:
+            // 실패한 엔티티를 영속성 컨텍스트에서 제거하여 외부 트랜잭션 오염 방지
+            entityManager.detach(newTag);
             return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
                     .orElseThrow(() -> new CoreException(ErrorType.DEFAULT_ERROR));
         }
