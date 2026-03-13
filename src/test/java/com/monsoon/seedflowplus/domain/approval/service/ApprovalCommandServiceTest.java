@@ -763,7 +763,7 @@ class ApprovalCommandServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
         verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, normalizedPageable);
-        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, normalizedPageable);
+        verify(approvalRequestRepository, never()).search(eq(null), eq(DealType.QUO), eq(null), any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
@@ -855,7 +855,7 @@ class ApprovalCommandServiceTest {
                 970L,
                 7001L,
                 new DecideApprovalRequest(DecisionType.APPROVE, null),
-                mockUser(Role.SALES_REP, 501L, null)
+                mockUserWithIds(Role.SALES_REP, 9501L, 501L, null)
         );
 
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
@@ -866,7 +866,7 @@ class ApprovalCommandServiceTest {
                 .satisfies(event -> {
                     OrderApprovalConfirmedEvent confirmedEvent = (OrderApprovalConfirmedEvent) event;
                     assertThat(confirmedEvent.orderId()).isEqualTo(700L);
-                    assertThat(confirmedEvent.approverUserId()).isEqualTo(501L);
+                    assertThat(confirmedEvent.approverUserId()).isEqualTo(9501L);
                 });
         verify(approvalDealLogWriter).writeDecision(
                 eq(request),
@@ -880,6 +880,7 @@ class ApprovalCommandServiceTest {
                 eq(ActorType.SALES_REP),
                 eq(501L)
         );
+        assertThat(orderHeader.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.APPROVED);
         assertThat(response.status()).isEqualTo(ApprovalStatus.APPROVED);

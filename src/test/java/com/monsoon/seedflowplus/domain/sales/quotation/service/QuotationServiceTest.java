@@ -107,9 +107,9 @@ class QuotationServiceTest {
                 eq(100L),
                 eq("QUO-1"),
                 eq(DealStage.PENDING_ADMIN),
-                eq(DealStage.CANCELED),
+                eq(DealStage.CREATED),
                 eq(QuotationStatus.WAITING_ADMIN.name()),
-                eq(QuotationStatus.DELETED.name()),
+                eq(QuotationRequestStatus.PENDING.name()),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
                 any(),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SALES_REP),
@@ -117,6 +117,26 @@ class QuotationServiceTest {
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<java.util.List<DealLogWriteService.DiffField>>any()
         );
+    }
+
+    @Test
+    @DisplayName("deal 없는 견적도 삭제할 수 있다")
+    void deleteQuotationWithoutDealSkipsDealSideEffects() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal deal = deal(client, author);
+        QuotationHeader quotation = QuotationHeader.create(null, "QUO-2", client, deal, author, BigDecimal.TEN, null);
+        ReflectionTestUtils.setField(quotation, "id", 101L);
+        ReflectionTestUtils.setField(quotation, "deal", null);
+
+        when(quotationRepository.findById(101L)).thenReturn(Optional.of(quotation));
+        setAuthentication(salesRepUser(author));
+
+        quotationService.deleteQuotation(101L);
+
+        assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.DELETED);
+        verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 101L);
+        org.mockito.Mockito.verifyNoInteractions(dealLogWriteService);
     }
 
     private void setAuthentication(CustomUserDetails principal) {

@@ -3,9 +3,11 @@ package com.monsoon.seedflowplus.domain.sales.request.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -253,5 +255,48 @@ class QuotationRequestServiceTest {
                 eq(null),
                 any(List.class)
         );
+    }
+
+    @Test
+    @DisplayName("deal 없는 견적요청서도 삭제할 수 있다")
+    void deleteQuotationRequestWithoutDealSkipsDealSideEffects() {
+        Client client = Client.builder()
+                .clientCode("C-8")
+                .clientName("거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .clientType(ClientType.DISTRIBUTOR)
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("manager@test.com")
+                .totalCredit(BigDecimal.ZERO)
+                .usedCredit(BigDecimal.ZERO)
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        SalesDeal deal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(null)
+                .currentStage(DealStage.CREATED)
+                .currentStatus("PENDING")
+                .latestDocType(DealType.RFQ)
+                .latestRefId(1L)
+                .latestTargetCode("RFQ-1")
+                .lastActivityAt(LocalDateTime.now())
+                .build();
+        QuotationRequestHeader header = QuotationRequestHeader.create(client, "req", deal);
+        ReflectionTestUtils.setField(header, "id", 32L);
+        header.updateRequestCode("RFQ-20260313-32");
+        ReflectionTestUtils.setField(header, "deal", null);
+        clearInvocations(dealLogWriteService);
+
+        when(quotationRequestRepository.findById(32L)).thenReturn(Optional.of(header));
+
+        quotationRequestService.deleteQuotationRequest(32L);
+
+        assertThat(header.getStatus()).isEqualTo(com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.DELETED);
+        verifyNoInteractions(dealLogWriteService);
     }
 }

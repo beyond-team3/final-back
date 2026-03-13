@@ -134,6 +134,30 @@ class ScheduledNotificationServiceTest {
         verify(notificationDeliveryRepository, never()).save(any(NotificationDelivery.class));
     }
 
+    @Test
+    @DisplayName("계약 코드가 없으면 알림 문구에 불필요한 공백을 남기지 않는다")
+    void scheduleContractLifecycleNotificationsWithoutCodeBuildsCleanMessage() {
+        ContractHeader contract = contract(74L, null);
+        User user = mock(User.class);
+        when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationDeliveryRepository.existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
+                any(), any(), eq(NotificationTargetType.CONTRACT), eq(74L), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        scheduledNotificationService.scheduleContractLifecycleNotifications(contract, List.of(100L));
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(3)).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getAllValues())
+                .extracting(Notification::getContent)
+                .containsExactly(
+                        "계약이 오늘 시작됩니다.",
+                        "계약이 종료까지 30일 남았습니다.",
+                        "계약이 오늘 종료됩니다."
+                );
+    }
+
     private ContractHeader contract(Long id, String code) {
         return contract(id, code, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 15));
     }

@@ -44,10 +44,10 @@ class ContractSyncTest {
     void syncStatus_ShouldCallBulkUpdateMethods() {
         // given
         LocalDate today = LocalDate.now();
-        when(contractRepository.findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today))
-                .thenReturn(List.of());
         when(contractRepository.updateStatusForActivation(any(), any(), any())).thenReturn(1);
         when(contractRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
+        when(contractRepository.findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today))
+                .thenReturn(List.of());
 
         System.out.println("\n[계약서 테스트] 벌크 업데이트 검증 시작");
 
@@ -59,6 +59,7 @@ class ContractSyncTest {
                 eq(ContractStatus.COMPLETED), eq(ContractStatus.ACTIVE_CONTRACT), eq(today));
         verify(contractRepository, times(1)).updateStatusForExpiration(
                 eq(ContractStatus.ACTIVE_CONTRACT), eq(ContractStatus.EXPIRED), eq(today));
+        verify(contractRepository, times(1)).findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
 
         System.out.println(">>> Repository 벌크 업데이트 메서드(Activation, Expiration) 호출 확인 완료");
         System.out.println("[계약서 테스트] 완료");
@@ -103,6 +104,57 @@ class ContractSyncTest {
                 eq(DealType.CNT),
                 eq(201L),
                 eq("CNT-201"),
+                eq(DealStage.CONFIRMED),
+                eq(DealStage.EXPIRED),
+                eq(ContractStatus.ACTIVE_CONTRACT.name()),
+                eq(ContractStatus.EXPIRED.name()),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.EXPIRE),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SYSTEM),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(java.util.List.class)
+        );
+    }
+
+    @Test
+    @DisplayName("같은 실행에서 활성화 후 즉시 만료된 계약도 deal 만료 처리를 수행한다")
+    void syncStatus_ShouldExpireDealsActivatedAndExpiredInSameRun() {
+        LocalDate today = LocalDate.now();
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        when(deal.getId()).thenReturn(30L);
+
+        ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
+        when(contract.getId()).thenReturn(301L);
+        when(contract.getContractCode()).thenReturn("CNT-301");
+        when(contract.getDeal()).thenReturn(deal);
+
+        SalesDeal managedDeal = SalesDeal.builder()
+                .client(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Client.class))
+                .ownerEmp(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Employee.class))
+                .currentStage(DealStage.CONFIRMED)
+                .currentStatus(ContractStatus.ACTIVE_CONTRACT.name())
+                .latestDocType(DealType.CNT)
+                .latestRefId(30L)
+                .latestTargetCode("CNT-301")
+                .lastActivityAt(LocalDateTime.now())
+                .build();
+        ReflectionTestUtils.setField(managedDeal, "id", 30L);
+
+        when(contractRepository.updateStatusForActivation(any(), any(), any())).thenReturn(1);
+        when(contractRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
+        when(contractRepository.findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today))
+                .thenReturn(List.of(contract));
+        when(salesDealRepository.findAllById(java.util.Set.of(30L))).thenReturn(List.of(managedDeal));
+
+        contractService.syncContractStatuses();
+
+        org.assertj.core.api.Assertions.assertThat(managedDeal.getClosedAt()).isNotNull();
+        verify(dealLogWriteService).write(
+                eq(managedDeal),
+                eq(DealType.CNT),
+                eq(301L),
+                eq("CNT-301"),
                 eq(DealStage.CONFIRMED),
                 eq(DealStage.EXPIRED),
                 eq(ContractStatus.ACTIVE_CONTRACT.name()),

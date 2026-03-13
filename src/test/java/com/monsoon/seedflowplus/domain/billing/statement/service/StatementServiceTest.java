@@ -111,5 +111,7 @@ class StatementServiceTest {
         assertEquals("ORD-20260312-001", firstEvent.orderCode());
         assertEquals(51L, secondEvent.statementId());
         assertEquals(51L, thirdEvent.statementId());
+        assertEquals(firstEvent.occurredAt(), secondEvent.occurredAt());
+        assertEquals(secondEvent.occurredAt(), thirdEvent.occurredAt());
     }
 }
