@@ -400,9 +400,9 @@ public class ApprovalCommandService {
         publishOrderApprovalConfirmedAfterCommit(orderHeader.getId(), principal, actionAt);
         return new DocumentDecisionResult(
                 fromStatus,
-                OrderStatus.CONFIRMED.name(),
+                fromStatus,
                 fromStage,
-                DealStage.CONFIRMED.name()
+                fromStage
         );
     }
 

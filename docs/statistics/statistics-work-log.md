@@ -33,6 +33,20 @@
 ### 다음 단계
 없음
 
+## [2026-03-13 15:16] 주문 승인 decision 로그 선반영 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인 decision 결과가 실제 주문 확정보다 먼저 `CONFIRMED`를 기록하지 않도록 `PENDING/IN_PROGRESS` 유지로 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — ORD 승인 시 approval decision 로그가 주문 상태를 선반영하지 않는 회귀 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — approval decision 로그 보정 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-13 12:24] deal snapshot 복구와 만료 타임라인 보강
 
 ### 작업 내용

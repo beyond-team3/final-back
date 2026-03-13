@@ -840,7 +840,7 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 ORD-2: 담당 영업사원 승인 시 주문 확정 이벤트를 발행하고 요청이 APPROVED 된다")
+    @DisplayName("케이스 ORD-2: 담당 영업사원 승인 시 주문 확정 이벤트를 발행하고 approval decision은 주문 상태를 선반영하지 않는다")
     void decideStepApprovesOrderThroughAfterCommitEvent() {
         ApprovalRequest request = ordRequest(970L, 700L, 77L);
         ApprovalStep step = step(7001L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
@@ -868,6 +868,18 @@ class ApprovalCommandServiceTest {
                     assertThat(confirmedEvent.orderId()).isEqualTo(700L);
                     assertThat(confirmedEvent.approverUserId()).isEqualTo(501L);
                 });
+        verify(approvalDealLogWriter).writeDecision(
+                eq(request),
+                eq(step),
+                eq(DecisionType.APPROVE),
+                eq(OrderStatus.PENDING.name()),
+                eq(OrderStatus.PENDING.name()),
+                eq("IN_PROGRESS"),
+                eq("IN_PROGRESS"),
+                eq(null),
+                eq(ActorType.SALES_REP),
+                eq(501L)
+        );
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.APPROVED);
         assertThat(response.status()).isEqualTo(ApprovalStatus.APPROVED);
