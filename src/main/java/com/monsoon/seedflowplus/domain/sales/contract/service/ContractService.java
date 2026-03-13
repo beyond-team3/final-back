@@ -29,7 +29,13 @@ import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
+import com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto;
+import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractListResponse;
+import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import java.util.Map;
+import java.util.stream.Collectors;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,38 +65,80 @@ public class ContractService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final ApprovalDecisionRepository approvalDecisionRepository;
 
-    public ContractPrefillResponse getPrefillData(Long quotationId) {
+    public ContractPrefillResponse getPrefillData(Long quotationId, Long contractId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
-        QuotationHeader quotation = quotationRepository.findById(quotationId)
-                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+        if (contractId != null) {
+            ContractHeader contract = contractRepository.findById(contractId)
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
-        // 1. 상태 검증: 최종 승인된 견적서만 가능
-        if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
-            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            // 본인이 작성한 반려된 계약서만 복사 가능
+            if (contract.getStatus() != ContractStatus.REJECTED_ADMIN && contract.getStatus() != ContractStatus.REJECTED_CLIENT) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "반려된 계약서만 복사할 수 있습니다.");
+            }
+            validateAccess(contract, userDetails);
+
+            return new ContractPrefillResponse(
+                    contract.getQuotation() != null ? contract.getQuotation().getId() : null,
+                    contract.getQuotation() != null ? contract.getQuotation().getQuotationCode() : null,
+                    contract.getClient().getId(),
+                    contract.getClient().getClientName(),
+                    contract.getClient().getManagerName(),
+                    contract.getTotalAmount(),
+                    contract.getDeal() != null ? contract.getDeal().getId() : null,
+                    contract.getStartDate(),
+                    contract.getEndDate(),
+                    contract.getBillingCycle() != null ? contract.getBillingCycle().name() : null,
+                    contract.getSpecialTerms(),
+                    contract.getMemo(),
+                    contract.getItems().stream()
+                            .map(item -> new ContractPrefillResponse.Item(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getTotalQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList());
         }
 
-        // 2. 권한 검증: 본인이 작성한 영업사원만 가능 (관리자, 거래처 등 차단)
-        validateQuotationAuthorAccess(quotation, userDetails);
+        if (quotationId != null) {
+            QuotationHeader quotation = quotationRepository.findById(quotationId)
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
-        return new ContractPrefillResponse(
-                quotation.getId(),
-                quotation.getQuotationCode(),
-                quotation.getClient().getId(),
-                quotation.getClient().getClientName(),
-                quotation.getClient().getManagerName(),
-                quotation.getTotalAmount(),
-                quotation.getItems().stream()
-                        .map(item -> new ContractPrefillResponse.Item(
-                                item.getProduct() != null ? item.getProduct().getId() : null,
-                                item.getProductName(),
-                                item.getProductCategory(),
-                                item.getQuantity(),
-                                item.getUnit(),
-                                item.getUnitPrice(),
-                                item.getAmount()))
-                        .toList());
+            // 상태 검증: 최종 승인된 견적서만 가능
+            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // 권한 검증: 본인이 작성한 영업사원만 가능
+            validateQuotationAuthorAccess(quotation, userDetails);
+
+            return new ContractPrefillResponse(
+                    quotation.getId(),
+                    quotation.getQuotationCode(),
+                    quotation.getClient().getId(),
+                    quotation.getClient().getClientName(),
+                    quotation.getClient().getManagerName(),
+                    quotation.getTotalAmount(),
+                    quotation.getDeal() != null ? quotation.getDeal().getId() : null,
+                    null, null, null, null, null, // 신규 작성 시 날짜/조건 등은 빈값
+                    quotation.getItems().stream()
+                            .map(item -> new ContractPrefillResponse.Item(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList());
+        }
+
+        throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "quotationId 또는 contractId가 필요합니다.");
     }
 
     public ContractResponse getContractDetail(Long id) {
@@ -314,8 +362,20 @@ public class ContractService {
             quotation = quotationRepository.findById(request.quotationId())
                     .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
-            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED) {
+            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED && 
+                quotation.getStatus() != QuotationStatus.WAITING_CONTRACT) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+            }
+
+            // WAITING_CONTRACT인 경우, 이미 진행 중인 계약이 있는지 확인 (중복 작성 방지)
+            if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
+                boolean hasActiveContract = contractRepository.findAll().stream() // TODO: Optimize with repo method
+                        .filter(c -> c.getQuotation() != null && c.getQuotation().getId().equals(request.quotationId()))
+                        .anyMatch(c -> c.getStatus() == ContractStatus.WAITING_ADMIN 
+                                || c.getStatus() == ContractStatus.WAITING_CLIENT);
+                if (hasActiveContract) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                }
             }
 
             // 요청한 거래처와 견적서의 거래처 일치 확인
@@ -498,5 +558,115 @@ public class ContractService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    /**
+     * 계약서 재작성이 가능한 견적서 목록 조회
+     */
+    public List<QuotationListResponse> getRejectedQuotationsForContract() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        if (user.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+        }
+
+        List<QuotationHeader> quotations = quotationRepository.findQuotationsReadyForContractRewrite(
+                user.getEmployeeId(),
+                QuotationStatus.WAITING_CONTRACT,
+                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
+                ContractStatus.DELETED);
+
+        return quotations.stream()
+                .map(q -> new QuotationListResponse(
+                        q.getId(),
+                        q.getQuotationCode(),
+                        q.getClient().getId(),
+                        q.getClient().getClientName(),
+                        q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                        q.getAuthor() != null ? q.getAuthor().getId() : null,
+                        q.getCreatedAt().toLocalDate(),
+                        q.getStatus(),
+                        q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
+                        q.getDeal().getId(),
+                        (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
+                        q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
+                        null,
+                        List.of()))
+                .toList();
+    }
+
+    /**
+     * 재작성을 위한 반려된 계약서 목록 조회 (데이터 복사용)
+     */
+    public List<ContractListResponse> getRejectedContracts() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        if (user.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+        }
+
+        List<ContractHeader> contracts = contractRepository.findActiveRejectedContracts(
+                user.getEmployeeId(),
+                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
+                ContractStatus.DELETED);
+
+        Map<Long, String> reasonsMap = fetchReasonsMap(contracts);
+
+        return contracts.stream()
+                .map(c -> {
+                    List<ContractResponse.ItemResponse> items = c.getItems().stream()
+                            .map(item -> new ContractResponse.ItemResponse(
+                                    item.getId(),
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getTotalQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList();
+
+                    return new ContractListResponse(
+                            c.getId(),
+                            c.getContractCode(),
+                            c.getClient().getId(),
+                            c.getClient().getClientName(),
+                            c.getAuthor() != null ? c.getAuthor().getEmployeeName() : null,
+                            c.getAuthor() != null ? c.getAuthor().getId() : null,
+                            c.getCreatedAt().toLocalDate(),
+                            c.getStatus(),
+                            c.getQuotation() != null ? c.getQuotation().getId() : null,
+                            c.getDeal().getId(),
+                            (c.getAuthor() != null && c.getAuthor().getId().equals(user.getEmployeeId())) ? c.getMemo() : null,
+                            reasonsMap.get(c.getId()),
+                            items);
+                })
+                .toList();
+    }
+
+    private Map<Long, String> fetchReasonsMap(List<ContractHeader> contracts) {
+        if (contracts == null || contracts.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> contractIds = contracts.stream()
+                .map(ContractHeader::getId)
+                .toList();
+
+        return approvalDecisionRepository
+                .findReasonsByTargets(DealType.CNT, contractIds).stream()
+                .filter(dto -> dto.targetId() != null && dto.reason() != null)
+                .collect(Collectors.toMap(
+                        ReasonDto::targetId,
+                        ReasonDto::reason,
+                        (existing, replacement) -> existing));
     }
 }
