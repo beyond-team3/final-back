@@ -231,14 +231,6 @@ public class ContractService {
         int activatedCount = contractRepository.updateStatusForActivation(
                 ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
 
-        // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
-        int expiredCount = contractRepository.updateStatusForExpiration(
-                ContractStatus.ACTIVE_CONTRACT, ContractStatus.EXPIRED, today);
-
-        if (activatedCount > 0 || expiredCount > 0) {
-            log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
-        }
-
         List<ContractHeader> expiringContracts = contractRepository
                 .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
         Map<Long, ExpiringContractContext> expiringContextByDealId = expiringContracts.stream()
@@ -253,6 +245,15 @@ public class ContractService {
                         (left, right) -> left,
                         java.util.LinkedHashMap::new
                 ));
+
+        // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
+        int expiredCount = contractRepository.updateStatusForExpiration(
+                ContractStatus.ACTIVE_CONTRACT, ContractStatus.EXPIRED, today);
+
+        if (activatedCount > 0 || expiredCount > 0) {
+            log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
+        }
+
         expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
@@ -634,9 +635,9 @@ public class ContractService {
         return switch (status) {
             case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
             case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
-            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case FINAL_APPROVED, WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
             case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
-            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
             case EXPIRED -> DealStage.EXPIRED;
             case DELETED -> DealStage.CANCELED;
         };

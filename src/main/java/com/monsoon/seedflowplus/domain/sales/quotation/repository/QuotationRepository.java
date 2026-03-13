@@ -58,4 +58,10 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
 
     // 상태와 만료일을 기준으로 견적서 조회
     List<QuotationHeader> findByStatusAndExpiredDateLessThanEqual(QuotationStatus status, java.time.LocalDate date);
+
+    List<QuotationHeader> findByIdInAndStatusAndExpiredDateLessThanEqual(
+            List<Long> ids,
+            QuotationStatus status,
+            LocalDate date
+    );
 }

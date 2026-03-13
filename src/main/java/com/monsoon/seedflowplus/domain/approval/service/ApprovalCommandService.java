@@ -398,6 +398,10 @@ public class ApprovalCommandService {
             );
         }
 
+        if (orderHeader.getStatus() != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
+        }
+
         publishOrderApprovalConfirmedAfterCommit(orderHeader.getId(), principal, actionAt);
         return new DocumentDecisionResult(
                 fromStatus,
@@ -589,10 +593,6 @@ public class ApprovalCommandService {
     }
 
     private Long resolveClientIdSnapshot(CreateApprovalRequestRequest dto) {
-        if (dto.dealType() != DealType.QUO && dto.dealType() != DealType.CNT) {
-            return dto.clientIdSnapshot();
-        }
-
         Long actualClientId = switch (dto.dealType()) {
             case QUO -> quotationRepository.findById(dto.targetId())
                     .map(quotation -> quotation.getClient().getId())
@@ -606,10 +606,13 @@ public class ApprovalCommandService {
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
 
-        if (dto.clientIdSnapshot() != null && !Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
+        if (dto.clientIdSnapshot() == null) {
+            return actualClientId;
+        }
+        if (!Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
         }
-        return actualClientId;
+        return dto.clientIdSnapshot();
     }
 
     private Long resolveActorIdByActorType(ActorType actorType, CustomUserDetails principal) {

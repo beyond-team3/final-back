@@ -31,7 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -266,32 +269,66 @@ public class StatementService {
     }
 
     private List<Long> resolveStatementRecipientUserIds(OrderHeader orderHeader) {
-        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        LinkedHashSet<Long> userIds = new LinkedHashSet<>();
+        LinkedHashSet<Long> employeeIds = new LinkedHashSet<>();
+        LinkedHashSet<Long> clientIds = new LinkedHashSet<>();
+
         if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
-            java.util.Optional<Long> employeeUserId = userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
-                    .map(User::getId);
-            employeeUserId.ifPresent(userIds::add);
-            if (employeeUserId.isEmpty()) {
-                log.debug("No user found for order employee. employeeId={}", orderHeader.getEmployee().getId());
-            }
+            employeeIds.add(orderHeader.getEmployee().getId());
         }
         if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
                 && orderHeader.getDeal().getOwnerEmp().getId() != null) {
-            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
-                    .map(User::getId);
-            ownerUserId.ifPresent(userIds::add);
-            if (ownerUserId.isEmpty()) {
-                log.debug("No user found for deal owner employee. employeeId={}", orderHeader.getDeal().getOwnerEmp().getId());
-            }
+            employeeIds.add(orderHeader.getDeal().getOwnerEmp().getId());
         }
         if (orderHeader.getClient() != null && orderHeader.getClient().getId() != null) {
-            java.util.Optional<Long> clientUserId = userRepository.findByClientId(orderHeader.getClient().getId())
-                    .map(User::getId);
-            clientUserId.ifPresent(userIds::add);
-            if (clientUserId.isEmpty()) {
-                log.debug("No user found for statement client. clientId={}", orderHeader.getClient().getId());
-            }
+            clientIds.add(orderHeader.getClient().getId());
         }
+
+        LinkedHashMap<Long, Long> userIdByEmployeeId = employeeIds.isEmpty()
+                ? new LinkedHashMap<>()
+                : userRepository.findAllByEmployeeIdIn(employeeIds.stream().toList()).stream()
+                        .filter(user -> user.getEmployee() != null && user.getEmployee().getId() != null)
+                        .collect(LinkedHashMap::new,
+                                (map, user) -> map.put(user.getEmployee().getId(), user.getId()),
+                                LinkedHashMap::putAll);
+        LinkedHashMap<Long, Long> userIdByClientId = clientIds.isEmpty()
+                ? new LinkedHashMap<>()
+                : userRepository.findAllByClientIdIn(clientIds.stream().toList()).stream()
+                        .filter(user -> user.getClient() != null && user.getClient().getId() != null)
+                        .collect(LinkedHashMap::new,
+                                (map, user) -> map.put(user.getClient().getId(), user.getId()),
+                                LinkedHashMap::putAll);
+
+        addResolvedUserId(userIds, userIdByEmployeeId, orderHeader.getEmployee() == null ? null : orderHeader.getEmployee().getId(),
+                "order employee", "employeeId");
+        addResolvedUserId(userIds, userIdByEmployeeId,
+                orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+                        ? orderHeader.getDeal().getOwnerEmp().getId()
+                        : null,
+                "deal owner employee", "employeeId");
+        addResolvedUserId(userIds, userIdByClientId,
+                orderHeader.getClient() == null ? null : orderHeader.getClient().getId(),
+                "statement client", "clientId");
+
         return userIds.stream().toList();
+    }
+
+    private void addResolvedUserId(
+            Set<Long> userIds,
+            LinkedHashMap<Long, Long> resolvedUserIds,
+            Long sourceId,
+            String sourceLabel,
+            String idLabel
+    ) {
+        if (sourceId == null) {
+            return;
+        }
+
+        Long userId = resolvedUserIds.get(sourceId);
+        if (userId == null) {
+            log.debug("No user found for {}. {}={}", sourceLabel, idLabel, sourceId);
+            return;
+        }
+        userIds.add(userId);
     }
 }

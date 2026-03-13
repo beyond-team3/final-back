@@ -532,12 +532,21 @@ public class InvoiceService {
         }
         userRepository.findByClientId(invoice.getClient().getId())
                 .map(User::getId)
-                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
-                        userId,
-                        invoice.getId(),
-                        invoice.getInvoiceCode(),
-                        invoice.getClient().getClientName(),
-                        LocalDateTime.now()
-                )));
+                .ifPresentOrElse(
+                        userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
+                                userId,
+                                invoice.getId(),
+                                invoice.getInvoiceCode(),
+                                invoice.getClient().getClientName(),
+                                LocalDateTime.now()
+                        )),
+                        () -> log.warn(
+                                "No client user mapping found for invoice issued notification. clientId={}, clientName={}, invoiceId={}, invoiceCode={}",
+                                invoice.getClient().getId(),
+                                invoice.getClient().getClientName(),
+                                invoice.getId(),
+                                invoice.getInvoiceCode()
+                        )
+                );
     }
 }
