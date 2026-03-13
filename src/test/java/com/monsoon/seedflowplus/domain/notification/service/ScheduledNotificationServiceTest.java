@@ -50,8 +50,8 @@ class ScheduledNotificationServiceTest {
         User user = org.mockito.Mockito.mock(User.class);
         when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
         when(entityManager.find(User.class, 200L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
-        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                any(), any(), eq(NotificationTargetType.CONTRACT), eq(71L), any(), any()))
+        when(notificationDeliveryRepository.existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
+                any(), any(), eq(NotificationTargetType.CONTRACT), eq(71L), any()))
                 .thenReturn(false);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -69,6 +69,22 @@ class ScheduledNotificationServiceTest {
                         LocalDate.of(2026, 4, 15).minusDays(30).atTime(9, 0),
                         LocalDate.of(2026, 4, 15).atTime(9, 0)
                 );
+    }
+
+    @Test
+    @DisplayName("같은 계약/같은 사용자/같은 예약 시각 알림이 이미 있으면 중복 생성하지 않는다")
+    void scheduleContractLifecycleNotificationsDeduplicatesByScheduledAt() {
+        ContractHeader contract = contract(71L, "CNT-20260312-71");
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationDeliveryRepository.existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt(
+                any(), any(), eq(NotificationTargetType.CONTRACT), eq(71L), any()))
+                .thenReturn(true);
+
+        scheduledNotificationService.scheduleContractLifecycleNotifications(contract, List.of(100L));
+
+        verify(notificationRepository, org.mockito.Mockito.never()).save(any(Notification.class));
+        verify(notificationDeliveryRepository, org.mockito.Mockito.never()).save(any(NotificationDelivery.class));
     }
 
     private ContractHeader contract(Long id, String code) {
