@@ -421,3 +421,23 @@ NotificationEventHandler는 신규 상품 알림도 기존 SSE payload(`Notifica
 
 ### 변경 이유
 Phase 2 정책 2번(상품 등록 알림은 모든 영업사원 수신) 반영
+
+## [2026-03-13] 예약 알림 visible 경계 정합성 수정
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java
+- 클래스/메서드: ScheduledNotificationService.isDuplicated
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java
+- 클래스/메서드: existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt, deleteVisibleByNotification_User_Id
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java
+- 클래스/메서드: findVisibleByUserIdOrderByCreatedAtDesc, countVisibleUnreadByUserId, findVisibleByIdAndUserId, markAllVisibleAsRead, deleteVisibleByUser_Id
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java
+- 클래스/메서드: markAsRead, markAllAsRead, deleteOne, deleteAll
+
+### 변경 내용
+계약 예약 알림 dedup 기준을 `createdAt` 날짜 비교에서 `NotificationDelivery.scheduledAt` 기준 존재 검사로 변경해 같은 계약/사용자/예약 시각 알림이 재생성되지 않도록 수정했다.
+visible 목록/미읽음 쿼리는 `JOIN` 대신 `EXISTS`를 사용하도록 바꿔 다중 delivery 채널이 생겨도 중복 row와 count 부풀림이 발생하지 않게 했다.
+단건/전체 읽음 및 삭제는 이제 visible 알림(`DeliveryStatus.SENT`)만 대상으로 동작하며, 미래 예약 알림은 사전 읽음/삭제되지 않는다.
+
+### 변경 이유
+리뷰 이슈 반영: 예약 dedup 오류, 숨은 예약 알림 bulk 처리, visible query 중복 row 위험 수정

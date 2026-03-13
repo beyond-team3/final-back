@@ -365,3 +365,23 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 관련 테스트 묶음 재검증 및 결과 정리
+
+## [2026-03-13 09:40] 예약 알림 visible 경계 정합성 수정
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java — 예약 알림 dedup 기준을 `scheduledAt` 기반으로 전환
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java — 예약 dedup exists query와 visible bulk delete 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — `EXISTS` 기반 visible 조회/카운트, visible 단건 조회 및 bulk read/delete 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java — 단건/전체 읽음·삭제를 visible 알림 기준으로 제한
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java — 같은 예약 시각 중복 생성 방지 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandServiceTest.java — 숨은 예약 알림의 읽음/삭제 차단 및 visible bulk 처리 검증 추가
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryServiceTest.java — visible query 사용 검증 유지
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+없음
