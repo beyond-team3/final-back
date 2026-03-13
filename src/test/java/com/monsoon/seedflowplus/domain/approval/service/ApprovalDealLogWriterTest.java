@@ -15,6 +15,7 @@ import com.monsoon.seedflowplus.domain.deal.log.entity.SalesDealLog;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
@@ -207,6 +209,78 @@ class ApprovalDealLogWriterTest {
                 .extracting(ex -> ((CoreException) ex).getErrorType())
                 .isEqualTo(ErrorType.INVALID_DOC_STATUS_TRANSITION);
 
+        verify(dealPipelineFacade, never()).recordAndSync(
+                any(SalesDeal.class),
+                any(DealType.class),
+                any(Long.class),
+                any(String.class),
+                any(DealStage.class),
+                any(DealStage.class),
+                any(String.class),
+                any(String.class),
+                any(),
+                any(),
+                any(ActorType.class),
+                any(Long.class),
+                any(),
+                any(java.util.List.class)
+        );
+    }
+
+    @Test
+    @DisplayName("ORD approval decision은 후속 문서가 deal stage를 갱신해도 로그만 기록한다")
+    void writeDecisionForOrderUsesLogOnlyPathAfterDealStageAdvanced() {
+        ApprovalRequest request = ApprovalRequest.builder()
+                .dealType(DealType.ORD)
+                .targetId(103L)
+                .status(com.monsoon.seedflowplus.domain.approval.entity.ApprovalStatus.PENDING)
+                .clientIdSnapshot(10L)
+                .targetCodeSnapshot("ORD-103")
+                .build();
+        ReflectionTestUtils.setField(request, "id", 4L);
+
+        ApprovalStep step = ApprovalStep.builder()
+                .approvalRequest(request)
+                .stepOrder(1)
+                .actorType(ActorType.SALES_REP)
+                .status(ApprovalStepStatus.WAITING)
+                .build();
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        SalesDealLog latestLog = org.mockito.Mockito.mock(SalesDealLog.class);
+        when(latestLog.getDeal()).thenReturn(deal);
+        when(salesDealLogRepository.findTopByDocTypeAndRefIdOrderByActionAtDescIdDesc(DealType.ORD, 103L))
+                .thenReturn(Optional.of(latestLog));
+
+        approvalDealLogWriter.writeDecision(
+                request,
+                step,
+                DecisionType.APPROVE,
+                "PENDING",
+                "CONFIRMED",
+                DealStage.IN_PROGRESS.name(),
+                DealStage.CONFIRMED.name(),
+                null,
+                ActorType.SALES_REP,
+                77L
+        );
+
+        verify(dealLogWriteService).write(
+                eq(deal),
+                eq(DealType.ORD),
+                eq(103L),
+                eq("ORD-103"),
+                eq(DealStage.IN_PROGRESS),
+                eq(DealStage.CONFIRMED),
+                eq("PENDING"),
+                eq("CONFIRMED"),
+                eq(ActionType.APPROVE),
+                eq(null),
+                eq(ActorType.SALES_REP),
+                eq(77L),
+                eq((String) null),
+                argThat((List<DealLogWriteService.DiffField> diffs) -> diffs != null && diffs.size() == 4)
+        );
         verify(dealPipelineFacade, never()).recordAndSync(
                 any(SalesDeal.class),
                 any(DealType.class),

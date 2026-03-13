@@ -122,6 +122,9 @@ public class SalesDeal extends BaseModifyEntity {
     }
 
     public void close(LocalDateTime closedAt) {
+        if (this.closedAt != null) {
+            return;
+        }
         this.closedAt = closedAt;
     }
 

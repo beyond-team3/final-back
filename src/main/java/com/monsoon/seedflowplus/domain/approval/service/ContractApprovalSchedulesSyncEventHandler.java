@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.notification.service.ScheduledNotificationService;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
@@ -30,6 +31,7 @@ public class ContractApprovalSchedulesSyncEventHandler {
     private final ContractRepository contractRepository;
     private final UserRepository userRepository;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final ScheduledNotificationService scheduledNotificationService;
 
     @Async("notificationTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -122,6 +124,11 @@ public class ContractApprovalSchedulesSyncEventHandler {
                     event.occurredAt()
             ));
         }
+
+        scheduledNotificationService.scheduleContractLifecycleNotifications(
+                contract,
+                resolveNotificationRecipientUserIds(contract)
+        );
     }
 
     private Optional<Long> resolveScheduleAssigneeUserId(SalesDeal deal, Long principalUserId, Long clientId) {
@@ -143,5 +150,20 @@ public class ContractApprovalSchedulesSyncEventHandler {
 
     private String externalKey(Long contractId, String scheduleBoundary) {
         return "CNT_" + contractId + "_DOC_APPROVED_" + scheduleBoundary;
+    }
+
+    private java.util.List<Long> resolveNotificationRecipientUserIds(ContractHeader contract) {
+        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        if (contract.getDeal() != null && contract.getDeal().getOwnerEmp() != null && contract.getDeal().getOwnerEmp().getId() != null) {
+            userRepository.findByEmployeeId(contract.getDeal().getOwnerEmp().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        if (contract.getClient() != null && contract.getClient().getId() != null) {
+            userRepository.findByClientId(contract.getClient().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        return userIds.stream().toList();
     }
 }

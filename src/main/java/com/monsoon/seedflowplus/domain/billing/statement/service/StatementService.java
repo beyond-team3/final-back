@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.billing.statement.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -10,6 +12,8 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementListResponse;
 import com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementResponse;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
@@ -19,14 +23,17 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -36,10 +43,12 @@ public class StatementService {
     private final InvoiceStatementRepository invoiceStatementRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
+    private final UserRepository userRepository;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
-     * OrderService.confirmOrder() 에서 호출
+     * OrderApprovalConfirmedEventHandler -> OrderService.confirmOrderFromApproval() 흐름에서 호출
      */
     @Transactional
     public void createStatement(OrderHeader orderHeader, ActorType actorType, Long actorId) {
@@ -66,6 +75,7 @@ public class StatementService {
         }
     }
 
+    // 삭제 정책상 STMT는 별도 delete API 없이 cancel API를 삭제 의미로 사용한다.
     @Transactional
     public StatementResponse cancelStatement(Long statementId, CustomUserDetails userDetails) {
         if (userDetails == null || userDetails.getEmployeeId() == null) {
@@ -239,6 +249,49 @@ public class StatementService {
                         new DealLogWriteService.DiffField("orderCode", "주문 번호", null, orderHeader.getOrderCode(), "REFERENCE")
                 )
         );
+        publishStatementIssuedNotifications(statement, orderHeader);
         return statement;
+    }
+
+    private void publishStatementIssuedNotifications(Statement statement, OrderHeader orderHeader) {
+        LocalDateTime occurredAt = statement.getCreatedAt() != null ? statement.getCreatedAt() : LocalDateTime.now();
+        resolveStatementRecipientUserIds(orderHeader).forEach(userId ->
+                notificationEventPublisher.publishAfterCommit(new StatementIssuedEvent(
+                        userId,
+                        statement.getId(),
+                        statement.getStatementCode(),
+                        orderHeader.getOrderCode(),
+                        occurredAt
+                )));
+    }
+
+    private List<Long> resolveStatementRecipientUserIds(OrderHeader orderHeader) {
+        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
+            java.util.Optional<Long> employeeUserId = userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
+                    .map(User::getId);
+            employeeUserId.ifPresent(userIds::add);
+            if (employeeUserId.isEmpty()) {
+                log.debug("No user found for order employee. employeeId={}", orderHeader.getEmployee().getId());
+            }
+        }
+        if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+                && orderHeader.getDeal().getOwnerEmp().getId() != null) {
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
+                    .map(User::getId);
+            ownerUserId.ifPresent(userIds::add);
+            if (ownerUserId.isEmpty()) {
+                log.debug("No user found for deal owner employee. employeeId={}", orderHeader.getDeal().getOwnerEmp().getId());
+            }
+        }
+        if (orderHeader.getClient() != null && orderHeader.getClient().getId() != null) {
+            java.util.Optional<Long> clientUserId = userRepository.findByClientId(orderHeader.getClient().getId())
+                    .map(User::getId);
+            clientUserId.ifPresent(userIds::add);
+            if (clientUserId.isEmpty()) {
+                log.debug("No user found for statement client. clientId={}", orderHeader.getClient().getId());
+            }
+        }
+        return userIds.stream().toList();
     }
 }

@@ -1,8 +1,12 @@
 package com.monsoon.seedflowplus.domain.product.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.ProductCreatedEvent;
 import com.monsoon.seedflowplus.domain.product.dto.request.ProductRequest;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
@@ -64,6 +68,8 @@ class ProductWriteServiceTest {
 
         @Mock
         private S3UploadService s3UploadService;
+        @Mock
+        private NotificationEventPublisher notificationEventPublisher;
 
         @InjectMocks
         private ProductWriteService productWriteService;
@@ -95,6 +101,8 @@ class ProductWriteServiceTest {
                 when(productRepository.findTopByProductCategoryOrderByIdDesc(ProductCategory.WATERMELON))
                                 .thenReturn(Optional.empty());
                 when(productRepository.saveAndFlush(any(Product.class))).thenReturn(savedProduct);
+                when(userRepository.findAllByRole(Role.SALES_REP))
+                                .thenReturn(java.util.List.of(salesRepUser(100L), salesRepUser(200L)));
 
                 // when (이미지 없는 경우)
                 Long productId = productWriteService.createProduct(request, null);
@@ -103,6 +111,7 @@ class ProductWriteServiceTest {
                 assertThat(productId).isEqualTo(1L);
                 verify(productRepository, times(1)).saveAndFlush(any(Product.class));
                 verify(s3UploadService, never()).uploadProductImage(any());
+                verify(notificationEventPublisher, times(2)).publishAfterCommit(any(ProductCreatedEvent.class));
         }
 
         @Test
@@ -138,6 +147,7 @@ class ProductWriteServiceTest {
                 when(productRepository.findTopByProductCategoryOrderByIdDesc(ProductCategory.WATERMELON))
                                 .thenReturn(Optional.empty());
                 when(productRepository.saveAndFlush(any(Product.class))).thenReturn(savedProduct);
+                when(userRepository.findAllByRole(Role.SALES_REP)).thenReturn(java.util.List.of());
 
                 // when
                 Long productId = productWriteService.createProduct(request, mockImage);
@@ -181,6 +191,17 @@ class ProductWriteServiceTest {
 
                 verify(s3UploadService, times(1)).uploadProductImage(mockImage);
                 verify(s3UploadService, times(1)).deleteImageFromUrl(expectedImageUrl);
+        }
+
+        private User salesRepUser(Long id) {
+                User user = User.builder()
+                                .loginId("sales-" + id)
+                                .loginPw("pw")
+                                .status(Status.ACTIVATE)
+                                .role(Role.SALES_REP)
+                                .build();
+                org.springframework.test.util.ReflectionTestUtils.setField(user, "id", id);
+                return user;
         }
 
         @Test

@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -16,6 +17,8 @@ import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.log.dto.DealDiffField;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.request.dto.request.QuotationRequestCreateRequest;
@@ -54,6 +57,8 @@ public class QuotationRequestService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogWriteService dealLogWriteService;
+    private final UserRepository userRepository;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Transactional
     public void createQuotationRequest(QuotationRequestCreateRequest request) {
@@ -72,8 +77,10 @@ public class QuotationRequestService {
 
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
 
-        SalesDeal deal = resolveOrCreateOpenDeal(client);
+        SalesDeal deal = createDealBootstrap(client);
 
         // 2. Header 생성
         QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements(), deal);
@@ -113,7 +120,7 @@ public class QuotationRequestService {
         quotationRequestRepository.save(header);
 
         // 6. requestCode 업데이트: RFQ-YYYYMMDD-ID
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String datePart = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
 
@@ -144,6 +151,15 @@ public class QuotationRequestService {
                                 null,
                                 request.items().size(),
                                 "COUNT")));
+
+        resolveNotificationRecipientUserId(client)
+                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new QuotationRequestCreatedEvent(
+                        userId,
+                        header.getId(),
+                        requestCode,
+                        client.getClientName(),
+                        now
+                )));
     }
 
     public QuotationRequestResponse getQuotationRequest(Long id) {
@@ -299,25 +315,45 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
+        String fromStatus = header.getStatus().name();
+        LocalDateTime actionAt = LocalDateTime.now();
+        SalesDeal deal = header.getDeal();
         header.delete();
-    }
 
-    private CustomUserDetails getAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-        return userDetails;
-    }
+        if (deal != null) {
+            dealLogWriteService.write(
+                    deal,
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    deal.getCurrentStage(),
+                    DealStage.CANCELED,
+                    fromStatus,
+                    QuotationRequestStatus.DELETED.name(),
+                    ActionType.CANCEL,
+                    actionAt,
+                    ActorType.CLIENT,
+                    clientId,
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            QuotationRequestStatus.DELETED.name(),
+                            "STATUS"))
+            );
+            syncDealSnapshot(
+                    deal,
+                    DealStage.CANCELED,
+                    QuotationRequestStatus.DELETED.name(),
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    actionAt
+            );
 
-    private SalesDeal resolveOrCreateOpenDeal(Client client) {
-        Long clientId = client.getId();
-        if (clientId == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+            closeDealIfOpen(deal, actionAt);
         }
-        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .orElseGet(() -> createDealBootstrap(client));
     }
 
     private SalesDeal createDealBootstrap(Client client) {
@@ -338,5 +374,41 @@ public class QuotationRequestService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        deal.close(actionAt);
+    }
+
+    private void syncDealSnapshot(
+            SalesDeal deal,
+            DealStage stage,
+            String status,
+            DealType dealType,
+            Long refId,
+            String targetCode,
+            LocalDateTime actionAt
+    ) {
+        deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return userDetails;
+    }
+
+    private java.util.Optional<Long> resolveNotificationRecipientUserId(Client client) {
+        if (client.getManagerEmployee() == null || client.getManagerEmployee().getId() == null) {
+            return java.util.Optional.empty();
+        }
+        return userRepository.findByEmployeeId(client.getManagerEmployee().getId())
+                .map(user -> user.getId());
     }
 }

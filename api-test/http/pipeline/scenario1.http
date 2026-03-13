@@ -772,19 +772,8 @@ client.test("order create success", function () {
 client.global.set("ordId", response.body.data.orderId);
 %}
 
-### [4-2] ORD 확정 (CLIENT) - 명세서 자동 생성
-PATCH {{baseUrl}}/api/v1/orders/{{ordId}}/confirm
-Authorization: Bearer {{clientToken}}
-Content-Type: application/json
-
-{}
-
-> {%
-client.test("order confirm success", function () {
-  client.assert(response.status === 200, "status must be 200");
-  client.assert(response.body.data.status === "CONFIRMED", "order status must be CONFIRMED");
-});
-%}
+### [4-2] ORD 확정은 공개 API가 아니라 ORD 승인 완료 이벤트로 내부 처리된다.
+### 이 시나리오에서는 ORD 승인 요청/결정 완료 후 [4-3]에서 STMT 자동 생성과 주문 상태 변화를 확인한다.
 
 ### [4-3] STMT 자동 생성 확인
 GET {{baseUrl}}/api/v1/statements

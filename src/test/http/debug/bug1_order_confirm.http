@@ -24,9 +24,5 @@ Content-Type: application/json
 
 > {% client.global.set("debugOrdId", response.body.data.orderId) %}
 
-### [debug] ORD confirm (수정 후 200 기대)
-PATCH {{baseUrl}}/api/v1/orders/{{debugOrdId}}/confirm
-Authorization: Bearer {{clientToken}}
-Content-Type: application/json
-
-{}
+### [debug] ORD confirm 공개 API는 제거되었음
+### ORD 승인 완료 이벤트 후 OrderService.confirmOrderFromApproval() 내부 실행 여부를 로그/상세 조회로 확인

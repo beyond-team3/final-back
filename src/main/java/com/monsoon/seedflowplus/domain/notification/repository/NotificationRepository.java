@@ -42,19 +42,79 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LocalDateTime to
     );
 
-    Page<Notification> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    @Query("""
+            SELECT n
+            FROM Notification n
+            WHERE n.user.id = :userId
+              AND EXISTS (
+                  SELECT 1
+                  FROM NotificationDelivery d
+                  WHERE d.notification = n
+                    AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findVisibleByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    long countByUser_IdAndReadAtIsNull(Long userId);
+    @Query("""
+            SELECT COUNT(n)
+            FROM Notification n
+            WHERE n.user.id = :userId
+              AND n.readAt IS NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM NotificationDelivery d
+                  WHERE d.notification = n
+                    AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+            """)
+    long countVisibleUnreadByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT n
+            FROM Notification n
+            WHERE n.id = :id
+              AND n.user.id = :userId
+              AND EXISTS (
+                  SELECT 1
+                  FROM NotificationDelivery d
+                  WHERE d.notification = n
+                    AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+            """)
+    Optional<Notification> findVisibleByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
     Optional<Notification> findByIdAndUser_Id(Long id, Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Notification n set n.readAt = :now where n.user.id = :userId and n.readAt is null")
-    int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+    @Query("""
+            update Notification n
+            set n.readAt = :now
+            where n.user.id = :userId
+              and n.readAt is null
+              and exists (
+                  select 1
+                  from NotificationDelivery d
+                  where d.notification = n
+                    and d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+            """)
+    int markAllVisibleAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Notification n set n.isDeleted = true where n.user.id = :userId and n.isDeleted = false")
-    int deleteByUser_Id(@Param("userId") Long userId);
+    @Query("""
+            update Notification n
+            set n.isDeleted = true
+            where n.user.id = :userId
+              and n.isDeleted = false
+              and exists (
+                  select 1
+                  from NotificationDelivery d
+                  where d.notification = n
+                    and d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+            """)
+    int deleteVisibleByUser_Id(@Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Notification n set n.isDeleted = true where n.createdAt < :cutoff and n.isDeleted = false")

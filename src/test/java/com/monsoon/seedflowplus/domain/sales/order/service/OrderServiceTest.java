@@ -1,12 +1,17 @@
 package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -90,6 +95,12 @@ class OrderServiceTest {
     @Mock
     private DealScheduleSyncService dealScheduleSyncService;
 
+    @Mock
+    private ApprovalSubmissionService approvalSubmissionService;
+
+    @Mock
+    private ApprovalCancellationService approvalCancellationService;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -105,7 +116,47 @@ class OrderServiceTest {
                 statementService,
                 dealPipelineFacade,
                 dealLogQueryService,
-                dealScheduleSyncService
+                dealScheduleSyncService,
+                approvalSubmissionService,
+                approvalCancellationService
+        );
+    }
+
+    @Test
+    void cancelOrderShouldCancelPendingApprovalAndKeepCancelLog() {
+        Long orderId = 31L;
+        Long clientId = 7L;
+
+        Client client = org.mockito.Mockito.mock(Client.class);
+        when(client.getId()).thenReturn(clientId);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+
+        Employee employee = org.mockito.Mockito.mock(Employee.class);
+        ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
+        OrderHeader orderHeader = OrderHeader.create(contract, client, deal, employee, "ORD-20260313-001");
+        ReflectionTestUtils.setField(orderHeader, "id", orderId);
+
+        when(orderHeaderRepository.findById(orderId)).thenReturn(Optional.of(orderHeader));
+
+        orderService.cancelOrder(orderId, clientId);
+
+        verify(approvalCancellationService).cancelPendingRequest(DealType.ORD, orderId);
+        verify(dealPipelineFacade).recordAndSync(
+                eq(deal),
+                eq(DealType.ORD),
+                eq(orderId),
+                eq("ORD-20260313-001"),
+                eq(DealStage.IN_PROGRESS),
+                eq(DealStage.CANCELED),
+                eq(OrderStatus.PENDING.name()),
+                eq(OrderStatus.CANCELED.name()),
+                eq(ActionType.CANCEL),
+                isNull(),
+                eq(ActorType.CLIENT),
+                eq(clientId),
+                isNull(),
+                any()
         );
     }
 
@@ -171,7 +222,9 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenAnswer(invocation -> List.of(savedDetailRef.get()));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        OrderResponse response = orderService.createOrder(request, clientId);
+        CustomUserDetails principal = mock(CustomUserDetails.class);
+
+        OrderResponse response = orderService.createOrder(request, clientId, principal);
 
         ArgumentCaptor<List<DealLogWriteService.DiffField>> diffCaptor = ArgumentCaptor.forClass(List.class);
         verify(dealPipelineFacade).recordAndSync(
@@ -193,6 +246,26 @@ class OrderServiceTest {
         assertEquals(orderId, response.getOrderId());
         assertEquals(OrderStatus.PENDING, response.getStatus());
         assertTrue(diffCaptor.getValue().size() >= 2);
+        verify(approvalSubmissionService).submitFromDocumentCreation(
+                DealType.ORD,
+                orderId,
+                response.getOrderCode(),
+                principal
+        );
+    }
+
+    @Test
+    void createOrderShouldRejectNullPrincipal() {
+        OrderCreateRequest request = new OrderCreateRequest();
+        ReflectionTestUtils.setField(request, "headerId", 11L);
+
+        CoreException exception = assertThrows(
+                CoreException.class,
+                () -> orderService.createOrder(request, 7L, null)
+        );
+
+        assertEquals(ErrorType.UNAUTHORIZED, exception.getErrorType());
+        verifyNoInteractions(approvalSubmissionService);
     }
 
     @Test
@@ -271,7 +344,7 @@ class OrderServiceTest {
         LocalDate expectedDeliveryDate = LocalDate.now().plusDays(3);
         LocalDateTime expectedStartAt = expectedDeliveryDate.atStartOfDay();
 
-        OrderResponse response = orderService.confirmOrder(orderId, principal);
+        OrderResponse response = orderService.confirmOrderFromApproval(orderId, principal);
 
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService, times(1)).upsertFromEvent(commandCaptor.capture());
@@ -351,7 +424,7 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenReturn(List.of(orderDetail));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        orderService.confirmOrder(orderId, principal);
+        orderService.confirmOrderFromApproval(orderId, principal);
 
         InOrder inOrder = inOrder(
                 dealPipelineFacade,
@@ -429,7 +502,7 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenReturn(List.of(orderDetail));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        orderService.confirmOrder(orderId, principal);
+        orderService.confirmOrderFromApproval(orderId, principal);
 
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());

@@ -5,10 +5,145 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
+
+## [2026-03-13 14:28] 주문 승인 내부 이벤트 확정과 알림 보강
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인 시 직접 주문 확정 대신 after-commit 이벤트 발행으로 전환
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/OrderApprovalConfirmedEvent.java` — 주문 승인 완료 내부 이벤트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderApprovalConfirmedEventHandler.java` — 승인 완료 이벤트 수신 후 내부 전용 주문 확정 실행
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — 외부 confirm API 의존 제거, 내부 전용 `confirmOrderFromApproval` 메서드로 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/controller/OrderController.java` — 외부 주문 확정 엔드포인트 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — statement 발행 알림 수신자에 order employee와 deal owner를 모두 포함하고 missing user debug 로그 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 계약 시작/종료 알림 과거 예약 방지 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 미사용 closeDeals 제거 및 close helper 의미 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 미사용 closeDeals 제거 및 close helper 의미 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 생성 시 단일 timestamp 재사용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/**` — approval/order/statement/notification/request/quotation 관련 회귀 테스트 및 fixture 안정성 보강
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-13 15:16] 주문 승인 decision 로그 선반영 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인 decision 결과가 실제 주문 확정보다 먼저 `CONFIRMED`를 기록하지 않도록 `PENDING/IN_PROGRESS` 유지로 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — ORD 승인 시 approval decision 로그가 주문 상태를 선반영하지 않는 회귀 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — approval decision 로그 보정 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-13 12:24] deal snapshot 복구와 만료 타임라인 보강
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 삭제 시 deal snapshot을 DELETED RFQ로 동기화한 뒤 close 처리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 후 RFQ snapshot 복구, QUO 만료 시 EXPIRE 로그/스냅샷/close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 후 QUO snapshot 복구, CNT 만료 시 EXPIRE 로그/스냅샷/close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 계약 종료 30일 전 알림 예약이 과거 시각이면 생성하지 않도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java` — RFQ 삭제 snapshot 동기화 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — QUO 삭제 후 RFQ snapshot 복구 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — QUO 만료 EXPIRE 로그/스냅샷 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — CNT 삭제 후 QUO snapshot 복구 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — CNT 만료 EXPIRE 로그/스냅샷 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java` — short contract의 past ending-soon 예약 skip 검증 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-12 11:19] 문서 생성 시 승인 요청 자동 생성 적용
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java` — 문서 생성/수동 생성 승인 요청 전용 서비스 추가 및 자동 생성 정책 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적서 생성 직후 승인 요청 자동 생성 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 계약서 생성 직후 승인 요청 자동 생성 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 수동 승인 요청 생성 API를 ADMIN 전용으로 제한
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 설정에 승인 생성 권한 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionServiceTest.java` — 자동 승인 생성, 상태 검증, 중복 차단 테스트 추가
+- 수정 파일: `output.txt` — 프론트 반영용 API 변경 프롬프트 작성
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+프론트에서 견적/계약 생성 후 수동 승인 요청 API 호출 제거 및 관리자 승인 목록 재조회 흐름 점검
+
+## [2026-03-12 12:01] 문서 삭제 시 승인 요청 취소 처리 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationService.java` — 삭제된 문서에 연결된 진행 중 승인 요청을 취소하는 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/repository/ApprovalRequestRepository.java` — 문서와 상태 기준으로 승인 요청을 조회하는 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적 삭제 시 진행 중 승인 요청 취소 호출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 계약 삭제 시 진행 중 승인 요청 취소 호출 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationServiceTest.java` — 승인 취소 서비스 단위 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 견적 삭제 시 승인 요청 취소 검증 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 계약 삭제 시 승인 요청 취소 및 상위 문서 복구 검증 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+수동 승인 생성 API가 동일한 문서 상태 검증 정책을 타도록 승인 생성 경로 일원화 검토
+
+## [2026-03-11 16:34] 공통 통계 API 신규 구현 및 보안 매핑 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsFilter.java` — 공통 요청 파라미터 모델과 limit 정규화용 복사 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsPeriod.java` — 월/분기 기간 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/StatisticsRankingType.java` — 랭킹 축 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesTrendDto.java` — 시계열 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesTrendItemDto.java` — period/sales 항목 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/dto/SalesRankingDto.java` — 랭킹 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/repository/StatisticsRepository.java` — QueryDSL 기반 추이/랭킹 집계 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/service/StatisticsQueryService.java` — 필터 검증, 빈 구간 0 채우기, SALES_REP 담당 거래처 범위 필터링 구현
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/controller/StatisticsController.java` — `/api/v1/statistics/**` 6개 엔드포인트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 신규 통계 경로별 권한 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 경로 매처 동기화
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/controller/StatisticsControllerTest.java` — 경로별 200/401/403/400 컨트롤러 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/service/StatisticsQueryServiceTest.java` — 검증, 0 채우기, SALES_REP 범위 적용 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/repository/StatisticsRepositoryTest.java` — PAID 기준 집계, 버킷, 랭킹 limit, 품종 필터 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 공통 통계 API 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+커밋
+
+## [2026-03-11 16:43] 공통 통계 API 기능 문서 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/docs/statistics-api-guide.md` — 신규 공통 통계 기능의 집계 기준, 사용 엔티티, 권한, 엔드포인트, 요청/응답 모델을 정리한 문서 추가
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [ ] 오류 있음 → 문서 추가 작업으로 컴파일 미실행
+
+### 다음 단계
+커밋
 
 ## [2026-03-06 10:41] 서비스 검증 정책 테스트 고정
 
@@ -17,7 +152,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -30,7 +165,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -43,7 +178,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -59,7 +194,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -73,7 +208,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -91,7 +226,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -118,7 +253,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음 (이 작업으로 경로 정책 변경 세션 완료)
@@ -133,7 +268,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음 (경로 정책 변경 세션 완료)
@@ -142,6 +277,7 @@
 
 ### 작업 내용
 - 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsController.java` — 통계 API base path를 `/api/v1/statistics/billing/revenue`로 변경
+
 - 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 통계 API 보안 매처를 새 base path로 동기화
 - 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/api/BillingRevenueStatisticsControllerTest.java` — 신규 경로 반영, 구 경로 404 검증, 엔드포인트별 200/401/403 보안 회귀 테스트 추가 및 WebMvcTest 슬라이스 설정 정리
 - 수정 파일: `build.gradle` — `spring-security-test` 의존성 추가
@@ -149,7 +285,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음 (경로 정책 변경 세션 완료)
@@ -189,7 +325,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -201,7 +337,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -221,7 +357,7 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
@@ -234,7 +370,144 @@
 
 ### 컴파일 결과
 - [x] 오류 없음
-- [ ] 오류 있음 → <내용>
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-11 17:50] 승인 검색 정렬 alias 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/controller/ApprovalController.java` — 승인 검색 기본 정렬을 `id desc`로 지정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — `approvalId` 정렬 요청을 엔티티 `id`로 정규화하는 pageable 보정 로직 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 프론트 정렬 alias 회귀 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 승인 검색 정렬 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-12 17:02] 주문 승인 절차 및 자동 승인 요청 연계 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/controller/OrderController.java` — 주문 생성 컨트롤러가 principal 포함 `createOrder(...)`만 호출하도록 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — 주문 생성 principal 검증 및 생성 직후 ORD 승인 요청 자동 제출 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalFlowPolicy.java` — 문서 타입별 승인 단계 정의와 마지막 단계 판정 공통화
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java` — ORD 제출 지원, 주문 상태/소유권 검증, 1단계 SALES_REP 알림 대상 계산 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인/반려 처리, 주문 확정 서비스 연계, 마지막 단계 일반화, ORD 알림 대상 계산 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java` — ORD 승인 요청 submit 로그가 주문 PENDING 상태를 유지하도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java` — 주문 생성 자동 승인 요청 호출 및 null principal 예외 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionServiceTest.java` — ORD 승인 요청 생성/상태/소유권 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — ORD 승인/반려/권한/최종 승인 상태 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-12 19:26] 주문 승인 decision 로그 상태 검증 분리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriter.java` — ORD 승인 decision은 주문 확정과 명세서 발행으로 deal snapshot이 선행 이동해도 snapshot 재동기화 없이 승인 로그만 기록하도록 분기 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalDealLogWriterTest.java` — ORD 승인 시 deal stage가 `ISSUED`로 바뀐 뒤에도 decision 로그가 예외 없이 기록되는 회귀 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+프론트 `/approval` 경로에서 ORD 승인 재검증
+
+## [2026-03-12 20:11] 계약 거래처 승인 후 견적 CONVERT actor 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 계약서 거래처 승인 후 자동 완료되는 견적서 CONVERT 로그는 사용자 직접 행위가 아니라 후속 동기화이므로 `SYSTEM` actor로 호출하도록 변경
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 계약 거래처 승인 시 견적 완료 후처리가 `SYSTEM/null actorId`로 호출되는지 기대값 보정
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+프론트 계약 거래처 승인 재검증
+
+## [2026-03-13 10:46] deal log 정책 변경사항 작업 메모 정리
+
+### 작업 내용
+- 수정 파일: `output.txt` — RFQ/QUO/CNT/ORD/STMT/INV 기준 deal log, approval 정리, deal 생성/종결 정책을 현재 코드 기준으로 정리하고 수정 우선순위, 파일별 TODO, 단계별 검증 항목을 작성
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음 (문서성 작업으로 파일 내용 검토 수행)
+
+### 다음 단계
+- output.txt 기준으로 실제 코드 수정 착수
+
+## [2026-03-13 11:56] deal lifecycle 삭제/만료 정책 반영
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 생성 시 새 deal bootstrap 강제, RFQ 삭제 시 삭제 로그와 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 로그 추가, 만료 동기화 후 관련 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 로그 추가, 만료 동기화 후 관련 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — ORD 취소 시 pending approval cancel 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — STMT cancel API가 삭제 정책 의미임을 주석으로 명시
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDeal.java` — close idempotent 가드 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java` — RFQ 새 deal 생성/삭제 로그/close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — QUO 삭제 로그 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — QUO 만료 시 deal close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — CNT 삭제 로그 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — CNT 만료 시 deal close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java` — ORD 취소 approval cancel 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationServiceTest.java` — ORD approval cancel 단위 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDealTest.java` — deal close idempotent 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-13 16:05] 리뷰 지적 재검증 및 필요 항목만 수정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/OrderApprovalConfirmedEvent.java` — 주문 승인 완료 이벤트 생성 시 approverUserId null 가드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 계약 완료 알림 수신자 중복 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 청구서 발행 알림 시각을 실제 발행 시점으로 보정하고 client 누락 시 경고 로그 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — 명세서 발행 알림 timestamp 일관화 및 주문 승인 이벤트 기반 호출 주석 정정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 삭제 시 deal 없는 legacy 데이터 허용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 시 deal null 허용, 복구 후 최종 상태 기준 로그 반영
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 시 deal null 허용, 복구 후 최종 상태 기준 로그 반영, 활성화 후 즉시 만료 계약 deal 처리 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 계약 코드 없는 예약 알림 문구 공백 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — approver userId/employeeId 구분 검증과 저장소 search 금지 검증 강화
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — InvoiceIssuedEvent 발생 시각 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java` — StatementIssuedEvent timestamp 일관성 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java` — deal 없는 RFQ 삭제 허용 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — QUO 삭제 최종 상태 로그 및 deal 없는 삭제 테스트 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — CNT 삭제 최종 상태 로그 및 deal 없는 삭제 테스트 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — 같은 실행에서 활성화 후 즉시 만료된 계약의 deal 만료 처리 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java` — 계약 코드 없는 알림 문구 검증 추가
+- 수정 파일: `api-test/http/run-checklist.md` — 공개 주문 확정 API 제거 후 승인 이벤트 기반 흐름으로 설명 정정
+- 수정 파일: `api-test/http/order.http` — 제거된 주문 confirm 요청 예시 제거
+- 수정 파일: `api-test/http/statement.http` — 제거된 주문 confirm 요청 참조 제거
+- 수정 파일: `api-test/http/pipeline/scenario1.http` — ORD 확정 단계를 승인 이벤트 기반 설명으로 정정
+- 수정 파일: `api-test/http/pipeline/scenario1-2.http` — ORD 확정 단계를 승인 이벤트 기반 설명으로 정정
+- 수정 파일: `src/test/http/debug/bug1_order_confirm.http` — 제거된 confirm endpoint 디버그 스니펫 정정
+- 수정 파일: `docs/api/domain-api-list.csv` — 제거된 주문 confirm API 항목 삭제
+- 수정 파일: `docs/refactoring/fix-scenario1.md` — confirmOrderFromApproval 및 이벤트 기반 주문 확정 흐름으로 문서 정정
+- 수정 파일: `docs/statistics/statistics-architecture.md` — ORD 승인 이벤트 기반 내부 주문 확정 설명으로 문구 정정
+- 수정 파일: `docs/statistics/statistics-work-log.md` — placeholder `<내용>` 정리 및 작업 로그 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
