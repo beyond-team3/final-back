@@ -35,8 +35,8 @@ import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPubli
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
 import com.monsoon.seedflowplus.domain.sales.order.service.OrderService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
@@ -170,7 +170,8 @@ public class ApprovalCommandService {
                 step,
                 dto.decision(),
                 now,
-                actorId
+                actorId,
+                principal
         );
 
         try {
@@ -364,12 +365,13 @@ public class ApprovalCommandService {
             ApprovalStep step,
             DecisionType decision,
             LocalDateTime actionAt,
-            Long actorId
+            Long actorId,
+            CustomUserDetails principal
     ) {
         return switch (request.getDealType()) {
             case QUO -> applyQuotationDecision(request, step, decision);
             case CNT -> applyContractDecision(request, step, decision, actionAt, actorId);
-            case ORD -> applyOrderDecision(request, decision, actorId);
+            case ORD -> applyOrderDecision(request, decision, principal, actionAt);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
     }
@@ -377,7 +379,8 @@ public class ApprovalCommandService {
     private DocumentDecisionResult applyOrderDecision(
             ApprovalRequest request,
             DecisionType decision,
-            Long actorId
+            CustomUserDetails principal,
+            LocalDateTime actionAt
     ) {
         OrderHeader orderHeader = orderHeaderRepository.findById(request.getTargetId())
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
@@ -394,14 +397,21 @@ public class ApprovalCommandService {
             );
         }
 
-        CustomUserDetails approvalPrincipal = resolveOrderApprovalPrincipal(orderHeader, actorId);
-        OrderResponse confirmedOrder = orderService.confirmOrder(orderHeader.getId(), approvalPrincipal);
+        publishOrderApprovalConfirmedAfterCommit(orderHeader.getId(), principal, actionAt);
         return new DocumentDecisionResult(
                 fromStatus,
-                confirmedOrder.getStatus().name(),
+                OrderStatus.CONFIRMED.name(),
                 fromStage,
                 DealStage.CONFIRMED.name()
         );
+    }
+
+    private void publishOrderApprovalConfirmedAfterCommit(Long orderId, CustomUserDetails principal, LocalDateTime actionAt) {
+        applicationEventPublisher.publishEvent(new OrderApprovalConfirmedEvent(
+                orderId,
+                principal == null ? null : principal.getUserId(),
+                actionAt
+        ));
     }
 
     private void publishContractApprovalSchedulesSyncAfterCommitIfNeeded(
@@ -928,16 +938,6 @@ public class ApprovalCommandService {
             return orderHeader.getDeal().getOwnerEmp().getId();
         }
         throw new CoreException(ErrorType.UNAUTHORIZED);
-    }
-
-    private CustomUserDetails resolveOrderApprovalPrincipal(OrderHeader orderHeader, Long actorId) {
-        Long approverEmployeeId = resolveOrderApproverEmployeeId(orderHeader);
-        if (!Objects.equals(approverEmployeeId, actorId)) {
-            throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
-        }
-        return userRepository.findByEmployeeId(approverEmployeeId)
-                .map(CustomUserDetails::new)
-                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
     }
 
     private LocalDateTime now() {

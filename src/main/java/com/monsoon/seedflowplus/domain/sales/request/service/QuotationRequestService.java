@@ -77,6 +77,8 @@ public class QuotationRequestService {
 
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
 
         SalesDeal deal = createDealBootstrap(client);
 
@@ -118,7 +120,7 @@ public class QuotationRequestService {
         quotationRequestRepository.save(header);
 
         // 6. requestCode 업데이트: RFQ-YYYYMMDD-ID
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String datePart = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
 
@@ -156,7 +158,7 @@ public class QuotationRequestService {
                         header.getId(),
                         requestCode,
                         client.getClientName(),
-                        LocalDateTime.now()
+                        now
                 )));
     }
 

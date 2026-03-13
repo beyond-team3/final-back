@@ -46,15 +46,18 @@ public class ScheduledNotificationService {
                 continue;
             }
             if (contract.getStartDate() != null) {
-                createScheduledNotification(
-                        userId,
-                        NotificationType.CONTRACT_STARTING,
-                        NotificationTargetType.CONTRACT,
-                        contract.getId(),
-                        "계약 시작 알림",
-                        buildContractStartingContent(contract),
-                        atNineAm(contract.getStartDate())
-                );
+                LocalDateTime startingScheduledAt = atNineAm(contract.getStartDate());
+                if (startingScheduledAt.isAfter(now)) {
+                    createScheduledNotification(
+                            userId,
+                            NotificationType.CONTRACT_STARTING,
+                            NotificationTargetType.CONTRACT,
+                            contract.getId(),
+                            "계약 시작 알림",
+                            buildContractStartingContent(contract),
+                            startingScheduledAt
+                    );
+                }
             }
             if (contract.getEndDate() != null) {
                 LocalDateTime endingSoonScheduledAt = atNineAm(contract.getEndDate().minusDays(30));
@@ -69,15 +72,18 @@ public class ScheduledNotificationService {
                             endingSoonScheduledAt
                     );
                 }
-                createScheduledNotification(
-                        userId,
-                        NotificationType.CONTRACT_ENDED,
-                        NotificationTargetType.CONTRACT,
-                        contract.getId(),
-                        "계약 종료 알림",
-                        buildContractEndedContent(contract),
-                        atNineAm(contract.getEndDate())
-                );
+                LocalDateTime endedScheduledAt = atNineAm(contract.getEndDate());
+                if (endedScheduledAt.isAfter(now)) {
+                    createScheduledNotification(
+                            userId,
+                            NotificationType.CONTRACT_ENDED,
+                            NotificationTargetType.CONTRACT,
+                            contract.getId(),
+                            "계약 종료 알림",
+                            buildContractEndedContent(contract),
+                            endedScheduledAt
+                    );
+                }
             }
         }
     }

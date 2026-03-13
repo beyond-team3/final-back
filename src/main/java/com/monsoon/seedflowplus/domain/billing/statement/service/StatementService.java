@@ -23,14 +23,17 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -257,26 +260,36 @@ public class StatementService {
                         statement.getId(),
                         statement.getStatementCode(),
                         orderHeader.getOrderCode(),
-                        statement.getCreatedAt() != null ? statement.getCreatedAt() : java.time.LocalDateTime.now()
+                        statement.getCreatedAt() != null ? statement.getCreatedAt() : LocalDateTime.now()
                 )));
     }
 
     private List<Long> resolveStatementRecipientUserIds(OrderHeader orderHeader) {
         java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
         if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
-            userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
-        } else if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+            java.util.Optional<Long> employeeUserId = userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
+                    .map(User::getId);
+            employeeUserId.ifPresent(userIds::add);
+            if (employeeUserId.isEmpty()) {
+                log.debug("No user found for order employee. employeeId={}", orderHeader.getEmployee().getId());
+            }
+        }
+        if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
                 && orderHeader.getDeal().getOwnerEmp().getId() != null) {
-            userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
+            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
+                    .map(User::getId);
+            ownerUserId.ifPresent(userIds::add);
+            if (ownerUserId.isEmpty()) {
+                log.debug("No user found for deal owner employee. employeeId={}", orderHeader.getDeal().getOwnerEmp().getId());
+            }
         }
         if (orderHeader.getClient() != null && orderHeader.getClient().getId() != null) {
-            userRepository.findByClientId(orderHeader.getClient().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
+            java.util.Optional<Long> clientUserId = userRepository.findByClientId(orderHeader.getClient().getId())
+                    .map(User::getId);
+            clientUserId.ifPresent(userIds::add);
+            if (clientUserId.isEmpty()) {
+                log.debug("No user found for statement client. clientId={}", orderHeader.getClient().getId());
+            }
         }
         return userIds.stream().toList();
     }

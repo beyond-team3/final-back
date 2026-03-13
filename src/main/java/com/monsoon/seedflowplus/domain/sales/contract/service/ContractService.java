@@ -582,17 +582,12 @@ public class ContractService {
         return actorId;
     }
 
-    private void closeDeals(java.util.Set<Long> dealIds, LocalDateTime actionAt) {
-        if (dealIds.isEmpty()) {
-            return;
-        }
-        salesDealRepository.findAllById(dealIds)
-                .forEach(deal -> closeDealIfOpen(deal, actionAt));
-    }
-
     private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
         if (deal == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        if (deal.getClosedAt() != null) {
+            return;
         }
         deal.close(actionAt);
     }
