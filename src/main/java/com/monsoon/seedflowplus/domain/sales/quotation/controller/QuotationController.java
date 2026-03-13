@@ -35,6 +35,13 @@ public class QuotationController {
         return ApiResult.success(response);
     }
 
+    @Operation(summary = "반려 및 만료된 견적서 목록 조회", description = "재작성을 위해 참고할 반려 또는 만료된 견적서 목록을 조회합니다.")
+    @GetMapping("/rejected")
+    public ApiResult<List<QuotationListResponse>> getRejectedQuotations() {
+        List<QuotationListResponse> response = quotationService.getRejectedQuotations();
+        return ApiResult.success(response);
+    }
+
     @Operation(summary = "견적서 상세 조회", description = "견적서 ID를 통해 상세 정보를 조회합니다. (역할별 접근 제어 및 메모 가시성 적용)")
     @GetMapping("/{id}")
     public ApiResult<QuotationResponse> getQuotationDetail(@PathVariable("id") Long id) {
