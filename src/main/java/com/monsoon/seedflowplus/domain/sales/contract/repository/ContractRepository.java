@@ -30,6 +30,8 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
                         @Param("newStatus") ContractStatus newStatus,
                         @Param("today") LocalDate today);
 
+        List<ContractHeader> findByDealId(Long dealId);
+
         List<ContractHeader> findAllByStatus(ContractStatus status);
 
         List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
