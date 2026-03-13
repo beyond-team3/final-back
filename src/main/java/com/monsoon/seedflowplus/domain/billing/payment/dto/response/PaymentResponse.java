@@ -20,10 +20,13 @@ public class PaymentResponse {
     private Long invoiceId;
     private String invoiceCode;
     private Long clientId;
+    private String clientName;
     private BigDecimal paymentAmount;
+    private BigDecimal invoiceTotalAmount;
     private PaymentMethod paymentMethod;
     private PaymentStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime paidAt;
     private List<DealLogSummaryDto> recentLogs;
 
     public static PaymentResponse from(Payment payment) {
@@ -37,10 +40,13 @@ public class PaymentResponse {
                 .invoiceId(payment.getInvoice() != null ? payment.getInvoice().getId() : null)
                 .invoiceCode(payment.getInvoice() != null ? payment.getInvoice().getInvoiceCode() : null)
                 .clientId(payment.getClient() != null ? payment.getClient().getId() : null)
+                .clientName(payment.getClient() != null ? payment.getClient().getClientName() : null)
                 .paymentAmount(payment.getPaymentAmount())
+                .invoiceTotalAmount(payment.getInvoice() != null ? payment.getInvoice().getTotalAmount() : null)
                 .paymentMethod(payment.getPaymentMethod())
                 .status(payment.getStatus())
                 .createdAt(payment.getCreatedAt())
+                .paidAt(payment.getStatus() == PaymentStatus.COMPLETED ? payment.getCreatedAt() : null)
                 .recentLogs(recentLogs)
                 .build();
     }
