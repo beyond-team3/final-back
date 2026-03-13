@@ -5,8 +5,10 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
@@ -29,6 +31,10 @@ import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepos
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +64,7 @@ public class QuotationService {
     private final QuotationRequestRepository quotationRequestRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
@@ -65,6 +72,7 @@ public class QuotationService {
     private final DealLogQueryService dealLogQueryService;
     private final ApprovalSubmissionService approvalSubmissionService;
     private final ApprovalCancellationService approvalCancellationService;
+    private final DealScheduleSyncService dealScheduleSyncService;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -191,6 +199,7 @@ public class QuotationService {
                 finalCode,
                 userDetails
         );
+        syncQuotationExpirationSchedule(quotation, userDetails);
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -298,6 +307,7 @@ public class QuotationService {
         dealPipelineFacade.validateTransitionOrThrow(DealType.QUO, fromStatus, ActionType.CONVERT, toStatus);
 
         quotation.updateStatus(QuotationStatus.COMPLETED);
+        deleteQuotationExpirationSchedule(quotation.getId());
         dealLogWriteService.write(
                 quotation.getDeal(),
                 DealType.QUO,
@@ -339,6 +349,7 @@ public class QuotationService {
         String fromStatus = quotation.getStatus().name();
         DealStage fromStage = mapQuotationStage(quotation.getStatus());
         quotation.updateStatus(QuotationStatus.DELETED);
+        deleteQuotationExpirationSchedule(quotation.getId());
         approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
         dealLogWriteService.write(
                 quotation.getDeal(),
@@ -445,6 +456,51 @@ public class QuotationService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
+    }
+
+    private void syncQuotationExpirationSchedule(QuotationHeader quotation, CustomUserDetails userDetails) {
+        if (quotation.getExpiredDate() == null || quotation.getDeal() == null) {
+            return;
+        }
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                quotationExpirationExternalKey(quotation.getId()),
+                quotation.getDeal().getId(),
+                quotation.getClient().getId(),
+                resolveScheduleAssigneeUserId(userDetails),
+                DealScheduleEventType.FOLLOW_UP_REMINDER,
+                DealDocType.QUO,
+                quotation.getId(),
+                null,
+                "견적 만료일: " + quotation.getClient().getClientName(),
+                null,
+                quotation.getExpiredDate().atStartOfDay(),
+                quotation.getExpiredDate().plusDays(1).atStartOfDay(),
+                LocalDateTime.now()
+        ));
+    }
+
+    private void deleteQuotationExpirationSchedule(Long quotationId) {
+        if (quotationId == null) {
+            return;
+        }
+        dealScheduleSyncService.deleteByExternalKey(quotationExpirationExternalKey(quotationId));
+    }
+
+    private String quotationExpirationExternalKey(Long quotationId) {
+        return "QUO_" + quotationId + "_EXPIRATION";
+    }
+
+    private Long resolveScheduleAssigneeUserId(CustomUserDetails userDetails) {
+        if (userDetails.getUserId() != null) {
+            return userDetails.getUserId();
+        }
+        if (userDetails.getEmployeeId() != null) {
+            return userRepository.findByEmployeeId(userDetails.getEmployeeId())
+                    .map(User::getId)
+                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        }
+        throw new CoreException(ErrorType.USER_NOT_FOUND);
     }
 
     private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
