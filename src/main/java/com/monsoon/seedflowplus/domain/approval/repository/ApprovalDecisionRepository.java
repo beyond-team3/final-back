@@ -13,10 +13,16 @@ public interface ApprovalDecisionRepository extends JpaRepository<ApprovalDecisi
 
     Optional<ApprovalDecision> findByApprovalStepId(Long approvalStepId);
 
-    @Query("SELECT d.reason FROM ApprovalDecision d " +
+    @Query("SELECT new com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto(r.targetId, d.reason) " +
+           "FROM ApprovalDecision d " +
            "JOIN d.approvalStep s " +
            "JOIN s.approvalRequest r " +
-           "WHERE r.dealType = :dealType AND r.targetId = :targetId " +
-           "ORDER BY d.decidedAt DESC")
-    java.util.List<String> findReasonsByTarget(@Param("dealType") DealType dealType, @Param("targetId") Long targetId);
+           "WHERE r.dealType = :dealType AND r.targetId IN :targetIds " +
+           "AND d.id IN (SELECT MAX(d2.id) FROM ApprovalDecision d2 " +
+           "             JOIN d2.approvalStep s2 " +
+           "             JOIN s2.approvalRequest r2 " +
+           "             WHERE r2.dealType = :dealType AND r2.targetId = r.targetId)")
+    java.util.List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> findReasonsByTargets(
+            @Param("dealType") DealType dealType, 
+            @Param("targetIds") java.util.List<Long> targetIds);
 }
