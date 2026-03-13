@@ -152,18 +152,27 @@ public class ScheduledNotificationService {
     }
 
     private String buildContractStartingContent(ContractHeader contract) {
-        return String.format("계약 %s가 오늘 시작됩니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 오늘 시작됩니다.";
+        }
+        return String.format("계약 %s가 오늘 시작됩니다.", wrappedCode);
     }
 
     private String buildContractEndingSoonContent(ContractHeader contract) {
-        return String.format("계약 %s 종료까지 30일 남았습니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 종료까지 30일 남았습니다.";
+        }
+        return String.format("계약 %s 종료까지 30일 남았습니다.", wrappedCode);
     }
 
     private String buildContractEndedContent(ContractHeader contract) {
-        return String.format("계약 %s가 오늘 종료됩니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 오늘 종료됩니다.";
+        }
+        return String.format("계약 %s가 오늘 종료됩니다.", wrappedCode);
     }
 
     private String wrapCode(String code) {

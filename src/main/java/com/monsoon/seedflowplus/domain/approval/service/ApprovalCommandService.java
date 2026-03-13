@@ -48,6 +48,7 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
@@ -840,18 +841,11 @@ public class ApprovalCommandService {
         }
 
         contractRepository.findById(request.getTargetId()).ifPresent(contract -> {
-            userRepository.findAllByRole(Role.ADMIN).stream()
+            LinkedHashSet<Long> recipientUserIds = userRepository.findAllByRole(Role.ADMIN).stream()
                     .map(User::getId)
-                    .distinct()
-                    .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ContractCompletedEvent(
-                            userId,
-                            contract.getId(),
-                            contract.getContractCode(),
-                            contract.getClient().getClientName(),
-                            occurredAt
-                    )));
-
-            resolveContractRecipientUserIds(contract).forEach(userId ->
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            recipientUserIds.addAll(resolveContractRecipientUserIds(contract));
+            recipientUserIds.forEach(userId ->
                     notificationEventPublisher.publishAfterCommit(new ContractCompletedEvent(
                             userId,
                             contract.getId(),

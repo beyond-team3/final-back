@@ -10,6 +10,7 @@ public record OrderApprovalConfirmedEvent(
 ) {
     public OrderApprovalConfirmedEvent {
         Objects.requireNonNull(orderId, "orderId must not be null");
+        Objects.requireNonNull(approverUserId, "approverUserId must not be null");
         Objects.requireNonNull(occurredAt, "occurredAt must not be null");
     }
 }

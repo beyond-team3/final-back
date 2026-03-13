@@ -48,7 +48,7 @@ public class StatementService {
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
-     * OrderService.confirmOrder() 에서 호출
+     * OrderApprovalConfirmedEventHandler -> OrderService.confirmOrderFromApproval() 흐름에서 호출
      */
     @Transactional
     public void createStatement(OrderHeader orderHeader, ActorType actorType, Long actorId) {
@@ -254,13 +254,14 @@ public class StatementService {
     }
 
     private void publishStatementIssuedNotifications(Statement statement, OrderHeader orderHeader) {
+        LocalDateTime occurredAt = statement.getCreatedAt() != null ? statement.getCreatedAt() : LocalDateTime.now();
         resolveStatementRecipientUserIds(orderHeader).forEach(userId ->
                 notificationEventPublisher.publishAfterCommit(new StatementIssuedEvent(
                         userId,
                         statement.getId(),
                         statement.getStatementCode(),
                         orderHeader.getOrderCode(),
-                        statement.getCreatedAt() != null ? statement.getCreatedAt() : LocalDateTime.now()
+                        occurredAt
                 )));
     }
 

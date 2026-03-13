@@ -39,6 +39,7 @@ import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -524,6 +526,8 @@ public class InvoiceService {
 
     private void publishInvoiceIssuedNotification(Invoice invoice) {
         if (invoice.getClient() == null || invoice.getClient().getId() == null) {
+            log.warn("Skipping invoice issued notification due to missing client or client id. invoiceId={}, client={}",
+                    invoice.getId(), invoice.getClient());
             return;
         }
         userRepository.findByClientId(invoice.getClient().getId())
@@ -533,7 +537,7 @@ public class InvoiceService {
                         invoice.getId(),
                         invoice.getInvoiceCode(),
                         invoice.getClient().getClientName(),
-                        invoice.getCreatedAt() != null ? invoice.getCreatedAt() : java.time.LocalDateTime.now()
+                        LocalDateTime.now()
                 )));
     }
 }

@@ -315,47 +315,45 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
-        SalesDeal deal = header.getDeal();
-        if (deal == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-
         String fromStatus = header.getStatus().name();
         LocalDateTime actionAt = LocalDateTime.now();
+        SalesDeal deal = header.getDeal();
         header.delete();
 
-        dealLogWriteService.write(
-                deal,
-                DealType.RFQ,
-                header.getId(),
-                header.getRequestCode(),
-                deal.getCurrentStage(),
-                DealStage.CANCELED,
-                fromStatus,
-                QuotationRequestStatus.DELETED.name(),
-                ActionType.CANCEL,
-                actionAt,
-                ActorType.CLIENT,
-                clientId,
-                null,
-                List.of(new DealLogWriteService.DiffField(
-                        "status",
-                        "문서 상태",
-                        fromStatus,
-                        QuotationRequestStatus.DELETED.name(),
-                        "STATUS"))
-        );
-        syncDealSnapshot(
-                deal,
-                DealStage.CANCELED,
-                QuotationRequestStatus.DELETED.name(),
-                DealType.RFQ,
-                header.getId(),
-                header.getRequestCode(),
-                actionAt
-        );
+        if (deal != null) {
+            dealLogWriteService.write(
+                    deal,
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    deal.getCurrentStage(),
+                    DealStage.CANCELED,
+                    fromStatus,
+                    QuotationRequestStatus.DELETED.name(),
+                    ActionType.CANCEL,
+                    actionAt,
+                    ActorType.CLIENT,
+                    clientId,
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            QuotationRequestStatus.DELETED.name(),
+                            "STATUS"))
+            );
+            syncDealSnapshot(
+                    deal,
+                    DealStage.CANCELED,
+                    QuotationRequestStatus.DELETED.name(),
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    actionAt
+            );
 
-        closeDealIfOpen(deal, actionAt);
+            closeDealIfOpen(deal, actionAt);
+        }
     }
 
     private SalesDeal createDealBootstrap(Client client) {

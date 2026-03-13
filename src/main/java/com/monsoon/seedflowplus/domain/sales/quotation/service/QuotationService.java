@@ -443,32 +443,39 @@ public class QuotationService {
         DealStage fromStage = mapQuotationStage(quotation.getStatus());
         quotation.updateStatus(QuotationStatus.DELETED);
         approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
-        dealLogWriteService.write(
-                quotation.getDeal(),
-                DealType.QUO,
-                quotation.getId(),
-                quotation.getQuotationCode(),
-                fromStage,
-                DealStage.CANCELED,
-                fromStatus,
-                QuotationStatus.DELETED.name(),
-                ActionType.CANCEL,
-                LocalDateTime.now(),
-                ActorType.SALES_REP,
-                userDetails.getEmployeeId(),
-                null,
-                List.of(new DealLogWriteService.DiffField(
-                        "status",
-                        "문서 상태",
-                        fromStatus,
-                        QuotationStatus.DELETED.name(),
-                        "STATUS"))
-        );
 
         // 4. 관련 RFQ 상태 복구 (검토 중인 경우 다시 대기 상태로)
+        DealStage toStage = DealStage.CANCELED;
+        String toStatus = QuotationStatus.DELETED.name();
         if (quotation.getQuotationRequest() != null
                 && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
             quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
+            toStage = mapQuotationRequestStage(QuotationRequestStatus.PENDING);
+            toStatus = QuotationRequestStatus.PENDING.name();
+        }
+
+        if (quotation.getDeal() != null) {
+            dealLogWriteService.write(
+                    quotation.getDeal(),
+                    DealType.QUO,
+                    quotation.getId(),
+                    quotation.getQuotationCode(),
+                    fromStage,
+                    toStage,
+                    fromStatus,
+                    toStatus,
+                    ActionType.CANCEL,
+                    LocalDateTime.now(),
+                    ActorType.SALES_REP,
+                    userDetails.getEmployeeId(),
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            QuotationStatus.DELETED.name(),
+                            "STATUS"))
+            );
         }
 
         restoreDealSnapshotAfterQuotationDelete(quotation, fromStage, fromStatus);
@@ -621,7 +628,7 @@ public class QuotationService {
     private void restoreDealSnapshotAfterQuotationDelete(QuotationHeader quotation, DealStage deletedFromStage, String deletedFromStatus) {
         SalesDeal deal = quotation.getDeal();
         if (deal == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+            return;
         }
         LocalDateTime actionAt = LocalDateTime.now();
 
