@@ -73,7 +73,7 @@ public class QuotationService {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        Client client = clientRepository.findById(request.clientId())
+        Client client = clientRepository.findByIdWithLock(request.clientId())
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
         // 2. 담당 거래처 확인: 자신이 담당한 client에 대해서만 작성 가능
@@ -280,17 +280,7 @@ public class QuotationService {
                 QuotationStatus.FINAL_APPROVED,
                 user.getEmployeeId());
 
-        // N+1 문제 해결: 모든 견적서 ID를 수집하여 한 번의 쿼리로 반려 사유(또는 비고) 조회
-        List<Long> quotationIds = quotations.stream()
-                .map(QuotationHeader::getId)
-                .toList();
-
-        Map<Long, String> reasonsMap = approvalDecisionRepository
-                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
-                .collect(Collectors.toMap(
-                        ReasonDto::targetId,
-                        ReasonDto::reason,
-                        (existing, replacement) -> existing));
+        Map<Long, String> reasonsMap = fetchReasonsMap(quotations);
 
         return quotations.stream()
                 .map(q -> {
@@ -344,17 +334,8 @@ public class QuotationService {
                 List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED),
                 QuotationStatus.DELETED);
 
-        // 2. N+1 문제 해결: 모든 견적서 ID를 수집하여 한 번의 쿼리로 반려 사유 조회
-        List<Long> quotationIds = quotations.stream()
-                .map(QuotationHeader::getId)
-                .toList();
-
-        Map<Long, String> reasonsMap = approvalDecisionRepository
-                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
-                .collect(Collectors.toMap(
-                        ReasonDto::targetId,
-                        ReasonDto::reason,
-                        (existing, replacement) -> existing)); // 중복될 경우 첫 번째 값 유지
+        // 2. N+1 문제 해결: 한 번의 쿼리로 반려 사유 조회
+        Map<Long, String> reasonsMap = fetchReasonsMap(quotations);
 
         return quotations.stream()
                 .map(q -> {
@@ -496,20 +477,30 @@ public class QuotationService {
         int expiredQuoCount = quotationRepository.updateStatusForExpiration(
                 QuotationStatus.WAITING_ADMIN, QuotationStatus.EXPIRED, today);
 
-        // 2. 연관된 견적 요청서(RFQ) 상태 복구 (만료된 견적서와 연결된 REVIEWING 상태의 RFQ를 PENDING으로)
-        // [수정] 반려/만료 기반 재작성을 위해 PENDING으로 복구하지 않고 REVIEWING을 유지하도록 변경
-        /*
-         * int recoveredRfqCount =
-         * quotationRequestRepository.recoverStatusByExpiredQuotation(
-         * QuotationRequestStatus.REVIEWING, QuotationRequestStatus.PENDING,
-         * QuotationStatus.EXPIRED);
-         */
+        // RFQ 복구 로직은 의도적으로 비활성화됨 (반려/만료 시 REVIEWING 상태 유지 정책)
         int recoveredRfqCount = 0;
 
         if (expiredQuoCount > 0 || recoveredRfqCount > 0) {
             log.info("[QuotationService] 상태 동기화 완료: 견적 만료 {}건, RFQ 복구 {}건",
                     expiredQuoCount, recoveredRfqCount);
         }
+    }
+
+    private Map<Long, String> fetchReasonsMap(List<QuotationHeader> quotations) {
+        if (quotations == null || quotations.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> quotationIds = quotations.stream()
+                .map(QuotationHeader::getId)
+                .toList();
+
+        return approvalDecisionRepository
+                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+                .collect(Collectors.toMap(
+                        ReasonDto::targetId,
+                        ReasonDto::reason,
+                        (existing, replacement) -> existing));
     }
 
     private CustomUserDetails getAuthenticatedUser() {
