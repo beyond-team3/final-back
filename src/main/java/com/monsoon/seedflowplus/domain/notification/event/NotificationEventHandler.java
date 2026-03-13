@@ -85,6 +85,14 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleAccountActivated(AccountActivatedEvent event) {
+        Notification saved = documentNotificationService.createAccountActivatedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
     private void sendIfPresent(Long userId, Notification saved) {
         if (saved == null) {
             return;

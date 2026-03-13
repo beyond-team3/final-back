@@ -3,12 +3,14 @@ package com.monsoon.seedflowplus.domain.notification.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryChannel;
 import com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus;
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
+import com.monsoon.seedflowplus.domain.notification.event.AccountActivatedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
@@ -41,6 +43,19 @@ public class DocumentNotificationService {
                 event.quotationRequestId(),
                 "견적요청서가 접수되었습니다",
                 buildQuotationRequestCreatedContent(event.requestCode(), event.clientName()),
+                event.occurredAt()
+        );
+    }
+
+    public Notification createAccountActivatedNotification(AccountActivatedEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        return createIfNotDuplicated(
+                event.userId(),
+                NotificationType.ACCOUNT_ACTIVATED,
+                NotificationTargetType.ACCOUNT,
+                event.userId(),
+                "계정이 활성화되었습니다",
+                buildAccountActivatedContent(event.role()),
                 event.occurredAt()
         );
     }
@@ -158,6 +173,14 @@ public class DocumentNotificationService {
         return String.format("%s 거래처의 견적요청서 %s가 등록되었습니다.",
                 clientName == null || clientName.isBlank() ? "거래처" : clientName,
                 requestCode == null || requestCode.isBlank() ? "" : "(" + requestCode + ")");
+    }
+
+    private String buildAccountActivatedContent(Role role) {
+        return switch (role) {
+            case CLIENT -> "거래처 계정이 활성화되었습니다. 지금부터 서비스를 이용할 수 있습니다.";
+            case SALES_REP -> "영업사원 계정이 활성화되었습니다. 지금부터 서비스를 이용할 수 있습니다.";
+            case ADMIN -> "관리자 계정이 활성화되었습니다.";
+        };
     }
 
     private String buildContractCompletedContent(String contractCode, String clientName) {
