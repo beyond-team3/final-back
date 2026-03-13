@@ -304,3 +304,24 @@ Phase 5 테스트 추가
 
 ### 다음 단계
 통합 테스트 보강 및 전체 검증
+
+## [2026-03-13 09:01] 계약 예약 알림 구현
+
+### 작업 내용
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java — 계약 시작/종료예정/종료 알림 타입 추가
+- 신규 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java — 계약 예약 알림 생성 서비스 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java — 계약 승인 후 스케줄 upsert와 함께 예약 알림 생성 연결
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java — 발송 완료 알림 visible query 메서드 추가
+- 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryService.java — visible query 기준으로 목록/미읽음 조회 전환
+- 수정 파일: src/test/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandlerTest.java — 계약 예약 알림 호출 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java — 계약 예약 시각(오전 9시) 및 3종 생성 검증 추가
+- 신규 파일: src/test/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryServiceTest.java — 미래 예약 알림 비노출용 visible query 사용 검증 추가
+- 수정 파일: docs/notification/notification-architecture.md — 구조 변경 이력 추가
+- 수정 파일: docs/notification/notification-work-log.md — 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → <내용>
+
+### 다음 단계
+계정 활성화 알림 구현
