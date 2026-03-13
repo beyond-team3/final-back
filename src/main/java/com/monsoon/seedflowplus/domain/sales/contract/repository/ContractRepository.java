@@ -63,6 +63,27 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
                         @Param("activeStatus") ContractStatus activeStatus,
                         @Param("completedStatus") ContractStatus completedStatus);
 
+        /**
+         * 반려된 계약서 중 재작성이 필요한 '활성' 건만 조회합니다.
+         * 1. 해당 Deal에 진행 중(승인 대기 등)인 다른 계약서가 없어야 함.
+         * 2. 동일 Deal 내 반려 건 중 가장 최신(ID 기준) 건만 노출.
+         */
+        @Query("SELECT c FROM ContractHeader c " +
+                        "WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) " +
+                        "AND c.status IN :statuses " +
+                        "AND c.id = (SELECT MAX(c2.id) FROM ContractHeader c2 " +
+                        "            WHERE c2.deal.id = c.deal.id " +
+                        "            AND c2.status <> :deletedStatus) " +
+                        "AND NOT EXISTS (SELECT 1 FROM ContractHeader c3 " +
+                        "                WHERE c3.deal.id = c.deal.id " +
+                        "                AND c3.id > c.id " +
+                        "                AND c3.status NOT IN :statuses " +
+                        "                AND c3.status <> :deletedStatus)")
+        List<ContractHeader> findActiveRejectedContracts(
+                        @Param("employeeId") Long employeeId,
+                        @Param("statuses") List<ContractStatus> statuses,
+                        @Param("deletedStatus") ContractStatus deletedStatus);
+
         // 계약 코드와 거래처 ID로 계약 존재 여부 확인
         boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
 
