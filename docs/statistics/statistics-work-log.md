@@ -10,6 +10,29 @@
 ### 다음 단계
 없음
 
+## [2026-03-13 14:28] 주문 승인 내부 이벤트 확정과 알림 보강
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인 시 직접 주문 확정 대신 after-commit 이벤트 발행으로 전환
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/OrderApprovalConfirmedEvent.java` — 주문 승인 완료 내부 이벤트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderApprovalConfirmedEventHandler.java` — 승인 완료 이벤트 수신 후 내부 전용 주문 확정 실행
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — 외부 confirm API 의존 제거, 내부 전용 `confirmOrderFromApproval` 메서드로 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/controller/OrderController.java` — 외부 주문 확정 엔드포인트 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — statement 발행 알림 수신자에 order employee와 deal owner를 모두 포함하고 missing user debug 로그 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 계약 시작/종료 알림 과거 예약 방지 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 미사용 closeDeals 제거 및 close helper 의미 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 미사용 closeDeals 제거 및 close helper 의미 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 생성 시 단일 timestamp 재사용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/**` — approval/order/statement/notification/request/quotation 관련 회귀 테스트 및 fixture 안정성 보강
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-13 12:24] deal snapshot 복구와 만료 타임라인 보강
 
 ### 작업 내용
