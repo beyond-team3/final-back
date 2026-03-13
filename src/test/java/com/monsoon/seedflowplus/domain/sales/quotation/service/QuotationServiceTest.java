@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.sales.quotation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,6 +97,22 @@ class QuotationServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.DELETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.PENDING);
         verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 100L);
+        verify(dealLogWriteService).write(
+                eq(deal),
+                eq(DealType.QUO),
+                eq(100L),
+                eq("QUO-1"),
+                eq(DealStage.PENDING_ADMIN),
+                eq(DealStage.CANCELED),
+                eq(QuotationStatus.WAITING_ADMIN.name()),
+                eq(QuotationStatus.DELETED.name()),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SALES_REP),
+                eq(10L),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.<java.util.List<DealLogWriteService.DiffField>>any()
+        );
     }
 
     private void setAuthentication(CustomUserDetails principal) {

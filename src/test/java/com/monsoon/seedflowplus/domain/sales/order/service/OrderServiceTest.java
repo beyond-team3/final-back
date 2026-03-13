@@ -10,6 +10,7 @@ import static org.mockito.Mockito.*;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.Status;
@@ -97,6 +98,9 @@ class OrderServiceTest {
     @Mock
     private ApprovalSubmissionService approvalSubmissionService;
 
+    @Mock
+    private ApprovalCancellationService approvalCancellationService;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -113,7 +117,46 @@ class OrderServiceTest {
                 dealPipelineFacade,
                 dealLogQueryService,
                 dealScheduleSyncService,
-                approvalSubmissionService
+                approvalSubmissionService,
+                approvalCancellationService
+        );
+    }
+
+    @Test
+    void cancelOrderShouldCancelPendingApprovalAndKeepCancelLog() {
+        Long orderId = 31L;
+        Long clientId = 7L;
+
+        Client client = org.mockito.Mockito.mock(Client.class);
+        when(client.getId()).thenReturn(clientId);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+
+        Employee employee = org.mockito.Mockito.mock(Employee.class);
+        ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
+        OrderHeader orderHeader = OrderHeader.create(contract, client, deal, employee, "ORD-20260313-001");
+        ReflectionTestUtils.setField(orderHeader, "id", orderId);
+
+        when(orderHeaderRepository.findById(orderId)).thenReturn(Optional.of(orderHeader));
+
+        orderService.cancelOrder(orderId, clientId);
+
+        verify(approvalCancellationService).cancelPendingRequest(DealType.ORD, orderId);
+        verify(dealPipelineFacade).recordAndSync(
+                eq(deal),
+                eq(DealType.ORD),
+                eq(orderId),
+                eq("ORD-20260313-001"),
+                eq(DealStage.IN_PROGRESS),
+                eq(DealStage.CANCELED),
+                eq(OrderStatus.PENDING.name()),
+                eq(OrderStatus.CANCELED.name()),
+                eq(ActionType.CANCEL),
+                isNull(),
+                eq(ActorType.CLIENT),
+                eq(clientId),
+                isNull(),
+                any()
         );
     }
 

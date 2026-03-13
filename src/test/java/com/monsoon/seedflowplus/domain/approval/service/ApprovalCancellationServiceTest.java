@@ -55,4 +55,22 @@ class ApprovalCancellationServiceTest {
         verify(approvalRequestRepository).findByDealTypeAndTargetIdAndStatus(DealType.CNT, 20L, ApprovalStatus.PENDING);
         verify(approvalRequestRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
+
+    @Test
+    @DisplayName("ORD도 동일하게 진행 중 승인 요청을 취소한다")
+    void cancelPendingRequestCancelsOrderApproval() {
+        ApprovalRequest request = ApprovalRequest.builder()
+                .dealType(DealType.ORD)
+                .targetId(30L)
+                .status(ApprovalStatus.PENDING)
+                .clientIdSnapshot(1L)
+                .targetCodeSnapshot("ORD-30")
+                .build();
+        when(approvalRequestRepository.findByDealTypeAndTargetIdAndStatus(DealType.ORD, 30L, ApprovalStatus.PENDING))
+                .thenReturn(Optional.of(request));
+
+        approvalCancellationService.cancelPendingRequest(DealType.ORD, 30L);
+
+        assertThat(request.getStatus()).isEqualTo(ApprovalStatus.CANCELED);
+    }
 }

@@ -2,6 +2,9 @@ package com.monsoon.seedflowplus.domain.sales.request.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,23 +112,15 @@ class QuotationRequestServiceTest {
                 .build();
         ReflectionTestUtils.setField(client, "id", 7L);
 
-        SalesDeal deal = SalesDeal.builder()
-                .client(client)
-                .ownerEmp(manager)
-                .currentStage(DealStage.CREATED)
-                .currentStatus("PENDING")
-                .latestDocType(DealType.RFQ)
-                .latestRefId(0L)
-                .latestTargetCode(null)
-                .lastActivityAt(LocalDateTime.now())
-                .build();
-        ReflectionTestUtils.setField(deal, "id", 900L);
-
         User salesUser = org.mockito.Mockito.mock(User.class);
         when(salesUser.getId()).thenReturn(1000L);
 
         when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
-        when(salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(7L)).thenReturn(Optional.of(deal));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
+            SalesDeal saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 900L);
+            return saved;
+        });
         when(quotationRequestRepository.save(any(QuotationRequestHeader.class))).thenAnswer(invocation -> {
             QuotationRequestHeader header = invocation.getArgument(0);
             ReflectionTestUtils.setField(header, "id", 31L);
@@ -146,5 +141,110 @@ class QuotationRequestServiceTest {
         assertThat(event.quotationRequestId()).isEqualTo(31L);
         assertThat(event.requestCode()).startsWith("RFQ-");
         assertThat(event.clientName()).isEqualTo("새봄농산");
+    }
+
+    @Test
+    @DisplayName("견적요청서 생성은 open deal 재사용 없이 매번 새 deal을 만든다")
+    void createQuotationRequestAlwaysCreatesNewDeal() {
+        Employee manager = org.mockito.Mockito.mock(Employee.class);
+        when(manager.getId()).thenReturn(12L);
+        Client client = Client.builder()
+                .clientCode("C-7")
+                .clientName("새봄농산")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .clientType(ClientType.DISTRIBUTOR)
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("manager@test.com")
+                .managerEmployee(manager)
+                .totalCredit(BigDecimal.ZERO)
+                .usedCredit(BigDecimal.ZERO)
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
+            SalesDeal saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", System.nanoTime());
+            return saved;
+        });
+        when(quotationRequestRepository.save(any(QuotationRequestHeader.class))).thenAnswer(invocation -> {
+            QuotationRequestHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", System.nanoTime());
+            return header;
+        });
+
+        QuotationRequestCreateRequest request = new QuotationRequestCreateRequest(
+                "봄 시즌 물량 요청",
+                List.of(new QuotationRequestCreateRequest.ItemRequest(null, "채소", "상추", 10, "BOX"))
+        );
+
+        quotationRequestService.createQuotationRequest(request);
+        quotationRequestService.createQuotationRequest(request);
+
+        verify(salesDealRepository, times(2)).save(any(SalesDeal.class));
+        verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    @DisplayName("견적요청서 삭제 시 삭제 로그를 남기고 deal을 닫는다")
+    void deleteQuotationRequestWritesDeleteLogAndClosesDeal() {
+        Employee manager = org.mockito.Mockito.mock(Employee.class);
+        Client client = Client.builder()
+                .clientCode("C-7")
+                .clientName("새봄농산")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .clientType(ClientType.DISTRIBUTOR)
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("manager@test.com")
+                .managerEmployee(manager)
+                .totalCredit(BigDecimal.ZERO)
+                .usedCredit(BigDecimal.ZERO)
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        SalesDeal deal = SalesDeal.builder()
+                .client(client)
+                .ownerEmp(manager)
+                .currentStage(DealStage.CREATED)
+                .currentStatus("PENDING")
+                .latestDocType(DealType.RFQ)
+                .latestRefId(1L)
+                .latestTargetCode("RFQ-1")
+                .lastActivityAt(LocalDateTime.now())
+                .build();
+        QuotationRequestHeader header = QuotationRequestHeader.create(client, "req", deal);
+        ReflectionTestUtils.setField(header, "id", 31L);
+        header.updateRequestCode("RFQ-20260313-31");
+
+        when(quotationRequestRepository.findById(31L)).thenReturn(Optional.of(header));
+
+        quotationRequestService.deleteQuotationRequest(31L);
+
+        assertThat(header.getStatus().name()).isEqualTo("DELETED");
+        assertThat(deal.getClosedAt()).isNotNull();
+        verify(dealLogWriteService).write(
+                any(SalesDeal.class),
+                eq(DealType.RFQ),
+                eq(31L),
+                eq("RFQ-20260313-31"),
+                any(),
+                eq(DealStage.CANCELED),
+                eq("PENDING"),
+                eq("DELETED"),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.CLIENT),
+                eq(7L),
+                eq(null),
+                any(List.class)
+        );
     }
 }

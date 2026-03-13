@@ -1,6 +1,8 @@
 package com.monsoon.seedflowplus.domain.sales.contract.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +20,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
+import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
@@ -62,6 +65,8 @@ class ContractServiceTest {
     private SalesDealRepository salesDealRepository;
     @Mock
     private DealPipelineFacade dealPipelineFacade;
+    @Mock
+    private DealLogWriteService dealLogWriteService;
     @Mock
     private DealLogQueryService dealLogQueryService;
     @Mock
@@ -111,6 +116,22 @@ class ContractServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.FINAL_APPROVED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.REVIEWING);
         verify(approvalCancellationService).cancelPendingRequest(DealType.CNT, 200L);
+        verify(dealLogWriteService).write(
+                eq(deal),
+                eq(DealType.CNT),
+                eq(200L),
+                eq("CNT-1"),
+                eq(DealStage.PENDING_ADMIN),
+                eq(DealStage.CANCELED),
+                eq(ContractStatus.WAITING_ADMIN.name()),
+                eq(ContractStatus.DELETED.name()),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
+                any(),
+                eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SALES_REP),
+                eq(10L),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.<java.util.List<DealLogWriteService.DiffField>>any()
+        );
     }
 
     private void setAuthentication(CustomUserDetails principal) {
