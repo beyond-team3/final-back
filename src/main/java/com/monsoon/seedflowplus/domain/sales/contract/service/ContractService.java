@@ -50,7 +50,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -558,12 +557,6 @@ public class ContractService {
                         new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(),
                                 "COUNT")));
 
-        approvalSubmissionService.submitFromDocumentCreation(
-                DealType.CNT,
-                contract.getId(),
-                finalCode,
-                userDetails);
-
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
             quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
@@ -640,22 +633,31 @@ public class ContractService {
                 ContractStatus.DELETED);
 
         return quotations.stream()
-                .map(q -> new QuotationListResponse(
-                        q.getId(),
-                        q.getQuotationCode(),
-                        q.getClient().getId(),
-                        q.getClient().getClientName(),
-                        q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
-                        q.getAuthor() != null ? q.getAuthor().getId() : null,
-                        q.getCreatedAt().toLocalDate(),
-                        q.getStatus(),
-                        q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                        q.getDeal().getId(),
-                        (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
-                                : null,
-                        q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                        null,
-                        List.of()))
+                .map(q -> {
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
+                    String managerName = q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null;
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    Long dealId = q.getDeal() != null ? q.getDeal().getId() : null;
+                    String memo = (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements()
+                            : null;
+
+                    return new QuotationListResponse(
+                            q.getId(),
+                            q.getQuotationCode(),
+                            q.getClient().getId(),
+                            q.getClient().getClientName(),
+                            managerName,
+                            authorId,
+                            q.getCreatedAt().toLocalDate(),
+                            q.getStatus(),
+                            requestId,
+                            dealId,
+                            memo,
+                            requirements,
+                            null,
+                            List.of());
+                })
                 .toList();
     }
 
@@ -694,20 +696,26 @@ public class ContractService {
                                     item.getAmount()))
                             .toList();
 
+                    Long authorId = c.getAuthor() != null ? c.getAuthor().getId() : null;
+                    String managerName = c.getAuthor() != null ? c.getAuthor().getEmployeeName() : null;
+                    Long quotationId = c.getQuotation() != null ? c.getQuotation().getId() : null;
+                    Long dealId = c.getDeal() != null ? c.getDeal().getId() : null;
+                    String memo = (authorId != null && authorId.equals(user.getEmployeeId())) ? c.getMemo() : null;
+                    String rejectionReason = reasonsMap.get(c.getId());
+
                     return new ContractListResponse(
                             c.getId(),
                             c.getContractCode(),
                             c.getClient().getId(),
                             c.getClient().getClientName(),
-                            c.getAuthor() != null ? c.getAuthor().getEmployeeName() : null,
-                            c.getAuthor() != null ? c.getAuthor().getId() : null,
+                            managerName,
+                            authorId,
                             c.getCreatedAt().toLocalDate(),
                             c.getStatus(),
-                            c.getQuotation() != null ? c.getQuotation().getId() : null,
-                            c.getDeal().getId(),
-                            (c.getAuthor() != null && c.getAuthor().getId().equals(user.getEmployeeId())) ? c.getMemo()
-                                    : null,
-                            reasonsMap.get(c.getId()),
+                            quotationId,
+                            dealId,
+                            memo,
+                            rejectionReason,
                             items);
                 })
                 .toList();
