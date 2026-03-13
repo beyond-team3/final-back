@@ -9,6 +9,8 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
+import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -61,6 +63,7 @@ public class InvoiceService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final PaymentRepository paymentRepository;
 
     /**
      * 청구서 수동 생성 (영업사원)
@@ -171,6 +174,19 @@ public class InvoiceService {
         invoice.updateAmount(publishTotalAmount);
 
         invoice.publish();
+
+        String paymentCode = generateCode("PAY");
+
+        Payment payment = Payment.create(
+                invoice,
+                invoice.getClient(),
+                invoice.getDeal(),
+                null,          // 아직 결제 안했으니까 method 없음
+                paymentCode
+        );
+
+        paymentRepository.save(payment);
+
         ActorType actorType = resolveActorType(principal);
         Long actorId = resolveActorId(actorType, principal);
         dealPipelineFacade.recordAndSync(
