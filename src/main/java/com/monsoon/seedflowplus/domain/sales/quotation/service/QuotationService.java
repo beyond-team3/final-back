@@ -317,7 +317,11 @@ public class QuotationService {
         CustomUserDetails user = getAuthenticatedUser();
 
         // 1. 권한 체크: 영업 담당자(SALES_REP)만 반려 목록 조회 가능
-        if (user.getRole() != Role.SALES_REP || user.getEmployeeId() == null) {
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        if (user.getEmployeeId() == null) {
             return List.of();
         }
 
