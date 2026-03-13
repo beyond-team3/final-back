@@ -198,3 +198,25 @@ WebMvcTest 슬라이스 격리 요건
 
 ### 변경 이유
 주문 문서에도 기존 승인 모듈을 재사용해 자동 승인 요청과 주문 확정/명세서 발급 흐름을 일관되게 연결하기 위함
+
+## [2026-03-13] deal lifecycle 삭제/만료 종결 규칙 반영
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java`
+- 클래스/메서드: `QuotationRequestService#createQuotationRequest`, `QuotationRequestService#deleteQuotationRequest`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java`
+- 클래스/메서드: `QuotationService#deleteQuotation`, `QuotationService#syncQuotationStatuses`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java`
+- 클래스/메서드: `ContractService#deleteContract`, `ContractService#syncContractStatuses`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java`
+- 클래스/메서드: `OrderService#cancelOrder`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDeal.java`
+- 클래스/메서드: `SalesDeal#close`
+
+### 변경 내용
+RFQ 생성은 기존 open deal 재사용을 중단하고 항상 새 deal bootstrap을 생성하도록 바꿨다.
+RFQ/QUO/CNT 삭제는 문서 상태 변경 후 삭제/cancel deal log를 직접 기록하고, RFQ 삭제와 QUO/CNT 만료 시에는 서비스 내부 helper를 통해 deal 종료를 공통 처리하도록 정리했다.
+ORD 취소는 진행 중 approval 정리를 추가했고, `SalesDeal.close()`는 중복 호출 시 최초 `closedAt`을 유지하는 idempotent 동작으로 보강했다.
+
+### 변경 이유
+2026-03-13 deal lifecycle 정책상 RFQ만 deal 생성/삭제로 직접 종결하고, QUO/CNT 만료를 비삭제 종결 이벤트로 취급해야 하기 때문

@@ -389,3 +389,29 @@
 
 ### 다음 단계
 - output.txt 기준으로 실제 코드 수정 착수
+
+## [2026-03-13 11:56] deal lifecycle 삭제/만료 정책 반영
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 생성 시 새 deal bootstrap 강제, RFQ 삭제 시 삭제 로그와 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 로그 추가, 만료 동기화 후 관련 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 로그 추가, 만료 동기화 후 관련 deal close 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — ORD 취소 시 pending approval cancel 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — STMT cancel API가 삭제 정책 의미임을 주석으로 명시
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDeal.java` — close idempotent 가드 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java` — RFQ 새 deal 생성/삭제 로그/close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — QUO 삭제 로그 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — QUO 만료 시 deal close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — CNT 삭제 로그 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — CNT 만료 시 deal close 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderServiceTest.java` — ORD 취소 approval cancel 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationServiceTest.java` — ORD approval cancel 단위 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDealTest.java` — deal close idempotent 테스트 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
