@@ -326,7 +326,8 @@ public class QuotationService {
         }
 
         if (user.getEmployeeId() == null) {
-            return List.of();
+            // 인증 정보에 직원 ID가 누락된 경우 (보안/세션 이상 상태 은닉 방지)
+            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
         }
 
         List<QuotationHeader> quotations = quotationRepository.findActiveRejectedQuotations(
@@ -518,10 +519,7 @@ public class QuotationService {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
 
-        // Deal 생성 시점에 레이스 컨디션을 방지하기 위해 Client에 락을 획득
-        clientRepository.findByIdWithLock(clientId)
-                .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
-
+        // 주의: 호출부(createQuotation)에서 이미 Client에 대해 비관적 락(findByIdWithLock)을 획득한 상태여야 함
         return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
                 .orElseGet(() -> createDealBootstrap(client, ownerEmp));
     }
