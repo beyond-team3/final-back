@@ -1,0 +1,104 @@
+package com.monsoon.seedflowplus.domain.notification.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.notification.entity.Notification;
+import com.monsoon.seedflowplus.domain.notification.entity.NotificationDelivery;
+import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
+import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
+import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
+import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@ExtendWith(MockitoExtension.class)
+class ScheduledNotificationServiceTest {
+
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private NotificationDeliveryRepository notificationDeliveryRepository;
+    @Mock
+    private EntityManager entityManager;
+
+    @InjectMocks
+    private ScheduledNotificationService scheduledNotificationService;
+
+    @Test
+    @DisplayName("계약 시작/30일전/종료 알림은 오전 9시 예약 delivery로 생성된다")
+    void scheduleContractLifecycleNotificationsAtNineAm() {
+        ContractHeader contract = contract(71L, "CNT-20260312-71");
+        User user = org.mockito.Mockito.mock(User.class);
+        when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(entityManager.find(User.class, 200L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
+        when(notificationRepository.existsByUser_IdAndTypeAndTargetTypeAndTargetIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(), any(), eq(NotificationTargetType.CONTRACT), eq(71L), any(), any()))
+                .thenReturn(false);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        scheduledNotificationService.scheduleContractLifecycleNotifications(contract, List.of(100L, 200L));
+
+        ArgumentCaptor<NotificationDelivery> deliveryCaptor = ArgumentCaptor.forClass(NotificationDelivery.class);
+        verify(notificationDeliveryRepository, org.mockito.Mockito.times(6)).save(deliveryCaptor.capture());
+        assertThat(deliveryCaptor.getAllValues())
+                .extracting(NotificationDelivery::getScheduledAt)
+                .allMatch(dateTime -> dateTime.toLocalTime().equals(java.time.LocalTime.of(9, 0)));
+        assertThat(deliveryCaptor.getAllValues())
+                .extracting(NotificationDelivery::getScheduledAt)
+                .contains(
+                        LocalDate.of(2026, 4, 1).atTime(9, 0),
+                        LocalDate.of(2026, 4, 15).minusDays(30).atTime(9, 0),
+                        LocalDate.of(2026, 4, 15).atTime(9, 0)
+                );
+    }
+
+    private ContractHeader contract(Long id, String code) {
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 1L);
+
+        ContractHeader contract = ContractHeader.create(
+                code,
+                null,
+                client,
+                org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class),
+                org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Employee.class),
+                BigDecimal.TEN,
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 15),
+                null,
+                "terms",
+                "memo"
+        );
+        ReflectionTestUtils.setField(contract, "id", id);
+        return contract;
+    }
+}
