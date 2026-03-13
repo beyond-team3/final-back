@@ -590,18 +590,17 @@ public class QuotationService {
                         QuotationStatus.EXPIRED,
                         today
                 );
-        Map<Long, ExpiringQuotationContext> expiringContextByDealId = updatedExpiredQuotations.stream()
+        Map<Long, List<ExpiringQuotationContext>> expiringContextByDealId = updatedExpiredQuotations.stream()
                 .filter(quotation -> quotation.getDeal() != null && quotation.getDeal().getId() != null)
-                .collect(Collectors.toMap(
+                .collect(Collectors.groupingBy(
                         quotation -> quotation.getDeal().getId(),
-                        quotation -> new ExpiringQuotationContext(
-                                quotation.getId(),
-                                quotation.getQuotationCode(),
-                                quotation.getDeal().getId()
-                        ),
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new
-                ));
+                        java.util.LinkedHashMap::new,
+                        Collectors.mapping(
+                                quotation -> new ExpiringQuotationContext(
+                                        quotation.getId(),
+                                        quotation.getQuotationCode(),
+                                        quotation.getDeal().getId()),
+                                Collectors.toList())));
         expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
@@ -715,18 +714,20 @@ public class QuotationService {
         deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
     }
 
-    private void expireDeals(Map<Long, ExpiringQuotationContext> expiringContextByDealId, LocalDateTime actionAt) {
+    private void expireDeals(Map<Long, List<ExpiringQuotationContext>> expiringContextByDealId, LocalDateTime actionAt) {
         if (expiringContextByDealId.isEmpty()) {
             return;
         }
         salesDealRepository.findAllById(expiringContextByDealId.keySet())
                 .forEach(deal -> {
-                    ExpiringQuotationContext context = expiringContextByDealId.get(deal.getId());
-                    if (context == null) {
+                    List<ExpiringQuotationContext> contexts = expiringContextByDealId.get(deal.getId());
+                    if (contexts == null || contexts.isEmpty()) {
                         return;
                     }
-                    // 1. 개별 견적서 만료 로그 기록
-                    dealLogWriteService.write(
+
+                    for (ExpiringQuotationContext context : contexts) {
+                        // 1. 개별 견적서 만료 로그 기록
+                        dealLogWriteService.write(
                             deal,
                             DealType.QUO,
                             context.quotationId(),
@@ -747,6 +748,7 @@ public class QuotationService {
                                     QuotationStatus.EXPIRED.name(),
                                     "STATUS"))
                     );
+                    }
 
                     // 2. 다중 견적 제안을 고려하여 Deal Snapshot 재계산
                     recomputeDealSnapshot(deal);
@@ -835,25 +837,28 @@ public class QuotationService {
 
     private int getContractStatusPriority(ContractStatus status) {
         return switch (status) {
-            case ACTIVE_CONTRACT, COMPLETED -> 1;
-            case WAITING_CLIENT -> 2;
-            case WAITING_ADMIN -> 3;
-            case REJECTED_CLIENT -> 4;
-            case REJECTED_ADMIN -> 5;
-            case EXPIRED -> 6;
-            default -> 7;
+            case ACTIVE_CONTRACT -> 1;
+            case COMPLETED -> 2;
+            case WAITING_CLIENT -> 3;
+            case WAITING_ADMIN -> 4;
+            case REJECTED_CLIENT -> 5;
+            case REJECTED_ADMIN -> 6;
+            case EXPIRED -> 7;
+            default -> 8;
         };
     }
 
     private int getQuotationStatusPriority(QuotationStatus status) {
         return switch (status) {
-            case COMPLETED, WAITING_CONTRACT -> 1;
-            case FINAL_APPROVED, WAITING_CLIENT -> 2;
-            case WAITING_ADMIN -> 3;
-            case REJECTED_CLIENT -> 4;
-            case REJECTED_ADMIN -> 5;
-            case EXPIRED -> 6;
-            default -> 7;
+            case COMPLETED -> 1;
+            case WAITING_CONTRACT -> 2;
+            case FINAL_APPROVED -> 3;
+            case WAITING_CLIENT -> 4;
+            case WAITING_ADMIN -> 5;
+            case REJECTED_CLIENT -> 6;
+            case REJECTED_ADMIN -> 7;
+            case EXPIRED -> 8;
+            default -> 9;
         };
     }
 
