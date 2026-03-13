@@ -41,9 +41,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto;
 
 @Slf4j
 @Service
@@ -92,14 +94,16 @@ public class QuotationService {
 
             // 상태가 PENDING이거나 REVIEWING이어야 함
             if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING &&
-                quotationRequest.getStatus() != QuotationRequestStatus.REVIEWING) {
+                    quotationRequest.getStatus() != QuotationRequestStatus.REVIEWING) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
             }
 
             // REVIEWING인 경우, 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
             if (quotationRequest.getStatus() == QuotationRequestStatus.REVIEWING) {
-                boolean hasActiveQuotation = quotationRepository.findByQuotationRequestId(quotationRequest.getId()).stream()
-                        .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN || q.getStatus() == QuotationStatus.WAITING_CLIENT);
+                boolean hasActiveQuotation = quotationRepository.findByQuotationRequestId(quotationRequest.getId())
+                        .stream()
+                        .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
+                                || q.getStatus() == QuotationStatus.WAITING_CLIENT);
                 if (hasActiveQuotation) {
                     throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
                 }
@@ -129,7 +133,8 @@ public class QuotationService {
 
             // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
             boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
-                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN || q.getStatus() == QuotationStatus.WAITING_CLIENT);
+                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
+                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
             if (hasActiveQuotation) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
             }
@@ -261,6 +266,18 @@ public class QuotationService {
                 QuotationStatus.FINAL_APPROVED,
                 user.getEmployeeId());
 
+        // N+1 문제 해결: 모든 견적서 ID를 수집하여 한 번의 쿼리로 반려 사유(또는 비고) 조회
+        List<Long> quotationIds = quotations.stream()
+                .map(QuotationHeader::getId)
+                .toList();
+
+        Map<Long, String> reasonsMap = approvalDecisionRepository
+                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+                .collect(Collectors.toMap(
+                        ReasonDto::targetId,
+                        ReasonDto::reason,
+                        (existing, replacement) -> existing));
+
         return quotations.stream()
                 .map(q -> {
                     List<QuotationResponse.QuotationItemResponse> items = q.getItems().stream()
@@ -287,7 +304,7 @@ public class QuotationService {
                             q.getDeal().getId(),
                             q.getMemo(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            approvalDecisionRepository.findReasonsByTarget(DealType.QUO, q.getId()).stream().findFirst().orElse(null),
+                            reasonsMap.get(q.getId()), // 맵에서 조회 (N+1 해결)
                             items);
                 })
                 .toList();
@@ -299,15 +316,27 @@ public class QuotationService {
     public List<QuotationListResponse> getRejectedQuotations() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        if (user.getEmployeeId() == null) {
+        // 1. 권한 체크: 영업 담당자(SALES_REP)만 반려 목록 조회 가능
+        if (user.getRole() != Role.SALES_REP || user.getEmployeeId() == null) {
             return List.of();
         }
 
         List<QuotationHeader> quotations = quotationRepository.findActiveRejectedQuotations(
                 user.getEmployeeId(),
                 List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED),
-                QuotationStatus.DELETED
-        );
+                QuotationStatus.DELETED);
+
+        // 2. N+1 문제 해결: 모든 견적서 ID를 수집하여 한 번의 쿼리로 반려 사유 조회
+        List<Long> quotationIds = quotations.stream()
+                .map(QuotationHeader::getId)
+                .toList();
+
+        Map<Long, String> reasonsMap = approvalDecisionRepository
+                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+                .collect(Collectors.toMap(
+                        ReasonDto::targetId,
+                        ReasonDto::reason,
+                        (existing, replacement) -> existing)); // 중복될 경우 첫 번째 값 유지
 
         return quotations.stream()
                 .map(q -> {
@@ -327,15 +356,21 @@ public class QuotationService {
                             q.getQuotationCode(),
                             q.getClient().getId(),
                             q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : (q.getClient().getManagerEmployee() != null ? q.getClient().getManagerEmployee().getEmployeeName() : null),
-                            q.getAuthor() != null ? q.getAuthor().getId() : (q.getClient().getManagerEmployee() != null ? q.getClient().getManagerEmployee().getId() : null),
+                            q.getAuthor() != null ? q.getAuthor().getEmployeeName()
+                                    : (q.getClient().getManagerEmployee() != null
+                                            ? q.getClient().getManagerEmployee().getEmployeeName()
+                                            : null),
+                            q.getAuthor() != null ? q.getAuthor().getId()
+                                    : (q.getClient().getManagerEmployee() != null
+                                            ? q.getClient().getManagerEmployee().getId()
+                                            : null),
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
                             q.getMemo(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            approvalDecisionRepository.findReasonsByTarget(DealType.QUO, q.getId()).stream().findFirst().orElse(null),
+                            reasonsMap.get(q.getId()), // 맵에서 미리 조회해둔 반려 사유를 가져옴 (N+1 해결)
                             items);
                 })
                 .toList();
@@ -346,8 +381,7 @@ public class QuotationService {
             QuotationHeader quotation,
             ActorType actorType,
             Long actorId,
-            LocalDateTime actionAt
-    ) {
+            LocalDateTime actionAt) {
         if (quotation == null) {
             throw new IllegalArgumentException("quotation must not be null");
         }
@@ -371,8 +405,7 @@ public class QuotationService {
                 actorType,
                 actorId,
                 null,
-                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, toStatus, "STATUS"))
-        );
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, toStatus, "STATUS")));
     }
 
     @Transactional
@@ -448,9 +481,11 @@ public class QuotationService {
         // 2. 연관된 견적 요청서(RFQ) 상태 복구 (만료된 견적서와 연결된 REVIEWING 상태의 RFQ를 PENDING으로)
         // [수정] 반려/만료 기반 재작성을 위해 PENDING으로 복구하지 않고 REVIEWING을 유지하도록 변경
         /*
-        int recoveredRfqCount = quotationRequestRepository.recoverStatusByExpiredQuotation(
-                QuotationRequestStatus.REVIEWING, QuotationRequestStatus.PENDING, QuotationStatus.EXPIRED);
-        */
+         * int recoveredRfqCount =
+         * quotationRequestRepository.recoverStatusByExpiredQuotation(
+         * QuotationRequestStatus.REVIEWING, QuotationRequestStatus.PENDING,
+         * QuotationStatus.EXPIRED);
+         */
         int recoveredRfqCount = 0;
 
         if (expiredQuoCount > 0 || recoveredRfqCount > 0) {
