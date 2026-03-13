@@ -23,6 +23,8 @@ import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
@@ -58,6 +60,7 @@ import com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto;
 public class QuotationService {
 
     private final QuotationRepository quotationRepository;
+    private final ContractRepository contractRepository;
     private final QuotationRequestRepository quotationRequestRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
@@ -306,7 +309,7 @@ public class QuotationService {
                             q.getQuotationCode(),
                             q.getClient().getId(),
                             q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                            q.getClient() != null ? q.getClient().getManagerName() : null,
                             q.getAuthor() != null ? q.getAuthor().getId() : null,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
@@ -363,10 +366,7 @@ public class QuotationService {
                             q.getQuotationCode(),
                             q.getClient().getId(),
                             q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName()
-                                    : (q.getClient().getManagerEmployee() != null
-                                            ? q.getClient().getManagerEmployee().getEmployeeName()
-                                            : null),
+                            q.getClient() != null ? q.getClient().getManagerName() : null,
                             q.getAuthor() != null ? q.getAuthor().getId()
                                     : (q.getClient().getManagerEmployee() != null
                                             ? q.getClient().getManagerEmployee().getId()
@@ -423,7 +423,7 @@ public class QuotationService {
                             q.getQuotationCode(),
                             q.getClient().getId(),
                             q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                            q.getClient() != null ? q.getClient().getManagerName() : null,
                             q.getAuthor() != null ? q.getAuthor().getId() : null,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
@@ -689,30 +689,9 @@ public class QuotationService {
         if (deal == null) {
             return;
         }
-        LocalDateTime actionAt = LocalDateTime.now();
 
-        if (quotation.getQuotationRequest() != null && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.PENDING) {
-            syncDealSnapshot(
-                    deal,
-                    mapQuotationRequestStage(quotation.getQuotationRequest().getStatus()),
-                    quotation.getQuotationRequest().getStatus().name(),
-                    DealType.RFQ,
-                    quotation.getQuotationRequest().getId(),
-                    quotation.getQuotationRequest().getRequestCode(),
-                    actionAt
-            );
-            return;
-        }
-
-        syncDealSnapshot(
-                deal,
-                DealStage.CANCELED,
-                QuotationStatus.DELETED.name(),
-                DealType.QUO,
-                quotation.getId(),
-                quotation.getQuotationCode(),
-                actionAt
-        );
+        // 다중 견적 제안을 고려하여, 남은 문서들 중 최적의 상태로 Deal Snapshot 재계산
+        recomputeDealSnapshot(deal);
     }
 
     private DealStage mapQuotationRequestStage(QuotationRequestStatus status) {
@@ -746,6 +725,7 @@ public class QuotationService {
                     if (context == null) {
                         return;
                     }
+                    // 1. 개별 견적서 만료 로그 기록
                     dealLogWriteService.write(
                             deal,
                             DealType.QUO,
@@ -767,17 +747,146 @@ public class QuotationService {
                                     QuotationStatus.EXPIRED.name(),
                                     "STATUS"))
                     );
-                    syncDealSnapshot(
-                            deal,
-                            DealStage.EXPIRED,
-                            QuotationStatus.EXPIRED.name(),
-                            DealType.QUO,
-                            context.quotationId(),
-                            context.quotationCode(),
-                            actionAt
-                    );
-                    closeDealIfOpen(deal, actionAt);
+
+                    // 2. 다중 견적 제안을 고려하여 Deal Snapshot 재계산
+                    recomputeDealSnapshot(deal);
+
+                    // 3. 만약 모든 문서가 종결(EXPIRED/DELETED/REJECTED 등) 상태이면 Deal도 닫음
+                    if (isAllDocumentsClosed(deal)) {
+                        closeDealIfOpen(deal, actionAt);
+                    }
                 });
+    }
+
+    private void recomputeDealSnapshot(SalesDeal deal) {
+        // 1. 계약서 확인 (계약이 있으면 견적보다 우선함)
+        List<ContractHeader> contracts = contractRepository.findByDealId(deal.getId()).stream()
+                .filter(c -> c.getStatus() != ContractStatus.DELETED)
+                .sorted((c1, c2) -> {
+                    int p1 = getContractStatusPriority(c1.getStatus());
+                    int p2 = getContractStatusPriority(c2.getStatus());
+                    if (p1 != p2) return Integer.compare(p1, p2);
+                    return c2.getId().compareTo(c1.getId());
+                })
+                .toList();
+
+        if (!contracts.isEmpty()) {
+            ContractHeader bestCnt = contracts.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapContractStage(bestCnt.getStatus()),
+                    bestCnt.getStatus().name(),
+                    DealType.CNT,
+                    bestCnt.getId(),
+                    bestCnt.getContractCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 2. 견적서 확인
+        List<QuotationHeader> quotations = quotationRepository.findByDealId(deal.getId()).stream()
+                .filter(q -> q.getStatus() != QuotationStatus.DELETED)
+                .sorted((q1, q2) -> {
+                    int p1 = getQuotationStatusPriority(q1.getStatus());
+                    int p2 = getQuotationStatusPriority(q2.getStatus());
+                    if (p1 != p2) return Integer.compare(p1, p2);
+                    return q2.getId().compareTo(q1.getId());
+                })
+                .toList();
+
+        if (!quotations.isEmpty()) {
+            QuotationHeader bestQuo = quotations.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationStage(bestQuo.getStatus()),
+                    bestQuo.getStatus().name(),
+                    DealType.QUO,
+                    bestQuo.getId(),
+                    bestQuo.getQuotationCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 3. RFQ 확인
+        List<QuotationRequestHeader> requests = quotationRequestRepository.findByDealId(deal.getId()).stream()
+                .filter(r -> r.getStatus() != QuotationRequestStatus.DELETED)
+                .sorted((r1, r2) -> r2.getId().compareTo(r1.getId()))
+                .toList();
+
+        if (!requests.isEmpty()) {
+            QuotationRequestHeader bestRfq = requests.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationRequestStage(bestRfq.getStatus()),
+                    bestRfq.getStatus().name(),
+                    DealType.RFQ,
+                    bestRfq.getId(),
+                    bestRfq.getRequestCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 4. 아무 문서도 없으면 초기 상태로 중립화
+        deal.updateSnapshot(DealStage.CREATED, "OPEN", DealType.RFQ, 0L, null, LocalDateTime.now());
+    }
+
+    private int getContractStatusPriority(ContractStatus status) {
+        return switch (status) {
+            case ACTIVE_CONTRACT, COMPLETED -> 1;
+            case WAITING_CLIENT -> 2;
+            case WAITING_ADMIN -> 3;
+            case REJECTED_CLIENT -> 4;
+            case REJECTED_ADMIN -> 5;
+            case EXPIRED -> 6;
+            default -> 7;
+        };
+    }
+
+    private int getQuotationStatusPriority(QuotationStatus status) {
+        return switch (status) {
+            case COMPLETED, WAITING_CONTRACT -> 1;
+            case FINAL_APPROVED, WAITING_CLIENT -> 2;
+            case WAITING_ADMIN -> 3;
+            case REJECTED_CLIENT -> 4;
+            case REJECTED_ADMIN -> 5;
+            case EXPIRED -> 6;
+            default -> 7;
+        };
+    }
+
+    private boolean isAllDocumentsClosed(SalesDeal deal) {
+        // 모든 계약서가 만료/삭제 상태인지 확인
+        boolean allCntClosed = contractRepository.findByDealId(deal.getId()).stream()
+                .allMatch(c -> c.getStatus() == ContractStatus.EXPIRED || c.getStatus() == ContractStatus.DELETED);
+
+        // 모든 견적서가 만료/삭제/반려 상태인지 확인
+        boolean allQuoClosed = quotationRepository.findByDealId(deal.getId()).stream()
+                .allMatch(q -> q.getStatus() == QuotationStatus.EXPIRED
+                        || q.getStatus() == QuotationStatus.DELETED
+                        || q.getStatus() == QuotationStatus.REJECTED_ADMIN
+                        || q.getStatus() == QuotationStatus.REJECTED_CLIENT);
+
+        // 모든 RFQ가 삭제 상태인지 확인
+        boolean allRfqClosed = quotationRequestRepository.findByDealId(deal.getId()).stream()
+                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED);
+
+        return allCntClosed && allQuoClosed && allRfqClosed;
+    }
+
+    private DealStage mapContractStage(ContractStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case COMPLETED -> DealStage.APPROVED;
+            case ACTIVE_CONTRACT -> DealStage.CONFIRMED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
     }
 
     private record ExpiringQuotationContext(Long quotationId, String quotationCode, Long dealId) {
