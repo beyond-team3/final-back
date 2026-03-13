@@ -24,9 +24,16 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
 
     Optional<QuotationHeader> findByQuotationCode(String quotationCode);
 
+    List<QuotationHeader> findByQuotationRequestId(Long quotationRequestId);
+
+    List<QuotationHeader> findByDealId(Long dealId);
+
     List<QuotationHeader> findAllByStatus(QuotationStatus status);
 
     List<QuotationHeader> findAllByStatusAndAuthorId(QuotationStatus status, Long authorId);
+
+    @Query("SELECT q FROM QuotationHeader q WHERE q.author.id = :authorId AND q.status IN :statuses")
+    List<QuotationHeader> findByAuthorIdAndStatuses(@Param("authorId") Long authorId, @Param("statuses") List<QuotationStatus> statuses);
 
     // 상태와 만료일을 기준으로 견적서 조회
     List<QuotationHeader> findByStatusAndExpiredDateLessThanEqual(QuotationStatus status, java.time.LocalDate date);
