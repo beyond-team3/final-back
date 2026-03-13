@@ -62,7 +62,7 @@ class StatementServiceTest {
     }
 
     @Test
-    void createStatementPublishesEventsToSalesRepAndClient() {
+    void createStatementPublishesEventsToSalesRepDealOwnerAndClient() {
         Client client = org.mockito.Mockito.mock(Client.class);
         when(client.getId()).thenReturn(7L);
 
@@ -70,6 +70,9 @@ class StatementServiceTest {
         when(employee.getId()).thenReturn(12L);
 
         SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        Employee ownerEmployee = org.mockito.Mockito.mock(Employee.class);
+        when(ownerEmployee.getId()).thenReturn(13L);
+        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
 
         ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
 
@@ -79,6 +82,8 @@ class StatementServiceTest {
 
         User salesUser = org.mockito.Mockito.mock(User.class);
         when(salesUser.getId()).thenReturn(1000L);
+        User ownerUser = org.mockito.Mockito.mock(User.class);
+        when(ownerUser.getId()).thenReturn(1500L);
         User clientUser = org.mockito.Mockito.mock(User.class);
         when(clientUser.getId()).thenReturn(2000L);
 
@@ -91,17 +96,20 @@ class StatementServiceTest {
             return statement;
         });
         when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(salesUser));
+        when(userRepository.findByEmployeeId(13L)).thenReturn(Optional.of(ownerUser));
         when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
 
         statementService.createStatement(orderHeader, ActorType.SALES_REP, 12L);
 
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(notificationEventPublisher, org.mockito.Mockito.times(2)).publishAfterCommit(eventCaptor.capture());
-        assertEquals(2, eventCaptor.getAllValues().size());
+        verify(notificationEventPublisher, org.mockito.Mockito.times(3)).publishAfterCommit(eventCaptor.capture());
+        assertEquals(3, eventCaptor.getAllValues().size());
         StatementIssuedEvent firstEvent = (StatementIssuedEvent) eventCaptor.getAllValues().get(0);
         StatementIssuedEvent secondEvent = (StatementIssuedEvent) eventCaptor.getAllValues().get(1);
+        StatementIssuedEvent thirdEvent = (StatementIssuedEvent) eventCaptor.getAllValues().get(2);
         assertEquals(51L, firstEvent.statementId());
         assertEquals("ORD-20260312-001", firstEvent.orderCode());
         assertEquals(51L, secondEvent.statementId());
+        assertEquals(51L, thirdEvent.statementId());
     }
 }

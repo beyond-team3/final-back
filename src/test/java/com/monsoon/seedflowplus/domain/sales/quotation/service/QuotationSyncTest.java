@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.sales.quotation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
@@ -85,8 +87,8 @@ class QuotationSyncTest {
         when(quotation.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
-                .client(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Client.class))
-                .ownerEmp(org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.Employee.class))
+                .client(org.mockito.Mockito.mock(Client.class))
+                .ownerEmp(org.mockito.Mockito.mock(Employee.class))
                 .currentStage(DealStage.PENDING_ADMIN)
                 .currentStatus(QuotationStatus.WAITING_ADMIN.name())
                 .latestDocType(DealType.QUO)
@@ -100,7 +102,7 @@ class QuotationSyncTest {
                 .thenReturn(List.of(quotation));
         when(quotationRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
         when(quotationRequestRepository.recoverStatusByExpiredQuotation(any(), any(), any())).thenReturn(0);
-        when(salesDealRepository.findAllById(java.util.Set.of(10L))).thenReturn(List.of(managedDeal));
+        when(salesDealRepository.findAllById(any())).thenReturn(List.of(managedDeal));
 
         quotationService.syncQuotationStatuses();
 

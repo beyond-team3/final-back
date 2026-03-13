@@ -30,7 +30,6 @@ import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
-import com.monsoon.seedflowplus.domain.sales.order.dto.response.OrderResponse;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
 import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
@@ -77,6 +76,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -840,8 +840,8 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 ORD-2: 담당 영업사원 승인 시 주문 확정 서비스와 연계되고 요청이 APPROVED 된다")
-    void decideStepApprovesOrderThroughOrderService() {
+    @DisplayName("케이스 ORD-2: 담당 영업사원 승인 시 주문 확정 이벤트를 발행하고 요청이 APPROVED 된다")
+    void decideStepApprovesOrderThroughAfterCommitEvent() {
         ApprovalRequest request = ordRequest(970L, 700L, 77L);
         ApprovalStep step = step(7001L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
         request.addStep(step);
@@ -850,8 +850,6 @@ class ApprovalCommandServiceTest {
         when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7001L, 970L)).thenReturn(Optional.of(step));
         when(approvalDecisionRepository.existsByApprovalStepId(7001L)).thenReturn(false);
         when(orderHeaderRepository.findById(700L)).thenReturn(Optional.of(orderHeader));
-        when(orderService.confirmOrder(eq(700L), any(CustomUserDetails.class)))
-                .thenReturn(orderResponse(700L, "ORD-700", OrderStatus.CONFIRMED));
 
         ApprovalDetailResponse response = approvalCommandService.decideStep(
                 970L,
@@ -860,7 +858,16 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.SALES_REP, 501L, null)
         );
 
-        verify(orderService).confirmOrder(eq(700L), any(CustomUserDetails.class));
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, atLeast(1)).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues())
+                .filteredOn(OrderApprovalConfirmedEvent.class::isInstance)
+                .singleElement()
+                .satisfies(event -> {
+                    OrderApprovalConfirmedEvent confirmedEvent = (OrderApprovalConfirmedEvent) event;
+                    assertThat(confirmedEvent.orderId()).isEqualTo(700L);
+                    assertThat(confirmedEvent.approverUserId()).isEqualTo(501L);
+                });
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.APPROVED);
         assertThat(response.status()).isEqualTo(ApprovalStatus.APPROVED);
@@ -885,7 +892,7 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.SALES_REP, 501L, null)
         );
 
-        verify(orderService, never()).confirmOrder(any(), any());
+        verifyNoInteractions(orderService);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.REJECTED);
         assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.REJECTED);
     }
@@ -912,7 +919,7 @@ class ApprovalCommandServiceTest {
                 .extracting(ex -> ((CoreException) ex).getErrorType())
                 .isEqualTo(ErrorType.APPROVAL_ROLE_MISMATCH);
 
-        verify(orderService, never()).confirmOrder(any(), any());
+        verifyNoInteractions(orderService);
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {
@@ -988,16 +995,6 @@ class ApprovalCommandServiceTest {
         );
         ReflectionTestUtils.setField(order, "id", id);
         return order;
-    }
-
-    private OrderResponse orderResponse(Long orderId, String orderCode, OrderStatus status) {
-        return OrderResponse.builder()
-                .orderId(orderId)
-                .orderCode(orderCode)
-                .status(status)
-                .items(List.of())
-                .recentLogs(List.of())
-                .build();
     }
 
     private QuotationHeader quotation(Long id, QuotationStatus status) {

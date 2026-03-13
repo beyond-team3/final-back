@@ -85,6 +85,7 @@ class QuotationServiceTest {
         Client client = client(30L, author);
         SalesDeal deal = deal(client, author);
         QuotationRequestHeader rfq = QuotationRequestHeader.create(client, "req", deal);
+        ReflectionTestUtils.setField(rfq, "id", 30L);
         rfq.updateStatus(QuotationRequestStatus.REVIEWING);
         QuotationHeader quotation = QuotationHeader.create(rfq, "QUO-1", client, deal, author, BigDecimal.TEN, null);
         ReflectionTestUtils.setField(quotation, "id", 100L);

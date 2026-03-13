@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -141,6 +142,7 @@ class QuotationRequestServiceTest {
         assertThat(event.quotationRequestId()).isEqualTo(31L);
         assertThat(event.requestCode()).startsWith("RFQ-");
         assertThat(event.clientName()).isEqualTo("새봄농산");
+        assertThat(event.occurredAt()).isNotNull();
     }
 
     @Test
@@ -164,16 +166,18 @@ class QuotationRequestServiceTest {
                 .usedCredit(BigDecimal.ZERO)
                 .build();
         ReflectionTestUtils.setField(client, "id", 7L);
+        AtomicLong dealIdSequence = new AtomicLong(100L);
+        AtomicLong requestIdSequence = new AtomicLong(200L);
 
         when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
         when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
             SalesDeal saved = invocation.getArgument(0);
-            ReflectionTestUtils.setField(saved, "id", System.nanoTime());
+            ReflectionTestUtils.setField(saved, "id", dealIdSequence.incrementAndGet());
             return saved;
         });
         when(quotationRequestRepository.save(any(QuotationRequestHeader.class))).thenAnswer(invocation -> {
             QuotationRequestHeader header = invocation.getArgument(0);
-            ReflectionTestUtils.setField(header, "id", System.nanoTime());
+            ReflectionTestUtils.setField(header, "id", requestIdSequence.incrementAndGet());
             return header;
         });
 

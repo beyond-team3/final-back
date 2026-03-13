@@ -344,7 +344,7 @@ class OrderServiceTest {
         LocalDate expectedDeliveryDate = LocalDate.now().plusDays(3);
         LocalDateTime expectedStartAt = expectedDeliveryDate.atStartOfDay();
 
-        OrderResponse response = orderService.confirmOrder(orderId, principal);
+        OrderResponse response = orderService.confirmOrderFromApproval(orderId, principal);
 
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService, times(1)).upsertFromEvent(commandCaptor.capture());
@@ -424,7 +424,7 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenReturn(List.of(orderDetail));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        orderService.confirmOrder(orderId, principal);
+        orderService.confirmOrderFromApproval(orderId, principal);
 
         InOrder inOrder = inOrder(
                 dealPipelineFacade,
@@ -502,7 +502,7 @@ class OrderServiceTest {
         when(orderDetailRepository.findByOrderHeader_Id(orderId)).thenReturn(List.of(orderDetail));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        orderService.confirmOrder(orderId, principal);
+        orderService.confirmOrderFromApproval(orderId, principal);
 
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
