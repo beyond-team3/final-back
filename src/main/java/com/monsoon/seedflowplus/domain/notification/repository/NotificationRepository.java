@@ -42,9 +42,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LocalDateTime to
     );
 
-    Page<Notification> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    @Query("""
+            SELECT n
+            FROM Notification n
+            JOIN NotificationDelivery d ON d.notification = n
+            WHERE n.user.id = :userId
+              AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findVisibleByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    long countByUser_IdAndReadAtIsNull(Long userId);
+    @Query("""
+            SELECT COUNT(n)
+            FROM Notification n
+            JOIN NotificationDelivery d ON d.notification = n
+            WHERE n.user.id = :userId
+              AND n.readAt IS NULL
+              AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+            """)
+    long countVisibleUnreadByUserId(@Param("userId") Long userId);
 
     Optional<Notification> findByIdAndUser_Id(Long id, Long userId);
 
