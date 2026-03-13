@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.approval.dto.request.CreateApprovalRequestRequest;
 import com.monsoon.seedflowplus.domain.approval.dto.request.DecideApprovalRequest;
+import com.monsoon.seedflowplus.domain.approval.dto.response.ApprovalDetailResponse;
 import com.monsoon.seedflowplus.domain.approval.dto.response.CreateApprovalRequestResponse;
 import com.monsoon.seedflowplus.domain.approval.entity.ApprovalRequest;
 import com.monsoon.seedflowplus.domain.approval.entity.ApprovalStatus;
@@ -24,9 +25,15 @@ import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.repository.SalesDealLogRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValidator;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.sales.order.service.OrderService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -50,10 +57,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,10 +71,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -93,6 +104,9 @@ class ApprovalCommandServiceTest {
     private ContractRepository contractRepository;
 
     @Mock
+    private OrderHeaderRepository orderHeaderRepository;
+
+    @Mock
     private DocStatusTransitionValidator docStatusTransitionValidator;
 
     @Mock
@@ -111,7 +125,13 @@ class ApprovalCommandServiceTest {
     private QuotationRequestService quotationRequestService;
 
     @Mock
+    private OrderService orderService;
+
+    @Mock
     private Clock clock;
+
+    @Spy
+    private ApprovalFlowPolicy approvalFlowPolicy = new ApprovalFlowPolicy();
 
     @InjectMocks
     private ApprovalCommandService approvalCommandService;
@@ -236,6 +256,37 @@ class ApprovalCommandServiceTest {
         approvalCommandService.createApprovalRequest(dto, principal);
 
         verify(approvalDealLogWriter).writeSubmit(any(ApprovalRequest.class), eq(ActorType.CLIENT), eq(88L));
+    }
+
+    @Test
+    @DisplayName("승인 요청 이벤트에는 문서 코드와 승인 단계 액터가 포함된다")
+    void createApprovalRequestPublishesApprovalRequestedEventWithContext() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.QUO, 504L, 77L, "Q-504");
+        CustomUserDetails principal = mockUser(Role.ADMIN, 321L, null);
+        QuotationHeader quotation = quotation(504L, QuotationStatus.WAITING_ADMIN, 77L);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.QUO, 504L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(quotationRepository.findById(504L)).thenReturn(Optional.of(quotation));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 904L);
+            return saved;
+        });
+        User adminUser = user(2000L, Role.ADMIN, 400L, null);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
+
+        approvalCommandService.createApprovalRequest(dto, principal);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(notificationEventPublisher).publishAfterCommit(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(ApprovalRequestedEvent.class);
+        ApprovalRequestedEvent event = (ApprovalRequestedEvent) eventCaptor.getValue();
+        assertThat(event.dealType()).isEqualTo(DealType.QUO);
+        assertThat(event.targetId()).isEqualTo(504L);
+        assertThat(event.targetCode()).isEqualTo("Q-504");
+        assertThat(event.actorType()).isEqualTo(ActorType.ADMIN);
+        assertThat(event.userId()).isEqualTo(2000L);
     }
 
     @Test
@@ -541,7 +592,7 @@ class ApprovalCommandServiceTest {
             QuotationHeader target = invocation.getArgument(0);
             target.updateStatus(QuotationStatus.COMPLETED);
             return null;
-        }).when(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        }).when(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.SYSTEM), eq(null), any());
         doAnswer(invocation -> {
             QuotationRequestHeader target = invocation.getArgument(0);
             target.updateStatus(QuotationRequestStatus.COMPLETED);
@@ -559,7 +610,7 @@ class ApprovalCommandServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.COMPLETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.COMPLETED);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
-        verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.CLIENT), eq(101L), any());
+        verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.SYSTEM), eq(null), any());
         verify(quotationRequestService).completeAfterContractApproval(eq(rfq), eq(ActorType.CLIENT), eq(101L), any());
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
@@ -569,6 +620,43 @@ class ApprovalCommandServiceTest {
         assertThat(eventCaptor.getValue().stepOrder()).isEqualTo(2);
         assertThat(eventCaptor.getValue().actorType()).isEqualTo(ActorType.CLIENT);
         assertThat(eventCaptor.getValue().decision()).isEqualTo(DecisionType.APPROVE);
+    }
+
+    @Test
+    @DisplayName("계약 최종 승인 시 계약 체결 알림을 영업사원, 관리자, 거래처에 발행한다")
+    void approveContractByClientPublishesContractCompletedNotifications() {
+        ApprovalRequest request = cntRequest(601L, 8003L, 101L);
+        ApprovalStep step1 = step(63L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(64L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8003L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        User adminUser = user(3001L, Role.ADMIN, 901L, null);
+        User clientUser = user(3002L, Role.CLIENT, null, 101L);
+
+        when(approvalRequestRepository.findById(601L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(64L, 601L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(601L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(601L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(64L)).thenReturn(false);
+        when(contractRepository.findById(8003L)).thenReturn(Optional.of(contract));
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
+        when(userRepository.findByClientId(101L)).thenReturn(Optional.of(clientUser));
+
+        approvalCommandService.decideStep(
+                601L,
+                64L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.CLIENT, null, 101L)
+        );
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(notificationEventPublisher, atLeast(3)).publishAfterCommit(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues().stream()
+                .filter(ContractCompletedEvent.class::isInstance)
+                .map(ContractCompletedEvent.class::cast)
+                .map(ContractCompletedEvent::userId))
+                .contains(3001L, 3002L, 9301L);
     }
 
     @Test
@@ -658,9 +746,10 @@ class ApprovalCommandServiceTest {
     void searchUsesClientScopedRepositoryQuery() {
         ApprovalRequest accessible = quoRequest(901L, 7100L, 77L);
         ApprovalStep accessibleStep = step(91L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
 
-        when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
+        when(approvalRequestRepository.searchForClient(null, DealType.QUO, null, 77L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(901L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
@@ -673,8 +762,8 @@ class ApprovalCommandServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, PageRequest.of(0, 10));
-        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
+        verify(approvalRequestRepository).searchForClient(null, DealType.QUO, null, 77L, normalizedPageable);
+        verify(approvalRequestRepository, never()).search(eq(null), eq(DealType.QUO), eq(null), any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
@@ -682,9 +771,10 @@ class ApprovalCommandServiceTest {
     void searchUsesSalesRepScopedRepositoryQuery() {
         ApprovalRequest accessible = quoRequest(902L, 7200L, 88L);
         ApprovalStep accessibleStep = step(92L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
 
-        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(accessible), PageRequest.of(0, 10), 1));
+        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
         when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(902L)).thenReturn(List.of(accessibleStep));
 
         var result = approvalCommandService.search(
@@ -696,8 +786,180 @@ class ApprovalCommandServiceTest {
         );
 
         assertThat(result.getContent()).hasSize(1);
-        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, PageRequest.of(0, 10));
-        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, PageRequest.of(0, 10));
+        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable);
+        verify(approvalRequestRepository, never()).search(null, DealType.QUO, null, normalizedPageable);
+    }
+
+    @Test
+    @DisplayName("케이스 11-1: approvalId 정렬 요청은 엔티티 id 정렬로 정규화한다")
+    void searchNormalizesApprovalIdSortAlias() {
+        ApprovalRequest accessible = quoRequest(903L, 7300L, 99L);
+        ApprovalStep accessibleStep = step(93L, accessible, 1, ActorType.ADMIN, ApprovalStepStatus.WAITING);
+        PageRequest frontendPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("approvalId")));
+        PageRequest normalizedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
+
+        when(approvalRequestRepository.searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable))
+                .thenReturn(new PageImpl<>(List.of(accessible), normalizedPageable, 1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(903L)).thenReturn(List.of(accessibleStep));
+
+        var result = approvalCommandService.search(
+                null,
+                DealType.QUO,
+                null,
+                frontendPageable,
+                mockUser(Role.SALES_REP, 501L, null)
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(approvalRequestRepository).searchForSalesRep(null, DealType.QUO, null, 501L, normalizedPageable);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-1: ORD approval 생성 시 SALES_REP 1단계와 client snapshot을 생성한다")
+    void createApprovalRequestCreatesSingleSalesRepStepForOrder() {
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.ORD, 700L, null, "ORD-700");
+        ArgumentCaptor<ApprovalRequest> requestCaptor = ArgumentCaptor.forClass(ApprovalRequest.class);
+        OrderHeader orderHeader = order(700L, 77L, 501L);
+
+        when(approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(DealType.ORD, 700L, ApprovalStatus.PENDING))
+                .thenReturn(false);
+        when(orderHeaderRepository.findById(700L)).thenReturn(Optional.of(orderHeader));
+        when(approvalRequestRepository.save(any(ApprovalRequest.class))).thenAnswer(invocation -> {
+            ApprovalRequest saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 970L);
+            return saved;
+        });
+
+        approvalCommandService.createApprovalRequest(dto, mockUser(Role.CLIENT, null, 77L));
+
+        verify(approvalRequestRepository).save(requestCaptor.capture());
+        ApprovalRequest saved = requestCaptor.getValue();
+        assertThat(saved.getClientIdSnapshot()).isEqualTo(77L);
+        assertThat(saved.getSteps()).hasSize(1);
+        assertThat(saved.getSteps().get(0).getActorType()).isEqualTo(ActorType.SALES_REP);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-2: 담당 영업사원 승인 시 주문 확정 이벤트를 발행하고 approval decision은 주문 상태를 선반영하지 않는다")
+    void decideStepApprovesOrderThroughAfterCommitEvent() {
+        ApprovalRequest request = ordRequest(970L, 700L, 77L);
+        ApprovalStep step = step(7001L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
+        request.addStep(step);
+        OrderHeader orderHeader = order(700L, 77L, 501L);
+        when(approvalRequestRepository.findById(970L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7001L, 970L)).thenReturn(Optional.of(step));
+        when(approvalDecisionRepository.existsByApprovalStepId(7001L)).thenReturn(false);
+        when(orderHeaderRepository.findById(700L)).thenReturn(Optional.of(orderHeader));
+
+        ApprovalDetailResponse response = approvalCommandService.decideStep(
+                970L,
+                7001L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUserWithIds(Role.SALES_REP, 9501L, 501L, null)
+        );
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, atLeast(1)).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues())
+                .filteredOn(OrderApprovalConfirmedEvent.class::isInstance)
+                .singleElement()
+                .satisfies(event -> {
+                    OrderApprovalConfirmedEvent confirmedEvent = (OrderApprovalConfirmedEvent) event;
+                    assertThat(confirmedEvent.orderId()).isEqualTo(700L);
+                    assertThat(confirmedEvent.approverUserId()).isEqualTo(9501L);
+                });
+        verify(approvalDealLogWriter).writeDecision(
+                eq(request),
+                eq(step),
+                eq(DecisionType.APPROVE),
+                eq(OrderStatus.PENDING.name()),
+                eq(OrderStatus.PENDING.name()),
+                eq("IN_PROGRESS"),
+                eq("IN_PROGRESS"),
+                eq(null),
+                eq(ActorType.SALES_REP),
+                eq(501L)
+        );
+        assertThat(orderHeader.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+        assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.APPROVED);
+        assertThat(response.status()).isEqualTo(ApprovalStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-3: ORD 반려 시 요청만 REJECTED 처리되고 주문 확정은 호출되지 않는다")
+    void decideStepRejectsOrderApprovalWithoutConfirmingOrder() {
+        ApprovalRequest request = ordRequest(971L, 701L, 77L);
+        ApprovalStep step = step(7002L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
+        request.addStep(step);
+        OrderHeader orderHeader = order(701L, 77L, 501L);
+        when(approvalRequestRepository.findById(971L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7002L, 971L)).thenReturn(Optional.of(step));
+        when(approvalDecisionRepository.existsByApprovalStepId(7002L)).thenReturn(false);
+        when(orderHeaderRepository.findById(701L)).thenReturn(Optional.of(orderHeader));
+
+        approvalCommandService.decideStep(
+                971L,
+                7002L,
+                new DecideApprovalRequest(DecisionType.REJECT, "재고 부족"),
+                mockUser(Role.SALES_REP, 501L, null)
+        );
+
+        verifyNoInteractions(orderService);
+        assertThat(request.getStatus()).isEqualTo(ApprovalStatus.REJECTED);
+        assertThat(step.getStatus()).isEqualTo(ApprovalStepStatus.REJECTED);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-4: 담당 영업사원이 아니면 ORD 승인을 할 수 없다")
+    void decideStepRejectsNonOwnerSalesRepForOrder() {
+        ApprovalRequest request = ordRequest(972L, 702L, 77L);
+        ApprovalStep step = step(7003L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
+        request.addStep(step);
+        OrderHeader orderHeader = order(702L, 77L, 501L);
+        when(approvalRequestRepository.findById(972L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7003L, 972L)).thenReturn(Optional.of(step));
+        when(approvalDecisionRepository.existsByApprovalStepId(7003L)).thenReturn(false);
+        when(orderHeaderRepository.findById(702L)).thenReturn(Optional.of(orderHeader));
+
+        assertThatThrownBy(() -> approvalCommandService.decideStep(
+                972L,
+                7003L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.SALES_REP, 999L, null)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.APPROVAL_ROLE_MISMATCH);
+
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-5: 주문이 이미 PENDING이 아니면 승인 완료 이벤트를 발행하지 않고 O007을 반환한다")
+    void decideStepRejectsOrderApprovalWhenOrderAlreadyConfirmed() {
+        ApprovalRequest request = ordRequest(973L, 703L, 77L);
+        ApprovalStep step = step(7004L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
+        request.addStep(step);
+        OrderHeader orderHeader = order(703L, 77L, 501L);
+        orderHeader.confirm();
+        when(approvalRequestRepository.findById(973L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7004L, 973L)).thenReturn(Optional.of(step));
+        when(approvalDecisionRepository.existsByApprovalStepId(7004L)).thenReturn(false);
+        when(orderHeaderRepository.findById(703L)).thenReturn(Optional.of(orderHeader));
+
+        assertThatThrownBy(() -> approvalCommandService.decideStep(
+                973L,
+                7004L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUserWithIds(Role.SALES_REP, 9501L, 501L, null)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.ORDER_ALREADY_CONFIRMED);
+
+        verify(approvalDecisionRepository, never()).save(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {
@@ -707,6 +969,18 @@ class ApprovalCommandServiceTest {
                 .status(ApprovalStatus.PENDING)
                 .clientIdSnapshot(clientIdSnapshot)
                 .targetCodeSnapshot("Q-" + targetId)
+                .build();
+        ReflectionTestUtils.setField(request, "id", id);
+        return request;
+    }
+
+    private ApprovalRequest ordRequest(Long id, Long targetId, Long clientIdSnapshot) {
+        ApprovalRequest request = ApprovalRequest.builder()
+                .dealType(DealType.ORD)
+                .targetId(targetId)
+                .status(ApprovalStatus.PENDING)
+                .clientIdSnapshot(clientIdSnapshot)
+                .targetCodeSnapshot("ORD-" + targetId)
                 .build();
         ReflectionTestUtils.setField(request, "id", id);
         return request;
@@ -733,6 +1007,34 @@ class ApprovalCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(step, "id", id);
         return step;
+    }
+
+    private OrderHeader order(Long id, Long clientId, Long ownerEmployeeId) {
+        Client client = Client.builder()
+                .clientCode("C-" + clientId)
+                .clientName("거래처-" + clientId)
+                .clientBrn("123-45-" + clientId)
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", clientId);
+
+        Employee employee = org.mockito.Mockito.mock(Employee.class);
+        lenient().when(employee.getId()).thenReturn(ownerEmployeeId);
+
+        OrderHeader order = OrderHeader.create(
+                org.mockito.Mockito.mock(ContractHeader.class),
+                client,
+                salesDeal(ownerEmployeeId),
+                employee,
+                "ORD-" + id
+        );
+        ReflectionTestUtils.setField(order, "id", id);
+        return order;
     }
 
     private QuotationHeader quotation(Long id, QuotationStatus status) {
@@ -839,6 +1141,23 @@ class ApprovalCommandServiceTest {
         ReflectionTestUtils.setField(assigneeUser, "id", 8800L + ownerEmployeeId);
         lenient().when(userRepository.findByEmployeeId(ownerEmployeeId)).thenReturn(Optional.of(assigneeUser));
         return deal;
+    }
+
+    private User user(Long userId, Role role, Long employeeId, Long clientId) {
+        User user = org.mockito.Mockito.mock(User.class);
+        lenient().when(user.getId()).thenReturn(userId);
+        lenient().when(user.getRole()).thenReturn(role);
+        if (employeeId != null) {
+            Employee employee = org.mockito.Mockito.mock(Employee.class);
+            lenient().when(employee.getId()).thenReturn(employeeId);
+            lenient().when(user.getEmployee()).thenReturn(employee);
+        }
+        if (clientId != null) {
+            Client client = org.mockito.Mockito.mock(Client.class);
+            lenient().when(client.getId()).thenReturn(clientId);
+            lenient().when(user.getClient()).thenReturn(client);
+        }
+        return user;
     }
 
     private CustomUserDetails mockUser(Role role, Long employeeId, Long clientId) {

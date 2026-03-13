@@ -772,18 +772,76 @@ client.test("order create success", function () {
 client.global.set("ordId", response.body.data.orderId);
 %}
 
-### [4-2] ORD 확정 (CLIENT) - 명세서 자동 생성
-PATCH {{baseUrl}}/api/v1/orders/{{ordId}}/confirm
-Authorization: Bearer {{clientToken}}
-Content-Type: application/json
+### [4-2] ORD 확정은 공개 API가 아니라 ORD 승인 완료 이벤트로 내부 처리된다.
+### 이 시나리오에서는 ORD 승인 요청/결정 완료 후 [4-3]에서 STMT 자동 생성과 주문 상태 변화를 확인한다.
 
-{}
+### [4-2-1] ORD 승인 요청 조회
+GET {{baseUrl}}/api/v1/approvals?dealType=ORD&targetId={{ordId}}
+Authorization: Bearer {{salesToken}}
 
 > {%
-client.test("order confirm success", function () {
+client.test("order approval search success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const approvals = response.body.data.content || [];
+  client.assert(approvals.length > 0, "order approval must exist");
+  client.global.set("ordApprovalId", approvals[0].approvalId);
+});
+%}
+
+### [4-2-2] ORD 승인 상세 조회
+GET {{baseUrl}}/api/v1/approvals/{{ordApprovalId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("order approval detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  const steps = response.body.data.steps || [];
+  const salesStep = steps.find((step) => step.actorType === "SALES_REP");
+  client.assert(!!salesStep, "sales rep approval step must exist");
+  client.global.set("ordSalesStepId", salesStep.stepId);
+});
+%}
+
+### [4-2-3] ORD 승인 완료
+POST {{baseUrl}}/api/v1/approvals/{{ordApprovalId}}/steps/{{ordSalesStepId}}/decision
+Authorization: Bearer {{salesToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "scenario1 order approve runId={{runId}}"
+}
+
+> {%
+client.test("order approval decision success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.data.status === "APPROVED", "approval request must be APPROVED");
+});
+%}
+
+### [4-2-4] ORD 상태 확인
+GET {{baseUrl}}/api/v1/orders/{{ordId}}
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("order status confirmed after approval", function () {
   client.assert(response.status === 200, "status must be 200");
   client.assert(response.body.data.status === "CONFIRMED", "order status must be CONFIRMED");
 });
+%}
+
+### [4-2-5] STMT 동기화 대기용 1차 조회
+GET {{baseUrl}}/api/v1/statements
+Authorization: Bearer {{salesToken}}
+
+> {%
+client.test("statement warm-up list success", function () {
+  client.assert(response.status === 200, "status must be 200");
+});
+const warmupStatement = (response.body.data || []).find((item) => item.orderId === Number(client.global.get("ordId")));
+if (warmupStatement) {
+  client.global.set("stmtId", warmupStatement.statementId);
+}
 %}
 
 ### [4-3] STMT 자동 생성 확인

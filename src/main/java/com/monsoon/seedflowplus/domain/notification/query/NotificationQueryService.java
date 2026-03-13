@@ -19,11 +19,11 @@ public class NotificationQueryService {
     public Page<Notification> getMyNotifications(Long userId, Pageable pageable) {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(pageable, "pageable must not be null");
-        return notificationRepository.findByUser_IdOrderByCreatedAtDesc(userId, pageable);
+        return notificationRepository.findVisibleByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
     public long getUnreadCount(Long userId) {
         Objects.requireNonNull(userId, "userId must not be null");
-        return notificationRepository.countByUser_IdAndReadAtIsNull(userId);
+        return notificationRepository.countVisibleUnreadByUserId(userId);
     }
 }

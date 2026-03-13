@@ -21,6 +21,8 @@ import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
+import com.monsoon.seedflowplus.domain.notification.event.AccountActivatedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.infra.kakao.GeocodingService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,7 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final RedisTokenStore tokenStore;
     private final GeocodingService geocodingService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Transactional
     public ClientDetailResponse registerClient(ClientRegisterRequest request) {
@@ -157,7 +160,15 @@ public class AccountService {
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
+        Status beforeStatus = user.getStatus();
         user.updateStatus(request.status());
+        if (beforeStatus == Status.DEACTIVATE && request.status() == Status.ACTIVATE) {
+            notificationEventPublisher.publishAfterCommit(new AccountActivatedEvent(
+                    user.getId(),
+                    user.getRole(),
+                    java.time.LocalDateTime.now()
+            ));
+        }
     }
 
     @Transactional

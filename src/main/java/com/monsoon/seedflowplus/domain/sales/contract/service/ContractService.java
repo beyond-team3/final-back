@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -48,6 +50,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,7 +67,10 @@ public class ContractService {
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
+    private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
     private final ApprovalDecisionRepository approvalDecisionRepository;
 
     public ContractPrefillResponse getPrefillData(Long quotationId, Long contractId) {
@@ -75,7 +81,8 @@ public class ContractService {
                     .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
             // 본인이 작성한 반려된 계약서만 복사 가능
-            if (contract.getStatus() != ContractStatus.REJECTED_ADMIN && contract.getStatus() != ContractStatus.REJECTED_CLIENT) {
+            if (contract.getStatus() != ContractStatus.REJECTED_ADMIN
+                    && contract.getStatus() != ContractStatus.REJECTED_CLIENT) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "반려된 계약서만 복사할 수 있습니다.");
             }
             validateAccess(contract, userDetails);
@@ -267,10 +274,22 @@ public class ContractService {
     @Transactional
     public void syncContractStatuses() {
         LocalDate today = LocalDate.now();
-
         // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
         int activatedCount = contractRepository.updateStatusForActivation(
                 ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
+
+        List<ContractHeader> expiringContracts = contractRepository
+                .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
+        Map<Long, ExpiringContractContext> expiringContextByDealId = expiringContracts.stream()
+                .filter(contract -> contract.getDeal() != null && contract.getDeal().getId() != null)
+                .collect(Collectors.toMap(
+                        contract -> contract.getDeal().getId(),
+                        contract -> new ExpiringContractContext(
+                                contract.getId(),
+                                contract.getContractCode(),
+                                contract.getDeal().getId()),
+                        (left, right) -> left,
+                        java.util.LinkedHashMap::new));
 
         // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
         int expiredCount = contractRepository.updateStatusForExpiration(
@@ -279,6 +298,8 @@ public class ContractService {
         if (activatedCount > 0 || expiredCount > 0) {
             log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
         }
+
+        expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -330,14 +351,21 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
+        String fromStatus = contract.getStatus().name();
+        DealStage fromStage = mapContractStage(contract.getStatus());
         contract.delete();
+        approvalCancellationService.cancelPendingRequest(DealType.CNT, contract.getId());
 
         // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
         QuotationHeader quotation = contract.getQuotation();
+        DealStage toStage = DealStage.CANCELED;
+        String toStatus = ContractStatus.DELETED.name();
         if (quotation != null) {
             // 견적서 상태: WAITING_CONTRACT 일 때만 FINAL_APPROVED로 복구
             if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
                 quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+                toStage = mapQuotationStage(quotation.getStatus());
+                toStatus = quotation.getStatus().name();
             }
 
             // 견적요청서 상태: 완료(COMPLETED) 상태일 때만 검토 중(REVIEWING)으로 복구
@@ -346,6 +374,31 @@ public class ContractService {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
             }
         }
+
+        if (contract.getDeal() != null) {
+            dealLogWriteService.write(
+                    contract.getDeal(),
+                    DealType.CNT,
+                    contract.getId(),
+                    contract.getContractCode(),
+                    fromStage,
+                    toStage,
+                    fromStatus,
+                    toStatus,
+                    ActionType.CANCEL,
+                    LocalDateTime.now(),
+                    resolveActorType(userDetails),
+                    resolveActorId(userDetails),
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            ContractStatus.DELETED.name(),
+                            "STATUS")));
+        }
+
+        restoreDealSnapshotAfterContractDelete(contract);
     }
 
     @Transactional
@@ -362,8 +415,8 @@ public class ContractService {
             quotation = quotationRepository.findById(request.quotationId())
                     .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
 
-            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED && 
-                quotation.getStatus() != QuotationStatus.WAITING_CONTRACT) {
+            if (quotation.getStatus() != QuotationStatus.FINAL_APPROVED &&
+                    quotation.getStatus() != QuotationStatus.WAITING_CONTRACT) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
             }
 
@@ -371,7 +424,7 @@ public class ContractService {
             if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
                 boolean hasActiveContract = contractRepository.findAll().stream() // TODO: Optimize with repo method
                         .filter(c -> c.getQuotation() != null && c.getQuotation().getId().equals(request.quotationId()))
-                        .anyMatch(c -> c.getStatus() == ContractStatus.WAITING_ADMIN 
+                        .anyMatch(c -> c.getStatus() == ContractStatus.WAITING_ADMIN
                                 || c.getStatus() == ContractStatus.WAITING_CLIENT);
                 if (hasActiveContract) {
                     throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
@@ -505,6 +558,12 @@ public class ContractService {
                         new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, request.items().size(),
                                 "COUNT")));
 
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.CNT,
+                contract.getId(),
+                finalCode,
+                userDetails);
+
         // 7. 문서 상태 업데이트: 견적서(WAITING_CONTRACT), 견적요청서(COMPLETED)
         if (quotation != null) {
             quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
@@ -592,7 +651,8 @@ public class ContractService {
                         q.getStatus(),
                         q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                         q.getDeal().getId(),
-                        (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
+                        (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
+                                : null,
                         q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
                         null,
                         List.of()))
@@ -645,7 +705,8 @@ public class ContractService {
                             c.getStatus(),
                             c.getQuotation() != null ? c.getQuotation().getId() : null,
                             c.getDeal().getId(),
-                            (c.getAuthor() != null && c.getAuthor().getId().equals(user.getEmployeeId())) ? c.getMemo() : null,
+                            (c.getAuthor() != null && c.getAuthor().getId().equals(user.getEmployeeId())) ? c.getMemo()
+                                    : null,
                             reasonsMap.get(c.getId()),
                             items);
                 })
@@ -668,5 +729,138 @@ public class ContractService {
                         ReasonDto::targetId,
                         ReasonDto::reason,
                         (existing, replacement) -> existing));
+    }
+
+    private DealStage mapContractStage(ContractStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case COMPLETED -> DealStage.APPROVED;
+            case ACTIVE_CONTRACT -> DealStage.CONFIRMED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private ActorType resolveActorType(CustomUserDetails userDetails) {
+        return userDetails.getRole() == Role.ADMIN ? ActorType.ADMIN : ActorType.SALES_REP;
+    }
+
+    private Long resolveActorId(CustomUserDetails userDetails) {
+        Long actorId = userDetails.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return actorId;
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        if (deal.getClosedAt() != null) {
+            return;
+        }
+        deal.close(actionAt);
+    }
+
+    private void restoreDealSnapshotAfterContractDelete(ContractHeader contract) {
+        SalesDeal deal = contract.getDeal();
+        if (deal == null) {
+            return;
+        }
+        LocalDateTime actionAt = LocalDateTime.now();
+
+        QuotationHeader quotation = contract.getQuotation();
+        if (quotation != null && quotation.getStatus() == QuotationStatus.FINAL_APPROVED) {
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationStage(quotation.getStatus()),
+                    quotation.getStatus().name(),
+                    DealType.QUO,
+                    quotation.getId(),
+                    quotation.getQuotationCode(),
+                    actionAt);
+            return;
+        }
+
+        syncDealSnapshot(
+                deal,
+                DealStage.CANCELED,
+                ContractStatus.DELETED.name(),
+                DealType.CNT,
+                contract.getId(),
+                contract.getContractCode(),
+                actionAt);
+    }
+
+    private DealStage mapQuotationStage(QuotationStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private void syncDealSnapshot(
+            SalesDeal deal,
+            DealStage stage,
+            String status,
+            DealType dealType,
+            Long refId,
+            String targetCode,
+            LocalDateTime actionAt) {
+        deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
+    }
+
+    private void expireDeals(Map<Long, ExpiringContractContext> expiringContextByDealId, LocalDateTime actionAt) {
+        if (expiringContextByDealId.isEmpty()) {
+            return;
+        }
+        salesDealRepository.findAllById(expiringContextByDealId.keySet())
+                .forEach(deal -> {
+                    ExpiringContractContext context = expiringContextByDealId.get(deal.getId());
+                    if (context == null) {
+                        return;
+                    }
+                    dealLogWriteService.write(
+                            deal,
+                            DealType.CNT,
+                            context.contractId(),
+                            context.contractCode(),
+                            DealStage.CONFIRMED,
+                            DealStage.EXPIRED,
+                            ContractStatus.ACTIVE_CONTRACT.name(),
+                            ContractStatus.EXPIRED.name(),
+                            ActionType.EXPIRE,
+                            actionAt,
+                            ActorType.SYSTEM,
+                            null,
+                            null,
+                            List.of(new DealLogWriteService.DiffField(
+                                    "status",
+                                    "문서 상태",
+                                    ContractStatus.ACTIVE_CONTRACT.name(),
+                                    ContractStatus.EXPIRED.name(),
+                                    "STATUS")));
+                    syncDealSnapshot(
+                            deal,
+                            DealStage.EXPIRED,
+                            ContractStatus.EXPIRED.name(),
+                            DealType.CNT,
+                            context.contractId(),
+                            context.contractCode(),
+                            actionAt);
+                    closeDealIfOpen(deal, actionAt);
+                });
+    }
+
+    private record ExpiringContractContext(Long contractId, String contractCode, Long dealId) {
     }
 }

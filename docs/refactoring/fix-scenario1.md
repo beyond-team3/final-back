@@ -29,8 +29,8 @@
 - 클래스/메서드: DealLogPolicyValidator.createAllowedActionsByActor
 
 ### 변경 내용
-시나리오1의 ORD 확정 호출 주체와 실제 딜 로그 정책을 맞추기 위해 `ActorType.CLIENT`의 허용 액션에 `CONFIRM`을 추가했다.
-이제 `OrderService.confirmOrder(...)`가 CLIENT 요청으로 실행되어도 ORD CONFIRM 로그와 후속 STMT CREATE 로그가 같은 흐름에서 저장될 수 있다.
+시나리오1의 ORD 승인 완료 주체와 실제 딜 로그 정책을 맞추기 위해 `ActorType.CLIENT`의 허용 액션에 `CONFIRM`을 추가했다.
+이제 승인 완료 이벤트 뒤 `OrderService.confirmOrderFromApproval(...)`가 내부 실행되어도 ORD CONFIRM 로그와 후속 STMT CREATE 로그가 같은 흐름에서 저장될 수 있다.
 
 ### 변경 이유
 시나리오1의 ORD 확정 주체는 CLIENT이며, 기존 정책과 충돌해 400(`INVALID_ACTOR_ACTION_COMBINATION`)이 발생했다.
@@ -142,7 +142,7 @@ BUG-3. 계약 승인 파이프라인에서 `DOC_APPROVED` 일정이 생성되지
 
 ### 변경 대상
 - 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java
-- 클래스/메서드: OrderService.confirmOrder, syncDeliveryDueSchedule
+- 클래스/메서드: OrderService.confirmOrderFromApproval, syncDeliveryDueSchedule
 
 ### 변경 내용
 ORD confirm 이후 주문 생성일 기준 `DELIVERY_DUE` 일정을 upsert하도록 연결했다.
@@ -251,7 +251,7 @@ BUG-6. scenario1에서 CNT 최종 승인 시 일정 assignee 조회 예외로 50
 
 ### 변경 대상
 - 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java
-- 클래스/메서드: OrderService.confirmOrder, syncDeliveryDueSchedule
+- 클래스/메서드: OrderService.confirmOrderFromApproval, syncDeliveryDueSchedule
 
 ### 변경 내용
 ORD confirm 일정 동기화가 owner user 부재 시 현재 사용자 또는 거래처 user를 assignee로 사용하도록 보강했다.
@@ -290,7 +290,7 @@ BUG-6. 시나리오 후반부 ORD/INV/PAY 단계에서 동일한 assignee 해석
 명세서 저장과 STMT DealLog 기록이 `createStatement()`가 참여한 기존 주문 확정 트랜잭션 안에서 그대로 수행되도록 내부 private 메서드 호출 구조로 정리했다.
 
 ### 변경 이유
-BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK insert의 별도 트랜잭션 충돌을 없애기 위해서다.
+BUG-6. `OrderService.confirmOrderFromApproval()`가 잡고 있는 주문 row lock과 STMT FK insert의 별도 트랜잭션 충돌을 없애기 위해서다.
 
 ## [2026-03-10 12:27] BUG-6 Statement REQUIRES_NEW 제거
 
@@ -304,7 +304,7 @@ BUG-6. `OrderService.confirmOrder()`가 잡고 있는 주문 row lock과 STMT FK
 - [ ] 오류 있음 → 해당 없음
 
 ### 다음 단계
-로컬 서버에서 `PATCH /api/v1/orders/{id}/confirm`를 다시 호출해 lock wait timeout 재현이 사라졌는지 확인
+로컬 서버에서 ORD 승인 완료 이벤트 후 내부 주문 확정 흐름이 실행될 때 lock wait timeout 재현이 사라졌는지 확인
 ## [2026-03-10 18:15] 모든 문서 조회 테스트 SQL 작성
 
 ### 작업 내용

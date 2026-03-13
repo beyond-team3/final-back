@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.notification.event;
 
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
+import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import java.time.LocalDateTime;
 
 public record ApprovalCompletedEvent(
@@ -8,6 +9,8 @@ public record ApprovalCompletedEvent(
         Long approvalRequestId,
         DealType dealType,
         Long targetId,
+        String targetCode,
+        ActorType actorType,
         LocalDateTime occurredAt
 ) {
 }

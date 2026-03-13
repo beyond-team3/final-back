@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.notification.event;
 import com.monsoon.seedflowplus.domain.notification.command.NotificationSseService;
 import com.monsoon.seedflowplus.domain.notification.dto.response.NotificationListItemResponse;
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
+import com.monsoon.seedflowplus.domain.notification.service.DocumentNotificationService;
 import com.monsoon.seedflowplus.domain.notification.service.DealApprovalNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
@@ -17,6 +18,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class NotificationEventHandler {
 
     private final DealApprovalNotificationService dealApprovalNotificationService;
+    private final DocumentNotificationService documentNotificationService;
     private final NotificationSseService notificationSseService;
 
     @Async("notificationTaskExecutor")
@@ -48,6 +50,54 @@ public class NotificationEventHandler {
     @Transactional
     public void handleApprovalRejected(ApprovalRejectedEvent event) {
         Notification saved = dealApprovalNotificationService.createApprovalRejectedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleQuotationRequestCreated(QuotationRequestCreatedEvent event) {
+        Notification saved = documentNotificationService.createQuotationRequestCreatedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleContractCompleted(ContractCompletedEvent event) {
+        Notification saved = documentNotificationService.createContractCompletedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleStatementIssued(StatementIssuedEvent event) {
+        Notification saved = documentNotificationService.createStatementIssuedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleInvoiceIssued(InvoiceIssuedEvent event) {
+        Notification saved = documentNotificationService.createInvoiceIssuedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleAccountActivated(AccountActivatedEvent event) {
+        Notification saved = documentNotificationService.createAccountActivatedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleProductCreated(ProductCreatedEvent event) {
+        Notification saved = documentNotificationService.createProductCreatedNotification(event);
         sendIfPresent(event.userId(), saved);
     }
 

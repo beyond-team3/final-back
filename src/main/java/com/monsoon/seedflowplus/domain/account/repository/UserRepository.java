@@ -18,6 +18,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByClientId(Long clientId);
 
+    List<User> findAllByEmployeeIdIn(List<Long> employeeIds);
+
+    List<User> findAllByClientIdIn(List<Long> clientIds);
+
     List<User> findAllByRole(Role role);
 
     List<User> findAllByEmployeeIsNotNull();

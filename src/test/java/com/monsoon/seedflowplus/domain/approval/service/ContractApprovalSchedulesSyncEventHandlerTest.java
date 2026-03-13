@@ -17,6 +17,7 @@ import com.monsoon.seedflowplus.domain.approval.entity.DecisionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
+import com.monsoon.seedflowplus.domain.notification.service.ScheduledNotificationService;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
@@ -46,6 +47,8 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
 
     @Mock
     private DealScheduleSyncService dealScheduleSyncService;
+    @Mock
+    private ScheduledNotificationService scheduledNotificationService;
 
     @InjectMocks
     private ContractApprovalSchedulesSyncEventHandler handler;
@@ -79,6 +82,7 @@ class ContractApprovalSchedulesSyncEventHandlerTest {
         assertThat(commandCaptor.getAllValues())
                 .extracting(DealScheduleUpsertCommand::assigneeUserId)
                 .containsOnly(9301L);
+        verify(scheduledNotificationService).scheduleContractLifecycleNotifications(contract, java.util.List.of(9301L));
     }
 
     @Test

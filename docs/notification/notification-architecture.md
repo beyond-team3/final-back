@@ -281,3 +281,163 @@ SKIP LOCKED 조회 실패 fallback은 비원자 non-locking 선점 경로를 중
 
 ### 변경 이유
 리뷰 이슈 [1]~[9] 중 수정 제외 항목을 제외한 발송 원자성/중복 전송/소프트삭제 우회/설정 하드코딩 결함을 수정하기 위함
+
+## [2026-03-12] Approval 알림 문맥 payload 확장
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRequestedEvent.java
+- 클래스/메서드: ApprovalRequestedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalCompletedEvent.java
+- 클래스/메서드: ApprovalCompletedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ApprovalRejectedEvent.java
+- 클래스/메서드: ApprovalRejectedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalSubmissionService.java
+- 클래스/메서드: ApprovalSubmissionService.publishApprovalRequestedForFirstApprovers
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: ApprovalCommandService.publishApprovalRequestedForFirstApprovers, publishApprovalEventsAfterDecision
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DealApprovalNotificationService.java
+- 클래스/메서드: DealApprovalNotificationService.createApprovalRequestedNotification, createApprovalCompletedNotification, createApprovalRejectedNotification
+
+### 변경 내용
+승인 이벤트 3종 record에 `targetCode`, `actorType`를 추가해 문서 코드와 승인 단계 액터를 after-commit 시점까지 그대로 전달하도록 바꿨다.
+ApprovalSubmissionService/ApprovalCommandService는 이벤트 발행 시 `ApprovalRequest.targetCodeSnapshot`과 현재/다음 step의 `actorType`을 함께 실어 보낸다.
+DealApprovalNotificationService는 알림 `type`은 generic 3종을 유지하면서도 `targetType/targetId`를 실제 문서(`QUOTATION`, `CONTRACT`, `ORDER`)로 저장하고, title/content를 문서 종류+승인 단계 문맥으로 생성한다.
+승인 완료/반려 알림 dedup은 stage별 content 키를 사용해 동일 문서에서 관리자/거래처 처리 알림이 같은 날 연속 발생해도 서로 누락되지 않게 했다.
+
+### 변경 이유
+Phase 1 정책 1번(승인 알림 generic 유지 + 문서/액터 문맥 노출) 반영
+
+## [2026-03-12] 견적요청서 생성 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/QuotationRequestCreatedEvent.java
+- 클래스/메서드: QuotationRequestCreatedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: DocumentNotificationService.createQuotationRequestCreatedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: NotificationEventHandler.handleQuotationRequestCreated
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java
+- 클래스/메서드: QuotationRequestService.createQuotationRequest
+
+### 변경 내용
+견적요청서 생성 전용 이벤트 `QuotationRequestCreatedEvent`와 문서 알림 서비스 `DocumentNotificationService`를 추가했다.
+QuotationRequestService는 저장/코드 발급/딜 로그 기록 후 `client.managerEmployee -> UserRepository.findByEmployeeId(...)` 경로로 담당 영업사원 사용자 1명을 해석해 after-commit 이벤트를 발행한다.
+NotificationEventHandler는 신규 이벤트를 비동기 수신해 `QUOTATION_REQUEST_CREATED` 알림을 저장하고, 기존 SSE payload 형식(`NotificationListItemResponse`)으로 즉시 전송한다.
+알림은 `targetType=QUOTATION_REQUEST`, `targetId=rfqId`로 저장되어 기존 목록/SSE 응답 구조를 변경하지 않는다.
+
+### 변경 이유
+Phase 1 정책 4번(견적요청서 생성 알림 수신 대상은 담당 영업사원 1명) 반영
+
+## [2026-03-12] 문서 라이프사이클 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java
+- 클래스/메서드: NotificationType
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ContractCompletedEvent.java
+- 클래스/메서드: ContractCompletedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/StatementIssuedEvent.java
+- 클래스/메서드: StatementIssuedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/InvoiceIssuedEvent.java
+- 클래스/메서드: InvoiceIssuedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: createContractCompletedNotification, createStatementIssuedNotification, createInvoiceIssuedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: handleContractCompleted, handleStatementIssued, handleInvoiceIssued
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java
+- 클래스/메서드: publishContractCompletedEventsIfNeeded
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java
+- 클래스/메서드: createAndRecordStatement, publishStatementIssuedNotifications
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java
+- 클래스/메서드: publishInvoice, publishInvoiceIssuedNotification
+
+### 변경 내용
+계약 체결 알림을 승인 처리 알림과 분리하기 위해 `NotificationType.CONTRACT_COMPLETED`와 이벤트 3종(contract/statment/invoice)을 추가했다.
+ApprovalCommandService는 계약서 최종 승인 완료 후 영업사원, 전체 관리자, 거래처 사용자에게 `ContractCompletedEvent`를 after-commit 발행한다.
+StatementService는 주문 확정 직후 자동 생성된 명세서에 대해 영업사원/거래처 양쪽으로 `StatementIssuedEvent`를 발행하고, InvoiceService는 publish 시 거래처 대상 `InvoiceIssuedEvent`를 발행한다.
+NotificationEventHandler와 DocumentNotificationService는 이 이벤트들을 기존 Notification 저장/SSE 전송 흐름에 연결해 API 응답 포맷과 SSE payload 형식을 그대로 유지한다.
+
+### 변경 이유
+Phase 1 정책 2~3번(계약 체결 알림 분리, 명세서 즉시 발송, 청구서 발행 알림) 반영
+
+## [2026-03-13] 계약 예약 알림 및 visible query 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/entity/NotificationType.java
+- 클래스/메서드: NotificationType
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java
+- 클래스/메서드: ScheduledNotificationService.scheduleContractLifecycleNotifications
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/approval/service/ContractApprovalSchedulesSyncEventHandler.java
+- 클래스/메서드: ContractApprovalSchedulesSyncEventHandler.syncContractSchedules
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java
+- 클래스/메서드: findVisibleByUserIdOrderByCreatedAtDesc, countVisibleUnreadByUserId
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/query/NotificationQueryService.java
+- 클래스/메서드: getMyNotifications, getUnreadCount
+
+### 변경 내용
+계약 최종 승인 후 `ScheduledNotificationService`가 계약 시작/종료 30일 전/종료 알림을 `NotificationDelivery(status=PENDING, scheduledAt=해당 일자 09:00)`로 미리 생성하도록 추가했다.
+이 예약 생성은 기존 `ContractApprovalSchedulesSyncEventHandler`의 after-commit 비동기 후처리 경로에 연결되어 계약 스케줄 upsert와 같은 트랜잭션 경계를 공유한다.
+알림 목록/미읽음 집계는 이제 `NotificationDelivery.status = SENT`인 알림만 노출하도록 저장소 쿼리를 교체했다.
+이 변경으로 미래 예약 알림이 미리 목록에 노출되지 않으며, 기존 재배 알림의 예약 발송 정책과도 정렬된다.
+
+### 변경 이유
+Phase 2 정책 1번, 4번(계약 종료 30일 전, 오전 9시 예약 발송) 반영
+
+## [2026-03-13] 계정 활성화 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/AccountActivatedEvent.java
+- 클래스/메서드: AccountActivatedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/account/service/AccountService.java
+- 클래스/메서드: AccountService.updateUserStatus
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: createAccountActivatedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: handleAccountActivated
+
+### 변경 내용
+`AccountService.updateUserStatus`는 상태 변경 전 값을 비교해 `DEACTIVATE -> ACTIVATE` 전이일 때만 `AccountActivatedEvent`를 after-commit 발행하도록 변경했다.
+`createAccount`는 여전히 기본 상태를 `DEACTIVATE`로 저장하므로 최초 등록 직후 활성화 알림은 발생하지 않는다.
+DocumentNotificationService는 `ACCOUNT_ACTIVATED` 알림을 `targetType=ACCOUNT`, `targetId=userId`로 즉시 저장하고, NotificationEventHandler는 기존 SSE payload 형식으로 실시간 전송한다.
+
+### 변경 이유
+Phase 2 정책 3번(활성화 전이만 발송, 최초 등록 직후 제외) 반영
+
+## [2026-03-13] 상품 등록 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ProductCreatedEvent.java
+- 클래스/메서드: ProductCreatedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductWriteService.java
+- 클래스/메서드: ProductWriteService.createProduct
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: createProductCreatedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: handleProductCreated
+
+### 변경 내용
+ProductWriteService는 상품 저장 완료 후 `userRepository.findAllByRole(SALES_REP)`로 전체 영업사원 사용자 목록을 조회해 `ProductCreatedEvent`를 after-commit 발행한다.
+DocumentNotificationService는 이를 `PRODUCT_CREATED` 타입, `targetType=PRODUCT`, `targetId=productId` 기준 즉시 알림으로 저장한다.
+NotificationEventHandler는 신규 상품 알림도 기존 SSE payload(`NotificationListItemResponse`) 형식을 그대로 사용해 실시간 전송한다.
+
+### 변경 이유
+Phase 2 정책 2번(상품 등록 알림은 모든 영업사원 수신) 반영
+
+## [2026-03-13] 예약 알림 visible 경계 정합성 수정
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java
+- 클래스/메서드: ScheduledNotificationService.isDuplicated
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationDeliveryRepository.java
+- 클래스/메서드: existsByNotification_UserIdAndNotification_TypeAndNotification_TargetTypeAndNotification_TargetIdAndScheduledAt, deleteVisibleByNotification_User_Id
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java
+- 클래스/메서드: findVisibleByUserIdOrderByCreatedAtDesc, countVisibleUnreadByUserId, findVisibleByIdAndUserId, markAllVisibleAsRead, deleteVisibleByUser_Id
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java
+- 클래스/메서드: markAsRead, markAllAsRead, deleteOne, deleteAll
+
+### 변경 내용
+계약 예약 알림 dedup 기준을 `createdAt` 날짜 비교에서 `NotificationDelivery.scheduledAt` 기준 존재 검사로 변경해 같은 계약/사용자/예약 시각 알림이 재생성되지 않도록 수정했다.
+visible 목록/미읽음 쿼리는 `JOIN` 대신 `EXISTS`를 사용하도록 바꿔 다중 delivery 채널이 생겨도 중복 row와 count 부풀림이 발생하지 않게 했다.
+단건/전체 읽음 및 삭제는 이제 visible 알림(`DeliveryStatus.SENT`)만 대상으로 동작하며, 미래 예약 알림은 사전 읽음/삭제되지 않는다.
+
+### 변경 이유
+리뷰 이슈 반영: 예약 dedup 오류, 숨은 예약 알림 bulk 처리, visible query 중복 row 위험 수정

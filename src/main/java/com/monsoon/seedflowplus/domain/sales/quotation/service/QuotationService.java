@@ -7,6 +7,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -65,6 +67,8 @@ public class QuotationService {
     private final DealLogWriteService dealLogWriteService;
     private final ApprovalDecisionRepository approvalDecisionRepository;
     private final DealLogQueryService dealLogQueryService;
+    private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
 
     @Transactional
     public void createQuotation(QuotationCreateRequest request) {
@@ -212,6 +216,13 @@ public class QuotationService {
                         new DealLogWriteService.DiffField("totalAmount", "총액", null, totalAmount, "MONEY"),
                         new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, request.items().size(),
                                 "COUNT")));
+
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.QUO,
+                quotation.getId(),
+                finalCode,
+                userDetails
+        );
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -479,13 +490,46 @@ public class QuotationService {
         }
 
         // 3. 논리 삭제 처리
+        String fromStatus = quotation.getStatus().name();
+        DealStage fromStage = mapQuotationStage(quotation.getStatus());
         quotation.updateStatus(QuotationStatus.DELETED);
+        approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
 
         // 4. 관련 RFQ 상태 복구 (검토 중인 경우 다시 대기 상태로)
+        DealStage toStage = DealStage.CANCELED;
+        String toStatus = QuotationStatus.DELETED.name();
         if (quotation.getQuotationRequest() != null
                 && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
             quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
+            toStage = mapQuotationRequestStage(QuotationRequestStatus.PENDING);
+            toStatus = QuotationRequestStatus.PENDING.name();
         }
+
+        if (quotation.getDeal() != null) {
+            dealLogWriteService.write(
+                    quotation.getDeal(),
+                    DealType.QUO,
+                    quotation.getId(),
+                    quotation.getQuotationCode(),
+                    fromStage,
+                    toStage,
+                    fromStatus,
+                    toStatus,
+                    ActionType.CANCEL,
+                    LocalDateTime.now(),
+                    ActorType.SALES_REP,
+                    userDetails.getEmployeeId(),
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            toStatus,
+                            "STATUS"))
+            );
+        }
+
+        restoreDealSnapshotAfterQuotationDelete(quotation, fromStage, fromStatus);
     }
 
     private void validateAccess(QuotationHeader quotation, CustomUserDetails user) {
@@ -524,6 +568,8 @@ public class QuotationService {
     @Transactional
     public void syncQuotationStatuses() {
         LocalDate today = LocalDate.now();
+        List<QuotationHeader> expiringQuotations = quotationRepository
+                .findByStatusAndExpiredDateLessThanEqual(QuotationStatus.WAITING_ADMIN, today);
 
         // 1. 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
         int expiredQuoCount = quotationRepository.updateStatusForExpiration(
@@ -536,6 +582,27 @@ public class QuotationService {
             log.info("[QuotationService] 상태 동기화 완료: 견적 만료 {}건, RFQ 복구 {}건",
                     expiredQuoCount, recoveredRfqCount);
         }
+
+        List<QuotationHeader> updatedExpiredQuotations = expiringQuotations.isEmpty()
+                ? List.of()
+                : quotationRepository.findByIdInAndStatusAndExpiredDateLessThanEqual(
+                        expiringQuotations.stream().map(QuotationHeader::getId).toList(),
+                        QuotationStatus.EXPIRED,
+                        today
+                );
+        Map<Long, ExpiringQuotationContext> expiringContextByDealId = updatedExpiredQuotations.stream()
+                .filter(quotation -> quotation.getDeal() != null && quotation.getDeal().getId() != null)
+                .collect(Collectors.toMap(
+                        quotation -> quotation.getDeal().getId(),
+                        quotation -> new ExpiringQuotationContext(
+                                quotation.getId(),
+                                quotation.getQuotationCode(),
+                                quotation.getDeal().getId()
+                        ),
+                        (left, right) -> left,
+                        java.util.LinkedHashMap::new
+                ));
+        expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
     private Map<Long, String> fetchReasonsMap(List<QuotationHeader> quotations) {
@@ -593,5 +660,126 @@ public class QuotationService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private DealStage mapQuotationStage(QuotationStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        if (deal.getClosedAt() != null) {
+            return;
+        }
+        deal.close(actionAt);
+    }
+
+    private void restoreDealSnapshotAfterQuotationDelete(QuotationHeader quotation, DealStage deletedFromStage, String deletedFromStatus) {
+        SalesDeal deal = quotation.getDeal();
+        if (deal == null) {
+            return;
+        }
+        LocalDateTime actionAt = LocalDateTime.now();
+
+        if (quotation.getQuotationRequest() != null && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.PENDING) {
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationRequestStage(quotation.getQuotationRequest().getStatus()),
+                    quotation.getQuotationRequest().getStatus().name(),
+                    DealType.RFQ,
+                    quotation.getQuotationRequest().getId(),
+                    quotation.getQuotationRequest().getRequestCode(),
+                    actionAt
+            );
+            return;
+        }
+
+        syncDealSnapshot(
+                deal,
+                DealStage.CANCELED,
+                QuotationStatus.DELETED.name(),
+                DealType.QUO,
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                actionAt
+        );
+    }
+
+    private DealStage mapQuotationRequestStage(QuotationRequestStatus status) {
+        return switch (status) {
+            case PENDING -> DealStage.CREATED;
+            case REVIEWING -> DealStage.IN_PROGRESS;
+            case COMPLETED -> DealStage.APPROVED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private void syncDealSnapshot(
+            SalesDeal deal,
+            DealStage stage,
+            String status,
+            DealType dealType,
+            Long refId,
+            String targetCode,
+            LocalDateTime actionAt
+    ) {
+        deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
+    }
+
+    private void expireDeals(Map<Long, ExpiringQuotationContext> expiringContextByDealId, LocalDateTime actionAt) {
+        if (expiringContextByDealId.isEmpty()) {
+            return;
+        }
+        salesDealRepository.findAllById(expiringContextByDealId.keySet())
+                .forEach(deal -> {
+                    ExpiringQuotationContext context = expiringContextByDealId.get(deal.getId());
+                    if (context == null) {
+                        return;
+                    }
+                    dealLogWriteService.write(
+                            deal,
+                            DealType.QUO,
+                            context.quotationId(),
+                            context.quotationCode(),
+                            DealStage.PENDING_ADMIN,
+                            DealStage.EXPIRED,
+                            QuotationStatus.WAITING_ADMIN.name(),
+                            QuotationStatus.EXPIRED.name(),
+                            ActionType.EXPIRE,
+                            actionAt,
+                            ActorType.SYSTEM,
+                            null,
+                            null,
+                            List.of(new DealLogWriteService.DiffField(
+                                    "status",
+                                    "문서 상태",
+                                    QuotationStatus.WAITING_ADMIN.name(),
+                                    QuotationStatus.EXPIRED.name(),
+                                    "STATUS"))
+                    );
+                    syncDealSnapshot(
+                            deal,
+                            DealStage.EXPIRED,
+                            QuotationStatus.EXPIRED.name(),
+                            DealType.QUO,
+                            context.quotationId(),
+                            context.quotationCode(),
+                            actionAt
+                    );
+                    closeDealIfOpen(deal, actionAt);
+                });
+    }
+
+    private record ExpiringQuotationContext(Long quotationId, String quotationCode, Long dealId) {
     }
 }

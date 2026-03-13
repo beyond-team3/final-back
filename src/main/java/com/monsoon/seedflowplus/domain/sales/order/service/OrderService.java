@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
@@ -59,10 +61,15 @@ public class OrderService {
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
+    private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
 
 
     @Transactional
-    public OrderResponse createOrder(OrderCreateRequest request, Long clientId) {
+    public OrderResponse createOrder(OrderCreateRequest request, Long clientId, CustomUserDetails principal) {
+        if (principal == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
 
         // 1. 계약 조회
         ContractHeader contract = contractHeaderRepository.findById(request.getHeaderId()) // reason: 주문 입력에서 계약 헤더 식별자 필드를 headerId로 명시적으로 사용
@@ -149,6 +156,13 @@ public class OrderService {
                         new DealLogWriteService.DiffField("itemCount", "주문 품목 수", null, request.getItems().size(), "COUNT"))
         );
 
+        approvalSubmissionService.submitFromDocumentCreation(
+                DealType.ORD,
+                orderHeader.getId(),
+                orderHeader.getOrderCode(),
+                principal
+        );
+
         return toOrderResponse(orderHeader);
     }
 
@@ -192,6 +206,7 @@ public class OrderService {
                 OrderStatus.CANCELED.name()
         );
 
+        approvalCancellationService.cancelPendingRequest(DealType.ORD, orderId);
         orderHeader.cancel();
 
         dealPipelineFacade.recordAndSync(
@@ -217,9 +232,9 @@ public class OrderService {
                 .build();
     }
 
-    // 주문 확정
+    // 주문 확정은 승인 완료 후 내부 이벤트에서만 호출한다.
     @Transactional
-    public OrderResponse confirmOrder(Long orderId, CustomUserDetails principal) {
+    OrderResponse confirmOrderFromApproval(Long orderId, CustomUserDetails principal) {
         OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
 

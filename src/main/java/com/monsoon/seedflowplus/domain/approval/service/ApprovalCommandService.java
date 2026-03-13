@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.approval.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
@@ -29,10 +30,15 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DocStatusTransitionValid
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalRejectedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ApprovalRequestedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderStatus;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderHeaderRepository;
+import com.monsoon.seedflowplus.domain.sales.order.service.OrderService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
@@ -42,13 +48,16 @@ import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStat
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,22 +73,25 @@ public class ApprovalCommandService {
     private final ApprovalStepRepository approvalStepRepository;
     private final ApprovalDecisionRepository approvalDecisionRepository;
     private final ApprovalDealLogWriter approvalDealLogWriter;
+    private final ApprovalFlowPolicy approvalFlowPolicy;
     private final SalesDealLogRepository salesDealLogRepository;
     private final QuotationRepository quotationRepository;
     private final ContractRepository contractRepository;
+    private final OrderHeaderRepository orderHeaderRepository;
     private final DocStatusTransitionValidator docStatusTransitionValidator;
     private final NotificationEventPublisher notificationEventPublisher;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final QuotationService quotationService;
     private final QuotationRequestService quotationRequestService;
+    private final OrderService orderService;
     private final Clock clock;
 
     public CreateApprovalRequestResponse createApprovalRequest(
             CreateApprovalRequestRequest dto,
             CustomUserDetails principal
     ) {
-        validateSupportedDealType(dto.dealType());
+        approvalFlowPolicy.validateSupportedDealType(dto.dealType());
 
         if (approvalRequestRepository.existsByDealTypeAndTargetIdAndStatus(
                 dto.dealType(),
@@ -102,19 +114,7 @@ public class ApprovalCommandService {
                 .targetCodeSnapshot(dto.targetCodeSnapshot())
                 .build();
 
-        request.addStep(ApprovalStep.builder()
-                .stepOrder(1)
-                .actorType(ActorType.ADMIN)
-                .status(ApprovalStepStatus.WAITING)
-                .build());
-
-        if (dto.dealType() == DealType.QUO || dto.dealType() == DealType.CNT) {
-            request.addStep(ApprovalStep.builder()
-                    .stepOrder(2)
-                    .actorType(ActorType.CLIENT)
-                    .status(ApprovalStepStatus.WAITING)
-                    .build());
-        }
+        approvalFlowPolicy.createSteps(dto.dealType()).forEach(request::addStep);
 
         ApprovalRequest saved;
         try {
@@ -171,7 +171,8 @@ public class ApprovalCommandService {
                 step,
                 dto.decision(),
                 now,
-                actorId
+                actorId,
+                principal
         );
 
         try {
@@ -228,14 +229,30 @@ public class ApprovalCommandService {
             Pageable pageable,
             CustomUserDetails principal
     ) {
-        Page<ApprovalRequest> page = searchAccessibleRequests(status, dealType, targetId, pageable, principal);
+        Page<ApprovalRequest> page = searchAccessibleRequests(
+                status,
+                dealType,
+                targetId,
+                normalizeApprovalSearchPageable(pageable),
+                principal
+        );
         return page.map(this::toDetail);
     }
 
-    private void validateSupportedDealType(DealType dealType) {
-        if (dealType != DealType.QUO && dealType != DealType.CNT) {
-            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "approval supports only QUO/CNT");
+    private Pageable normalizeApprovalSearchPageable(Pageable pageable) {
+        if (pageable == null) {
+            return PageRequest.of(0, 20, Sort.by(Sort.Order.desc("id")));
         }
+
+        Sort normalizedSort = pageable.getSort().isSorted()
+                ? Sort.by(pageable.getSort().stream()
+                        .map(order -> "approvalId".equals(order.getProperty())
+                                ? new Sort.Order(order.getDirection(), "id")
+                                : order)
+                        .toList())
+                : Sort.by(Sort.Order.desc("id"));
+
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), normalizedSort);
     }
 
     private DocumentDecisionResult applyQuotationDecision(
@@ -330,7 +347,7 @@ public class ApprovalCommandService {
         }
 
         if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
-            quotationService.completeAfterContractApproval(quotation, step.getActorType(), actorId, actionAt);
+            quotationService.completeAfterContractApproval(quotation, ActorType.SYSTEM, null, actionAt);
         }
 
         if (quotation.getQuotationRequest() != null
@@ -349,13 +366,57 @@ public class ApprovalCommandService {
             ApprovalStep step,
             DecisionType decision,
             LocalDateTime actionAt,
-            Long actorId
+            Long actorId,
+            CustomUserDetails principal
     ) {
         return switch (request.getDealType()) {
             case QUO -> applyQuotationDecision(request, step, decision);
             case CNT -> applyContractDecision(request, step, decision, actionAt, actorId);
+            case ORD -> applyOrderDecision(request, decision, principal, actionAt);
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
+    }
+
+    private DocumentDecisionResult applyOrderDecision(
+            ApprovalRequest request,
+            DecisionType decision,
+            CustomUserDetails principal,
+            LocalDateTime actionAt
+    ) {
+        OrderHeader orderHeader = orderHeaderRepository.findById(request.getTargetId())
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+
+        String fromStatus = orderHeader.getStatus().name();
+        String fromStage = DealStage.IN_PROGRESS.name();
+
+        if (decision == DecisionType.REJECT) {
+            return new DocumentDecisionResult(
+                    fromStatus,
+                    fromStatus,
+                    fromStage,
+                    fromStage
+            );
+        }
+
+        if (orderHeader.getStatus() != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.ORDER_ALREADY_CONFIRMED);
+        }
+
+        publishOrderApprovalConfirmedAfterCommit(orderHeader.getId(), principal, actionAt);
+        return new DocumentDecisionResult(
+                fromStatus,
+                fromStatus,
+                fromStage,
+                fromStage
+        );
+    }
+
+    private void publishOrderApprovalConfirmedAfterCommit(Long orderId, CustomUserDetails principal, LocalDateTime actionAt) {
+        applicationEventPublisher.publishEvent(new OrderApprovalConfirmedEvent(
+                orderId,
+                principal == null ? null : principal.getUserId(),
+                actionAt
+        ));
     }
 
     private void publishContractApprovalSchedulesSyncAfterCommitIfNeeded(
@@ -385,11 +446,8 @@ public class ApprovalCommandService {
         if (step.getStepOrder() == 1) {
             return;
         }
-        if (step.getStepOrder() != 2) {
-            throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
-        }
         ApprovalStep previousStep = approvalStepRepository
-                .findByApprovalRequestIdAndStepOrder(request.getId(), 1)
+                .findByApprovalRequestIdAndStepOrder(request.getId(), step.getStepOrder() - 1)
                 .orElseThrow(() -> new CoreException(ErrorType.APPROVAL_STEP_NOT_FOUND));
         if (previousStep.getStatus() != ApprovalStepStatus.APPROVED) {
             throw new CoreException(ErrorType.APPROVAL_STEP_NOT_ACTIVE);
@@ -416,6 +474,19 @@ public class ApprovalCommandService {
             return;
         }
 
+        if (step.getActorType() == ActorType.SALES_REP) {
+            if (principal == null || principal.getRole() != Role.SALES_REP || principal.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+            }
+            OrderHeader orderHeader = orderHeaderRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+            Long approverEmployeeId = resolveOrderApproverEmployeeId(orderHeader);
+            if (!Objects.equals(approverEmployeeId, principal.getEmployeeId())) {
+                throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
+            }
+            return;
+        }
+
         throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
     }
 
@@ -430,7 +501,7 @@ public class ApprovalCommandService {
             request.reject();
             return;
         }
-        if (step.getStepOrder() == 2) {
+        if (approvalFlowPolicy.isLastStep(request.getDealType(), step.getStepOrder())) {
             request.approve();
         }
     }
@@ -489,6 +560,16 @@ public class ApprovalCommandService {
             ActorType submitActorType,
             CustomUserDetails principal
     ) {
+        if (dealType == DealType.ORD) {
+            Long orderClientId = orderHeaderRepository.findById(targetId)
+                    .map(order -> order.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+            if (principal == null || principal.getClientId() == null || !Objects.equals(orderClientId, principal.getClientId())) {
+                throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
+            }
+            return;
+        }
+
         if (submitActorType != ActorType.SALES_REP) {
             return;
         }
@@ -504,7 +585,6 @@ public class ApprovalCommandService {
         };
 
         if (deal.getOwnerEmp() == null || deal.getOwnerEmp().getId() == null) {
-            // TODO: ErrorType.DEAL_NOT_ASSIGNED 추가 후 UNAUTHORIZED 임시 처리 교체
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         if (!Objects.equals(deal.getOwnerEmp().getId(), principal.getEmployeeId())) {
@@ -513,10 +593,6 @@ public class ApprovalCommandService {
     }
 
     private Long resolveClientIdSnapshot(CreateApprovalRequestRequest dto) {
-        if (dto.dealType() != DealType.QUO && dto.dealType() != DealType.CNT) {
-            return dto.clientIdSnapshot();
-        }
-
         Long actualClientId = switch (dto.dealType()) {
             case QUO -> quotationRepository.findById(dto.targetId())
                     .map(quotation -> quotation.getClient().getId())
@@ -524,13 +600,19 @@ public class ApprovalCommandService {
             case CNT -> contractRepository.findById(dto.targetId())
                     .map(contract -> contract.getClient().getId())
                     .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+            case ORD -> orderHeaderRepository.findById(dto.targetId())
+                    .map(order -> order.getClient().getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
             default -> throw new CoreException(ErrorType.APPROVAL_UNSUPPORTED_DEAL_TYPE);
         };
 
-        if (dto.clientIdSnapshot() != null && !Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
+        if (dto.clientIdSnapshot() == null) {
+            return actualClientId;
+        }
+        if (!Objects.equals(dto.clientIdSnapshot(), actualClientId)) {
             throw new CoreException(ErrorType.APPROVAL_CLIENT_MISMATCH);
         }
-        return actualClientId;
+        return dto.clientIdSnapshot();
     }
 
     private Long resolveActorIdByActorType(ActorType actorType, CustomUserDetails principal) {
@@ -687,15 +769,21 @@ public class ApprovalCommandService {
     }
 
     private void publishApprovalRequestedForFirstApprovers(ApprovalRequest request, LocalDateTime occurredAt) {
-        resolveApproverUserIds(ActorType.ADMIN, request.getClientIdSnapshot()).forEach(userId ->
-                notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
-                        userId,
-                        request.getId(),
-                        request.getDealType(),
-                        request.getTargetId(),
-                        occurredAt
-                ))
-        );
+        request.getSteps().stream()
+                .filter(step -> step.getStepOrder() == 1)
+                .findFirst()
+                .ifPresent(step -> resolveApproverUserIds(step.getActorType(), request)
+                        .forEach(userId ->
+                                notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
+                                        userId,
+                                        request.getId(),
+                                        request.getDealType(),
+                                        request.getTargetId(),
+                                        request.getTargetCodeSnapshot(),
+                                        step.getActorType(),
+                                        occurredAt
+                                ))
+                        ));
     }
 
     private void publishApprovalEventsAfterDecision(
@@ -711,6 +799,8 @@ public class ApprovalCommandService {
                             request.getId(),
                             request.getDealType(),
                             request.getTargetId(),
+                            request.getTargetCodeSnapshot(),
+                            step.getActorType(),
                             occurredAt
                     ))
             );
@@ -724,33 +814,81 @@ public class ApprovalCommandService {
                             request.getId(),
                             request.getDealType(),
                             request.getTargetId(),
+                            request.getTargetCodeSnapshot(),
+                            step.getActorType(),
                             occurredAt
                     ))
             );
+            publishContractCompletedEventsIfNeeded(request, occurredAt);
             return;
         }
 
         approvalStepRepository
                 .findByApprovalRequestIdAndStepOrder(request.getId(), step.getStepOrder() + 1)
                 .filter(nextStep -> nextStep.getStatus() == ApprovalStepStatus.WAITING)
-                .ifPresent(nextStep -> resolveApproverUserIds(nextStep.getActorType(), request.getClientIdSnapshot())
+                .ifPresent(nextStep -> resolveApproverUserIds(nextStep.getActorType(), request)
                         .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ApprovalRequestedEvent(
                                 userId,
                                 request.getId(),
                                 request.getDealType(),
                                 request.getTargetId(),
+                                request.getTargetCodeSnapshot(),
+                                nextStep.getActorType(),
                                 occurredAt
                         ))));
     }
 
-    private List<Long> resolveApproverUserIds(ActorType actorType, Long clientIdSnapshot) {
+    private void publishContractCompletedEventsIfNeeded(ApprovalRequest request, LocalDateTime occurredAt) {
+        if (request.getDealType() != DealType.CNT) {
+            return;
+        }
+
+        contractRepository.findById(request.getTargetId()).ifPresent(contract -> {
+            LinkedHashSet<Long> recipientUserIds = userRepository.findAllByRole(Role.ADMIN).stream()
+                    .map(User::getId)
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            recipientUserIds.addAll(resolveContractRecipientUserIds(contract));
+            recipientUserIds.forEach(userId ->
+                    notificationEventPublisher.publishAfterCommit(new ContractCompletedEvent(
+                            userId,
+                            contract.getId(),
+                            contract.getContractCode(),
+                            contract.getClient().getClientName(),
+                            occurredAt
+                    )));
+        });
+    }
+
+    private List<Long> resolveContractRecipientUserIds(ContractHeader contract) {
+        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        if (contract.getDeal() != null && contract.getDeal().getOwnerEmp() != null && contract.getDeal().getOwnerEmp().getId() != null) {
+            userRepository.findByEmployeeId(contract.getDeal().getOwnerEmp().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        if (contract.getClient() != null && contract.getClient().getId() != null) {
+            userRepository.findByClientId(contract.getClient().getId())
+                    .map(User::getId)
+                    .ifPresent(userIds::add);
+        }
+        return userIds.stream().toList();
+    }
+
+    private List<Long> resolveApproverUserIds(ActorType actorType, ApprovalRequest request) {
         if (actorType == ActorType.ADMIN) {
             return userRepository.findAllByRole(Role.ADMIN).stream()
                     .map(user -> user.getId())
                     .toList();
         }
-        if (actorType == ActorType.CLIENT && clientIdSnapshot != null) {
-            return userRepository.findByClientId(clientIdSnapshot)
+        if (actorType == ActorType.CLIENT && request.getClientIdSnapshot() != null) {
+            return userRepository.findByClientId(request.getClientIdSnapshot())
+                    .map(user -> List.of(user.getId()))
+                    .orElseGet(List::of);
+        }
+        if (actorType == ActorType.SALES_REP) {
+            return orderHeaderRepository.findById(request.getTargetId())
+                    .map(this::resolveOrderApproverEmployeeId)
+                    .flatMap(userRepository::findByEmployeeId)
                     .map(user -> List.of(user.getId()))
                     .orElseGet(List::of);
         }
@@ -774,10 +912,29 @@ public class ApprovalCommandService {
                     .flatMap(userRepository::findByEmployeeId)
                     .map(user -> user.getId());
         }
+        if (request.getDealType() == DealType.ORD) {
+            return orderHeaderRepository.findById(request.getTargetId())
+                    .map(OrderHeader::getClient)
+                    .map(Client::getId)
+                    .flatMap(userRepository::findByClientId)
+                    .map(User::getId);
+        }
         if (request.getClientIdSnapshot() != null) {
             return userRepository.findByClientId(request.getClientIdSnapshot()).map(user -> user.getId());
         }
         return java.util.Optional.empty();
+    }
+
+    private Long resolveOrderApproverEmployeeId(OrderHeader orderHeader) {
+        if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
+            return orderHeader.getEmployee().getId();
+        }
+        if (orderHeader.getDeal() != null
+                && orderHeader.getDeal().getOwnerEmp() != null
+                && orderHeader.getDeal().getOwnerEmp().getId() != null) {
+            return orderHeader.getDeal().getOwnerEmp().getId();
+        }
+        throw new CoreException(ErrorType.UNAUTHORIZED);
     }
 
     private LocalDateTime now() {

@@ -9,11 +9,41 @@
 - 코드 리뷰 참고
 - 장애 발생 시 원인 분석
 
+## [2026-03-13 11:16] deal lifecycle 정책 정리 문서 위치 변경
+
+### 작업 내용
+- 수정 파일: docs/refactoring/deal-log-lifecycle-plan.md — RFQ/QUO/CNT/ORD/STMT/INV 기준 deal log, approval 정리, deal 생성/종결 정책을 정리하고 수정 우선순위, 파일별 TODO, 단계별 검증 항목을 문서화
+- 수정 파일: docs/refactoring/deal-log-work-log.md — deal lifecycle 정책 정리 문서 추가 이력 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 해당 없음 (문서성 작업으로 파일 내용 검토 수행)
+
+### 다음 단계
+- deal-log-lifecycle-plan.md 기준으로 실제 코드 수정 착수
+
 ## [2026-03-05 18:41] StatementService 순환 참조 제거
 
 ### 작업 내용
 - 수정 파일: src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java — `@Lazy StatementService self`를 `ObjectProvider<StatementService>`로 교체해 빈 생성 순환 참조 제거
 - 수정 파일: docs/refactoring/deal-log-work-log.md — AGENTS.md 작업 로그 항목 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-13 11:56] deal lifecycle 삭제/만료 정책 반영
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ는 생성 시 새 deal을 만들고 삭제 시 delete deal log와 deal close를 수행하도록 조정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 로그 추가 및 만료 동기화 후 deal close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 로그 추가 및 만료 동기화 후 deal close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java` — ORD cancel 시 pending approval 정리 연결
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDeal.java` — close 중복 호출을 무해화하는 idempotent 가드 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/**` — RFQ/QUO/CNT/ORD 및 deal close 회귀 테스트 추가
 
 ### 컴파일 결과
 - [x] 오류 없음

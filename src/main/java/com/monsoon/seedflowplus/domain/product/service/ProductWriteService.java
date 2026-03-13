@@ -10,8 +10,11 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductPriceHistoryRepository;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.notification.event.ProductCreatedEvent;
 import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
 import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
@@ -44,6 +47,7 @@ public class ProductWriteService {
     private final UserRepository userRepository;
     private final ProductCompareRepository productCompareRepository;
     private final S3UploadService s3UploadService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Transactional
     public Long createProduct(ProductRequest request, MultipartFile productImage) {
@@ -101,6 +105,7 @@ public class ProductWriteService {
             }
 
             updateProductTags(savedProduct, request.getTags());
+            publishProductCreatedNotifications(savedProduct);
             return savedProduct.getId();
 
         } catch (DataIntegrityViolationException e) {
@@ -117,6 +122,19 @@ public class ProductWriteService {
             }
             throw e; // 원래 발생한 에러를 그대로 다시 던짐
         }
+    }
+
+    private void publishProductCreatedNotifications(Product savedProduct) {
+        userRepository.findAllByRole(Role.SALES_REP).stream()
+                .map(User::getId)
+                .distinct()
+                .forEach(userId -> notificationEventPublisher.publishAfterCommit(new ProductCreatedEvent(
+                        userId,
+                        savedProduct.getId(),
+                        savedProduct.getProductCode(),
+                        savedProduct.getProductName(),
+                        java.time.LocalDateTime.now()
+                )));
     }
 
     @Transactional

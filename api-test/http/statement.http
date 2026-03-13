@@ -102,15 +102,7 @@ client.test("statement method not allowed -> C003", function () {
 });
 %}
 
-### [F6] 상태 전이 보호(명세서 중복 발급 방지와 연관): 이미 CONFIRMED 주문 재확정
-### 기대: ErrorType.ORDER_ALREADY_CONFIRMED -> ErrorCode.O007
-### 이유: 명세서는 주문 확정 시 자동 생성되므로, 재확정 차단이 명세서 라이프사이클 보호 역할
-PATCH {{baseUrl}}/api/v1/orders/{{orderId}}/confirm
-Authorization: Bearer {{salesAccessToken}}
-
-> {%
-client.test("statement lifecycle guarded by order status -> O007", function () {
-  client.assert(response.status === 400, "status must be 400");
-  client.assert(response.body.error.code === "O007", "error.code must be O007");
-});
-%}
+### [F6] 문서화 전용: 상태 전이 보호(명세서 중복 발급 방지와 연관)
+### 이미 CONFIRMED 주문에 대한 중복 승인 완료 이벤트는 내부 주문 확정 단계에서 O007로 차단되어야 한다.
+### 이 동작은 공개 HTTP 시나리오가 아니라 ApprovalCommandServiceTest.decideStepRejectsOrderApprovalWhenOrderAlreadyConfirmed 와
+### OrderServiceTest 의 주문 확정 회귀 테스트에서 보장된다.

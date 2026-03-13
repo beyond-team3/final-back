@@ -26,7 +26,7 @@ public class NotificationCommandService {
         Objects.requireNonNull(notificationId, "notificationId must not be null");
         Objects.requireNonNull(now, "now must not be null");
 
-        var notification = notificationRepository.findByIdAndUser_Id(notificationId, userId)
+        var notification = notificationRepository.findVisibleByIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOTIFICATION_NOT_FOUND));
         notification.markAsRead(now);
     }
@@ -36,7 +36,7 @@ public class NotificationCommandService {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(now, "now must not be null");
 
-        notificationRepository.markAllAsRead(userId, now);
+        notificationRepository.markAllVisibleAsRead(userId, now);
     }
 
     @Transactional
@@ -44,7 +44,7 @@ public class NotificationCommandService {
         Objects.requireNonNull(userId, "userId must not be null");
         Objects.requireNonNull(notificationId, "notificationId must not be null");
 
-        var notification = notificationRepository.findByIdAndUser_Id(notificationId, userId)
+        var notification = notificationRepository.findVisibleByIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOTIFICATION_NOT_FOUND));
 
         notificationDeliveryRepository.deleteByNotification_Id(notification.getId());
@@ -55,8 +55,8 @@ public class NotificationCommandService {
     public void deleteAll(Long userId) {
         Objects.requireNonNull(userId, "userId must not be null");
 
-        notificationDeliveryRepository.deleteByNotification_User_Id(userId);
-        notificationRepository.deleteByUser_Id(userId);
+        notificationDeliveryRepository.deleteVisibleByNotification_User_Id(userId);
+        notificationRepository.deleteVisibleByUser_Id(userId);
     }
 
     @Transactional

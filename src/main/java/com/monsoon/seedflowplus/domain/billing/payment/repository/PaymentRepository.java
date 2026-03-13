@@ -16,6 +16,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByIdAndClientId(Long id, Long clientId);
 
+    Optional<Payment> findByInvoiceId(Long invoiceId);
+
     // 코드 채번용
     @Query("SELECT MAX(CAST(SUBSTRING(p.paymentCode, LENGTH(:prefix) + 1) AS integer)) " +
             "FROM Payment p WHERE p.paymentCode LIKE CONCAT(:prefix, '%')")
