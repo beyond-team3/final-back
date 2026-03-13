@@ -76,6 +76,10 @@ public class ContractService {
     public ContractPrefillResponse getPrefillData(Long quotationId, Long contractId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
+        if (userDetails.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
         if ((quotationId == null && contractId == null) || (quotationId != null && contractId != null)) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "quotationId와 contractId 중 하나만 전달해야 합니다.");
         }
@@ -89,7 +93,11 @@ public class ContractService {
                     && contract.getStatus() != ContractStatus.REJECTED_CLIENT) {
                 throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "반려된 계약서만 복사할 수 있습니다.");
             }
-            validateAccess(contract, userDetails);
+
+            // 작성자 본인만 접근 가능 (보안 강화)
+            if (contract.getAuthor() == null || !contract.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
 
             return new ContractPrefillResponse(
                     contract.getQuotation() != null ? contract.getQuotation().getId() : null,
@@ -426,10 +434,9 @@ public class ContractService {
 
             // WAITING_CONTRACT인 경우, 이미 진행 중인 계약이 있는지 확인 (중복 작성 방지)
             if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
-                boolean hasActiveContract = contractRepository.findAll().stream() // TODO: Optimize with repo method
-                        .filter(c -> c.getQuotation() != null && c.getQuotation().getId().equals(request.quotationId()))
-                        .anyMatch(c -> c.getStatus() == ContractStatus.WAITING_ADMIN
-                                || c.getStatus() == ContractStatus.WAITING_CLIENT);
+                boolean hasActiveContract = contractRepository.existsByQuotationIdAndStatusIn(
+                        request.quotationId(),
+                        List.of(ContractStatus.WAITING_ADMIN, ContractStatus.WAITING_CLIENT));
                 if (hasActiveContract) {
                     throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
                 }
