@@ -10,6 +10,28 @@
 ### 다음 단계
 없음
 
+## [2026-03-13 12:24] deal snapshot 복구와 만료 타임라인 보강
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java` — RFQ 삭제 시 deal snapshot을 DELETED RFQ로 동기화한 뒤 close 처리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — QUO 삭제 후 RFQ snapshot 복구, QUO 만료 시 EXPIRE 로그/스냅샷/close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — CNT 삭제 후 QUO snapshot 복구, CNT 만료 시 EXPIRE 로그/스냅샷/close 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 계약 종료 30일 전 알림 예약이 과거 시각이면 생성하지 않도록 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestServiceTest.java` — RFQ 삭제 snapshot 동기화 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — QUO 삭제 후 RFQ snapshot 복구 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — QUO 만료 EXPIRE 로그/스냅샷 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — CNT 삭제 후 QUO snapshot 복구 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — CNT 만료 EXPIRE 로그/스냅샷 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java` — short contract의 past ending-soon 예약 skip 검증 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-12 11:19] 문서 생성 시 승인 요청 자동 생성 적용
 
 ### 작업 내용

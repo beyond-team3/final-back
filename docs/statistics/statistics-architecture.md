@@ -220,3 +220,23 @@ ORD 취소는 진행 중 approval 정리를 추가했고, `SalesDeal.close()`는
 
 ### 변경 이유
 2026-03-13 deal lifecycle 정책상 RFQ만 deal 생성/삭제로 직접 종결하고, QUO/CNT 만료를 비삭제 종결 이벤트로 취급해야 하기 때문
+
+## [2026-03-13] deal snapshot 복구 및 만료 타임라인 보강
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java`
+- 클래스/메서드: `QuotationRequestService#deleteQuotationRequest`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java`
+- 클래스/메서드: `QuotationService#deleteQuotation`, `QuotationService#syncQuotationStatuses`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java`
+- 클래스/메서드: `ContractService#deleteContract`, `ContractService#syncContractStatuses`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java`
+- 클래스/메서드: `ScheduledNotificationService#scheduleContractLifecycleNotifications`
+
+### 변경 내용
+RFQ/QUO/CNT 삭제 후 deal snapshot이 실제 현재 문서(RFQ 복구, QUO 복구, 최종 삭제 문서)를 가리키도록 서비스 helper에서 `SalesDeal.updateSnapshot(...)`을 명시적으로 동기화한다.
+QUO/CNT 만료 배치에는 `EXPIRE` deal log와 snapshot 갱신을 추가해 타임라인과 deal 목록이 모두 만료 상태를 반영하도록 보강했다.
+계약 종료 30일 전 알림은 예약 시각이 현재보다 과거면 생성하지 않도록 방어 로직을 추가했다.
+
+### 변경 이유
+deal 조회와 타임라인이 실제 영업 진행 상태와 어긋나면 삭제/만료 이후 추적성이 깨지므로 snapshot과 만료 이벤트를 함께 보정해야 하기 때문
