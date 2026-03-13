@@ -27,6 +27,7 @@ import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepos
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
+import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,7 @@ public class QuotationService {
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogWriteService dealLogWriteService;
+    private final ApprovalDecisionRepository approvalDecisionRepository;
     private final DealLogQueryService dealLogQueryService;
 
     @Transactional
@@ -283,6 +285,9 @@ public class QuotationService {
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
+                            q.getMemo(),
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
+                            approvalDecisionRepository.findReasonsByTarget(DealType.QUO, q.getId()).stream().findFirst().orElse(null),
                             items);
                 })
                 .toList();
@@ -294,13 +299,14 @@ public class QuotationService {
     public List<QuotationListResponse> getRejectedQuotations() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        if (user.getRole() != Role.SALES_REP) {
-            throw new CoreException(ErrorType.ACCESS_DENIED);
+        if (user.getEmployeeId() == null) {
+            return List.of();
         }
 
-        List<QuotationHeader> quotations = quotationRepository.findByAuthorIdAndStatuses(
+        List<QuotationHeader> quotations = quotationRepository.findActiveRejectedQuotations(
                 user.getEmployeeId(),
-                List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED)
+                List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED),
+                QuotationStatus.DELETED
         );
 
         return quotations.stream()
@@ -321,12 +327,15 @@ public class QuotationService {
                             q.getQuotationCode(),
                             q.getClient().getId(),
                             q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
-                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : (q.getClient().getManagerEmployee() != null ? q.getClient().getManagerEmployee().getEmployeeName() : null),
+                            q.getAuthor() != null ? q.getAuthor().getId() : (q.getClient().getManagerEmployee() != null ? q.getClient().getManagerEmployee().getId() : null),
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
+                            q.getMemo(),
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
+                            approvalDecisionRepository.findReasonsByTarget(DealType.QUO, q.getId()).stream().findFirst().orElse(null),
                             items);
                 })
                 .toList();
