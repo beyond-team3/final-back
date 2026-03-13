@@ -17,6 +17,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
@@ -42,6 +43,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -95,23 +97,26 @@ public class QuotationService {
             // 상태가 PENDING이거나 REVIEWING이어야 함
             if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING &&
                     quotationRequest.getStatus() != QuotationRequestStatus.REVIEWING) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS,
+                        "선택한 견적 요청서가 현재 작성 가능한 상태(대기 또는 검토 중)가 아닙니다.");
             }
 
-            // REVIEWING인 경우, 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
             if (quotationRequest.getStatus() == QuotationRequestStatus.REVIEWING) {
-                boolean hasActiveQuotation = quotationRepository.findByQuotationRequestId(quotationRequest.getId())
+                Optional<QuotationHeader> activeQuo = quotationRepository
+                        .findByQuotationRequestId(quotationRequest.getId())
                         .stream()
-                        .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                                || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-                if (hasActiveQuotation) {
-                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                        .filter(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
+                                || q.getStatus() == QuotationStatus.WAITING_CLIENT)
+                        .findFirst();
+                if (activeQuo.isPresent()) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS,
+                            String.format("해당 요청서에 대해 이미 진행 중인 견적서(%s)가 존재합니다.", activeQuo.get().getQuotationCode()));
                 }
             }
 
             // 요청된 제품 목록이 일치하는지 검증 (상품 정보만 비교)
             Set<Long> requestProductIds = quotationRequest.getItems().stream()
-                    .map(item -> item.getProduct().getId())
+                    .map(item -> item.getProduct() != null ? item.getProduct().getId() : null)
                     .collect(Collectors.toSet());
 
             Set<Long> inputProductIds = request.items().stream()
@@ -119,7 +124,9 @@ public class QuotationService {
                     .collect(Collectors.toSet());
 
             if (!requestProductIds.equals(inputProductIds)) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA);
+                String detail = String.format("요청된 제품 목록(%s)과 입력된 제품 목록(%s)이 일치하지 않습니다.",
+                        requestProductIds, inputProductIds);
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, detail);
             }
 
             // 상태를 REVIEWING으로 변경
@@ -128,16 +135,9 @@ public class QuotationService {
                     ? quotationRequest.getDeal()
                     : resolveOrCreateOpenDeal(client, author);
 
-            // RFQ 분기에서도 Deal 락을 획득하고 중복 활성 견적 체크 (CodeRabbit 지적사항)
+            // RFQ 분기에서도 Deal 락을 획득하여 동시성 제어 (단, 중복 견적 체크는 RFQ 레벨에서만 수행하도록 완화)
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
-
-            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
-                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-            if (hasActiveQuotation) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-            }
         } else {
             // 3-2. 일반 견적 작성 시 검증
             SalesDeal resolvedDeal = resolveOrCreateOpenDeal(client, author);
@@ -145,13 +145,8 @@ public class QuotationService {
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
 
-            // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (비관적 락으로 동시성 보호됨)
-            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
-                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-            if (hasActiveQuotation) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-            }
+            // ⚠️ [정책 완화] 일반 견적 작성 시에도 Deal 레벨의 강제 중복 금지 규칙을 제거함.
+            // 다양한 제안(Option)을 동시에 보낼 수 있도록 허용함.
         }
 
         // 4. 총액 계산
@@ -306,7 +301,8 @@ public class QuotationService {
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
+                                    : null,
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
                             reasonsMap.get(q.getId()), // 맵에서 조회 (N+1 해결)
                             items);
@@ -368,9 +364,64 @@ public class QuotationService {
                             q.getStatus(),
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
                             q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
+                                    : null,
                             q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
                             reasonsMap.get(q.getId()), // 맵에서 미리 조회해둔 반려 사유를 가져옴 (N+1 해결)
+                            items);
+                })
+                .toList();
+    }
+
+    /**
+     * 계약서 재작성이 가능한 견적서 목록 조회
+     * 상태가 WAITING_CONTRACT(계약 대기)이며, 연결된 모든 계약서가 반려 상태인 건만 조회.
+     */
+    public List<QuotationListResponse> getRejectedQuotationsForContract() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        if (user.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        if (user.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+        }
+
+        List<QuotationHeader> quotations = quotationRepository.findQuotationsReadyForContractRewrite(
+                user.getEmployeeId(),
+                QuotationStatus.WAITING_CONTRACT,
+                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
+                ContractStatus.DELETED);
+
+        return quotations.stream()
+                .map(q -> {
+                    List<QuotationResponse.QuotationItemResponse> items = q.getItems().stream()
+                            .map(item -> new QuotationResponse.QuotationItemResponse(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList();
+
+                    return new QuotationListResponse(
+                            q.getId(),
+                            q.getQuotationCode(),
+                            q.getClient().getId(),
+                            q.getClient().getClientName(),
+                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
+                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            q.getCreatedAt().toLocalDate(),
+                            q.getStatus(),
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
+                            q.getDeal().getId(),
+                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
+                                    : null,
+                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
+                            null, // 상위 견적서 자체의 반려 사유는 없음 (승인된 상태이므로)
                             items);
                 })
                 .toList();
@@ -498,6 +549,7 @@ public class QuotationService {
 
         return approvalDecisionRepository
                 .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+                .filter(dto -> dto.targetId() != null && dto.reason() != null)
                 .collect(Collectors.toMap(
                         ReasonDto::targetId,
                         ReasonDto::reason,
