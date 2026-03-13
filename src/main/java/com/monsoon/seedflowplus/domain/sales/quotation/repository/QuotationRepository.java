@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.sales.quotation.repository;
 
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -55,6 +56,22 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
             @Param("employeeId") Long employeeId,
             @Param("statuses") List<QuotationStatus> statuses,
             @Param("deletedStatus") QuotationStatus deletedStatus);
+
+    /**
+     * 계약서 재작성이 가능한 견적서 목록을 조회합니다.
+     * 1. 상태가 WAITING_CONTRACT(계약 대기)여야 함.
+     * 2. 연결된 계약서가 존재하고, 그 계약서들이 모두 반려 상태여야 함.
+     */
+    @Query("SELECT q FROM QuotationHeader q " +
+            "WHERE (q.author.id = :employeeId OR q.client.managerEmployee.id = :employeeId) " +
+            "AND q.status = :waitingStatus " +
+            "AND EXISTS (SELECT 1 FROM ContractHeader c WHERE c.quotation.id = q.id) " +
+            "AND NOT EXISTS (SELECT 1 FROM ContractHeader c2 WHERE c2.quotation.id = q.id AND c2.status NOT IN :rejectedStatuses AND c2.status <> :deletedStatus)")
+    List<QuotationHeader> findQuotationsReadyForContractRewrite(
+            @Param("employeeId") Long employeeId,
+            @Param("waitingStatus") QuotationStatus waitingStatus,
+            @Param("rejectedStatuses") List<ContractStatus> rejectedStatuses,
+            @Param("deletedStatus") ContractStatus deletedStatus);
 
     // 상태와 만료일을 기준으로 견적서 조회
     List<QuotationHeader> findByStatusAndExpiredDateLessThanEqual(QuotationStatus status, java.time.LocalDate date);
