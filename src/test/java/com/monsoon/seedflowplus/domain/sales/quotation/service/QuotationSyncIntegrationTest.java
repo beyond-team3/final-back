@@ -75,7 +75,8 @@ class QuotationSyncIntegrationTest {
 
         // then
         QuotationRequestHeader updatedRfq = quotationRequestRepository.findById(rfq.getId()).orElseThrow();
-        assertEquals(QuotationRequestStatus.PENDING, updatedRfq.getStatus());
+        // [수정] 반려/만료 시에도 재작성을 위해 REVIEWING 상태를 유지해야 함
+        assertEquals(QuotationRequestStatus.REVIEWING, updatedRfq.getStatus());
     }
 
     @Test
