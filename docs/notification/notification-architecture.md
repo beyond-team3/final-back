@@ -401,3 +401,23 @@ DocumentNotificationService는 `ACCOUNT_ACTIVATED` 알림을 `targetType=ACCOUNT
 
 ### 변경 이유
 Phase 2 정책 3번(활성화 전이만 발송, 최초 등록 직후 제외) 반영
+
+## [2026-03-13] 상품 등록 알림 연결
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/ProductCreatedEvent.java
+- 클래스/메서드: ProductCreatedEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductWriteService.java
+- 클래스/메서드: ProductWriteService.createProduct
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/service/DocumentNotificationService.java
+- 클래스/메서드: createProductCreatedNotification
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/notification/event/NotificationEventHandler.java
+- 클래스/메서드: handleProductCreated
+
+### 변경 내용
+ProductWriteService는 상품 저장 완료 후 `userRepository.findAllByRole(SALES_REP)`로 전체 영업사원 사용자 목록을 조회해 `ProductCreatedEvent`를 after-commit 발행한다.
+DocumentNotificationService는 이를 `PRODUCT_CREATED` 타입, `targetType=PRODUCT`, `targetId=productId` 기준 즉시 알림으로 저장한다.
+NotificationEventHandler는 신규 상품 알림도 기존 SSE payload(`NotificationListItemResponse`) 형식을 그대로 사용해 실시간 전송한다.
+
+### 변경 이유
+Phase 2 정책 2번(상품 등록 알림은 모든 영업사원 수신) 반영
