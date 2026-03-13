@@ -34,4 +34,15 @@ public interface QuotationRequestRepository extends JpaRepository<QuotationReque
     int recoverStatusByExpiredQuotation(@Param("oldStatus") QuotationRequestStatus oldStatus,
                                         @Param("newStatus") QuotationRequestStatus newStatus,
                                         @Param("quoStatus") QuotationStatus quoStatus);
+
+    @Query("SELECT r FROM QuotationRequestHeader r " +
+            "WHERE r.status = :status " +
+            "AND r.client.managerEmployee.id = :managerId " +
+            "AND EXISTS (SELECT 1 FROM QuotationHeader q WHERE q.quotationRequest = r) " +
+            "AND NOT EXISTS (SELECT 1 FROM QuotationHeader q2 WHERE q2.quotationRequest = r " +
+            "AND q2.status NOT IN (:rejectedStatuses))")
+    List<QuotationRequestHeader> findRejectedRequests(
+            @Param("status") QuotationRequestStatus status,
+            @Param("managerId") Long managerId,
+            @Param("rejectedStatuses") List<QuotationStatus> rejectedStatuses);
 }
