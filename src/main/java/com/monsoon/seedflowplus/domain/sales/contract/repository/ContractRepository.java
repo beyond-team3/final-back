@@ -87,6 +87,13 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
         // 계약 코드와 거래처 ID로 계약 존재 여부 확인
         boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
 
+        /**
+         * 특정 견적서에 대해 특정 상태들의 계약서 존재 여부 확인
+         */
+        @Query("SELECT COUNT(c) > 0 FROM ContractHeader c WHERE c.quotation.id = :quotationId AND c.status IN :statuses")
+        boolean existsByQuotationIdAndStatusIn(@Param("quotationId") Long quotationId,
+                        @Param("statuses") List<ContractStatus> statuses);
+
         // 상태와 시작일을 기준으로 계약 조회
         List<ContractHeader> findByStatusAndStartDateLessThanEqual(ContractStatus status, LocalDate date);
 
