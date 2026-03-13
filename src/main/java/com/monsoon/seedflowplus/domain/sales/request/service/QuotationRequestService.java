@@ -77,7 +77,7 @@ public class QuotationRequestService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
 
-        SalesDeal deal = resolveOrCreateOpenDeal(client);
+        SalesDeal deal = createDealBootstrap(client);
 
         // 2. Header 생성
         QuotationRequestHeader header = QuotationRequestHeader.create(client, request.requirements(), deal);
@@ -280,25 +280,38 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
-        header.delete();
-    }
-
-    private CustomUserDetails getAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-        return userDetails;
-    }
-
-    private SalesDeal resolveOrCreateOpenDeal(Client client) {
-        Long clientId = client.getId();
-        if (clientId == null) {
+        SalesDeal deal = header.getDeal();
+        if (deal == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
         }
-        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .orElseGet(() -> createDealBootstrap(client));
+
+        String fromStatus = header.getStatus().name();
+        LocalDateTime actionAt = LocalDateTime.now();
+        header.delete();
+
+        dealLogWriteService.write(
+                deal,
+                DealType.RFQ,
+                header.getId(),
+                header.getRequestCode(),
+                deal.getCurrentStage(),
+                DealStage.CANCELED,
+                fromStatus,
+                QuotationRequestStatus.DELETED.name(),
+                ActionType.CANCEL,
+                actionAt,
+                ActorType.CLIENT,
+                clientId,
+                null,
+                List.of(new DealLogWriteService.DiffField(
+                        "status",
+                        "문서 상태",
+                        fromStatus,
+                        QuotationRequestStatus.DELETED.name(),
+                        "STATUS"))
+        );
+
+        closeDealIfOpen(deal, actionAt);
     }
 
     private SalesDeal createDealBootstrap(Client client) {
@@ -319,6 +332,22 @@ public class QuotationRequestService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        deal.close(actionAt);
+    }
+
+    private CustomUserDetails getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return userDetails;
     }
 
     private java.util.Optional<Long> resolveNotificationRecipientUserId(Client client) {

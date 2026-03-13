@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -334,8 +335,31 @@ public class QuotationService {
         }
 
         // 3. 논리 삭제 처리
+        String fromStatus = quotation.getStatus().name();
+        DealStage fromStage = mapQuotationStage(quotation.getStatus());
         quotation.updateStatus(QuotationStatus.DELETED);
         approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
+        dealLogWriteService.write(
+                quotation.getDeal(),
+                DealType.QUO,
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                fromStage,
+                DealStage.CANCELED,
+                fromStatus,
+                QuotationStatus.DELETED.name(),
+                ActionType.CANCEL,
+                LocalDateTime.now(),
+                ActorType.SALES_REP,
+                userDetails.getEmployeeId(),
+                null,
+                List.of(new DealLogWriteService.DiffField(
+                        "status",
+                        "문서 상태",
+                        fromStatus,
+                        QuotationStatus.DELETED.name(),
+                        "STATUS"))
+        );
 
         // 4. 관련 RFQ 상태 복구 (검토 중인 경우 다시 대기 상태로)
         if (quotation.getQuotationRequest() != null
@@ -380,6 +404,8 @@ public class QuotationService {
     @Transactional
     public void syncQuotationStatuses() {
         LocalDate today = LocalDate.now();
+        List<QuotationHeader> expiringQuotations = quotationRepository
+                .findByStatusAndExpiredDateLessThanEqual(QuotationStatus.WAITING_ADMIN, today);
 
         // 1. 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
         int expiredQuoCount = quotationRepository.updateStatusForExpiration(
@@ -393,6 +419,15 @@ public class QuotationService {
             log.info("[QuotationService] 상태 동기화 완료: 견적 만료 {}건, RFQ 복구 {}건",
                     expiredQuoCount, recoveredRfqCount);
         }
+
+        closeDeals(
+                expiringQuotations.stream()
+                        .map(QuotationHeader::getDeal)
+                        .filter(java.util.Objects::nonNull)
+                        .map(SalesDeal::getId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new)),
+                LocalDateTime.now()
+        );
     }
 
     private CustomUserDetails getAuthenticatedUser() {
@@ -430,5 +465,32 @@ public class QuotationService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private DealStage mapQuotationStage(QuotationStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private void closeDeals(Set<Long> dealIds, LocalDateTime actionAt) {
+        if (dealIds.isEmpty()) {
+            return;
+        }
+        salesDealRepository.findAllById(dealIds)
+                .forEach(deal -> closeDealIfOpen(deal, actionAt));
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        deal.close(actionAt);
     }
 }

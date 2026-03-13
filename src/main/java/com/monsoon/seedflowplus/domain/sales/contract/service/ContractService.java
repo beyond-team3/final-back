@@ -44,8 +44,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -60,6 +62,7 @@ public class ContractService {
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealLogWriteService dealLogWriteService;
     private final DealLogQueryService dealLogQueryService;
     private final ApprovalSubmissionService approvalSubmissionService;
     private final ApprovalCancellationService approvalCancellationService;
@@ -223,6 +226,8 @@ public class ContractService {
     @Transactional
     public void syncContractStatuses() {
         LocalDate today = LocalDate.now();
+        List<ContractHeader> expiringContracts = contractRepository
+                .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
 
         // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
         int activatedCount = contractRepository.updateStatusForActivation(
@@ -235,6 +240,15 @@ public class ContractService {
         if (activatedCount > 0 || expiredCount > 0) {
             log.info("[ContractService] 상태 동기화 완료: 활성화 {}건, 만료 {}건", activatedCount, expiredCount);
         }
+
+        closeDeals(
+                expiringContracts.stream()
+                        .map(ContractHeader::getDeal)
+                        .filter(java.util.Objects::nonNull)
+                        .map(SalesDeal::getId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new)),
+                LocalDateTime.now()
+        );
     }
 
     private void validateAccess(ContractHeader contract, CustomUserDetails user) {
@@ -286,8 +300,31 @@ public class ContractService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
+        String fromStatus = contract.getStatus().name();
+        DealStage fromStage = mapContractStage(contract.getStatus());
         contract.delete();
         approvalCancellationService.cancelPendingRequest(DealType.CNT, contract.getId());
+        dealLogWriteService.write(
+                contract.getDeal(),
+                DealType.CNT,
+                contract.getId(),
+                contract.getContractCode(),
+                fromStage,
+                DealStage.CANCELED,
+                fromStatus,
+                ContractStatus.DELETED.name(),
+                ActionType.CANCEL,
+                LocalDateTime.now(),
+                resolveActorType(userDetails),
+                resolveActorId(userDetails),
+                null,
+                List.of(new DealLogWriteService.DiffField(
+                        "status",
+                        "문서 상태",
+                        fromStatus,
+                        ContractStatus.DELETED.name(),
+                        "STATUS"))
+        );
 
         // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
         QuotationHeader quotation = contract.getQuotation();
@@ -510,5 +547,45 @@ public class ContractService {
                 .summaryMemo(null)
                 .build();
         return salesDealRepository.save(newDeal);
+    }
+
+    private DealStage mapContractStage(ContractStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case COMPLETED -> DealStage.APPROVED;
+            case ACTIVE_CONTRACT -> DealStage.CONFIRMED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
+    }
+
+    private ActorType resolveActorType(CustomUserDetails userDetails) {
+        return userDetails.getRole() == Role.ADMIN ? ActorType.ADMIN : ActorType.SALES_REP;
+    }
+
+    private Long resolveActorId(CustomUserDetails userDetails) {
+        Long actorId = userDetails.getEmployeeId();
+        if (actorId == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+        return actorId;
+    }
+
+    private void closeDeals(java.util.Set<Long> dealIds, LocalDateTime actionAt) {
+        if (dealIds.isEmpty()) {
+            return;
+        }
+        salesDealRepository.findAllById(dealIds)
+                .forEach(deal -> closeDealIfOpen(deal, actionAt));
+    }
+
+    private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
+        if (deal == null) {
+            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        deal.close(actionAt);
     }
 }

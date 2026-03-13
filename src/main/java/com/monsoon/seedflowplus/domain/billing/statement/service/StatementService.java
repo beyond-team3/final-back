@@ -72,6 +72,7 @@ public class StatementService {
         }
     }
 
+    // 삭제 정책상 STMT는 별도 delete API 없이 cancel API를 삭제 의미로 사용한다.
     @Transactional
     public StatementResponse cancelStatement(Long statementId, CustomUserDetails userDetails) {
         if (userDetails == null || userDetails.getEmployeeId() == null) {

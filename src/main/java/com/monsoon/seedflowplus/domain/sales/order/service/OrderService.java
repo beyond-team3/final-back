@@ -2,6 +2,7 @@ package com.monsoon.seedflowplus.domain.sales.order.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
@@ -61,6 +62,7 @@ public class OrderService {
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
     private final ApprovalSubmissionService approvalSubmissionService;
+    private final ApprovalCancellationService approvalCancellationService;
 
 
     @Transactional
@@ -204,6 +206,7 @@ public class OrderService {
                 OrderStatus.CANCELED.name()
         );
 
+        approvalCancellationService.cancelPendingRequest(DealType.ORD, orderId);
         orderHeader.cancel();
 
         dealPipelineFacade.recordAndSync(
