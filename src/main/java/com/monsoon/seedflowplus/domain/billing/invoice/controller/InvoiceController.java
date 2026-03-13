@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.controller;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceListResponse;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 
 @Tag(name = "Invoice", description = "청구서 API")
@@ -79,10 +81,29 @@ public class InvoiceController {
         return ApiResult.success(invoiceService.getInvoiceDetail(invoiceId, userDetails));
     }
 
-    @Operation(summary = "청구서 목록 조회 (전체)", description = "전체 청구서 목록을 조회합니다.")
+    @Operation(summary = "청구서 목록 조회", description = "ADMIN은 전체, SALES_REP은 본인 담당 거래처만 조회합니다.")
     @GetMapping
-    public ApiResult<List<InvoiceListResponse>> getInvoices() {
-        return ApiResult.success(invoiceService.getInvoices());
+    public ApiResult<List<InvoiceListResponse>> getInvoices(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        Role role = userDetails.getRole();
+
+        if (role == Role.SALES_REP) {
+            return ApiResult.success(
+                    invoiceService.getInvoicesByEmployee(requireEmployeeId(userDetails))
+            );
+        }
+
+        if (role == Role.ADMIN) {
+            return ApiResult.success(invoiceService.getInvoices());
+        }
+
+        // CLIENT 등 나머지 역할은 접근 거부
+        throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
     @Operation(summary = "청구서 목록 조회 (거래처별)", description = "특정 거래처의 청구서 목록을 조회합니다.")

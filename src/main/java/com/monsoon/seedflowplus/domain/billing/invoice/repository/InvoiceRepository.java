@@ -23,6 +23,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     // 코드 채번용
     boolean existsByInvoiceCode(String invoiceCode);
 
+    List<Invoice> findAllByEmployeeId(Long employeeId);
+
     @Query("SELECT MAX(CAST(SUBSTRING(i.invoiceCode, LENGTH(:prefix) + 1) AS integer)) " +
             "FROM Invoice i WHERE i.invoiceCode LIKE CONCAT(:prefix, '%')")
     Optional<Integer> findMaxSuffixByPrefix(@Param("prefix") String prefix);
