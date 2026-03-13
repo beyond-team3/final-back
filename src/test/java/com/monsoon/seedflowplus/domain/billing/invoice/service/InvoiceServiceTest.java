@@ -165,8 +165,10 @@ class InvoiceServiceTest {
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
         verify(notificationEventPublisher).publishAfterCommit(eventCaptor.capture());
         InvoiceIssuedEvent event = (InvoiceIssuedEvent) eventCaptor.getValue();
+        assertEquals(199L, event.userId());
         assertEquals(41L, event.invoiceId());
         assertEquals("INV-20260310-001", event.invoiceCode());
+        assertEquals("테스트 거래처", event.clientName());
         assertThat(event.occurredAt()).isBetween(publishedAtLowerBound, publishedAtUpperBound);
     }
 

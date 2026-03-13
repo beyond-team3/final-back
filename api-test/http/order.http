@@ -80,8 +80,92 @@ client.test("order get success", function () {
 });
 %}
 
-### [S3] 주문 확정은 공개 PATCH API가 아니라 승인 완료 이벤트 기반 내부 흐름으로 처리됨
-### ORD 승인 요청/결정 API를 통해 최종 승인 후, 주문 상세 조회와 명세서 조회로 CONFIRMED/STMT 생성 여부를 확인한다.
+### [S3] ORD 승인 요청 조회 - 주문 생성 시 자동 제출된 approval 확보
+GET {{baseUrl}}/api/v1/approvals?dealType=ORD&targetId={{orderId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("order approval search success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  const approvals = response.body.data.content || [];
+  client.assert(approvals.length > 0, "order approval must exist");
+  client.global.set("orderApprovalId", approvals[0].approvalId);
+});
+%}
+
+### [S3-1] ORD 승인 상세 조회 - SALES_REP step 확보
+GET {{baseUrl}}/api/v1/approvals/{{orderApprovalId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("order approval detail success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  const steps = response.body.data.steps || [];
+  const salesStep = steps.find((step) => step.actorType === "SALES_REP");
+  client.assert(!!salesStep, "sales approval step must exist");
+  client.global.set("orderSalesStepId", salesStep.stepId);
+});
+%}
+
+### [S3-2] ORD 승인 완료
+POST {{baseUrl}}/api/v1/approvals/{{orderApprovalId}}/steps/{{orderSalesStepId}}/decision
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVE",
+  "reason": "HTTP order approve"
+}
+
+> {%
+client.test("order approval complete success", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(response.body.data.status === "APPROVED", "approval request must be APPROVED");
+});
+%}
+
+### [S3-3] 주문 상태 확인 - CONFIRMED
+GET {{baseUrl}}/api/v1/orders/{{orderId}}
+Authorization: Bearer {{client1AccessToken}}
+
+> {%
+client.test("order confirmed after approval", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(response.body.data.status === "CONFIRMED", "order status must be CONFIRMED");
+});
+%}
+
+### [S3-4] 명세서 목록 조회 - 주문별 STMT 확인
+GET {{baseUrl}}/api/v1/statements
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement exists after order approval", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  const statement = (response.body.data || []).find((item) => item.orderId === Number(client.global.get("orderId")));
+  client.assert(!!statement, "statement mapped to order must exist");
+  client.assert(!!statement.statementId, "statementId must exist");
+  client.global.set("orderStatementId", statement.statementId);
+});
+%}
+
+### [S3-5] 명세서 단건 조회 - STMT 상세 확인
+GET {{baseUrl}}/api/v1/statements/{{orderStatementId}}
+Authorization: Bearer {{salesAccessToken}}
+
+> {%
+client.test("statement detail success after order approval", function () {
+  client.assert(response.status === 200, "status must be 200");
+  client.assert(response.body.result === "SUCCESS", "result must be SUCCESS");
+  client.assert(response.body.data.statementId === Number(client.global.get("orderStatementId")), "statement id must match");
+  client.assert(response.body.data.orderId === Number(client.global.get("orderId")), "statement must reference current order");
+});
+%}
 
 ### [S4] 주문 목록 조회
 GET {{baseUrl}}/api/v1/orders
@@ -179,4 +263,6 @@ client.test("order cancel by sales rep denied -> A002", function () {
 });
 %}
 
-### [F6] 상태 전이 위반: 이미 CONFIRMED 주문에 대해 승인 완료 이벤트가 다시 들어오면 내부 confirmOrderFromApproval 흐름에서 O007로 차단되어야 함
+### [F6] 문서화 전용: O007은 공개 HTTP 시나리오보다 서비스 테스트에서 검증
+### 현재 공개 approval decision API는 동일 step 재호출 시 AP004를 먼저 반환하므로, O007은
+### ApprovalCommandServiceTest.decideStepRejectsOrderApprovalWhenOrderAlreadyConfirmed 로 검증한다.
