@@ -144,7 +144,8 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                resolveContractCode(invoice.getContractId())
         );
     }
 
@@ -256,12 +257,13 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                resolveContractCode(invoice.getContractId())
         );
     }
 
     /**
-     * 청구서 단건 조회 (공통 - memo 없음)
+     * 첨구서 단건 조회 (공통 - memo 없음)
      */
     public InvoiceResponse getInvoice(Long invoiceId) {
         return getInvoice(invoiceId, null);
@@ -297,6 +299,7 @@ public class InvoiceService {
         validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
+        String contractCode = resolveContractCode(invoice.getContractId());
         return InvoiceDetailResponse.of(
                 invoice,
                 invoiceStatements,
@@ -304,8 +307,17 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                contractCode
         );
+    }
+
+    /** contractId -> contractCode 헬퍼 */
+    private String resolveContractCode(Long contractId) {
+        if (contractId == null) return null;
+        return contractHeaderRepository.findById(contractId)
+                .map(ContractHeader::getContractCode)
+                .orElse(null);
     }
 
     /**
@@ -313,7 +325,10 @@ public class InvoiceService {
      */
     public List<InvoiceListResponse> getInvoices() {
         return invoiceRepository.findAll().stream()
-                .map(InvoiceListResponse::from)
+                .map(invoice -> InvoiceListResponse.from(
+                        invoice,
+                        resolveContractCode(invoice.getContractId())  // ← 이 줄이 핵심
+                ))
                 .toList();
     }
 
@@ -496,9 +511,11 @@ public class InvoiceService {
         if (principal == null || principal.getRole() == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
+        // ADMIN: 전체 허용
         if (principal.getRole() == Role.ADMIN) {
             return;
         }
+        // CLIENT: 본인 거래처 청구서만 허용
         if (principal.getRole() == Role.CLIENT) {
             Long principalClientId = principal.getClientId();
             Long invoiceClientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
@@ -507,18 +524,16 @@ public class InvoiceService {
             }
             return;
         }
+        // SALES_REP: 담당 거래처(tbl_client.employee_id)의 청구서만 허용
         Long principalEmployeeId = principal.getEmployeeId();
         if (principalEmployeeId == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
-        Long invoiceEmployeeId = invoice.getEmployee() != null ? invoice.getEmployee().getId() : null;
-        Long ownerEmpId = invoice.getDeal() != null && invoice.getDeal().getOwnerEmp() != null
-                ? invoice.getDeal().getOwnerEmp().getId()
+        // tbl_client.employee_id = managerEmployee (Client 엔티티 필드명)
+        Long clientManagerEmpId = invoice.getClient() != null && invoice.getClient().getManagerEmployee() != null
+                ? invoice.getClient().getManagerEmployee().getId()
                 : null;
-        if (invoiceEmployeeId != null && principalEmployeeId.equals(invoiceEmployeeId)) {
-            return;
-        }
-        if (ownerEmpId != null && principalEmployeeId.equals(ownerEmpId)) {
+        if (clientManagerEmpId != null && principalEmployeeId.equals(clientManagerEmpId)) {
             return;
         }
         throw new CoreException(ErrorType.ACCESS_DENIED);
@@ -548,5 +563,14 @@ public class InvoiceService {
                                 invoice.getInvoiceCode()
                         )
                 );
+    }
+}
+    public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
+        return invoiceRepository.findAllByEmployeeId(employeeId).stream()
+                .map(invoice -> InvoiceListResponse.from(
+                        invoice,
+                        resolveContractCode(invoice.getContractId())
+                ))
+                .toList();
     }
 }
