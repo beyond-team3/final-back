@@ -101,7 +101,8 @@ class QuotationSyncTest {
         when(quotationRepository.findByStatusAndExpiredDateLessThanEqual(QuotationStatus.WAITING_ADMIN, today))
                 .thenReturn(List.of(quotation));
         when(quotationRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
-        when(quotationRequestRepository.recoverStatusByExpiredQuotation(any(), any(), any())).thenReturn(0);
+        when(quotationRepository.findByIdInAndStatusAndExpiredDateLessThanEqual(List.of(101L), QuotationStatus.EXPIRED, today))
+                .thenReturn(List.of(quotation));
         when(salesDealRepository.findAllById(any())).thenReturn(List.of(managedDeal));
 
         quotationService.syncQuotationStatuses();

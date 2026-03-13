@@ -54,6 +54,8 @@ class ScheduledNotificationServiceTest {
     @DisplayName("계약 시작/30일전/종료 알림은 오전 9시 예약 delivery로 생성된다")
     void scheduleContractLifecycleNotificationsAtNineAm() {
         ContractHeader contract = contract(71L, "CNT-20260312-71");
+        LocalDate expectedStartDate = contract.getStartDate();
+        LocalDate expectedEndDate = contract.getEndDate();
         User user = mock(User.class);
         when(entityManager.find(User.class, 100L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
         when(entityManager.find(User.class, 200L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(user);
@@ -72,9 +74,9 @@ class ScheduledNotificationServiceTest {
         assertThat(deliveryCaptor.getAllValues())
                 .extracting(NotificationDelivery::getScheduledAt)
                 .contains(
-                        LocalDate.of(2026, 4, 1).atTime(9, 0),
-                        LocalDate.of(2026, 4, 15).minusDays(30).atTime(9, 0),
-                        LocalDate.of(2026, 4, 15).atTime(9, 0)
+                        expectedStartDate.atTime(9, 0),
+                        expectedEndDate.minusDays(30).atTime(9, 0),
+                        expectedEndDate.atTime(9, 0)
                 );
     }
 
@@ -159,7 +161,7 @@ class ScheduledNotificationServiceTest {
     }
 
     private ContractHeader contract(Long id, String code) {
-        return contract(id, code, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 15));
+        return contract(id, code, LocalDate.now().plusDays(20), LocalDate.now().plusDays(50));
     }
 
     private ContractHeader contract(Long id, String code, LocalDate startDate, LocalDate endDate) {

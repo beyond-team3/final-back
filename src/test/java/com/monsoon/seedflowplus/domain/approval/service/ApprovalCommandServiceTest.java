@@ -817,7 +817,7 @@ class ApprovalCommandServiceTest {
     @Test
     @DisplayName("케이스 ORD-1: ORD approval 생성 시 SALES_REP 1단계와 client snapshot을 생성한다")
     void createApprovalRequestCreatesSingleSalesRepStepForOrder() {
-        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.ORD, 700L, 77L, "ORD-700");
+        CreateApprovalRequestRequest dto = new CreateApprovalRequestRequest(DealType.ORD, 700L, null, "ORD-700");
         ArgumentCaptor<ApprovalRequest> requestCaptor = ArgumentCaptor.forClass(ApprovalRequest.class);
         OrderHeader orderHeader = order(700L, 77L, 501L);
 
@@ -933,6 +933,33 @@ class ApprovalCommandServiceTest {
                 .isEqualTo(ErrorType.APPROVAL_ROLE_MISMATCH);
 
         verifyNoInteractions(orderService);
+    }
+
+    @Test
+    @DisplayName("케이스 ORD-5: 주문이 이미 PENDING이 아니면 승인 완료 이벤트를 발행하지 않고 O007을 반환한다")
+    void decideStepRejectsOrderApprovalWhenOrderAlreadyConfirmed() {
+        ApprovalRequest request = ordRequest(973L, 703L, 77L);
+        ApprovalStep step = step(7004L, request, 1, ActorType.SALES_REP, ApprovalStepStatus.WAITING);
+        request.addStep(step);
+        OrderHeader orderHeader = order(703L, 77L, 501L);
+        orderHeader.confirm();
+        when(approvalRequestRepository.findById(973L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(7004L, 973L)).thenReturn(Optional.of(step));
+        when(approvalDecisionRepository.existsByApprovalStepId(7004L)).thenReturn(false);
+        when(orderHeaderRepository.findById(703L)).thenReturn(Optional.of(orderHeader));
+
+        assertThatThrownBy(() -> approvalCommandService.decideStep(
+                973L,
+                7004L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUserWithIds(Role.SALES_REP, 9501L, 501L, null)
+        ))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(ErrorType.ORDER_ALREADY_CONFIRMED);
+
+        verify(approvalDecisionRepository, never()).save(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
     private ApprovalRequest quoRequest(Long id, Long targetId, Long clientIdSnapshot) {

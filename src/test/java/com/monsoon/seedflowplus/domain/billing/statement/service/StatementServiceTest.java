@@ -22,6 +22,7 @@ import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,10 +83,13 @@ class StatementServiceTest {
 
         User salesUser = org.mockito.Mockito.mock(User.class);
         when(salesUser.getId()).thenReturn(1000L);
+        when(salesUser.getEmployee()).thenReturn(employee);
         User ownerUser = org.mockito.Mockito.mock(User.class);
         when(ownerUser.getId()).thenReturn(1500L);
+        when(ownerUser.getEmployee()).thenReturn(ownerEmployee);
         User clientUser = org.mockito.Mockito.mock(User.class);
         when(clientUser.getId()).thenReturn(2000L);
+        when(clientUser.getClient()).thenReturn(client);
 
         when(statementRepository.findByOrderHeader_Id(41L)).thenReturn(Optional.empty());
         when(statementRepository.findMaxSuffixByPrefix(any())).thenReturn(Optional.of(0));
@@ -95,9 +99,8 @@ class StatementServiceTest {
             ReflectionTestUtils.setField(statement, "createdAt", LocalDateTime.of(2026, 3, 12, 15, 0));
             return statement;
         });
-        when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(salesUser));
-        when(userRepository.findByEmployeeId(13L)).thenReturn(Optional.of(ownerUser));
-        when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
+        when(userRepository.findAllByEmployeeIdIn(List.of(12L, 13L))).thenReturn(List.of(salesUser, ownerUser));
+        when(userRepository.findAllByClientIdIn(List.of(7L))).thenReturn(List.of(clientUser));
 
         statementService.createStatement(orderHeader, ActorType.SALES_REP, 12L);
 

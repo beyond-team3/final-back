@@ -94,6 +94,7 @@ class ContractServiceTest {
         rfq.updateStatus(QuotationRequestStatus.COMPLETED);
         QuotationHeader quotation = QuotationHeader.create(rfq, "QUO-1", client, deal, author, BigDecimal.TEN, null);
         quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
+        ReflectionTestUtils.setField(quotation, "id", 101L);
         ContractHeader contract = ContractHeader.create(
                 "CNT-1",
                 quotation,
@@ -127,7 +128,7 @@ class ContractServiceTest {
                 eq(200L),
                 eq("CNT-1"),
                 eq(DealStage.PENDING_ADMIN),
-                eq(DealStage.PENDING_CLIENT),
+                eq(DealStage.APPROVED),
                 eq(ContractStatus.WAITING_ADMIN.name()),
                 eq(QuotationStatus.FINAL_APPROVED.name()),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
