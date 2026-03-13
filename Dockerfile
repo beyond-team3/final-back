@@ -1,12 +1,18 @@
-FROM eclipse-temurin:21-jdk
+FROM gradle:8.5-jdk21 AS build
+WORKDIR /app
 
-# AI 모델 실행을 위한 필수 패키지 설치 (apt-get 사용)
-RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
+# 소스 복사 및 빌드 (테스트 제외하여 속도 향상)
+COPY . .
+RUN gradle clean bootJar -x test
 
-ARG JAR_FILE=build/libs/*.jar
-COPY ${JAR_FILE} app.jar
+# 실행 스테이지
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
 
-# AI 라이브러리가 임시 파일을 풀 수 있도록 권한 부여
-RUN chmod 777 /tmp
+# 빌드된 jar 파일만 복사
+COPY --from=build /app/build/libs/*.jar app.jar
 
-ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "/app.jar"]
+EXPOSE 8080
+
+# JVM 최적화
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
