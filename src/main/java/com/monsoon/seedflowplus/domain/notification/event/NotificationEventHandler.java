@@ -93,6 +93,14 @@ public class NotificationEventHandler {
         sendIfPresent(event.userId(), saved);
     }
 
+    @Async("notificationTaskExecutor")
+    @EventListener
+    @Transactional
+    public void handleProductCreated(ProductCreatedEvent event) {
+        Notification saved = documentNotificationService.createProductCreatedNotification(event);
+        sendIfPresent(event.userId(), saved);
+    }
+
     private void sendIfPresent(Long userId, Notification saved) {
         if (saved == null) {
             return;

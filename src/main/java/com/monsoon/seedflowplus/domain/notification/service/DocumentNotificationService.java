@@ -14,6 +14,7 @@ import com.monsoon.seedflowplus.domain.notification.event.AccountActivatedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.ContractCompletedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.QuotationRequestCreatedEvent;
+import com.monsoon.seedflowplus.domain.notification.event.ProductCreatedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationDeliveryRepository;
 import com.monsoon.seedflowplus.domain.notification.repository.NotificationRepository;
@@ -56,6 +57,19 @@ public class DocumentNotificationService {
                 event.userId(),
                 "계정이 활성화되었습니다",
                 buildAccountActivatedContent(event.role()),
+                event.occurredAt()
+        );
+    }
+
+    public Notification createProductCreatedNotification(ProductCreatedEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        return createIfNotDuplicated(
+                event.userId(),
+                NotificationType.PRODUCT_CREATED,
+                NotificationTargetType.PRODUCT,
+                event.productId(),
+                "신규 상품이 등록되었습니다",
+                buildProductCreatedContent(event.productCode(), event.productName()),
                 event.occurredAt()
         );
     }
@@ -181,6 +195,12 @@ public class DocumentNotificationService {
             case SALES_REP -> "영업사원 계정이 활성화되었습니다. 지금부터 서비스를 이용할 수 있습니다.";
             case ADMIN -> "관리자 계정이 활성화되었습니다.";
         };
+    }
+
+    private String buildProductCreatedContent(String productCode, String productName) {
+        return String.format("신규 상품 %s %s가 등록되었습니다.",
+                productName == null || productName.isBlank() ? "상품" : productName,
+                productCode == null || productCode.isBlank() ? "" : "(" + productCode + ")");
     }
 
     private String buildContractCompletedContent(String contractCode, String clientName) {
