@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.invoice.controller;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.request.InvoiceCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceListResponse;
@@ -79,9 +80,16 @@ public class InvoiceController {
         return ApiResult.success(invoiceService.getInvoiceDetail(invoiceId, userDetails));
     }
 
-    @Operation(summary = "청구서 목록 조회 (전체)", description = "전체 청구서 목록을 조회합니다.")
+    @Operation(summary = "청구서 목록 조회", description = "ADMIN은 전체, SALES_REP은 본인 담당 거래처만 조회합니다.")
     @GetMapping
-    public ApiResult<List<InvoiceListResponse>> getInvoices() {
+    public ApiResult<List<InvoiceListResponse>> getInvoices(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        if (userDetails != null && userDetails.getRole() == Role.SALES_REP) {
+            return ApiResult.success(
+                    invoiceService.getInvoicesByEmployee(requireEmployeeId(userDetails))
+            );
+        }
         return ApiResult.success(invoiceService.getInvoices());
     }
 
