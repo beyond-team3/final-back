@@ -67,8 +67,9 @@ spec:
                 branch 'main'
             }
             steps {
-                configFileProvider([
-                  configFile(fileId: 'monsoon-prod-yml', targetLocation: 'src/main/resources/application-prod.yml')
+                configFileProvider([configFile(fileId: 'monsoon-prod-yml',
+                      targetLocation: 'src/main/resources/application-prod.yml'
+                  )
                 ]) {
                   echo 'Injected application-prod.yml for production build'
                 }
@@ -150,6 +151,11 @@ spec:
                         echo "Targeting Tag: " + env.FINAL_TAG
 
                         sh """
+                            mkdir -p ~/.ssh
+                            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+
+                            echo "Starting Manifest Update..."
+
                             git clone git@github.com:beyond-team3/final-manifests.git temp-manifests
                             cd temp-manifests
                             git checkout ${targetBranch}
@@ -159,7 +165,7 @@ spec:
                             git config user.name "Jenkins-CI-Bot"
                             git add backend/deployment.yml
                             if ! git diff --cached --quiet; then
-                                git commit -m "🚀 [CD] Update to ${env.FINAL_TAG} [skip ci]"
+                                git commit -m "[CD] Update backend to ${env.FINAL_TAG} [skip ci]"
                                 git push origin ${targetBranch}
                             fi
                         """
@@ -180,7 +186,7 @@ spec:
                         withCredentials([usernamePassword(credentialsId: env.ARGOCD_CREDENTIAL_ID,
                             usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
 
-                            sh "argocd login [ArgoCD-Server-URL] --username ${ARGO_USER} --password ${ARGO_PASS} --insecure"
+                            sh "argocd login argocd-server.argocd.svc.cluster.local --username ${ARGO_USER} --password ${ARGO_PASS} --insecure"
                             sh "argocd app wait monsoon-app --timeout 300"
 
                         }
