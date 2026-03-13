@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.product.entity.Tag;
 import com.monsoon.seedflowplus.domain.product.repository.TagRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.util.Optional;
 public class TagService {
 
     private final TagRepository tagRepository;
+    private final EntityManager entityManager;
 
     // 공백 제거
     private String normalizeTagName(String tagName) {
@@ -67,11 +69,19 @@ public class TagService {
             return existingTag.get();
         }
 
-        // 없으면 외부 트랜잭션 안에서 저장 (flush는 외부 tx 커밋 시점에 일괄 수행)
+        // 없으면 외부 트랜잭션 안에서 저장 및 즉시 flush하여 제약 조건 위반을 이 메서드 내에서 처리
         Tag newTag = Tag.builder()
                 .categoryCode(categoryCode)
                 .tagName(normalized)
                 .build();
-        return tagRepository.save(newTag);
+        try {
+            return tagRepository.saveAndFlush(newTag);
+        } catch (DataIntegrityViolationException e) {
+            // 동시 요청으로 같은 태그가 먼저 생성된 경우:
+            // 실패한 엔티티를 영속성 컨텍스트에서 제거하여 외부 트랜잭션 오염 방지
+            entityManager.detach(newTag);
+            return tagRepository.findByCategoryCodeAndTagName(categoryCode, normalized)
+                    .orElseThrow(() -> new CoreException(ErrorType.DEFAULT_ERROR));
+        }
     }
 }
