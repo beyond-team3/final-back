@@ -2,7 +2,6 @@ package com.monsoon.seedflowplus.domain.sales.quotation.service;
 
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
-import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,12 +44,11 @@ class QuotationSyncTest {
         // then
         verify(quotationRepository, times(1)).updateStatusForExpiration(
                 eq(QuotationStatus.WAITING_ADMIN), eq(QuotationStatus.EXPIRED), eq(today));
-        verify(quotationRequestRepository, times(1)).recoverStatusByExpiredQuotation(
-                eq(QuotationRequestStatus.REVIEWING),
-                eq(QuotationRequestStatus.PENDING),
-                eq(QuotationStatus.EXPIRED));
+        
+        // RFQ 상태 복구 로직이 주석 처리되었으므로 호출되지 않아야 함
+        verify(quotationRequestRepository, never()).recoverStatusByExpiredQuotation(any(), any(), any());
 
-        System.out.println(">>> Repository 벌크 업데이트 메서드(Quotation Expiration, RFQ Recovery) 호출 확인 완료");
+        System.out.println(">>> Repository 벌크 업데이트 메서드(Quotation Expiration) 호출 확인 완료 (RFQ 복구 생략)");
         System.out.println("[견적서 테스트] 완료");
     }
 }
