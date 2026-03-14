@@ -17,9 +17,9 @@
   - [x] Deal, RFQ, QUO, CNT, ORD, STMT, INV, PAY 상태/연결 관계 정리
   - [x] 삭제/반려/재작성/승인 시 상태 변경 경로 정리
   - [x] 알림/일정/통계 귀속 기준 정리
-- [ ] 2. v2 정책 반영용 설계 뼈대 작성
-- [ ] 3. 공통 enum / value object / DTO 작성
-- [ ] 4. Deal 중심 조회 계층 작성
+- [x] 2. v2 정책 반영용 설계 뼈대 작성
+- [x] 3. 공통 enum / value object / DTO 작성
+- [x] 4. Deal 중심 조회 계층 작성
 - [ ] 5. 문서 생성/재작성/승인/취소 흐름 개편
 - [ ] 6. snapshot 재계산 로직 작성
 - [ ] 7. 알림/일정/통계 연계 수정
@@ -29,7 +29,7 @@
 
 ## Current Focus
 
-현재 진행 단계: `2. v2 정책 반영용 설계 뼈대 작성`
+현재 진행 단계: `5. 문서 생성/재작성/승인/취소 흐름 개편`
 
 1단계 분석 결과:
 - `SalesDeal.currentStatus` 는 문서별 enum 문자열과 직접 결합되어 있음
@@ -42,6 +42,6 @@
 - 통계는 일반 통계에서 `InvoiceStatus.PAID`, 청구 통계에서 `InvoiceStatus.PUBLISHED|PAID` 와 `StatementStatus.ISSUED` 기준을 사용 중임
 
 다음 작업:
-- `v2` 패키지 구조와 서비스 책임 분리안 작성
-- 3축 상태 enum, snapshot DTO, revision DTO 초안 정의
-- `SalesDeal` 확장 필드와 문서 계보 필드 추가 위치 확정
+- QUO/CNT `v2` 생성 시 상위 문서 우선, `dealId` 명시, 신규 deal 생성 규칙을 서비스에 반영
+- `revise` API를 새 문서 생성 방식으로 설계
+- 삭제를 `cancel/supersede` 정책으로 전환할 엔티티 및 서비스 지점 확정

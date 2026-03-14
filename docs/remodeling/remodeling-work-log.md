@@ -51,3 +51,40 @@
 
 ### 다음 단계
 2단계 v2 정책 반영용 설계 뼈대 작성
+
+## [2026-03-15 04:26] v2 공통 모델 초안 추가
+
+### 작업 내용
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — `v2` 공통 상태 enum과 deal 중심 DTO 추가 구조를 기록
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentLifecycleStatus.java` — 문서 생명주기 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentApprovalStatus.java` — 문서 승인 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentRole.java` — 문서 대표성 역할 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/RevisionInfoDto.java` — 재작성 계보 DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealSnapshotDto.java` — deal snapshot DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealSummaryDto.java` — deal 목록 DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDetailDto.java` — deal 상세 DTO 초안 추가
+- 수정 파일: `PROGRESS.md` — 2단계, 3단계 완료 처리 및 4단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 컴파일 확인 전
+
+### 다음 단계
+4단계 deal 중심 조회 계층 작성
+
+## [2026-03-15 04:39] v2 deal 조회 계층 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — `/api/v2/deals` 목록/상세/문서목록 조회 엔드포인트 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2QueryService.java` — 기존 deal/document 리포지토리 재사용 기반의 `v2` 조회 서비스 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDocumentSummaryDto.java` — deal 문서 목록 응답 DTO 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — `v2` deal 조회 계층 구조를 기록
+- 수정 파일: `PROGRESS.md` — 4단계 완료 처리 및 5단계 포커스 반영
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — `v2` deal 조회 계층 추가 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 최초 compileJava 실패(`Iterable.stream()`, `updatedAt` getter) 후 수정하여 재컴파일 성공
+
+### 다음 단계
+5단계 문서 생성/재작성/승인/취소 흐름 개편
