@@ -473,7 +473,7 @@ public class QuotationService {
                             "status",
                             "문서 상태",
                             fromStatus,
-                            QuotationStatus.DELETED.name(),
+                            toStatus,
                             "STATUS"))
             );
         }
@@ -519,18 +519,6 @@ public class QuotationService {
         LocalDate today = LocalDate.now();
         List<QuotationHeader> expiringQuotations = quotationRepository
                 .findByStatusAndExpiredDateLessThanEqual(QuotationStatus.WAITING_ADMIN, today);
-        Map<Long, ExpiringQuotationContext> expiringContextByDealId = expiringQuotations.stream()
-                .filter(quotation -> quotation.getDeal() != null && quotation.getDeal().getId() != null)
-                .collect(Collectors.toMap(
-                        quotation -> quotation.getDeal().getId(),
-                        quotation -> new ExpiringQuotationContext(
-                                quotation.getId(),
-                                quotation.getQuotationCode(),
-                                quotation.getDeal().getId()
-                        ),
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new
-                ));
 
         // 1. 만료 대상 처리 (승인 대기 상태인데 만료일이 오늘이거나 이전인 경우)
         int expiredQuoCount = quotationRepository.updateStatusForExpiration(
@@ -544,6 +532,25 @@ public class QuotationService {
                     expiredQuoCount, recoveredRfqCount);
         }
 
+        List<QuotationHeader> updatedExpiredQuotations = expiringQuotations.isEmpty()
+                ? List.of()
+                : quotationRepository.findByIdInAndStatusAndExpiredDateLessThanEqual(
+                        expiringQuotations.stream().map(QuotationHeader::getId).toList(),
+                        QuotationStatus.EXPIRED,
+                        today
+                );
+        Map<Long, ExpiringQuotationContext> expiringContextByDealId = updatedExpiredQuotations.stream()
+                .filter(quotation -> quotation.getDeal() != null && quotation.getDeal().getId() != null)
+                .collect(Collectors.toMap(
+                        quotation -> quotation.getDeal().getId(),
+                        quotation -> new ExpiringQuotationContext(
+                                quotation.getId(),
+                                quotation.getQuotationCode(),
+                                quotation.getDeal().getId()
+                        ),
+                        (left, right) -> left,
+                        java.util.LinkedHashMap::new
+                ));
         expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 

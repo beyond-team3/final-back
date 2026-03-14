@@ -277,3 +277,23 @@ ORD 승인 시 after-commit 주문 확정 이벤트는 그대로 발행하되, a
 
 ### 변경 이유
 approval decision 타임라인이 실제 주문 상태 전이보다 앞서 `CONFIRMED`를 기록하면 deal 추적과 recentLogs가 일시적으로 어긋나기 때문
+
+## [2026-03-13] 리뷰 후속 결함 보정과 검증 경로 정리
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java`
+- 클래스/메서드: `ApprovalCommandService#applyOrderDecision`, `ApprovalCommandService#resolveClientIdSnapshot`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java`
+- 클래스/메서드: `StatementService#resolveStatementRecipientUserIds`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java`
+- 클래스/메서드: `ScheduledNotificationService#scheduleContractLifecycleNotifications`, `ScheduledNotificationService#createScheduledNotification`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/repository/QuotationRepository.java`
+- 클래스/메서드: `QuotationRepository#findByIdInAndStatusAndExpiredDateLessThanEqual`
+
+### 변경 내용
+ORD approval decision은 주문이 이미 `PENDING`이 아닐 때 after-commit 이벤트를 더 이상 발행하지 않도록 가드를 추가했다.
+명세서 알림 수신자 조회는 단건 3회 lookup 대신 employee/client 배치 조회로 바꾸고, 계약 예약 알림은 사용자 잠금을 정렬된 순서로 1회만 획득하도록 시그니처를 조정했다.
+견적 만료 동기화는 후보를 바로 deal 만료에 사용하지 않고, 실제 `EXPIRED`로 반영된 문서만 다시 조회해 후속 처리한다.
+
+### 변경 이유
+리뷰 지적대로 승인 중복 처리, 알림 잠금 경합, 만료 후속 처리의 실제 반영 대상 불일치를 줄여 공개 검증 시나리오와 내부 상태가 어긋나지 않게 하기 위해서

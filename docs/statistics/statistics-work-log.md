@@ -10,6 +10,38 @@
 ### 다음 단계
 없음
 
+## [2026-03-13 18:10] 리뷰 지적 재검증 후 필요한 항목만 반영
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — ORD 승인 중복 확정 가드와 ORD client snapshot 복원 로직 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 계약 만료 후보 조회 순서와 FINAL_APPROVED stage 매핑 수정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — RFQ 복구 로그 status 값과 실제 만료 반영 대상 기준 deal 만료 처리 보정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/repository/QuotationRepository.java` — 실제 만료 반영 문서 재조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 거래처 사용자 미매핑 시 경고 로그 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/repository/UserRepository.java` — employee/client 배치 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — 명세서 알림 수신자 조회를 배치 lookup으로 변경
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationService.java` — 예약 알림 사용자 잠금을 정렬/단일 획득 방식으로 조정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — ORD 중복 확정 O007 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 복구된 quotation id/stage 검증 강화
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — 실제 만료 반영 대상 재조회 흐름에 맞춘 테스트 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java` — 배치 사용자 조회 기반 명세서 알림 테스트 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — InvoiceIssuedEvent userId/clientName 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/ScheduledNotificationServiceTest.java` — 상대 날짜 기반 예약 알림 테스트로 안정화
+- 수정 파일: `api-test/http/order.http` — ORD approval search/detail/decision 후 CONFIRMED/STMT를 공개 응답으로 검증하도록 시나리오 추가
+- 수정 파일: `api-test/http/pipeline/scenario1.http` — ORD 승인 및 STMT 동기화 대기 시나리오 추가
+- 수정 파일: `api-test/http/pipeline/scenario1-2.http` — ORD 승인 후 주문 상태 확인 시나리오 추가
+- 수정 파일: `api-test/http/run-checklist.md` — 내부 메서드 대신 외부 상태/명세서 polling 기준으로 체크리스트 수정
+- 수정 파일: `api-test/http/statement.http` — F6를 문서화 전용으로 명시하고 테스트 커버리지 위치 추가
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 이번 구조 변경 기록 추가
+- 수정 파일: `docs/statistics/statistics-work-log.md` — 작업 로그 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-13 14:28] 주문 승인 내부 이벤트 확정과 알림 보강
 
 ### 작업 내용
