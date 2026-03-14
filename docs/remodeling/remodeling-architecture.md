@@ -82,3 +82,23 @@
 
 ### 변경 이유
 6단계 목표인 snapshot 재계산 로직의 공통화와 수동 갱신 경로 축소를 먼저 `v2` 계층에서 달성하기 위함입니다.
+
+## [2026-03-15] v2 deal 문맥 알림/일정 조회 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2ContextQueryService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java`
+
+### 변경 내용
+`GET /api/v2/deals/{dealId}/notifications`, `GET /api/v2/deals/{dealId}/schedules` 를 추가해 deal 문맥으로 알림과 일정을 조회할 수 있게 했습니다.
+알림은 deal 자체 알림과 deal에 속한 문서 알림을 함께 모아서 반환하고, 일정은 기존 `ScheduleQueryService`를 재사용해 deal 단위로 집계 조회합니다.
+견적서 v2 생성 시에는 기존 만료 일정 upsert를 재사용해 문서 단위 일정 생성 원칙을 맞췄습니다.
+
+### 변경 이유
+7단계 목표인 알림/일정의 deal 중심 조회와 문서 단위 일정 연계를 `v2`에서 먼저 제공하기 위함입니다.
+
+제약 사항:
+현재 `DealSchedule` 엔티티에는 상태 컬럼이 없어, 정책의 "삭제 대신 inactive/cancelled 상태 전환"은 스키마 변경 없이 완전 반영할 수 없습니다.
+이번 단계에서는 deal 문맥 조회와 생성 시 일정 upsert만 반영하고, 취소 상태 전환은 후속 단계로 남깁니다.

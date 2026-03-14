@@ -146,3 +146,24 @@
 
 ### 다음 단계
 7단계 알림/일정/통계 연계 수정 및 v1 회귀 확인
+
+## [2026-03-15 05:47] v2 deal 문맥 알림/일정 조회 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2ContextQueryService.java` — deal 문맥 알림/일정 조회 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — deal notifications/schedules 조회 API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java` — deal 문맥 알림 조회용 repository query 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — 견적서 v2 생성 시 만료 일정 upsert 연계 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 7단계 deal 문맥 조회 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 진행 현황 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest'` 성공
+
+### 다음 단계
+7단계 통계/KPI v2 반영 범위 정리 후 8단계 보안/테스트 확장

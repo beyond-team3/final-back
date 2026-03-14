@@ -21,6 +21,10 @@ import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDocumentCommandResultDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.RevisionInfoDto;
 import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2SnapshotSyncService;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
@@ -58,6 +62,7 @@ public class QuotationV2CommandService {
     private final DealV2SnapshotSyncService dealV2SnapshotSyncService;
     private final ApprovalCancellationService approvalCancellationService;
     private final ApprovalSubmissionService approvalSubmissionService;
+    private final DealScheduleSyncService dealScheduleSyncService;
 
     @Transactional
     public DealDocumentCommandResultDto createQuotation(QuotationV2CreateRequest request) {
@@ -194,6 +199,7 @@ public class QuotationV2CommandService {
         dealV2SnapshotSyncService.recalculateAfterMutation(deal);
 
         approvalSubmissionService.submitFromDocumentCreation(DealType.QUO, quotation.getId(), finalCode, userDetails);
+        syncQuotationExpirationSchedule(quotation, userDetails);
 
         return DealDocumentCommandResultDto.builder()
                 .dealId(deal.getId())
@@ -443,5 +449,34 @@ public class QuotationV2CommandService {
             BigDecimal unitPrice,
             BigDecimal amount
     ) {
+    }
+
+    private void syncQuotationExpirationSchedule(QuotationHeader quotation, CustomUserDetails userDetails) {
+        if (quotation.getExpiredDate() == null || quotation.getDeal() == null) {
+            return;
+        }
+
+        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
+                "QUO_" + quotation.getId() + "_EXPIRATION",
+                quotation.getDeal().getId(),
+                quotation.getClient().getId(),
+                resolveScheduleAssigneeUserId(userDetails),
+                DealScheduleEventType.FOLLOW_UP_REMINDER,
+                DealDocType.QUO,
+                quotation.getId(),
+                null,
+                "견적 만료일: " + quotation.getClient().getClientName(),
+                null,
+                quotation.getExpiredDate().atStartOfDay(),
+                quotation.getExpiredDate().plusDays(1).atStartOfDay(),
+                LocalDateTime.now()
+        ));
+    }
+
+    private Long resolveScheduleAssigneeUserId(CustomUserDetails userDetails) {
+        if (userDetails.getUserId() == null) {
+            throw new CoreException(ErrorType.USER_NOT_FOUND);
+        }
+        return userDetails.getUserId();
     }
 }

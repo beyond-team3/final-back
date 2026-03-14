@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType;
 import com.monsoon.seedflowplus.domain.notification.entity.NotificationType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,6 +56,37 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             ORDER BY n.createdAt DESC
             """)
     Page<Notification> findVisibleByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("""
+            SELECT n
+            FROM Notification n
+            WHERE n.user.id = :userId
+              AND EXISTS (
+                  SELECT 1
+                  FROM NotificationDelivery d
+                  WHERE d.notification = n
+                    AND d.status = com.monsoon.seedflowplus.domain.notification.entity.DeliveryStatus.SENT
+              )
+              AND (
+                    (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.DEAL AND n.targetId = :dealId)
+                 OR (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.QUOTATION AND n.targetId IN :quotationIds)
+                 OR (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.CONTRACT AND n.targetId IN :contractIds)
+                 OR (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.ORDER AND n.targetId IN :orderIds)
+                 OR (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.INVOICE AND n.targetId IN :invoiceIds)
+                 OR (n.targetType = com.monsoon.seedflowplus.domain.notification.entity.NotificationTargetType.STATEMENT AND n.targetId IN :statementIds)
+              )
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findDealContextNotifications(
+            @Param("userId") Long userId,
+            @Param("dealId") Long dealId,
+            @Param("quotationIds") Collection<Long> quotationIds,
+            @Param("contractIds") Collection<Long> contractIds,
+            @Param("orderIds") Collection<Long> orderIds,
+            @Param("invoiceIds") Collection<Long> invoiceIds,
+            @Param("statementIds") Collection<Long> statementIds,
+            Pageable pageable
+    );
 
     @Query("""
             SELECT COUNT(n)

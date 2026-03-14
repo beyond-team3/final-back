@@ -11,7 +11,10 @@ import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondi
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDetailDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDocumentSummaryDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealSummaryDto;
+import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2ContextQueryService;
 import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2QueryService;
+import com.monsoon.seedflowplus.domain.notification.entity.Notification;
+import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,6 +46,7 @@ public class DealV2QueryController {
     private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of("lastActivityAt", "closedAt");
 
     private final DealV2QueryService dealV2QueryService;
+    private final DealV2ContextQueryService dealV2ContextQueryService;
 
     @Operation(summary = "Deal 목록 조회", description = "v2 기준 deal 중심 목록 조회")
     @GetMapping
@@ -111,6 +115,39 @@ public class DealV2QueryController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ApiResult.success(dealV2QueryService.getDealDocuments(dealId, userDetails));
+    }
+
+    @Operation(summary = "Deal 알림 조회", description = "특정 deal에 연결된 알림을 deal 문맥으로 조회합니다.")
+    @GetMapping("/{dealId}/notifications")
+    public ApiResult<Page<Notification>> getDealNotifications(
+            @PathVariable Long dealId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Pageable pageable = PaginationUtils.parsePageRequest(
+                page,
+                size,
+                "createdAt,desc",
+                Sort.by(Sort.Order.desc("createdAt")),
+                Set.of("createdAt"),
+                DealPaginationConstants.MAX_PAGE_SIZE
+        );
+        return ApiResult.success(dealV2ContextQueryService.getDealNotifications(dealId, pageable, userDetails));
+    }
+
+    @Operation(summary = "Deal 일정 조회", description = "특정 deal에 연결된 전체 일정을 deal 문맥으로 조회합니다.")
+    @GetMapping("/{dealId}/schedules")
+    public ApiResult<List<ScheduleItemDto>> getDealSchedules(
+            @PathVariable Long dealId,
+            @RequestParam("from") String from,
+            @RequestParam("to") String to,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        LocalDateTime fromAt = parseDateTime(from, "from");
+        LocalDateTime toAt = parseDateTime(to, "to");
+        validateDateRange(fromAt, toAt);
+        return ApiResult.success(dealV2ContextQueryService.getDealSchedules(dealId, fromAt, toAt, userDetails));
     }
 
     private LocalDateTime parseDateTime(String value, String fieldName) {
