@@ -4,6 +4,7 @@ import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractPrefillResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.response.ContractListResponse;
 import com.monsoon.seedflowplus.domain.sales.contract.service.ContractService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,10 +35,18 @@ public class ContractController {
         return ApiResult.success(contractService.getActiveContractsByClient(clientId));
     }
 
-    @Operation(summary = "계약서 작성을 위한 견적 데이터 불러오기", description = "견적서 ID를 통해 계약서 작성에 필요한 기본 정보를 조회합니다.")
+    @Operation(summary = "계약서 작성을 위한 데이터 불러오기", description = "견적서 ID 또는 계약서 ID를 통해 계약서 작성에 필요한 기본 정보를 조회합니다.")
     @GetMapping("/prefill")
-    public ApiResult<ContractPrefillResponse> getPrefillData(@RequestParam("quotationId") Long quotationId) {
-        return ApiResult.success(contractService.getPrefillData(quotationId));
+    public ApiResult<ContractPrefillResponse> getPrefillData(
+            @RequestParam(value = "quotationId", required = false) Long quotationId,
+            @RequestParam(value = "contractId", required = false) Long contractId) {
+        return ApiResult.success(contractService.getPrefillData(quotationId, contractId));
+    }
+
+    @Operation(summary = "반려된 계약서 목록 조회", description = "재작성을 위해 참고할 반려된 계약서 목록을 조회합니다.")
+    @GetMapping("/rejected")
+    public ApiResult<List<ContractListResponse>> getRejectedContracts() {
+        return ApiResult.success(contractService.getRejectedContracts());
     }
 
     @Operation(summary = "계약서 저장", description = "새로운 계약서를 저장합니다.")

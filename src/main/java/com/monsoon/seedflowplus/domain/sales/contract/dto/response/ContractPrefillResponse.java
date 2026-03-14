@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.sales.contract.dto.response;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public record ContractPrefillResponse(
@@ -10,6 +11,12 @@ public record ContractPrefillResponse(
         String clientName,
         String representativeName,
         BigDecimal totalAmount,
+        Long historyId,
+        LocalDate startDate,
+        LocalDate endDate,
+        String billingCycle,
+        String specialTerms,
+        String memo,
         List<Item> items) {
     public record Item(
             Long productId,
