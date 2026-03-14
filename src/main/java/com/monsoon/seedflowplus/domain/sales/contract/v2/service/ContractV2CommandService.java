@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -18,6 +19,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDocumentCommandResultDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.RevisionInfoDto;
+import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2SnapshotSyncService;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
@@ -54,6 +56,8 @@ public class ContractV2CommandService {
     private final EmployeeRepository employeeRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealV2SnapshotSyncService dealV2SnapshotSyncService;
+    private final ApprovalCancellationService approvalCancellationService;
     private final ApprovalSubmissionService approvalSubmissionService;
 
     @Transactional
@@ -119,6 +123,54 @@ public class ContractV2CommandService {
         }
 
         return finalizeCreation(revised, source.getDeal(), userDetails, revisedRevisionInfo(revised), request.items().size());
+    }
+
+    @Transactional
+    public DealDocumentCommandResultDto cancelContract(Long contractId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        Employee author = requireSalesRep(userDetails);
+
+        ContractHeader contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+        validateContractAuthorAccess(contract, author.getId());
+
+        if (contract.getStatus() != ContractStatus.WAITING_ADMIN) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "v2 취소는 관리자 승인 이전 계약서만 허용합니다.");
+        }
+
+        String fromStatus = contract.getStatus().name();
+        contract.delete();
+        approvalCancellationService.cancelPendingRequest(DealType.CNT, contract.getId());
+
+        if (contract.getQuotation() != null && contract.getQuotation().getStatus() == QuotationStatus.WAITING_CONTRACT) {
+            contract.getQuotation().updateStatus(QuotationStatus.FINAL_APPROVED);
+        }
+
+        dealPipelineFacade.recordAndSync(
+                contract.getDeal(),
+                DealType.CNT,
+                contract.getId(),
+                contract.getContractCode(),
+                DealStage.PENDING_ADMIN,
+                DealStage.CANCELED,
+                fromStatus,
+                ContractStatus.DELETED.name(),
+                ActionType.CANCEL,
+                null,
+                ActorType.SALES_REP,
+                userDetails.getEmployeeId(),
+                "v2 cancel",
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, ContractStatus.DELETED.name(), "STATUS"))
+        );
+        dealV2SnapshotSyncService.recalculate(contract.getDeal());
+
+        return DealDocumentCommandResultDto.builder()
+                .dealId(contract.getDeal() != null ? contract.getDeal().getId() : null)
+                .documentType(DealType.CNT)
+                .documentId(contract.getId())
+                .documentCode(contract.getContractCode())
+                .revisionInfo(null)
+                .build();
     }
 
     private DealDocumentCommandResultDto finalizeCreation(

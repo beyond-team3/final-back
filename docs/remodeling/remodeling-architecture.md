@@ -51,3 +51,20 @@
 
 ### 변경 이유
 정책 결정 사항의 핵심인 자동 deal 연결 금지와 재작성의 새 문서 생성 원칙을 `v2` 서비스에 먼저 고정하기 위함입니다.
+
+## [2026-03-15] v2 cancel 및 snapshot 동기화 초안 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2Controller.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2Controller.java`
+
+### 변경 내용
+`PATCH /api/v2/quotations/{id}/cancel`, `PATCH /api/v2/contracts/{id}/cancel` 초안을 추가했습니다.
+`v2` 취소는 현재 스키마 제약상 저장 레벨에서는 기존 `DELETED` 상태를 사용하지만, API 의미는 명시적 `cancel`로 분리하고 승인 요청 취소를 함께 수행합니다.
+취소 후에는 `DocumentSummary` 전체 문서를 기준으로 대표 문서를 다시 계산해 `SalesDeal` snapshot을 재동기화합니다.
+
+### 변경 이유
+5단계의 남은 과제인 취소 흐름 분리와 approval/snapshot 후처리 연결을 `v2`에서 먼저 명시화하기 위함입니다.

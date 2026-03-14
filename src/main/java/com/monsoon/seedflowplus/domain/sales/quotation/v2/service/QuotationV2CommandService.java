@@ -5,10 +5,9 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
-import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
@@ -20,6 +19,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDocumentCommandResultDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.RevisionInfoDto;
+import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2SnapshotSyncService;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
@@ -52,10 +52,11 @@ public class QuotationV2CommandService {
     private final QuotationRequestRepository quotationRequestRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
-    private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final SalesDealRepository salesDealRepository;
     private final DealPipelineFacade dealPipelineFacade;
+    private final DealV2SnapshotSyncService dealV2SnapshotSyncService;
+    private final ApprovalCancellationService approvalCancellationService;
     private final ApprovalSubmissionService approvalSubmissionService;
 
     @Transactional
@@ -110,6 +111,54 @@ public class QuotationV2CommandService {
         }
 
         return finalizeCreation(revised, source.getDeal(), userDetails, revisedRevisionInfo(revised), request.items().size());
+    }
+
+    @Transactional
+    public DealDocumentCommandResultDto cancelQuotation(Long quotationId) {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        Employee author = requireSalesRep(userDetails);
+
+        QuotationHeader quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+        validateQuotationAuthorAccess(quotation, author.getId());
+
+        if (quotation.getStatus() != QuotationStatus.WAITING_ADMIN) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "v2 취소는 관리자 승인 이전 견적서만 허용합니다.");
+        }
+
+        String fromStatus = quotation.getStatus().name();
+        quotation.updateStatus(QuotationStatus.DELETED);
+        approvalCancellationService.cancelPendingRequest(DealType.QUO, quotation.getId());
+
+        if (quotation.getQuotationRequest() != null && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.REVIEWING) {
+            quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.PENDING);
+        }
+
+        dealPipelineFacade.recordAndSync(
+                quotation.getDeal(),
+                DealType.QUO,
+                quotation.getId(),
+                quotation.getQuotationCode(),
+                DealStage.PENDING_ADMIN,
+                DealStage.CANCELED,
+                fromStatus,
+                QuotationStatus.DELETED.name(),
+                ActionType.CANCEL,
+                null,
+                ActorType.SALES_REP,
+                userDetails.getEmployeeId(),
+                "v2 cancel",
+                List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, QuotationStatus.DELETED.name(), "STATUS"))
+        );
+        dealV2SnapshotSyncService.recalculate(quotation.getDeal());
+
+        return DealDocumentCommandResultDto.builder()
+                .dealId(quotation.getDeal() != null ? quotation.getDeal().getId() : null)
+                .documentType(DealType.QUO)
+                .documentId(quotation.getId())
+                .documentCode(quotation.getQuotationCode())
+                .revisionInfo(null)
+                .build();
     }
 
     private DealDocumentCommandResultDto finalizeCreation(

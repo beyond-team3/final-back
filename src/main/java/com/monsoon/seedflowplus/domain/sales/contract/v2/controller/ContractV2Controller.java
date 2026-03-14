@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,5 +37,11 @@ public class ContractV2Controller {
             @RequestBody @Valid ContractV2ReviseRequest request
     ) {
         return ApiResult.success(contractV2CommandService.reviseContract(contractId, request));
+    }
+
+    @Operation(summary = "계약서 취소", description = "v2 정책 기준으로 계약서를 취소하고 deal snapshot을 재계산합니다.")
+    @PatchMapping("/{contractId}/cancel")
+    public ApiResult<DealDocumentCommandResultDto> cancelContract(@PathVariable Long contractId) {
+        return ApiResult.success(contractV2CommandService.cancelContract(contractId));
     }
 }

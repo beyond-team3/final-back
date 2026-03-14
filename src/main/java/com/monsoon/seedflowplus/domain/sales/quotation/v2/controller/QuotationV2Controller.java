@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,5 +37,11 @@ public class QuotationV2Controller {
             @RequestBody @Valid QuotationV2ReviseRequest request
     ) {
         return ApiResult.success(quotationV2CommandService.reviseQuotation(quotationId, request));
+    }
+
+    @Operation(summary = "견적서 취소", description = "v2 정책 기준으로 견적서를 취소하고 deal snapshot을 재계산합니다.")
+    @PatchMapping("/{quotationId}/cancel")
+    public ApiResult<DealDocumentCommandResultDto> cancelQuotation(@PathVariable Long quotationId) {
+        return ApiResult.success(quotationV2CommandService.cancelQuotation(quotationId));
     }
 }

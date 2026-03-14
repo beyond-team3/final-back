@@ -108,3 +108,21 @@
 
 ### 다음 단계
 5단계 컴파일 확인 및 cancel/supersede 보완
+
+## [2026-03-15 05:22] v2 cancel 및 snapshot 재동기화 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java` — document summary 기반 deal snapshot 재동기화 서비스 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — v2 견적서 취소, approval 취소, snapshot 재동기화 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java` — v2 계약서 취소, approval 취소, snapshot 재동기화 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2Controller.java` — 견적서 cancel API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2Controller.java` — 계약서 cancel API 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — cancel/snapshot 후처리 구조 기록
+- 수정 파일: `PROGRESS.md` — 5단계 완료 처리 및 6단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+6단계 snapshot 재계산 로직 일반화
