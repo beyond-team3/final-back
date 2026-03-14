@@ -71,20 +71,42 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
          * 2. 동일 Deal 내 반려 건 중 가장 최신(ID 기준) 건만 노출.
          */
         @Query("SELECT c FROM ContractHeader c " +
+                        "LEFT JOIN FETCH c.author " +
+                        "LEFT JOIN FETCH c.client cl " +
+                        "LEFT JOIN FETCH cl.managerEmployee " +
+                        "LEFT JOIN FETCH c.deal " +
+                        "LEFT JOIN FETCH c.quotation " +
                         "WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) " +
                         "AND c.status IN :statuses " +
-                        "AND c.id = (SELECT MAX(c2.id) FROM ContractHeader c2 " +
-                        "            WHERE c2.deal.id = c.deal.id " +
-                        "            AND c2.status <> :deletedStatus) " +
-                        "AND NOT EXISTS (SELECT 1 FROM ContractHeader c3 " +
-                        "                WHERE c3.deal.id = c.deal.id " +
-                        "                AND c3.id > c.id " +
-                        "                AND c3.status NOT IN :statuses " +
-                        "                AND c3.status <> :deletedStatus)")
+                        "AND NOT EXISTS (" +
+                        "  SELECT 1 FROM ContractHeader c2 " +
+                        "  WHERE c2.deal.id = c.deal.id " +
+                        "  AND c2.id > c.id " +
+                        "  AND c2.status NOT IN :statuses " +
+                        "  AND c2.status <> com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.DELETED" +
+                        ") " +
+                        "ORDER BY c.id DESC")
         List<ContractHeader> findActiveRejectedContracts(
                         @Param("employeeId") Long employeeId,
-                        @Param("statuses") List<ContractStatus> statuses,
-                        @Param("deletedStatus") ContractStatus deletedStatus);
+                        @Param("statuses") List<ContractStatus> statuses);
+
+        @Query("SELECT c FROM ContractHeader c " +
+                        "LEFT JOIN FETCH c.author " +
+                        "LEFT JOIN FETCH c.client cl " +
+                        "LEFT JOIN FETCH cl.managerEmployee " +
+                        "LEFT JOIN FETCH c.deal " +
+                        "LEFT JOIN FETCH c.quotation " +
+                        "WHERE c.status IN :statuses " +
+                        "AND NOT EXISTS (" +
+                        "  SELECT 1 FROM ContractHeader c2 " +
+                        "  WHERE c2.deal.id = c.deal.id " +
+                        "  AND c2.id > c.id " +
+                        "  AND c2.status NOT IN :statuses " +
+                        "  AND c2.status <> com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.DELETED" +
+                        ") " +
+                        "ORDER BY c.id DESC")
+        List<ContractHeader> findAllActiveRejectedContracts(
+                        @Param("statuses") List<ContractStatus> statuses);
 
         // 계약 코드와 거래처 ID로 계약 존재 여부 확인
         boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
