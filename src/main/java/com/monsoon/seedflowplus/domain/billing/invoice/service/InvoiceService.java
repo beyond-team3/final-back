@@ -564,7 +564,7 @@ public class InvoiceService {
                         )
                 );
     }
-}
+
     public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
         return invoiceRepository.findAllByEmployeeId(employeeId).stream()
                 .map(invoice -> InvoiceListResponse.from(
