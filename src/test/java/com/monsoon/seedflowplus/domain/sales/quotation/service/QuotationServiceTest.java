@@ -2,6 +2,8 @@ package com.monsoon.seedflowplus.domain.sales.quotation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +32,8 @@ import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepos
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -69,9 +73,21 @@ class QuotationServiceTest {
     private ApprovalSubmissionService approvalSubmissionService;
     @Mock
     private ApprovalCancellationService approvalCancellationService;
+    @Mock
+    private ContractRepository contractRepository;
+    @Mock
+    private ApprovalDecisionRepository approvalDecisionRepository;
 
     @InjectMocks
     private QuotationService quotationService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setup() {
+        org.mockito.Mockito.lenient().when(contractRepository.findByDealId(any())).thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(quotationRepository.findByDealId(any())).thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(quotationRequestRepository.findByDealId(any())).thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(approvalDecisionRepository.findReasonsByTargets(any(), any())).thenReturn(java.util.List.of());
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -91,6 +107,7 @@ class QuotationServiceTest {
         ReflectionTestUtils.setField(quotation, "id", 100L);
 
         when(quotationRepository.findById(100L)).thenReturn(Optional.of(quotation));
+        when(quotationRequestRepository.findByDealId(any())).thenReturn(java.util.List.of(rfq));
         setAuthentication(salesRepUser(author));
 
         quotationService.deleteQuotation(100L);
@@ -137,6 +154,33 @@ class QuotationServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.DELETED);
         verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 101L);
         org.mockito.Mockito.verifyNoInteractions(dealLogWriteService);
+    }
+
+    @Test
+    @DisplayName("반려된 견적서 목록 조회 시 필드가 누락되어도 NPE가 발생하지 않는다")
+    void getRejectedQuotationsReturnsListEvenWithNullFields() {
+        Employee author = employee(10L);
+        // managerEmployee가 null인 상황 가정
+        Client client = client(30L, null);
+        SalesDeal deal = deal(client, author);
+        
+        // author가 null인 견적서 생성 (create 메서드 사용)
+        QuotationHeader q = QuotationHeader.create(
+                null, "QUO-ERR", client, deal, null, BigDecimal.ZERO, "memo"
+        );
+        ReflectionTestUtils.setField(q, "id", 200L);
+        ReflectionTestUtils.setField(q, "createdAt", java.time.LocalDateTime.now());
+        
+        when(quotationRepository.findActiveRejectedQuotations(anyLong(), anyList()))
+                .thenReturn(java.util.List.of(q));
+        setAuthentication(salesRepUser(author));
+
+        java.util.List<com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse> result = 
+                quotationService.getRejectedQuotations();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).authorId()).isNull();
+        assertThat(result.get(0).clientName()).isEqualTo("거래처");
     }
 
     private void setAuthentication(CustomUserDetails principal) {

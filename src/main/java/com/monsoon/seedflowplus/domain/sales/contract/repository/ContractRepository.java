@@ -30,6 +30,8 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
                         @Param("newStatus") ContractStatus newStatus,
                         @Param("today") LocalDate today);
 
+        List<ContractHeader> findByDealId(Long dealId);
+
         List<ContractHeader> findAllByStatus(ContractStatus status);
 
         List<ContractHeader> findByClientOrderByEndDateAsc(Client client);
@@ -63,8 +65,58 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
                         @Param("activeStatus") ContractStatus activeStatus,
                         @Param("completedStatus") ContractStatus completedStatus);
 
+        /**
+         * 반려된 계약서 중 재작성이 필요한 '활성' 건만 조회합니다.
+         * 1. 해당 Deal에 진행 중(승인 대기 등)인 다른 계약서가 없어야 함.
+         * 2. 동일 Deal 내 반려 건 중 가장 최신(ID 기준) 건만 노출.
+         */
+        @Query("SELECT c FROM ContractHeader c " +
+                        "LEFT JOIN FETCH c.author " +
+                        "LEFT JOIN FETCH c.client cl " +
+                        "LEFT JOIN FETCH cl.managerEmployee " +
+                        "LEFT JOIN FETCH c.deal " +
+                        "LEFT JOIN FETCH c.quotation " +
+                        "WHERE (c.author.id = :employeeId OR c.client.managerEmployee.id = :employeeId) " +
+                        "AND c.status IN :statuses " +
+                        "AND NOT EXISTS (" +
+                        "  SELECT 1 FROM ContractHeader c2 " +
+                        "  WHERE c2.deal.id = c.deal.id " +
+                        "  AND c2.id > c.id " +
+                        "  AND c2.status NOT IN :statuses " +
+                        "  AND c2.status <> com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.DELETED" +
+                        ") " +
+                        "ORDER BY c.id DESC")
+        List<ContractHeader> findActiveRejectedContracts(
+                        @Param("employeeId") Long employeeId,
+                        @Param("statuses") List<ContractStatus> statuses);
+
+        @Query("SELECT c FROM ContractHeader c " +
+                        "LEFT JOIN FETCH c.author " +
+                        "LEFT JOIN FETCH c.client cl " +
+                        "LEFT JOIN FETCH cl.managerEmployee " +
+                        "LEFT JOIN FETCH c.deal " +
+                        "LEFT JOIN FETCH c.quotation " +
+                        "WHERE c.status IN :statuses " +
+                        "AND NOT EXISTS (" +
+                        "  SELECT 1 FROM ContractHeader c2 " +
+                        "  WHERE c2.deal.id = c.deal.id " +
+                        "  AND c2.id > c.id " +
+                        "  AND c2.status NOT IN :statuses " +
+                        "  AND c2.status <> com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.DELETED" +
+                        ") " +
+                        "ORDER BY c.id DESC")
+        List<ContractHeader> findAllActiveRejectedContracts(
+                        @Param("statuses") List<ContractStatus> statuses);
+
         // 계약 코드와 거래처 ID로 계약 존재 여부 확인
         boolean existsByContractCodeAndClientId(String contractCode, Long clientId);
+
+        /**
+         * 특정 견적서에 대해 특정 상태들의 계약서 존재 여부 확인
+         */
+        @Query("SELECT COUNT(c) > 0 FROM ContractHeader c WHERE c.quotation.id = :quotationId AND c.status IN :statuses")
+        boolean existsByQuotationIdAndStatusIn(@Param("quotationId") Long quotationId,
+                        @Param("statuses") List<ContractStatus> statuses);
 
         // 상태와 시작일을 기준으로 계약 조회
         List<ContractHeader> findByStatusAndStartDateLessThanEqual(ContractStatus status, LocalDate date);

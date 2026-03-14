@@ -25,6 +25,8 @@ public interface QuotationRequestRepository extends JpaRepository<QuotationReque
     @Query("SELECT r FROM QuotationRequestHeader r WHERE r.id = :id")
     Optional<QuotationRequestHeader> findByIdWithLock(@Param("id") Long id);
 
+    List<QuotationRequestHeader> findByDealId(Long dealId);
+
     @EntityGraph(attributePaths = "client")
     List<QuotationRequestHeader> findByStatus(QuotationRequestStatus status);
 

@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.sales.quotation.repository;
 
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -41,20 +42,69 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
      * 2. 동일 Deal 내 반려 건 중 가장 최신(ID 기준) 건만 노출.
      */
     @Query("SELECT q FROM QuotationHeader q " +
+            "LEFT JOIN FETCH q.author " +
+            "LEFT JOIN FETCH q.client c " +
+            "LEFT JOIN FETCH c.managerEmployee " +
+            "LEFT JOIN FETCH q.deal " +
+            "LEFT JOIN FETCH q.quotationRequest " +
             "WHERE (q.author.id = :employeeId OR q.client.managerEmployee.id = :employeeId) " +
             "AND q.status IN :statuses " +
-            "AND q.id = (SELECT MAX(q2.id) FROM QuotationHeader q2 " +
-            "            WHERE q2.deal.id = q.deal.id " +
-            "            AND q2.status <> :deletedStatus) " +
-            "AND NOT EXISTS (SELECT 1 FROM QuotationHeader q3 " +
-            "                WHERE q3.deal.id = q.deal.id " +
-            "                AND q3.id > q.id " +
-            "                AND q3.status NOT IN :statuses " +
-            "                AND q3.status <> :deletedStatus)")
+            "AND NOT EXISTS (" +
+            "  SELECT 1 FROM QuotationHeader q2 " +
+            "  WHERE q2.deal.id = q.deal.id " +
+            "  AND q2.id > q.id " +
+            "  AND q2.status NOT IN :statuses " +
+            "  AND q2.status <> com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.DELETED" +
+            ") " +
+            "ORDER BY q.id DESC")
     List<QuotationHeader> findActiveRejectedQuotations(
             @Param("employeeId") Long employeeId,
-            @Param("statuses") List<QuotationStatus> statuses,
-            @Param("deletedStatus") QuotationStatus deletedStatus);
+            @Param("statuses") List<QuotationStatus> statuses);
+
+    @Query("SELECT q FROM QuotationHeader q " +
+            "LEFT JOIN FETCH q.author " +
+            "LEFT JOIN FETCH q.client c " +
+            "LEFT JOIN FETCH c.managerEmployee " +
+            "LEFT JOIN FETCH q.deal " +
+            "LEFT JOIN FETCH q.quotationRequest " +
+            "WHERE q.status IN :statuses " +
+            "AND NOT EXISTS (" +
+            "  SELECT 1 FROM QuotationHeader q2 " +
+            "  WHERE q2.deal.id = q.deal.id " +
+            "  AND q2.id > q.id " +
+            "  AND q2.status NOT IN :statuses " +
+            "  AND q2.status <> com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus.DELETED" +
+            ") " +
+            "ORDER BY q.id DESC")
+    List<QuotationHeader> findAllActiveRejectedQuotations(
+            @Param("statuses") List<QuotationStatus> statuses);
+
+    /**
+     * 계약서 재작성이 가능한 견적서 목록을 조회합니다.
+     * 1. 상태가 WAITING_CONTRACT(계약 대기)여야 함.
+     * 2. 연결된 계약서가 존재하고, 그 계약서들이 모두 반려 상태여야 함.
+     */
+    @Query("SELECT q FROM QuotationHeader q " +
+            "WHERE (q.author.id = :employeeId OR q.client.managerEmployee.id = :employeeId) " +
+            "AND q.status = :waitingStatus " +
+            "AND EXISTS (SELECT 1 FROM ContractHeader c " +
+            "            WHERE c.quotation.id = q.id " +
+            "AND c.status IN :rejectedStatuses) " +
+            "ORDER BY q.id DESC")
+    List<QuotationHeader> findQuotationsReadyForContractRewrite(
+            @Param("employeeId") Long employeeId,
+            @Param("waitingStatus") QuotationStatus waitingStatus,
+            @Param("rejectedStatuses") List<ContractStatus> rejectedStatuses);
+
+    @Query("SELECT q FROM QuotationHeader q " +
+            "WHERE q.status = :waitingStatus " +
+            "AND EXISTS (SELECT 1 FROM ContractHeader c " +
+            "            WHERE c.quotation.id = q.id " +
+            "AND c.status IN :rejectedStatuses) " +
+            "ORDER BY q.id DESC")
+    List<QuotationHeader> findAllQuotationsReadyForContractRewrite(
+            @Param("waitingStatus") QuotationStatus waitingStatus,
+            @Param("rejectedStatuses") List<ContractStatus> rejectedStatuses);
 
     // 상태와 만료일을 기준으로 견적서 조회
     List<QuotationHeader> findByStatusAndExpiredDateLessThanEqual(QuotationStatus status, java.time.LocalDate date);
