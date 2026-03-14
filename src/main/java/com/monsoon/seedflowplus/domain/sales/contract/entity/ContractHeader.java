@@ -68,6 +68,16 @@ public class ContractHeader extends BaseModifyEntity {
     @Column(name = "memo", columnDefinition = "TEXT")
     private String memo; // 비고
 
+    // v1 이전 문서에는 없던 v2 재작성 계보 필드
+    @Column(name = "source_document_id")
+    private Long sourceDocumentId;
+
+    @Column(name = "revision_group_key", length = 100)
+    private String revisionGroupKey;
+
+    @Column(name = "revision_no")
+    private Integer revisionNo;
+
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ContractDetail> items = new ArrayList<>(); // 계약 작물 목록
 
@@ -124,5 +134,11 @@ public class ContractHeader extends BaseModifyEntity {
 
     public void updateContractCode(String contractCode) {
         this.contractCode = contractCode;
+    }
+
+    public void assignRevisionLineage(Long sourceDocumentId, String revisionGroupKey, Integer revisionNo) {
+        this.sourceDocumentId = sourceDocumentId;
+        this.revisionGroupKey = revisionGroupKey;
+        this.revisionNo = revisionNo;
     }
 }

@@ -88,3 +88,23 @@
 
 ### 다음 단계
 5단계 문서 생성/재작성/승인/취소 흐름 개편
+
+## [2026-03-15 05:06] v2 QUO/CNT 생성 및 재작성 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/entity/QuotationHeader.java` — 견적서 재작성 계보 필드와 설정 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractHeader.java` — 계약서 재작성 계보 필드와 설정 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/repository/QuotationRepository.java` — revision group 기준 최신 revision 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java` — revision group 기준 최신 revision 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/**` — 견적서 v2 생성/재작성 DTO, 서비스, 컨트롤러 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/**` — 계약서 v2 생성/재작성 DTO, 서비스, 컨트롤러 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDocumentCommandResultDto.java` — 생성/재작성 결과 DTO 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 5단계 명령 계층 초안 구조 기록
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 5단계 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `ContractV2CommandService` 에 `ClientRepository`, `EmployeeRepository` import 누락으로 최초 실패 후 수정하여 재컴파일 성공
+
+### 다음 단계
+5단계 컴파일 확인 및 cancel/supersede 보완

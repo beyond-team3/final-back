@@ -55,6 +55,16 @@ public class QuotationHeader extends BaseModifyEntity {
     @Column(name = "memo", columnDefinition = "TEXT")
     private String memo; // 문서 비고
 
+    // v1 이전 문서에는 없던 v2 재작성 계보 필드
+    @Column(name = "source_document_id")
+    private Long sourceDocumentId;
+
+    @Column(name = "revision_group_key", length = 100)
+    private String revisionGroupKey;
+
+    @Column(name = "revision_no")
+    private Integer revisionNo;
+
     @OneToMany(mappedBy = "quotation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuotationDetail> items = new ArrayList<>();
 
@@ -98,6 +108,12 @@ public class QuotationHeader extends BaseModifyEntity {
         }
         item.setQuotation(this);
         this.items.add(item);
+    }
+
+    public void assignRevisionLineage(Long sourceDocumentId, String revisionGroupKey, Integer revisionNo) {
+        this.sourceDocumentId = sourceDocumentId;
+        this.revisionGroupKey = revisionGroupKey;
+        this.revisionNo = revisionNo;
     }
 
     @PrePersist

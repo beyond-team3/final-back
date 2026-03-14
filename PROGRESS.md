@@ -42,6 +42,6 @@
 - 통계는 일반 통계에서 `InvoiceStatus.PAID`, 청구 통계에서 `InvoiceStatus.PUBLISHED|PAID` 와 `StatementStatus.ISSUED` 기준을 사용 중임
 
 다음 작업:
-- QUO/CNT `v2` 생성 시 상위 문서 우선, `dealId` 명시, 신규 deal 생성 규칙을 서비스에 반영
-- `revise` API를 새 문서 생성 방식으로 설계
-- 삭제를 `cancel/supersede` 정책으로 전환할 엔티티 및 서비스 지점 확정
+- 완료: QUO/CNT `v2` 생성 시 상위 문서 우선, `dealId` 명시, 신규 deal 생성 규칙 초안 반영
+- 완료: `revise` API를 새 문서 생성 방식으로 구현
+- 남음: cancel/supersede 전환과 후속 approval/snapshot 연계 지점 보완

@@ -32,6 +32,8 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
 
         List<ContractHeader> findByDealId(Long dealId);
 
+        Optional<ContractHeader> findTopByRevisionGroupKeyOrderByRevisionNoDesc(String revisionGroupKey);
+
         List<ContractHeader> findAllByStatus(ContractStatus status);
 
         List<ContractHeader> findByClientOrderByEndDateAsc(Client client);

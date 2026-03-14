@@ -33,3 +33,21 @@
 
 ### 변경 이유
 정책상 메인 조회 기준이 deal 중심으로 전환되어야 하므로, 생성/재작성 개편 전에 조회 계약을 먼저 고정하기 위함입니다.
+
+## [2026-03-15] v2 QUO/CNT 생성 및 재작성 초안 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2Controller.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2Controller.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/entity/QuotationHeader.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractHeader.java`
+
+### 변경 내용
+`/api/v2/quotations`, `/api/v2/contracts`, `/api/v2/quotations/{id}/revise`, `/api/v2/contracts/{id}/revise` 초안을 추가했습니다.
+`v2` 생성 로직은 상위 문서가 있으면 deal 계승, 없으면 요청의 `dealId`, 둘 다 없으면 새 deal 생성 규칙만 허용하며, 기존 열린 deal 자동 연결은 사용하지 않습니다.
+재작성은 원본 문서를 수정하지 않고 새 문서를 생성하며, `sourceDocumentId`, `revisionGroupKey`, `revisionNo` 계보 필드를 QUO/CNT 엔티티에 추가합니다.
+
+### 변경 이유
+정책 결정 사항의 핵심인 자동 deal 연결 금지와 재작성의 새 문서 생성 원칙을 `v2` 서비스에 먼저 고정하기 위함입니다.
