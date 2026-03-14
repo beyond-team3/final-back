@@ -304,21 +304,26 @@ public class QuotationService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
-                            q.getClient() != null ? q.getClient().getManagerName() : null,
-                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
-                                    : null,
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            reasonsMap.get(q.getId()), // 맵에서 조회 (N+1 해결)
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
+                            reasonsMap.get(q.getId()),
                             items);
                 })
                 .toList();
@@ -361,24 +366,29 @@ public class QuotationService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId()
+                                    : (client != null && client.getManagerEmployee() != null
+                                            ? client.getManagerEmployee().getId()
+                                            : null);
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
-                            q.getClient() != null ? q.getClient().getManagerName() : null,
-                            q.getAuthor() != null ? q.getAuthor().getId()
-                                    : (q.getClient().getManagerEmployee() != null
-                                            ? q.getClient().getManagerEmployee().getId()
-                                            : null),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
-                                    : null,
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            reasonsMap.get(q.getId()), // 맵에서 미리 조회해둔 반려 사유를 가져옴 (N+1 해결)
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
+                            reasonsMap.get(q.getId()),
                             items);
                 })
                 .toList();
@@ -418,20 +428,25 @@ public class QuotationService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
-                            q.getClient() != null ? q.getClient().getManagerName() : null,
-                            q.getAuthor() != null ? q.getAuthor().getId() : null,
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
                             q.getCreatedAt().toLocalDate(),
                             q.getStatus(),
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal() != null ? q.getDeal().getId() : null,
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo()
-                                    : null,
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
                             null, // 상위 견적서 자체의 반려 사유는 없음 (승인된 상태이므로)
                             items);
                 })
@@ -874,9 +889,10 @@ public class QuotationService {
                         || q.getStatus() == QuotationStatus.REJECTED_ADMIN
                         || q.getStatus() == QuotationStatus.REJECTED_CLIENT);
 
-        // 모든 RFQ가 삭제 상태인지 확인
+        // 모든 RFQ가 삭제 또는 완료 상태인지 확인
         boolean allRfqClosed = quotationRequestRepository.findByDealId(deal.getId()).stream()
-                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED);
+                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED
+                        || r.getStatus() == QuotationRequestStatus.COMPLETED);
 
         return allCntClosed && allQuoClosed && allRfqClosed;
     }
