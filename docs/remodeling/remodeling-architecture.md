@@ -117,3 +117,20 @@
 
 ### 변경 이유
 7단계 목표인 deal KPI 추가를 v2 조회 계층에서 먼저 제공하기 위함입니다.
+
+## [2026-03-15] v2 보안 매처 및 컨트롤러 테스트 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryControllerTest.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2ControllerTest.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2ControllerTest.java`
+
+### 변경 내용
+`/api/v2/quotations`, `/api/v2/contracts` 와 각 `revise`, `cancel` 경로에 `SALES_REP` 권한 매처를 추가하고 테스트 보안 설정에도 동일 규칙을 반영했습니다.
+`DealV2QueryController`, `QuotationV2Controller`, `ContractV2Controller` 에 대해 인증 성공, 비인증 `401`, 권한 부족 `403` 시나리오를 검증하는 `WebMvcTest` 를 추가했습니다.
+검증은 신규 `v2` 컨트롤러 테스트와 함께 기존 `DocumentSummaryQueryControllerTest`, `ScheduleControllerTest`, `StatisticsControllerTest` 를 같이 실행해 `v1` 경로 회귀 여부를 확인했습니다.
+
+### 변경 이유
+8단계 목표인 `/api/v2/**` 접근 제어 반영과 `v1` 유지 조건 하의 테스트 확장을 분리된 보안 계층에서 마무리하기 위함입니다.

@@ -187,3 +187,25 @@
 
 ### 다음 단계
 7단계 잔여 이슈 정리 후 8단계 보안 매처와 v2 테스트 확장
+
+## [2026-03-15 06:45] v2 보안 매처 및 컨트롤러 테스트 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — `/api/v2/quotations`, `/api/v2/contracts` 의 생성/재작성/취소 권한 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 환경용 v2 보안 매처 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryControllerTest.java` — deal 조회/KPI 인증 경계 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2ControllerTest.java` — 견적 v2 생성/취소 권한 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2ControllerTest.java` — 계약 v2 생성/취소 권한 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 보안 매처 및 컨트롤러 테스트 구조 기록
+- 수정 파일: `PROGRESS.md` — 8단계 완료 및 잔여 이슈 상태 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `DealV2QueryControllerTest` 의 `getAuthorities()` mock 제네릭 반환 타입 문제를 수정한 뒤 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.v2.controller.DealV2QueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.v2.controller.QuotationV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.v2.controller.ContractV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+7단계 잔여 이슈 정리 및 9단계 문서 업데이트 정리
