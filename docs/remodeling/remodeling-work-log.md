@@ -167,3 +167,23 @@
 
 ### 다음 단계
 7단계 통계/KPI v2 반영 범위 정리 후 8단계 보안/테스트 확장
+
+## [2026-03-15 06:21] v2 deal KPI 조회 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealKpiDto.java` — deal KPI 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2KpiQueryService.java` — deal KPI 집계 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — `/api/v2/deals/kpis` 조회 API 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — deal KPI 조회 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 진행 현황에 KPI 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+7단계 잔여 이슈 정리 후 8단계 보안 매처와 v2 테스트 확장

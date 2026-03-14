@@ -102,3 +102,18 @@
 제약 사항:
 현재 `DealSchedule` 엔티티에는 상태 컬럼이 없어, 정책의 "삭제 대신 inactive/cancelled 상태 전환"은 스키마 변경 없이 완전 반영할 수 없습니다.
 이번 단계에서는 deal 문맥 조회와 생성 시 일정 upsert만 반영하고, 취소 상태 전환은 후속 단계로 남깁니다.
+
+## [2026-03-15] v2 deal KPI 조회 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealKpiDto.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2KpiQueryService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java`
+
+### 변경 내용
+`GET /api/v2/deals/kpis` 를 추가해 deal 수, open/closed 수, 성공률, 평균 리드타임, QUO→CNT 전환율, 재작성률을 조회할 수 있게 했습니다.
+성공 판단은 현재 정책에 맞춰 `PAY COMPLETED` 문서 존재 여부로 계산하고, 리드타임은 deal 생성 시각부터 최초 `PAY COMPLETED` 시각까지의 일수 평균으로 계산합니다.
+기존 v1 통계 API는 그대로 유지하고, v2에서는 deal 중심 KPI만 별도로 분리했습니다.
+
+### 변경 이유
+7단계 목표인 deal KPI 추가를 v2 조회 계층에서 먼저 제공하기 위함입니다.

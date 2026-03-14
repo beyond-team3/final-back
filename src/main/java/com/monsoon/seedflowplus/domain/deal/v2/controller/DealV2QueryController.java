@@ -10,8 +10,10 @@ import com.monsoon.seedflowplus.domain.deal.common.PaginationUtils;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealSearchCondition;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDetailDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealDocumentSummaryDto;
+import com.monsoon.seedflowplus.domain.deal.v2.dto.DealKpiDto;
 import com.monsoon.seedflowplus.domain.deal.v2.dto.DealSummaryDto;
 import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2ContextQueryService;
+import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2KpiQueryService;
 import com.monsoon.seedflowplus.domain.deal.v2.service.DealV2QueryService;
 import com.monsoon.seedflowplus.domain.notification.entity.Notification;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
@@ -47,6 +49,7 @@ public class DealV2QueryController {
 
     private final DealV2QueryService dealV2QueryService;
     private final DealV2ContextQueryService dealV2ContextQueryService;
+    private final DealV2KpiQueryService dealV2KpiQueryService;
 
     @Operation(summary = "Deal 목록 조회", description = "v2 기준 deal 중심 목록 조회")
     @GetMapping
@@ -97,6 +100,37 @@ public class DealV2QueryController {
         );
 
         return ApiResult.success(dealV2QueryService.getDeals(condition, pageable, userDetails));
+    }
+
+    @Operation(summary = "Deal KPI 조회", description = "v2 기준 deal KPI를 조회합니다.")
+    @GetMapping("/kpis")
+    public ApiResult<DealKpiDto> getDealKpis(
+            @RequestParam(required = false) Long ownerEmpId,
+            @RequestParam(required = false) Long clientId,
+            @RequestParam(required = false) DealStage currentStage,
+            @RequestParam(required = false) DealType latestDocType,
+            @RequestParam(required = false) Boolean isClosed,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String fromAt,
+            @RequestParam(required = false) String toAt,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        LocalDateTime fromAtParsed = parseDateTime(fromAt, "fromAt");
+        LocalDateTime toAtParsed = parseDateTime(toAt, "toAt");
+        validateDateRange(fromAtParsed, toAtParsed);
+
+        SalesDealSearchCondition condition = SalesDealSearchCondition.builder()
+                .ownerEmpId(ownerEmpId)
+                .clientId(clientId)
+                .currentStage(currentStage)
+                .latestDocType(latestDocType)
+                .isClosed(isClosed)
+                .keyword(keyword)
+                .fromAt(fromAtParsed)
+                .toAt(toAtParsed)
+                .build();
+
+        return ApiResult.success(dealV2KpiQueryService.getKpis(condition, userDetails));
     }
 
     @Operation(summary = "Deal 상세 조회", description = "deal 중심 상세 조회")
