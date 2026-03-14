@@ -21,7 +21,7 @@
 - [x] 3. 공통 enum / value object / DTO 작성
 - [x] 4. Deal 중심 조회 계층 작성
 - [x] 5. 문서 생성/재작성/승인/취소 흐름 개편
-- [ ] 6. snapshot 재계산 로직 작성
+- [x] 6. snapshot 재계산 로직 작성
 - [ ] 7. 알림/일정/통계 연계 수정
 - [ ] 8. 컨트롤러 / SecurityConfig / 테스트 작성
 - [ ] 9. 문서 업데이트 정리
@@ -29,7 +29,7 @@
 
 ## Current Focus
 
-현재 진행 단계: `6. snapshot 재계산 로직 작성`
+현재 진행 단계: `7. 알림/일정/통계 연계 수정`
 
 1단계 분석 결과:
 - `SalesDeal.currentStatus` 는 문서별 enum 문자열과 직접 결합되어 있음
@@ -45,4 +45,5 @@
 - 완료: QUO/CNT `v2` 생성 시 상위 문서 우선, `dealId` 명시, 신규 deal 생성 규칙 초안 반영
 - 완료: `revise` API를 새 문서 생성 방식으로 구현
 - 완료: `cancel` 명시 API와 approval 취소, snapshot 재동기화 초안 반영
-- 남음: 대표 문서 선정 규칙을 전 도메인 기준으로 일반화하고 수동 snapshot 갱신 경로를 대체
+- 완료: 생성/재작성/취소 후 공통 snapshot 재계산 경로 일반화
+- 남음: 알림/일정/통계 `v2` 연계와 보안/테스트 확장

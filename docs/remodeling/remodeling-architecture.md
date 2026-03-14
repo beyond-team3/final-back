@@ -68,3 +68,17 @@
 
 ### 변경 이유
 5단계의 남은 과제인 취소 흐름 분리와 approval/snapshot 후처리 연결을 `v2`에서 먼저 명시화하기 위함입니다.
+
+## [2026-03-15] v2 snapshot 재계산 경로 일반화
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java`
+
+### 변경 내용
+`DealV2SnapshotSyncService` 에 대표 문서 선정 우선순위를 한 곳에 모으고, 생성/재작성/취소 후 모두 `recalculateAfterMutation(...)` 경로를 타도록 정리했습니다.
+현재 스키마에는 `documentRole` 필드가 없어서 representative 우선순위는 상태 기반 힌트로 근사하며, 뒤 단계 우선 → representative 후보 상태 우선 → 상태 우선순위 → `createdAt` 최신 순으로 계산합니다.
+
+### 변경 이유
+6단계 목표인 snapshot 재계산 로직의 공통화와 수동 갱신 경로 축소를 먼저 `v2` 계층에서 달성하기 위함입니다.

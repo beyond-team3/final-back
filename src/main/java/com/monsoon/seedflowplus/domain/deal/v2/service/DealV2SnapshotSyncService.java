@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepos
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -24,6 +25,8 @@ public class DealV2SnapshotSyncService {
 
     @Transactional
     public void recalculate(SalesDeal deal) {
+        Objects.requireNonNull(deal, "deal must not be null");
+
         QDocumentSummary documentSummary = QDocumentSummary.documentSummary;
         List<DocumentSummary> documents = StreamSupport.stream(
                         documentSummaryRepository.findAll(
@@ -58,10 +61,39 @@ public class DealV2SnapshotSyncService {
         );
     }
 
+    @Transactional
+    public void recalculateAfterMutation(SalesDeal deal) {
+        recalculate(deal);
+    }
+
     private Comparator<DocumentSummary> documentComparator() {
         return Comparator.comparingInt((DocumentSummary doc) -> stagePriority(doc.getDocType()))
+                .thenComparingInt(this::representativeHintPriority)
                 .thenComparingInt(this::statusPriority)
                 .thenComparing(DocumentSummary::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo));
+    }
+
+    private int representativeHintPriority(DocumentSummary document) {
+        String status = document.getStatus();
+        return switch (document.getDocType()) {
+            case RFQ -> switch (status) {
+                case "PENDING", "REVIEWING" -> 2;
+                default -> 1;
+            };
+            case QUO -> switch (status) {
+                case "WAITING_ADMIN", "WAITING_CLIENT", "FINAL_APPROVED", "WAITING_CONTRACT" -> 2;
+                default -> 1;
+            };
+            case CNT -> switch (status) {
+                case "WAITING_ADMIN", "WAITING_CLIENT", "COMPLETED", "ACTIVE_CONTRACT" -> 2;
+                default -> 1;
+            };
+            case ORD -> switch (status) {
+                case "PENDING", "CONFIRMED" -> 2;
+                default -> 1;
+            };
+            case STMT, INV, PAY -> 2;
+        };
     }
 
     private int stagePriority(DealType docType) {

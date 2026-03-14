@@ -162,7 +162,7 @@ public class ContractV2CommandService {
                 "v2 cancel",
                 List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, ContractStatus.DELETED.name(), "STATUS"))
         );
-        dealV2SnapshotSyncService.recalculate(contract.getDeal());
+        dealV2SnapshotSyncService.recalculateAfterMutation(contract.getDeal());
 
         return DealDocumentCommandResultDto.builder()
                 .dealId(contract.getDeal() != null ? contract.getDeal().getId() : null)
@@ -204,6 +204,7 @@ public class ContractV2CommandService {
                         new DealLogWriteService.DiffField("itemCount", "계약 품목 수", null, itemCount, "COUNT")
                 )
         );
+        dealV2SnapshotSyncService.recalculateAfterMutation(deal);
 
         approvalSubmissionService.submitFromDocumentCreation(DealType.CNT, contract.getId(), finalCode, userDetails);
 

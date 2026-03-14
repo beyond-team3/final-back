@@ -150,7 +150,7 @@ public class QuotationV2CommandService {
                 "v2 cancel",
                 List.of(new DealLogWriteService.DiffField("status", "문서 상태", fromStatus, QuotationStatus.DELETED.name(), "STATUS"))
         );
-        dealV2SnapshotSyncService.recalculate(quotation.getDeal());
+        dealV2SnapshotSyncService.recalculateAfterMutation(quotation.getDeal());
 
         return DealDocumentCommandResultDto.builder()
                 .dealId(quotation.getDeal() != null ? quotation.getDeal().getId() : null)
@@ -191,6 +191,7 @@ public class QuotationV2CommandService {
                         new DealLogWriteService.DiffField("itemCount", "견적 품목 수", null, itemCount, "COUNT")
                 )
         );
+        dealV2SnapshotSyncService.recalculateAfterMutation(deal);
 
         approvalSubmissionService.submitFromDocumentCreation(DealType.QUO, quotation.getId(), finalCode, userDetails);
 

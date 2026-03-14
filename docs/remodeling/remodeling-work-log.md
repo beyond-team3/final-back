@@ -126,3 +126,23 @@
 
 ### 다음 단계
 6단계 snapshot 재계산 로직 일반화
+
+## [2026-03-15 05:33] v2 snapshot 재계산 경로 일반화
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java` — 대표 문서 우선순위 비교와 공통 재계산 진입점을 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — 견적서 생성/재작성/취소 후 공통 snapshot 재계산 경로 사용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java` — 계약서 생성/재작성/취소 후 공통 snapshot 재계산 경로 사용
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 6단계 snapshot 일반화 구조 기록
+- 수정 파일: `PROGRESS.md` — 6단계 완료 처리 및 7단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest'` 성공
+
+### 다음 단계
+7단계 알림/일정/통계 연계 수정 및 v1 회귀 확인
