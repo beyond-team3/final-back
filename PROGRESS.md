@@ -11,12 +11,12 @@
 
 ## Checklist
 
-- [ ] 1. 현재 구조 파악
+- [x] 1. 현재 구조 파악
   - [x] 핵심 정책 문서 확인
   - [x] 주요 엔티티/서비스 1차 식별
-  - [ ] Deal, RFQ, QUO, CNT, ORD, STMT, INV, PAY 상태/연결 관계 정리
-  - [ ] 삭제/반려/재작성/승인 시 상태 변경 경로 정리
-  - [ ] 알림/일정/통계 귀속 기준 정리
+  - [x] Deal, RFQ, QUO, CNT, ORD, STMT, INV, PAY 상태/연결 관계 정리
+  - [x] 삭제/반려/재작성/승인 시 상태 변경 경로 정리
+  - [x] 알림/일정/통계 귀속 기준 정리
 - [ ] 2. v2 정책 반영용 설계 뼈대 작성
 - [ ] 3. 공통 enum / value object / DTO 작성
 - [ ] 4. Deal 중심 조회 계층 작성
@@ -29,13 +29,19 @@
 
 ## Current Focus
 
-현재 진행 단계: `1. 현재 구조 파악`
+현재 진행 단계: `2. v2 정책 반영용 설계 뼈대 작성`
 
-1차 확인 사항:
+1단계 분석 결과:
 - `SalesDeal.currentStatus` 는 문서별 enum 문자열과 직접 결합되어 있음
 - `DealPipelineFacade` 는 문서 이벤트 직후 `deal.updateSnapshot(...)` 으로 단건 갱신함
 - `QuotationService`, `ContractService` 에는 열린 deal 자동 연결 흐름이 존재함
+- QUO/CNT 삭제 시 `restoreDealSnapshotAfter...`, `recomputeDealSnapshot(...)` 등 수동 복구/재계산 로직이 서비스별로 분산되어 있음
+- 문서 상태 enum은 `DELETED` 를 포함한 복합 상태 구조이며 `DocumentStatus` 마커 인터페이스에 묶여 있음
+- 일정 동기화는 `DealScheduleSyncService.deleteByExternalKey(...)` 기반 삭제 모델을 사용 중임
+- 알림 조회는 현재 사용자 기준 최신순 조회이며 deal 묶음 조회 계층은 없음
+- 통계는 일반 통계에서 `InvoiceStatus.PAID`, 청구 통계에서 `InvoiceStatus.PUBLISHED|PAID` 와 `StatementStatus.ISSUED` 기준을 사용 중임
 
 다음 작업:
-- 문서별 상태 enum과 생성/전환 서비스 범위를 전수 확인
-- 알림/일정/통계가 deal/document 중 어느 축으로 조회되는지 정리
+- `v2` 패키지 구조와 서비스 책임 분리안 작성
+- 3축 상태 enum, snapshot DTO, revision DTO 초안 정의
+- `SalesDeal` 확장 필드와 문서 계보 필드 추가 위치 확정
