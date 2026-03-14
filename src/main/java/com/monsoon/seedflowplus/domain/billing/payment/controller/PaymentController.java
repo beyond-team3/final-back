@@ -3,6 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.payment.controller;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.core.common.support.response.ApiResult;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.request.PaymentCreateRequest;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListResponse;
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentResponse;
@@ -44,8 +45,15 @@ public class PaymentController {
             @PathVariable Long paymentId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        if (userDetails.getRole() == Role.CLIENT) {
+            // 거래처: 본인 결제만 조회
+            return ApiResult.success(
+                    paymentService.getPayment(paymentId, userDetails.getClientId())
+            );
+        }
+        // 영업사원/관리자: clientId 없이 조회
         return ApiResult.success(
-                paymentService.getPayment(paymentId, userDetails.getClientId())
+                paymentService.getPaymentById(paymentId)
         );
     }
 

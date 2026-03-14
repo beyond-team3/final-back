@@ -42,6 +42,13 @@ public class QuotationController {
         return ApiResult.success(response);
     }
 
+    @Operation(summary = "계약서 재작성 가능 견적서 목록 조회", description = "이미 계약서가 작성되었으나 모두 반려된 경우, 재작성이 가능한 상위 견적서 목록을 조회합니다.")
+    @GetMapping("/rejected-contracts")
+    public ApiResult<List<QuotationListResponse>> getRejectedQuotationsForContract() {
+        List<QuotationListResponse> response = quotationService.getRejectedQuotationsForContract();
+        return ApiResult.success(response);
+    }
+
     @Operation(summary = "견적서 상세 조회", description = "견적서 ID를 통해 상세 정보를 조회합니다. (역할별 접근 제어 및 메모 가시성 적용)")
     @GetMapping("/{id}")
     public ApiResult<QuotationResponse> getQuotationDetail(@PathVariable("id") Long id) {

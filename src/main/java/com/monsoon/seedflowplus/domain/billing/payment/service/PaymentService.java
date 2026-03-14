@@ -153,6 +153,20 @@ public class PaymentService {
                 .toList();
     }
 
+    public PaymentResponse getPaymentById(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+
+        return PaymentResponse.from(
+                payment,
+                dealLogQueryService.getRecentDocumentLogs(
+                        payment.getDeal() != null ? payment.getDeal().getId() : null,
+                        DealType.PAY,
+                        payment.getId()
+                )
+        );
+    }
+
     // PAY-20260223-001 형식으로 코드 생성
     private String generateCode(String prefix) {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));

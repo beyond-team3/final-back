@@ -21,9 +21,12 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse;
 import com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationResponse;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationDetail;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
@@ -50,6 +53,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -62,6 +66,7 @@ import com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto;
 public class QuotationService {
 
     private final QuotationRepository quotationRepository;
+    private final ContractRepository contractRepository;
     private final QuotationRequestRepository quotationRequestRepository;
     private final ClientRepository clientRepository;
     private final EmployeeRepository employeeRepository;
@@ -107,23 +112,26 @@ public class QuotationService {
             // 상태가 PENDING이거나 REVIEWING이어야 함
             if (quotationRequest.getStatus() != QuotationRequestStatus.PENDING &&
                     quotationRequest.getStatus() != QuotationRequestStatus.REVIEWING) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS,
+                        "선택한 견적 요청서가 현재 작성 가능한 상태(대기 또는 검토 중)가 아닙니다.");
             }
 
-            // REVIEWING인 경우, 이미 승인 대기 중인 견적서가 있는지 확인 (중복 작성 방지)
             if (quotationRequest.getStatus() == QuotationRequestStatus.REVIEWING) {
-                boolean hasActiveQuotation = quotationRepository.findByQuotationRequestId(quotationRequest.getId())
+                Optional<QuotationHeader> activeQuo = quotationRepository
+                        .findByQuotationRequestId(quotationRequest.getId())
                         .stream()
-                        .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                                || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-                if (hasActiveQuotation) {
-                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
+                        .filter(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
+                                || q.getStatus() == QuotationStatus.WAITING_CLIENT)
+                        .findFirst();
+                if (activeQuo.isPresent()) {
+                    throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS,
+                            String.format("해당 요청서에 대해 이미 진행 중인 견적서(%s)가 존재합니다.", activeQuo.get().getQuotationCode()));
                 }
             }
 
             // 요청된 제품 목록이 일치하는지 검증 (상품 정보만 비교)
             Set<Long> requestProductIds = quotationRequest.getItems().stream()
-                    .map(item -> item.getProduct().getId())
+                    .map(item -> item.getProduct() != null ? item.getProduct().getId() : null)
                     .collect(Collectors.toSet());
 
             Set<Long> inputProductIds = request.items().stream()
@@ -131,7 +139,9 @@ public class QuotationService {
                     .collect(Collectors.toSet());
 
             if (!requestProductIds.equals(inputProductIds)) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA);
+                String detail = String.format("요청된 제품 목록(%s)과 입력된 제품 목록(%s)이 일치하지 않습니다.",
+                        requestProductIds, inputProductIds);
+                throw new CoreException(ErrorType.INVALID_DOCUMENT_DATA, detail);
             }
 
             // 상태를 REVIEWING으로 변경
@@ -140,16 +150,9 @@ public class QuotationService {
                     ? quotationRequest.getDeal()
                     : resolveOrCreateOpenDeal(client, author);
 
-            // RFQ 분기에서도 Deal 락을 획득하고 중복 활성 견적 체크 (CodeRabbit 지적사항)
+            // RFQ 분기에서도 Deal 락을 획득하여 동시성 제어 (단, 중복 견적 체크는 RFQ 레벨에서만 수행하도록 완화)
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
-
-            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
-                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-            if (hasActiveQuotation) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-            }
         } else {
             // 3-2. 일반 견적 작성 시 검증
             SalesDeal resolvedDeal = resolveOrCreateOpenDeal(client, author);
@@ -157,13 +160,8 @@ public class QuotationService {
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
 
-            // 해당 Deal에 이미 승인 대기 중인 견적서가 있는지 확인 (비관적 락으로 동시성 보호됨)
-            boolean hasActiveQuotation = quotationRepository.findByDealId(deal.getId()).stream()
-                    .anyMatch(q -> q.getStatus() == QuotationStatus.WAITING_ADMIN
-                            || q.getStatus() == QuotationStatus.WAITING_CLIENT);
-            if (hasActiveQuotation) {
-                throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
-            }
+            // ⚠️ [정책 완화] 일반 견적 작성 시에도 Deal 레벨의 강제 중복 금지 규칙을 제거함.
+            // 다양한 제안(Option)을 동시에 보낼 수 있도록 허용함.
         }
 
         // 4. 총액 계산
@@ -315,20 +313,26 @@ public class QuotationService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName() : null,
-                            q.getAuthor() != null ? q.getAuthor().getId() : null,
-                            q.getCreatedAt().toLocalDate(),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            reasonsMap.get(q.getId()), // 맵에서 조회 (N+1 해결)
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
+                            reasonsMap.get(q.getId()),
                             items);
                 })
                 .toList();
@@ -340,20 +344,35 @@ public class QuotationService {
     public List<QuotationListResponse> getRejectedQuotations() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        // 1. 권한 체크: 영업 담당자(SALES_REP)만 반려 목록 조회 가능
-        if (user.getRole() != Role.SALES_REP) {
+        // 1. 권한 체크: 영업 담당자(SALES_REP)와 관리자(ADMIN) 조회 가능
+        if (user.getRole() != Role.SALES_REP && user.getRole() != Role.ADMIN) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        if (user.getEmployeeId() == null) {
-            // 인증 정보에 직원 ID가 누락된 경우 (보안/세션 이상 상태 은닉 방지)
-            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
-        }
+        List<QuotationStatus> targetStatuses = List.of(
+                QuotationStatus.REJECTED_ADMIN,
+                QuotationStatus.REJECTED_CLIENT,
+                QuotationStatus.EXPIRED);
 
-        List<QuotationHeader> quotations = quotationRepository.findActiveRejectedQuotations(
-                user.getEmployeeId(),
-                List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED),
-                QuotationStatus.DELETED);
+        log.info("[QuotationService] 반려/만료 견적서 조회 시작 - User: {}, Role: {}", user.getLoginId(), user.getRole());
+
+        List<QuotationHeader> quotations;
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            quotations = quotationRepository.findAllActiveRejectedQuotations(
+                    targetStatuses);
+            log.info("[QuotationService] 관리자 전역 조회 완료 - 검색 건수: {}건", quotations.size());
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                log.warn("[QuotationService] 영업사원 employeeId 누락 - User: {}", user.getLoginId());
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            quotations = quotationRepository.findActiveRejectedQuotations(
+                    user.getEmployeeId(),
+                    targetStatuses);
+            log.info("[QuotationService] 영업사원({}) 본인 건 조회 완료 - 검색 건수: {}건", user.getEmployeeId(), quotations.size());
+        }
 
         // 2. N+1 문제 해결: 한 번의 쿼리로 반려 사유 조회
         Map<Long, String> reasonsMap = fetchReasonsMap(quotations);
@@ -371,26 +390,100 @@ public class QuotationService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId()
+                                    : (client != null && client.getManagerEmployee() != null
+                                            ? client.getManagerEmployee().getId()
+                                            : null);
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
-                            q.getAuthor() != null ? q.getAuthor().getEmployeeName()
-                                    : (q.getClient().getManagerEmployee() != null
-                                            ? q.getClient().getManagerEmployee().getEmployeeName()
-                                            : null),
-                            q.getAuthor() != null ? q.getAuthor().getId()
-                                    : (q.getClient().getManagerEmployee() != null
-                                            ? q.getClient().getManagerEmployee().getId()
-                                            : null),
-                            q.getCreatedAt().toLocalDate(),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null,
-                            q.getDeal().getId(),
-                            (q.getAuthor() != null && q.getAuthor().getId().equals(user.getEmployeeId())) ? q.getMemo() : null,
-                            q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null,
-                            reasonsMap.get(q.getId()), // 맵에서 미리 조회해둔 반려 사유를 가져옴 (N+1 해결)
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
+                            reasonsMap.get(q.getId()),
+                            items);
+                })
+                .toList();
+    }
+
+    /**
+     * 계약서 재작성이 가능한 견적서 목록 조회
+     * 상태가 WAITING_CONTRACT(계약 대기)이며, 연결된 모든 계약서가 반려 상태인 건만 조회.
+     */
+    public List<QuotationListResponse> getRejectedQuotationsForContract() {
+        CustomUserDetails user = getAuthenticatedUser();
+
+        // 1. 권한 체크: 영업 담당자(SALES_REP)와 관리자(ADMIN) 조회 가능
+        if (user.getRole() != Role.SALES_REP && user.getRole() != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        List<ContractStatus> rejectedStatuses = List.of(
+                ContractStatus.REJECTED_ADMIN,
+                ContractStatus.REJECTED_CLIENT);
+
+        List<QuotationHeader> quotations;
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            quotations = quotationRepository.findAllQuotationsReadyForContractRewrite(
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            quotations = quotationRepository.findQuotationsReadyForContractRewrite(
+                    user.getEmployeeId(),
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        }
+
+        return quotations.stream()
+                .map(q -> {
+                    List<QuotationResponse.QuotationItemResponse> items = q.getItems().stream()
+                            .map(item -> new QuotationResponse.QuotationItemResponse(
+                                    item.getProduct() != null ? item.getProduct().getId() : null,
+                                    item.getProductName(),
+                                    item.getProductCategory(),
+                                    item.getQuantity(),
+                                    item.getUnit(),
+                                    item.getUnitPrice(),
+                                    item.getAmount()))
+                            .toList();
+
+                    Client client = q.getClient();
+                    SalesDeal deal = q.getDeal();
+                    Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
+                    Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
+                    String requirements = q.getQuotationRequest() != null ? q.getQuotationRequest().getRequirements() : null;
+
+                    return new QuotationListResponse(
+                            q.getId(),
+                            q.getQuotationCode(),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
+                            client != null ? client.getManagerName() : null,
+                            authorId,
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
+                            q.getStatus(),
+                            requestId,
+                            deal != null ? deal.getId() : null,
+                            (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null,
+                            requirements,
+                            null, // 상위 견적서 자체의 반려 사유는 없음 (승인된 상태이므로)
                             items);
                 })
                 .toList();
@@ -550,18 +643,17 @@ public class QuotationService {
                         QuotationStatus.EXPIRED,
                         today
                 );
-        Map<Long, ExpiringQuotationContext> expiringContextByDealId = updatedExpiredQuotations.stream()
+        Map<Long, List<ExpiringQuotationContext>> expiringContextByDealId = updatedExpiredQuotations.stream()
                 .filter(quotation -> quotation.getDeal() != null && quotation.getDeal().getId() != null)
-                .collect(Collectors.toMap(
+                .collect(Collectors.groupingBy(
                         quotation -> quotation.getDeal().getId(),
-                        quotation -> new ExpiringQuotationContext(
-                                quotation.getId(),
-                                quotation.getQuotationCode(),
-                                quotation.getDeal().getId()
-                        ),
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new
-                ));
+                        java.util.LinkedHashMap::new,
+                        Collectors.mapping(
+                                quotation -> new ExpiringQuotationContext(
+                                        quotation.getId(),
+                                        quotation.getQuotationCode(),
+                                        quotation.getDeal().getId()),
+                                Collectors.toList())));
         expireDeals(expiringContextByDealId, LocalDateTime.now());
     }
 
@@ -574,8 +666,11 @@ public class QuotationService {
                 .map(QuotationHeader::getId)
                 .toList();
 
-        return approvalDecisionRepository
-                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+        List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> reasons = approvalDecisionRepository.findReasonsByTargets(DealType.QUO, quotationIds);
+        if (reasons == null) return Map.of();
+
+        return reasons.stream()
+                .filter(dto -> dto.targetId() != null && dto.reason() != null)
                 .collect(Collectors.toMap(
                         ReasonDto::targetId,
                         ReasonDto::reason,
@@ -693,30 +788,9 @@ public class QuotationService {
         if (deal == null) {
             return;
         }
-        LocalDateTime actionAt = LocalDateTime.now();
 
-        if (quotation.getQuotationRequest() != null && quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.PENDING) {
-            syncDealSnapshot(
-                    deal,
-                    mapQuotationRequestStage(quotation.getQuotationRequest().getStatus()),
-                    quotation.getQuotationRequest().getStatus().name(),
-                    DealType.RFQ,
-                    quotation.getQuotationRequest().getId(),
-                    quotation.getQuotationRequest().getRequestCode(),
-                    actionAt
-            );
-            return;
-        }
-
-        syncDealSnapshot(
-                deal,
-                DealStage.CANCELED,
-                QuotationStatus.DELETED.name(),
-                DealType.QUO,
-                quotation.getId(),
-                quotation.getQuotationCode(),
-                actionAt
-        );
+        // 다중 견적 제안을 고려하여, 남은 문서들 중 최적의 상태로 Deal Snapshot 재계산
+        recomputeDealSnapshot(deal);
     }
 
     private DealStage mapQuotationRequestStage(QuotationRequestStatus status) {
@@ -740,17 +814,20 @@ public class QuotationService {
         deal.updateSnapshot(stage, status, dealType, refId, targetCode, actionAt);
     }
 
-    private void expireDeals(Map<Long, ExpiringQuotationContext> expiringContextByDealId, LocalDateTime actionAt) {
+    private void expireDeals(Map<Long, List<ExpiringQuotationContext>> expiringContextByDealId, LocalDateTime actionAt) {
         if (expiringContextByDealId.isEmpty()) {
             return;
         }
         salesDealRepository.findAllById(expiringContextByDealId.keySet())
                 .forEach(deal -> {
-                    ExpiringQuotationContext context = expiringContextByDealId.get(deal.getId());
-                    if (context == null) {
+                    List<ExpiringQuotationContext> contexts = expiringContextByDealId.get(deal.getId());
+                    if (contexts == null || contexts.isEmpty()) {
                         return;
                     }
-                    dealLogWriteService.write(
+
+                    for (ExpiringQuotationContext context : contexts) {
+                        // 1. 개별 견적서 만료 로그 기록
+                        dealLogWriteService.write(
                             deal,
                             DealType.QUO,
                             context.quotationId(),
@@ -771,17 +848,151 @@ public class QuotationService {
                                     QuotationStatus.EXPIRED.name(),
                                     "STATUS"))
                     );
-                    syncDealSnapshot(
-                            deal,
-                            DealStage.EXPIRED,
-                            QuotationStatus.EXPIRED.name(),
-                            DealType.QUO,
-                            context.quotationId(),
-                            context.quotationCode(),
-                            actionAt
-                    );
-                    closeDealIfOpen(deal, actionAt);
+                    }
+
+                    // 2. 다중 견적 제안을 고려하여 Deal Snapshot 재계산
+                    recomputeDealSnapshot(deal);
+
+                    // 3. 만약 모든 문서가 종결(EXPIRED/DELETED/REJECTED 등) 상태이면 Deal도 닫음
+                    if (isAllDocumentsClosed(deal)) {
+                        closeDealIfOpen(deal, actionAt);
+                    }
                 });
+    }
+
+    private void recomputeDealSnapshot(SalesDeal deal) {
+        // 1. 계약서 확인 (계약이 있으면 견적보다 우선함)
+        List<ContractHeader> contracts = contractRepository.findByDealId(deal.getId()).stream()
+                .filter(c -> c.getStatus() != ContractStatus.DELETED)
+                .sorted((c1, c2) -> {
+                    int p1 = getContractStatusPriority(c1.getStatus());
+                    int p2 = getContractStatusPriority(c2.getStatus());
+                    if (p1 != p2) return Integer.compare(p1, p2);
+                    return c2.getId().compareTo(c1.getId());
+                })
+                .toList();
+
+        if (!contracts.isEmpty()) {
+            ContractHeader bestCnt = contracts.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapContractStage(bestCnt.getStatus()),
+                    bestCnt.getStatus().name(),
+                    DealType.CNT,
+                    bestCnt.getId(),
+                    bestCnt.getContractCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 2. 견적서 확인
+        List<QuotationHeader> quotations = quotationRepository.findByDealId(deal.getId()).stream()
+                .filter(q -> q.getStatus() != QuotationStatus.DELETED)
+                .sorted((q1, q2) -> {
+                    int p1 = getQuotationStatusPriority(q1.getStatus());
+                    int p2 = getQuotationStatusPriority(q2.getStatus());
+                    if (p1 != p2) return Integer.compare(p1, p2);
+                    return q2.getId().compareTo(q1.getId());
+                })
+                .toList();
+
+        if (!quotations.isEmpty()) {
+            QuotationHeader bestQuo = quotations.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationStage(bestQuo.getStatus()),
+                    bestQuo.getStatus().name(),
+                    DealType.QUO,
+                    bestQuo.getId(),
+                    bestQuo.getQuotationCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 3. RFQ 확인
+        List<QuotationRequestHeader> requests = quotationRequestRepository.findByDealId(deal.getId()).stream()
+                .filter(r -> r.getStatus() != QuotationRequestStatus.DELETED)
+                .sorted((r1, r2) -> r2.getId().compareTo(r1.getId()))
+                .toList();
+
+        if (!requests.isEmpty()) {
+            QuotationRequestHeader bestRfq = requests.get(0);
+            syncDealSnapshot(
+                    deal,
+                    mapQuotationRequestStage(bestRfq.getStatus()),
+                    bestRfq.getStatus().name(),
+                    DealType.RFQ,
+                    bestRfq.getId(),
+                    bestRfq.getRequestCode(),
+                    LocalDateTime.now()
+            );
+            return;
+        }
+
+        // 4. 아무 문서도 없으면 초기 상태로 중립화
+        deal.updateSnapshot(DealStage.CREATED, QuotationRequestStatus.PENDING.name(), DealType.RFQ, 0L, null, LocalDateTime.now());
+    }
+
+    private int getContractStatusPriority(ContractStatus status) {
+        return switch (status) {
+            case ACTIVE_CONTRACT -> 1;
+            case COMPLETED -> 2;
+            case WAITING_CLIENT -> 3;
+            case WAITING_ADMIN -> 4;
+            case REJECTED_CLIENT -> 5;
+            case REJECTED_ADMIN -> 6;
+            case EXPIRED -> 7;
+            default -> 8;
+        };
+    }
+
+    private int getQuotationStatusPriority(QuotationStatus status) {
+        return switch (status) {
+            case COMPLETED -> 1;
+            case WAITING_CONTRACT -> 2;
+            case FINAL_APPROVED -> 3;
+            case WAITING_CLIENT -> 4;
+            case WAITING_ADMIN -> 5;
+            case REJECTED_CLIENT -> 6;
+            case REJECTED_ADMIN -> 7;
+            case EXPIRED -> 8;
+            default -> 9;
+        };
+    }
+
+    private boolean isAllDocumentsClosed(SalesDeal deal) {
+        // 모든 계약서가 만료/삭제 상태인지 확인
+        boolean allCntClosed = contractRepository.findByDealId(deal.getId()).stream()
+                .allMatch(c -> c.getStatus() == ContractStatus.EXPIRED || c.getStatus() == ContractStatus.DELETED);
+
+        // 모든 견적서가 만료/삭제/반려 상태인지 확인
+        boolean allQuoClosed = quotationRepository.findByDealId(deal.getId()).stream()
+                .allMatch(q -> q.getStatus() == QuotationStatus.EXPIRED
+                        || q.getStatus() == QuotationStatus.DELETED
+                        || q.getStatus() == QuotationStatus.REJECTED_ADMIN
+                        || q.getStatus() == QuotationStatus.REJECTED_CLIENT);
+
+        // 모든 RFQ가 삭제 또는 완료 상태인지 확인
+        boolean allRfqClosed = quotationRequestRepository.findByDealId(deal.getId()).stream()
+                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED
+                        || r.getStatus() == QuotationRequestStatus.COMPLETED);
+
+        return allCntClosed && allQuoClosed && allRfqClosed;
+    }
+
+    private DealStage mapContractStage(ContractStatus status) {
+        return switch (status) {
+            case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
+            case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
+            case COMPLETED -> DealStage.APPROVED;
+            case ACTIVE_CONTRACT -> DealStage.CONFIRMED;
+            case EXPIRED -> DealStage.EXPIRED;
+            case DELETED -> DealStage.CANCELED;
+        };
     }
 
     private record ExpiringQuotationContext(Long quotationId, String quotationCode, Long dealId) {

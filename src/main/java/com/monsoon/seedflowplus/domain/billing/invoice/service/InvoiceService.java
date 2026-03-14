@@ -327,7 +327,7 @@ public class InvoiceService {
         return invoiceRepository.findAll().stream()
                 .map(invoice -> InvoiceListResponse.from(
                         invoice,
-                        resolveContractCode(invoice.getContractId())  // ← 이 줄이 핵심
+                        resolveContractCode(invoice.getContractId()) // ← 이 줄이 핵심
                 ))
                 .toList();
     }

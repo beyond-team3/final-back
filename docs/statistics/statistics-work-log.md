@@ -10,6 +10,19 @@
 ### 다음 단계
 없음
 
+## [2026-03-14 21:41] QuotationServiceTest git conflict 해소
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — `ContractRepository`와 `DealScheduleSyncService` 의존성을 함께 유지하도록 conflict marker 제거 및 중복 mock/import 정리
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — `createQuotation` 경로에서 실제 호출되지 않는 불필요한 stub 제거로 strict Mockito 실패 해소
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-14 17:46] merge 충돌 해소: statistics 문서와 QuotationService 유지 병합
 
 ### 작업 내용
