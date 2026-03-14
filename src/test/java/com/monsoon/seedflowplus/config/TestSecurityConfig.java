@@ -26,6 +26,12 @@ public class TestSecurityConfig {
                         .requestMatchers("/api/v1/statistics/by-client").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/by-variety").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/ranking").hasAnyRole("SALES_REP", "ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v2/quotations").hasRole("SALES_REP")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v2/quotations/*/revise").hasRole("SALES_REP")
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v2/quotations/*/cancel").hasRole("SALES_REP")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v2/contracts").hasRole("SALES_REP")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v2/contracts/*/revise").hasRole("SALES_REP")
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v2/contracts/*/cancel").hasRole("SALES_REP")
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
