@@ -3,7 +3,9 @@ package com.monsoon.seedflowplus.domain.sales.contract.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
@@ -92,6 +94,7 @@ class ContractServiceTest {
         rfq.updateStatus(QuotationRequestStatus.COMPLETED);
         QuotationHeader quotation = QuotationHeader.create(rfq, "QUO-1", client, deal, author, BigDecimal.TEN, null);
         quotation.updateStatus(QuotationStatus.WAITING_CONTRACT);
+        ReflectionTestUtils.setField(quotation, "id", 101L);
         ContractHeader contract = ContractHeader.create(
                 "CNT-1",
                 quotation,
@@ -125,9 +128,9 @@ class ContractServiceTest {
                 eq(200L),
                 eq("CNT-1"),
                 eq(DealStage.PENDING_ADMIN),
-                eq(DealStage.CANCELED),
+                eq(DealStage.APPROVED),
                 eq(ContractStatus.WAITING_ADMIN.name()),
-                eq(ContractStatus.DELETED.name()),
+                eq(QuotationStatus.FINAL_APPROVED.name()),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
                 any(),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SALES_REP),
@@ -135,6 +138,38 @@ class ContractServiceTest {
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<java.util.List<DealLogWriteService.DiffField>>any()
         );
+    }
+
+    @Test
+    @DisplayName("deal 없는 계약도 삭제할 수 있다")
+    void deleteContractWithoutDealSkipsDealSideEffects() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal deal = deal(client, author);
+        ContractHeader contract = ContractHeader.create(
+                "CNT-2",
+                null,
+                client,
+                deal,
+                author,
+                BigDecimal.TEN,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(contract, "id", 201L);
+        ReflectionTestUtils.setField(contract, "deal", null);
+
+        when(contractRepository.findById(201L)).thenReturn(Optional.of(contract));
+        setAuthentication(salesRepUser(author));
+
+        contractService.deleteContract(201L);
+
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.DELETED);
+        verify(approvalCancellationService).cancelPendingRequest(DealType.CNT, 201L);
+        verifyNoInteractions(dealLogWriteService);
     }
 
     private void setAuthentication(CustomUserDetails principal) {

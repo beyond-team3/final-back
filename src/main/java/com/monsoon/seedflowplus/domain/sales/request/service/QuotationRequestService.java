@@ -5,6 +5,7 @@ import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
@@ -76,6 +77,8 @@ public class QuotationRequestService {
 
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new CoreException(ErrorType.CLIENT_NOT_FOUND));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
 
         SalesDeal deal = createDealBootstrap(client);
 
@@ -117,7 +120,7 @@ public class QuotationRequestService {
         quotationRequestRepository.save(header);
 
         // 6. requestCode 업데이트: RFQ-YYYYMMDD-ID
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String datePart = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String requestCode = "RFQ-" + datePart + "-" + header.getId();
         header.updateRequestCode(requestCode);
 
@@ -155,7 +158,7 @@ public class QuotationRequestService {
                         header.getId(),
                         requestCode,
                         client.getClientName(),
-                        LocalDateTime.now()
+                        now
                 )));
     }
 
@@ -228,6 +231,38 @@ public class QuotationRequestService {
                 .toList();
     }
 
+    /**
+     * 반려 또는 만료된 견적서만 존재하는 견적요청서 목록을 조회합니다.
+     * (재작성 대상)
+     */
+    public List<QuotationRequestListResponse> getRejectedQuotationRequests() {
+        CustomUserDetails userDetails = getAuthenticatedUser();
+        if (userDetails.getRole() != Role.SALES_REP) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+
+        Long employeeId = userDetails.getEmployeeId();
+        if (employeeId == null) {
+            throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+        }
+
+        List<QuotationStatus> rejectedStatuses = List.of(
+                QuotationStatus.REJECTED_ADMIN,
+                QuotationStatus.REJECTED_CLIENT,
+                QuotationStatus.EXPIRED
+        );
+
+        List<QuotationRequestHeader> requests = quotationRequestRepository.findRejectedRequests(
+                QuotationRequestStatus.REVIEWING,
+                employeeId,
+                rejectedStatuses
+        );
+
+        return requests.stream()
+                .map(QuotationRequestListResponse::from)
+                .toList();
+    }
+
     @Transactional
     public void completeAfterContractApproval(
             QuotationRequestHeader quotationRequest,
@@ -280,47 +315,45 @@ public class QuotationRequestService {
             throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS);
         }
 
-        SalesDeal deal = header.getDeal();
-        if (deal == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-
         String fromStatus = header.getStatus().name();
         LocalDateTime actionAt = LocalDateTime.now();
+        SalesDeal deal = header.getDeal();
         header.delete();
 
-        dealLogWriteService.write(
-                deal,
-                DealType.RFQ,
-                header.getId(),
-                header.getRequestCode(),
-                deal.getCurrentStage(),
-                DealStage.CANCELED,
-                fromStatus,
-                QuotationRequestStatus.DELETED.name(),
-                ActionType.CANCEL,
-                actionAt,
-                ActorType.CLIENT,
-                clientId,
-                null,
-                List.of(new DealLogWriteService.DiffField(
-                        "status",
-                        "문서 상태",
-                        fromStatus,
-                        QuotationRequestStatus.DELETED.name(),
-                        "STATUS"))
-        );
-        syncDealSnapshot(
-                deal,
-                DealStage.CANCELED,
-                QuotationRequestStatus.DELETED.name(),
-                DealType.RFQ,
-                header.getId(),
-                header.getRequestCode(),
-                actionAt
-        );
+        if (deal != null) {
+            dealLogWriteService.write(
+                    deal,
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    deal.getCurrentStage(),
+                    DealStage.CANCELED,
+                    fromStatus,
+                    QuotationRequestStatus.DELETED.name(),
+                    ActionType.CANCEL,
+                    actionAt,
+                    ActorType.CLIENT,
+                    clientId,
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            QuotationRequestStatus.DELETED.name(),
+                            "STATUS"))
+            );
+            syncDealSnapshot(
+                    deal,
+                    DealStage.CANCELED,
+                    QuotationRequestStatus.DELETED.name(),
+                    DealType.RFQ,
+                    header.getId(),
+                    header.getRequestCode(),
+                    actionAt
+            );
 
-        closeDealIfOpen(deal, actionAt);
+            closeDealIfOpen(deal, actionAt);
+        }
     }
 
     private SalesDeal createDealBootstrap(Client client) {

@@ -70,18 +70,6 @@ public class OrderController {
         return ApiResult.success(orderService.cancelOrder(orderId, userDetails.getClientId()));
     }
 
-    @Operation(summary = "주문 확정", description = "주문 상태를 CONFIRMED로 변경하고 명세서를 자동 발급합니다.")
-    @PatchMapping("/{orderId}/confirm")
-    public ApiResult<OrderResponse> confirmOrder(
-            @PathVariable Long orderId,
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        if (userDetails == null) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-        return ApiResult.success(orderService.confirmOrder(orderId, userDetails));
-    }
-
     @Operation(
             summary = "거래처 거래 요약 조회",
             description = "영업사원/관리자가 특정 거래처의 이번달 거래 요약 및 여신 정보를 조회합니다."

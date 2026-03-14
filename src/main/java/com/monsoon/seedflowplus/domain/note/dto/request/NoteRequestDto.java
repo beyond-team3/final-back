@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.note.dto.request;
 
 import com.monsoon.seedflowplus.domain.note.entity.SalesNote;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
@@ -30,6 +31,8 @@ public class NoteRequestDto {
     /**
      * 서비스 로직(updateNote)에서 요구하는 날짜 반환 메서드
      */
+    @JsonIgnore
+    @Schema(hidden = true)
     public LocalDate getActivityDate() {
         return this.date;
     }

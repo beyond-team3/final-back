@@ -15,16 +15,18 @@ spec:
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
-    - name: ssh-config
-      mountPath: /home/jenkins/.ssh/known_hosts
-      subPath: known_hosts
+  - name: trivy-cli
+    image: aquasec/trivy:latest
+    command: ['cat']
+    tty: true
+  - name: argocd-cli
+    image: argoproj/argocd:v2.10.1
+    command: ['cat']
+    tty: true
   volumes:
   - name: docker-sock
     hostPath:
       path: /var/run/docker.sock
-  - name: ssh-config
-    configMap:
-      name: ssh-known-hosts
 """
         }
     }
@@ -35,15 +37,24 @@ spec:
 
     environment {
         DOCKER_CREDENTIAL_ID = 'docker-hub-id'
+        ARGOCD_CREDENTIAL_ID = 'argocd-admin-login'
         DISCORD_WEBHOOK = credentials('discord-webhook-url')
         IMAGE_NAME = '21monsoon/monsoon-backend'
         APP_VERSION_PREFIX = '0.0'
-
+        FINAL_TAG = ""
         // CI에서는 테스트 프로필 강제
         SPRING_PROFILES_ACTIVE = 'test'
     }
 
     stages {
+        stage('Prepare Tag') {
+            steps {
+                script {
+                    // 태그 생성 로직
+                    env.FINAL_TAG = "${env.APP_VERSION_PREFIX}.${env.BRANCH_NAME.replaceAll("/", "-")}.${env.BUILD_NUMBER}.${env.GIT_COMMIT.take(7)}"
+                }
+            }
+        }
 
         stage('Checkout') {
             steps {
@@ -90,34 +101,36 @@ spec:
             steps {
                 container('docker-cli') {
                     script {
-                        // 변수 정의 및 태그 생성
-                        def prefix = env.APP_VERSION_PREFIX
-                        def cleanBranchName = env.BRANCH_NAME.replaceAll("/", "-")
-                        def buildNum = env.BUILD_NUMBER
-                        def shortSha = env.GIT_COMMIT.take(7)
-                        def newTag = prefix + "." + cleanBranchName + "." + buildNum + "." + shortSha
-
                         withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
                             usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
 
-                            echo "Building and Pushing Tag: " + newTag
+                            echo "Building and Pushing Tag: " + env.FINAL_TAG
 
                             // 도커 빌드 (고유 태그 및 latest)
-                            sh "docker build --no-cache -t ${IMAGE_NAME}:${newTag} ."
+                            sh "docker build --no-cache -t ${IMAGE_NAME}:${env.FINAL_TAG} ."
 
                             // 도커 로그인 및 푸시
                             sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
-                            sh "docker push ${IMAGE_NAME}:${newTag}"
+                            sh "docker push ${IMAGE_NAME}:${env.FINAL_TAG}"
 
                             // main 브랜치일 경우에만 latest 푸시
                             if (env.BRANCH_NAME == 'main') {
-                                sh "docker tag ${IMAGE_NAME}:${newTag} ${IMAGE_NAME}:latest"
+                                sh "docker tag ${IMAGE_NAME}:${env.FINAL_TAG} ${IMAGE_NAME}:latest"
                                 sh "docker push ${IMAGE_NAME}:latest"
                             }
 
                             sh "docker logout"
                         }
                     }
+                }
+            }
+        }
+
+        stage('Image Scan') {
+            steps {
+                container('trivy-cli') {
+                    // Trivy을 활용한 스캔 (실패 시 빌드 중단 가능)
+                    sh "trivy image --severity CRITICAL --exit-code 1 ${IMAGE_NAME}:${env.FINAL_TAG}"
                 }
             }
         }
@@ -130,49 +143,23 @@ spec:
                 }
             }
             steps {
-                script {
-                    def manifestRepoUrl = "git@github.com:beyond-team3/final-manifests.git"
-                    def targetFile = "backend/deployment.yml"
-                    def imageName = "21monsoon/monsoon-backend"
+                sshagent(credentials: ['github-deploy-key']) {
+                    script {
+                        def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
 
-                    // 변수 정의
-                    def prefix = env.APP_VERSION_PREFIX
-                    def branchName = env.BRANCH_NAME.replaceAll("/", "-")
-                    def buildNum = env.BUILD_NUMBER
-                    def shortSha = env.GIT_COMMIT.take(7)
-                    def newTag = prefix + "." + branchName + "." + buildNum + "." + shortSha
+                        echo "Targeting Tag: " + env.FINAL_TAG
 
-                    def targetBranch = (env.BRANCH_NAME == 'main') ? 'main' : 'dev'
-
-                    echo "Targeting Tag: " + newTag
-
-                    sshagent(credentials: ['github-deploy-key']) {
                         sh """
-                            # SSH 디렉토리 생성 및 GitHub 지문 등록
-                            mkdir -p ~/.ssh
-                            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-
-                            echo "Starting Manifest Update for: ${newTag}"
-
-                            # 클론 진행
-                            rm -rf temp-manifests
-                            git clone ${manifestRepoUrl} temp-manifests
-
+                            git clone git@github.com:beyond-team3/final-manifests.git temp-manifests
                             cd temp-manifests
+                            git checkout ${targetBranch}
+                            sed -i "s|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${env.FINAL_TAG}|g" backend/deployment.yml
 
-                            # 이미지 태그 업데이트
-                            git checkout ${targetBranch} || git checkout -b ${targetBranch}
-                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${newTag}|g" ${targetFile}
-
-                            # Git 설정 및 푸시
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
-
-                            git add ${targetFile}
-                            if git diff --cached --quiet; then
-                                echo "No changes detected; skip push"
-                            else
-                                git commit -m "🚀 [CD] Update to ${newTag} [skip ci]"
+                            git add backend/deployment.yml
+                            if ! git diff --cached --quiet; then
+                                git commit -m "🚀 [CD] Update to ${env.FINAL_TAG} [skip ci]"
                                 git push origin ${targetBranch}
                             fi
                         """
@@ -185,17 +172,32 @@ spec:
                 }
             }
         }
+
+        stage('Wait for ArgoCD Sync') {
+            steps {
+                container('argocd-cli') {
+                    script {
+                        withCredentials([usernamePassword(credentialsId: env.ARGOCD_CREDENTIAL_ID,
+                            usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
+
+                            sh "argocd login [ArgoCD-Server-URL] --username ${ARGO_USER} --password ${ARGO_PASS} --insecure"
+                            sh "argocd app wait monsoon-app --timeout 300"
+
+                        }
+                        discordSend(
+                            webhookURL: env.DISCORD_WEBHOOK,
+                            title: "[Backend] 배포 완료!",
+                            description: "도메인: https://www.monsoonseed.com\n버전: ${env.FINAL_TAG}",
+                            result: 'SUCCESS',
+                            color: '#00FF00'
+                        )
+                    }
+                }
+            }
+        }
     }
 
     post {
-        success {
-            discordSend(
-                webhookURL: env.DISCORD_WEBHOOK,
-                title: "🟢 [Backend] 빌드 성공",
-                description: "Branch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_ID}",
-                result: 'SUCCESS'
-            )
-        }
         failure {
             discordSend(
                 webhookURL: env.DISCORD_WEBHOOK,

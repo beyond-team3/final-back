@@ -9,6 +9,8 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.account.entity.User;
+import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
+import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -37,6 +39,7 @@ import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -64,6 +68,7 @@ public class InvoiceService {
     private final DealLogQueryService dealLogQueryService;
     private final DealScheduleSyncService dealScheduleSyncService;
     private final NotificationEventPublisher notificationEventPublisher;
+    private final PaymentRepository paymentRepository;
 
     /**
      * 청구서 수동 생성 (영업사원)
@@ -139,7 +144,8 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                resolveContractCode(invoice.getContractId())
         );
     }
 
@@ -173,6 +179,19 @@ public class InvoiceService {
         invoice.updateAmount(publishTotalAmount);
 
         invoice.publish();
+
+        String paymentCode = generateCode("PAY");
+
+        Payment payment = Payment.create(
+                invoice,
+                invoice.getClient(),
+                invoice.getDeal(),
+                null,          // 아직 결제 안했으니까 method 없음
+                paymentCode
+        );
+
+        paymentRepository.save(payment);
+
         ActorType actorType = resolveActorType(principal);
         Long actorId = resolveActorId(actorType, principal);
         dealPipelineFacade.recordAndSync(
@@ -238,12 +257,13 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                resolveContractCode(invoice.getContractId())
         );
     }
 
     /**
-     * 청구서 단건 조회 (공통 - memo 없음)
+     * 첨구서 단건 조회 (공통 - memo 없음)
      */
     public InvoiceResponse getInvoice(Long invoiceId) {
         return getInvoice(invoiceId, null);
@@ -279,6 +299,7 @@ public class InvoiceService {
         validateInvoiceReadPermission(invoice, principal);
         List<InvoiceStatement> invoiceStatements =
                 invoiceStatementRepository.findAllByInvoiceId(invoiceId);
+        String contractCode = resolveContractCode(invoice.getContractId());
         return InvoiceDetailResponse.of(
                 invoice,
                 invoiceStatements,
@@ -286,8 +307,17 @@ public class InvoiceService {
                         invoice.getDeal() != null ? invoice.getDeal().getId() : null,
                         DealType.INV,
                         invoice.getId()
-                )
+                ),
+                contractCode
         );
+    }
+
+    /** contractId -> contractCode 헬퍼 */
+    private String resolveContractCode(Long contractId) {
+        if (contractId == null) return null;
+        return contractHeaderRepository.findById(contractId)
+                .map(ContractHeader::getContractCode)
+                .orElse(null);
     }
 
     /**
@@ -295,7 +325,10 @@ public class InvoiceService {
      */
     public List<InvoiceListResponse> getInvoices() {
         return invoiceRepository.findAll().stream()
-                .map(InvoiceListResponse::from)
+                .map(invoice -> InvoiceListResponse.from(
+                        invoice,
+                        resolveContractCode(invoice.getContractId())  // ← 이 줄이 핵심
+                ))
                 .toList();
     }
 
@@ -478,9 +511,11 @@ public class InvoiceService {
         if (principal == null || principal.getRole() == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
+        // ADMIN: 전체 허용
         if (principal.getRole() == Role.ADMIN) {
             return;
         }
+        // CLIENT: 본인 거래처 청구서만 허용
         if (principal.getRole() == Role.CLIENT) {
             Long principalClientId = principal.getClientId();
             Long invoiceClientId = invoice.getClient() != null ? invoice.getClient().getId() : null;
@@ -489,18 +524,16 @@ public class InvoiceService {
             }
             return;
         }
+        // SALES_REP: 담당 거래처(tbl_client.employee_id)의 청구서만 허용
         Long principalEmployeeId = principal.getEmployeeId();
         if (principalEmployeeId == null) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
-        Long invoiceEmployeeId = invoice.getEmployee() != null ? invoice.getEmployee().getId() : null;
-        Long ownerEmpId = invoice.getDeal() != null && invoice.getDeal().getOwnerEmp() != null
-                ? invoice.getDeal().getOwnerEmp().getId()
+        // tbl_client.employee_id = managerEmployee (Client 엔티티 필드명)
+        Long clientManagerEmpId = invoice.getClient() != null && invoice.getClient().getManagerEmployee() != null
+                ? invoice.getClient().getManagerEmployee().getId()
                 : null;
-        if (invoiceEmployeeId != null && principalEmployeeId.equals(invoiceEmployeeId)) {
-            return;
-        }
-        if (ownerEmpId != null && principalEmployeeId.equals(ownerEmpId)) {
+        if (clientManagerEmpId != null && principalEmployeeId.equals(clientManagerEmpId)) {
             return;
         }
         throw new CoreException(ErrorType.ACCESS_DENIED);
@@ -508,16 +541,36 @@ public class InvoiceService {
 
     private void publishInvoiceIssuedNotification(Invoice invoice) {
         if (invoice.getClient() == null || invoice.getClient().getId() == null) {
+            log.warn("Skipping invoice issued notification due to missing client or client id. invoiceId={}, client={}",
+                    invoice.getId(), invoice.getClient());
             return;
         }
         userRepository.findByClientId(invoice.getClient().getId())
                 .map(User::getId)
-                .ifPresent(userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
-                        userId,
-                        invoice.getId(),
-                        invoice.getInvoiceCode(),
-                        invoice.getClient().getClientName(),
-                        invoice.getCreatedAt() != null ? invoice.getCreatedAt() : java.time.LocalDateTime.now()
-                )));
+                .ifPresentOrElse(
+                        userId -> notificationEventPublisher.publishAfterCommit(new InvoiceIssuedEvent(
+                                userId,
+                                invoice.getId(),
+                                invoice.getInvoiceCode(),
+                                invoice.getClient().getClientName(),
+                                LocalDateTime.now()
+                        )),
+                        () -> log.warn(
+                                "No client user mapping found for invoice issued notification. clientId={}, clientName={}, invoiceId={}, invoiceCode={}",
+                                invoice.getClient().getId(),
+                                invoice.getClient().getClientName(),
+                                invoice.getId(),
+                                invoice.getInvoiceCode()
+                        )
+                );
+    }
+
+    public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
+        return invoiceRepository.findAllByEmployeeId(employeeId).stream()
+                .map(invoice -> InvoiceListResponse.from(
+                        invoice,
+                        resolveContractCode(invoice.getContractId())
+                ))
+                .toList();
     }
 }

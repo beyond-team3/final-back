@@ -22,7 +22,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -49,8 +51,8 @@ class QuotationSyncIntegrationTest {
     private EmployeeRepository employeeRepository;
 
     @Test
-    @DisplayName("RFQ 복구 테스트: 모든 연결된 견적이 만료된 경우 RFQ가 PENDING으로 복구되어야 함")
-    void recoverStatus_Pending() {
+    @DisplayName("RFQ 상태 유지 테스트: 모든 견적이 만료되어도 재작성을 위해 REVIEWING 상태가 유지되어야 함")
+    void persistStatus_Reviewing() {
         // given
         String uniqueSuffix = "REC1-" + System.currentTimeMillis() % 10000;
 
@@ -63,10 +65,11 @@ class QuotationSyncIntegrationTest {
         rfq.updateStatus(QuotationRequestStatus.REVIEWING);
         quotationRequestRepository.save(rfq);
 
-        // 만료된 견적 생성
+        // 만료될 예정인 승인 대기 견적 생성
         QuotationHeader expiredQuo = QuotationHeader.create(rfq, "QUO-EXP-" + uniqueSuffix, client, deal, employee,
                 BigDecimal.valueOf(100000), "Expired Memo");
-        expiredQuo.updateStatus(QuotationStatus.EXPIRED);
+        // 만료일을 어제로 설정하여 만료 대상이 되도록 함
+        ReflectionTestUtils.setField(expiredQuo, "expiredDate", LocalDate.now().minusDays(1));
         quotationRepository.save(expiredQuo);
         quotationRepository.flush();
 
@@ -74,13 +77,18 @@ class QuotationSyncIntegrationTest {
         quotationService.syncQuotationStatuses();
 
         // then
+        // 1. 견적서 상태가 EXPIRED로 변경되었는지 확인
+        QuotationHeader updatedQuo = quotationRepository.findById(expiredQuo.getId()).orElseThrow();
+        assertEquals(QuotationStatus.EXPIRED, updatedQuo.getStatus());
+
+        // 2. RFQ 상태가 여전히 REVIEWING인지 확인
         QuotationRequestHeader updatedRfq = quotationRequestRepository.findById(rfq.getId()).orElseThrow();
-        assertEquals(QuotationRequestStatus.PENDING, updatedRfq.getStatus());
+        assertEquals(QuotationRequestStatus.REVIEWING, updatedRfq.getStatus());
     }
 
     @Test
-    @DisplayName("RFQ 복구 방지 테스트: 진행 중인 견적이 하나라도 있으면 RFQ가 복구되지 않아야 함")
-    void recoverStatus_NoPending() {
+    @DisplayName("RFQ 상태 유지 테스트: 진행 중인 견적이 하나라도 있으면 REVIEWING 상태가 그대로 유지되어야 함")
+    void persistStatus_NoChange() {
         // given
         String uniqueSuffix = "REC2-" + System.currentTimeMillis() % 10000;
 

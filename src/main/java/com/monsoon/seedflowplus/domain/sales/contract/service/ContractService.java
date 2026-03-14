@@ -188,7 +188,7 @@ public class ContractService {
         validateClientAccess(client, userDetails);
 
         return contractRepository.findActiveContractsByClient(client, LocalDate.now(),
-                        ContractStatus.ACTIVE_CONTRACT, ContractStatus.COMPLETED)
+                ContractStatus.ACTIVE_CONTRACT, ContractStatus.COMPLETED)
                 .stream()
                 .map(ContractSimpleResponse::from)
                 .toList();
@@ -227,6 +227,10 @@ public class ContractService {
     @Transactional
     public void syncContractStatuses() {
         LocalDate today = LocalDate.now();
+        // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
+        int activatedCount = contractRepository.updateStatusForActivation(
+                ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
+
         List<ContractHeader> expiringContracts = contractRepository
                 .findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today);
         Map<Long, ExpiringContractContext> expiringContextByDealId = expiringContracts.stream()
@@ -241,10 +245,6 @@ public class ContractService {
                         (left, right) -> left,
                         java.util.LinkedHashMap::new
                 ));
-
-        // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
-        int activatedCount = contractRepository.updateStatusForActivation(
-                ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
 
         // 2. 만료 대상 처리 (진행중 상태인데 종료일이 오늘보다 이전인 경우)
         int expiredCount = contractRepository.updateStatusForExpiration(
@@ -310,34 +310,17 @@ public class ContractService {
         DealStage fromStage = mapContractStage(contract.getStatus());
         contract.delete();
         approvalCancellationService.cancelPendingRequest(DealType.CNT, contract.getId());
-        dealLogWriteService.write(
-                contract.getDeal(),
-                DealType.CNT,
-                contract.getId(),
-                contract.getContractCode(),
-                fromStage,
-                DealStage.CANCELED,
-                fromStatus,
-                ContractStatus.DELETED.name(),
-                ActionType.CANCEL,
-                LocalDateTime.now(),
-                resolveActorType(userDetails),
-                resolveActorId(userDetails),
-                null,
-                List.of(new DealLogWriteService.DiffField(
-                        "status",
-                        "문서 상태",
-                        fromStatus,
-                        ContractStatus.DELETED.name(),
-                        "STATUS"))
-        );
 
         // 연관된 견적서 및 견적요청서 상태 복구 (가드 추가: 터미널 상태 보호)
         QuotationHeader quotation = contract.getQuotation();
+        DealStage toStage = DealStage.CANCELED;
+        String toStatus = ContractStatus.DELETED.name();
         if (quotation != null) {
             // 견적서 상태: WAITING_CONTRACT 일 때만 FINAL_APPROVED로 복구
             if (quotation.getStatus() == QuotationStatus.WAITING_CONTRACT) {
                 quotation.updateStatus(QuotationStatus.FINAL_APPROVED);
+                toStage = mapQuotationStage(quotation.getStatus());
+                toStatus = quotation.getStatus().name();
             }
 
             // 견적요청서 상태: 완료(COMPLETED) 상태일 때만 검토 중(REVIEWING)으로 복구
@@ -345,6 +328,30 @@ public class ContractService {
                     quotation.getQuotationRequest().getStatus() == QuotationRequestStatus.COMPLETED) {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.REVIEWING);
             }
+        }
+
+        if (contract.getDeal() != null) {
+            dealLogWriteService.write(
+                    contract.getDeal(),
+                    DealType.CNT,
+                    contract.getId(),
+                    contract.getContractCode(),
+                    fromStage,
+                    toStage,
+                    fromStatus,
+                    toStatus,
+                    ActionType.CANCEL,
+                    LocalDateTime.now(),
+                    resolveActorType(userDetails),
+                    resolveActorId(userDetails),
+                    null,
+                    List.of(new DealLogWriteService.DiffField(
+                            "status",
+                            "문서 상태",
+                            fromStatus,
+                            ContractStatus.DELETED.name(),
+                            "STATUS"))
+            );
         }
 
         restoreDealSnapshotAfterContractDelete(contract);
@@ -582,17 +589,12 @@ public class ContractService {
         return actorId;
     }
 
-    private void closeDeals(java.util.Set<Long> dealIds, LocalDateTime actionAt) {
-        if (dealIds.isEmpty()) {
-            return;
-        }
-        salesDealRepository.findAllById(dealIds)
-                .forEach(deal -> closeDealIfOpen(deal, actionAt));
-    }
-
     private void closeDealIfOpen(SalesDeal deal, LocalDateTime actionAt) {
         if (deal == null) {
             throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+        }
+        if (deal.getClosedAt() != null) {
+            return;
         }
         deal.close(actionAt);
     }
@@ -600,7 +602,7 @@ public class ContractService {
     private void restoreDealSnapshotAfterContractDelete(ContractHeader contract) {
         SalesDeal deal = contract.getDeal();
         if (deal == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
+            return;
         }
         LocalDateTime actionAt = LocalDateTime.now();
 
@@ -633,9 +635,9 @@ public class ContractService {
         return switch (status) {
             case WAITING_ADMIN -> DealStage.PENDING_ADMIN;
             case REJECTED_ADMIN -> DealStage.REJECTED_ADMIN;
-            case WAITING_CLIENT, FINAL_APPROVED -> DealStage.PENDING_CLIENT;
+            case WAITING_CLIENT -> DealStage.PENDING_CLIENT;
+            case FINAL_APPROVED, WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
             case REJECTED_CLIENT -> DealStage.REJECTED_CLIENT;
-            case WAITING_CONTRACT, COMPLETED -> DealStage.APPROVED;
             case EXPIRED -> DealStage.EXPIRED;
             case DELETED -> DealStage.CANCELED;
         };

@@ -15,6 +15,7 @@ import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -71,6 +72,8 @@ class QuotationServiceTest {
     @Mock
     private DealLogWriteService dealLogWriteService;
     @Mock
+    private ApprovalDecisionRepository approvalDecisionRepository;
+    @Mock
     private DealLogQueryService dealLogQueryService;
     @Mock
     private ApprovalSubmissionService approvalSubmissionService;
@@ -94,6 +97,7 @@ class QuotationServiceTest {
         Client client = client(30L, author);
         SalesDeal deal = deal(client, author);
         QuotationRequestHeader rfq = QuotationRequestHeader.create(client, "req", deal);
+        ReflectionTestUtils.setField(rfq, "id", 30L);
         rfq.updateStatus(QuotationRequestStatus.REVIEWING);
         QuotationHeader quotation = QuotationHeader.create(rfq, "QUO-1", client, deal, author, BigDecimal.TEN, null);
         ReflectionTestUtils.setField(quotation, "id", 100L);
@@ -116,9 +120,9 @@ class QuotationServiceTest {
                 eq(100L),
                 eq("QUO-1"),
                 eq(DealStage.PENDING_ADMIN),
-                eq(DealStage.CANCELED),
+                eq(DealStage.CREATED),
                 eq(QuotationStatus.WAITING_ADMIN.name()),
-                eq(QuotationStatus.DELETED.name()),
+                eq(QuotationRequestStatus.PENDING.name()),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
                 any(),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActorType.SALES_REP),
@@ -135,9 +139,11 @@ class QuotationServiceTest {
         Client client = client(30L, author);
         SalesDeal deal = deal(client, author);
 
-        when(clientRepository.findById(30L)).thenReturn(Optional.of(client));
+        when(clientRepository.findByIdWithLock(30L)).thenReturn(Optional.of(client));
         when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
         when(salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(30L)).thenReturn(Optional.of(deal));
+        when(salesDealRepository.findByIdWithLock(500L)).thenReturn(Optional.of(deal));
+        when(quotationRepository.findByDealId(500L)).thenReturn(java.util.List.of());
         when(quotationRepository.save(any(QuotationHeader.class))).thenAnswer(invocation -> {
             QuotationHeader saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 100L);
@@ -168,6 +174,27 @@ class QuotationServiceTest {
         assertThat(command.title()).isEqualTo("견적 만료일: 거래처");
         assertThat(command.startAt()).isEqualTo(LocalDate.now().plusDays(30).atStartOfDay());
         assertThat(command.endAt()).isEqualTo(LocalDate.now().plusDays(31).atStartOfDay());
+
+    }
+
+    @Test
+    @DisplayName("deal 없는 견적도 삭제할 수 있다")
+    void deleteQuotationWithoutDealSkipsDealSideEffects() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal deal = deal(client, author);
+        QuotationHeader quotation = QuotationHeader.create(null, "QUO-2", client, deal, author, BigDecimal.TEN, null);
+        ReflectionTestUtils.setField(quotation, "id", 101L);
+        ReflectionTestUtils.setField(quotation, "deal", null);
+
+        when(quotationRepository.findById(101L)).thenReturn(Optional.of(quotation));
+        setAuthentication(salesRepUser(author));
+
+        quotationService.deleteQuotation(101L);
+
+        assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.DELETED);
+        verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 101L);
+        org.mockito.Mockito.verifyNoInteractions(dealLogWriteService);
     }
 
     private void setAuthentication(CustomUserDetails principal) {

@@ -17,6 +17,7 @@ import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -41,25 +42,53 @@ public class ScheduledNotificationService {
         }
         LocalDateTime now = LocalDateTime.now();
 
-        for (Long userId : recipientUserIds.stream().distinct().toList()) {
-            if (userId == null) {
+        for (Long userId : recipientUserIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted(Comparator.naturalOrder())
+                .toList()) {
+            boolean hasFutureNotification = false;
+            if (contract.getStartDate() != null) {
+                LocalDateTime startingScheduledAt = atNineAm(contract.getStartDate());
+                if (startingScheduledAt.isAfter(now)) {
+                    hasFutureNotification = true;
+                }
+            }
+            if (contract.getEndDate() != null) {
+                LocalDateTime endingSoonScheduledAt = atNineAm(contract.getEndDate().minusDays(30));
+                if (endingSoonScheduledAt.isAfter(now)) {
+                    hasFutureNotification = true;
+                }
+                LocalDateTime endedScheduledAt = atNineAm(contract.getEndDate());
+                if (endedScheduledAt.isAfter(now)) {
+                    hasFutureNotification = true;
+                }
+            }
+            if (!hasFutureNotification) {
                 continue;
             }
+
+            User lockedUser = lockUser(userId);
             if (contract.getStartDate() != null) {
-                createScheduledNotification(
-                        userId,
-                        NotificationType.CONTRACT_STARTING,
-                        NotificationTargetType.CONTRACT,
-                        contract.getId(),
-                        "계약 시작 알림",
-                        buildContractStartingContent(contract),
-                        atNineAm(contract.getStartDate())
-                );
+                LocalDateTime startingScheduledAt = atNineAm(contract.getStartDate());
+                if (startingScheduledAt.isAfter(now)) {
+                    createScheduledNotification(
+                            lockedUser,
+                            userId,
+                            NotificationType.CONTRACT_STARTING,
+                            NotificationTargetType.CONTRACT,
+                            contract.getId(),
+                            "계약 시작 알림",
+                            buildContractStartingContent(contract),
+                            startingScheduledAt
+                    );
+                }
             }
             if (contract.getEndDate() != null) {
                 LocalDateTime endingSoonScheduledAt = atNineAm(contract.getEndDate().minusDays(30));
                 if (endingSoonScheduledAt.isAfter(now)) {
                     createScheduledNotification(
+                            lockedUser,
                             userId,
                             NotificationType.CONTRACT_ENDING_SOON,
                             NotificationTargetType.CONTRACT,
@@ -69,20 +98,25 @@ public class ScheduledNotificationService {
                             endingSoonScheduledAt
                     );
                 }
-                createScheduledNotification(
-                        userId,
-                        NotificationType.CONTRACT_ENDED,
-                        NotificationTargetType.CONTRACT,
-                        contract.getId(),
-                        "계약 종료 알림",
-                        buildContractEndedContent(contract),
-                        atNineAm(contract.getEndDate())
-                );
+                LocalDateTime endedScheduledAt = atNineAm(contract.getEndDate());
+                if (endedScheduledAt.isAfter(now)) {
+                    createScheduledNotification(
+                            lockedUser,
+                            userId,
+                            NotificationType.CONTRACT_ENDED,
+                            NotificationTargetType.CONTRACT,
+                            contract.getId(),
+                            "계약 종료 알림",
+                            buildContractEndedContent(contract),
+                            endedScheduledAt
+                    );
+                }
             }
         }
     }
 
     private Notification createScheduledNotification(
+            User lockedUser,
             Long userId,
             NotificationType type,
             NotificationTargetType targetType,
@@ -92,7 +126,6 @@ public class ScheduledNotificationService {
             LocalDateTime scheduledAt
     ) {
         Objects.requireNonNull(scheduledAt, "scheduledAt must not be null");
-        User lockedUser = lockUser(userId);
         if (isDuplicated(userId, type, targetType, targetId, scheduledAt)) {
             return null;
         }
@@ -146,18 +179,27 @@ public class ScheduledNotificationService {
     }
 
     private String buildContractStartingContent(ContractHeader contract) {
-        return String.format("계약 %s가 오늘 시작됩니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 오늘 시작됩니다.";
+        }
+        return String.format("계약 %s가 오늘 시작됩니다.", wrappedCode);
     }
 
     private String buildContractEndingSoonContent(ContractHeader contract) {
-        return String.format("계약 %s 종료까지 30일 남았습니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 종료까지 30일 남았습니다.";
+        }
+        return String.format("계약 %s 종료까지 30일 남았습니다.", wrappedCode);
     }
 
     private String buildContractEndedContent(ContractHeader contract) {
-        return String.format("계약 %s가 오늘 종료됩니다.",
-                wrapCode(contract.getContractCode()));
+        String wrappedCode = wrapCode(contract.getContractCode());
+        if (wrappedCode.isEmpty()) {
+            return "계약이 오늘 종료됩니다.";
+        }
+        return String.format("계약 %s가 오늘 종료됩니다.", wrappedCode);
     }
 
     private String wrapCode(String code) {

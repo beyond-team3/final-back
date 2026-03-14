@@ -23,14 +23,20 @@ import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -45,7 +51,7 @@ public class StatementService {
 
     /**
      * 주문 확정(CONFIRMED) 시 명세서 자동 생성
-     * OrderService.confirmOrder() 에서 호출
+     * OrderApprovalConfirmedEventHandler -> OrderService.confirmOrderFromApproval() 흐름에서 호출
      */
     @Transactional
     public void createStatement(OrderHeader orderHeader, ActorType actorType, Long actorId) {
@@ -251,33 +257,78 @@ public class StatementService {
     }
 
     private void publishStatementIssuedNotifications(Statement statement, OrderHeader orderHeader) {
+        LocalDateTime occurredAt = statement.getCreatedAt() != null ? statement.getCreatedAt() : LocalDateTime.now();
         resolveStatementRecipientUserIds(orderHeader).forEach(userId ->
                 notificationEventPublisher.publishAfterCommit(new StatementIssuedEvent(
                         userId,
                         statement.getId(),
                         statement.getStatementCode(),
                         orderHeader.getOrderCode(),
-                        statement.getCreatedAt() != null ? statement.getCreatedAt() : java.time.LocalDateTime.now()
+                        occurredAt
                 )));
     }
 
     private List<Long> resolveStatementRecipientUserIds(OrderHeader orderHeader) {
-        java.util.LinkedHashSet<Long> userIds = new java.util.LinkedHashSet<>();
+        LinkedHashSet<Long> userIds = new LinkedHashSet<>();
+        LinkedHashSet<Long> employeeIds = new LinkedHashSet<>();
+        LinkedHashSet<Long> clientIds = new LinkedHashSet<>();
+
         if (orderHeader.getEmployee() != null && orderHeader.getEmployee().getId() != null) {
-            userRepository.findByEmployeeId(orderHeader.getEmployee().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
-        } else if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+            employeeIds.add(orderHeader.getEmployee().getId());
+        }
+        if (orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
                 && orderHeader.getDeal().getOwnerEmp().getId() != null) {
-            userRepository.findByEmployeeId(orderHeader.getDeal().getOwnerEmp().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
+            employeeIds.add(orderHeader.getDeal().getOwnerEmp().getId());
         }
         if (orderHeader.getClient() != null && orderHeader.getClient().getId() != null) {
-            userRepository.findByClientId(orderHeader.getClient().getId())
-                    .map(User::getId)
-                    .ifPresent(userIds::add);
+            clientIds.add(orderHeader.getClient().getId());
         }
+
+        LinkedHashMap<Long, Long> userIdByEmployeeId = employeeIds.isEmpty()
+                ? new LinkedHashMap<>()
+                : userRepository.findAllByEmployeeIdIn(employeeIds.stream().toList()).stream()
+                        .filter(user -> user.getEmployee() != null && user.getEmployee().getId() != null)
+                        .collect(LinkedHashMap::new,
+                                (map, user) -> map.put(user.getEmployee().getId(), user.getId()),
+                                LinkedHashMap::putAll);
+        LinkedHashMap<Long, Long> userIdByClientId = clientIds.isEmpty()
+                ? new LinkedHashMap<>()
+                : userRepository.findAllByClientIdIn(clientIds.stream().toList()).stream()
+                        .filter(user -> user.getClient() != null && user.getClient().getId() != null)
+                        .collect(LinkedHashMap::new,
+                                (map, user) -> map.put(user.getClient().getId(), user.getId()),
+                                LinkedHashMap::putAll);
+
+        addResolvedUserId(userIds, userIdByEmployeeId, orderHeader.getEmployee() == null ? null : orderHeader.getEmployee().getId(),
+                "order employee", "employeeId");
+        addResolvedUserId(userIds, userIdByEmployeeId,
+                orderHeader.getDeal() != null && orderHeader.getDeal().getOwnerEmp() != null
+                        ? orderHeader.getDeal().getOwnerEmp().getId()
+                        : null,
+                "deal owner employee", "employeeId");
+        addResolvedUserId(userIds, userIdByClientId,
+                orderHeader.getClient() == null ? null : orderHeader.getClient().getId(),
+                "statement client", "clientId");
+
         return userIds.stream().toList();
+    }
+
+    private void addResolvedUserId(
+            Set<Long> userIds,
+            LinkedHashMap<Long, Long> resolvedUserIds,
+            Long sourceId,
+            String sourceLabel,
+            String idLabel
+    ) {
+        if (sourceId == null) {
+            return;
+        }
+
+        Long userId = resolvedUserIds.get(sourceId);
+        if (userId == null) {
+            log.debug("No user found for {}. {}={}", sourceLabel, idLabel, sourceId);
+            return;
+        }
+        userIds.add(userId);
     }
 }

@@ -70,31 +70,16 @@ public class PaymentService {
         }
 
         // 4. 결제 저장 (invoice_id unique 제약으로 중복 결제 DB 레벨 차단 + paymentCode 충돌 재시도)
-        int maxRetries = 3;
-        Payment payment = null;
-        for (int i = 0; i < maxRetries; i++) {
-            try {
-                String paymentCode = generateCode("PAY");
-                payment = Payment.create(invoice, client, invoice.getDeal(), request.getPaymentMethod(), paymentCode);
-                paymentRepository.saveAndFlush(payment);
-                break;
-            } catch (DataIntegrityViolationException e) {
-                if (isInvoiceIdViolation(e)) {
-                    // invoice_id unique 위반 = 이미 결제된 청구서
-                    throw new CoreException(ErrorType.ALREADY_PAID);
-                }
-                if (!isPaymentCodeViolation(e)) throw e;
-                if (i == maxRetries - 1) throw new CoreException(ErrorType.PAYMENT_CODE_OVERFLOW);
-                // paymentCode 충돌만 재시도
-            }
+        Payment payment = paymentRepository.findByInvoiceId(invoice.getId())
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+
+        // 이미 결제된 경우 차단
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            throw new CoreException(ErrorType.ALREADY_PAID);
         }
 
-        dealPipelineFacade.validateTransitionOrThrow(
-                DealType.PAY,
-                PaymentStatus.PENDING.name(),
-                ActionType.PAY,
-                PaymentStatus.COMPLETED.name()
-        );
+        // 결제 수단 설정
+        payment.setPaymentMethod(request.getPaymentMethod());
 
         payment.complete();
 

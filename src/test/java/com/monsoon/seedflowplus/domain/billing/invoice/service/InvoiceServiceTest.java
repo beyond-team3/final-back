@@ -1,5 +1,6 @@
 package com.monsoon.seedflowplus.domain.billing.invoice.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -19,6 +20,7 @@ import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
+import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
 import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
@@ -31,6 +33,7 @@ import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +67,8 @@ class InvoiceServiceTest {
     private DealScheduleSyncService dealScheduleSyncService;
     @Mock
     private NotificationEventPublisher notificationEventPublisher;
+    @Mock
+    private PaymentRepository paymentRepository;
 
     private InvoiceService invoiceService;
 
@@ -79,7 +84,8 @@ class InvoiceServiceTest {
                 dealPipelineFacade,
                 dealLogQueryService,
                 dealScheduleSyncService,
-                notificationEventPublisher
+                notificationEventPublisher,
+                paymentRepository
         );
     }
 
@@ -142,7 +148,9 @@ class InvoiceServiceTest {
         when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(assigneeUser));
         when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
 
+        LocalDateTime publishedAtLowerBound = LocalDateTime.now();
         InvoicePublishResponse response = invoiceService.publishInvoice(41L, principal);
+        LocalDateTime publishedAtUpperBound = LocalDateTime.now();
 
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService, times(1)).upsertFromEvent(commandCaptor.capture());
@@ -157,8 +165,11 @@ class InvoiceServiceTest {
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
         verify(notificationEventPublisher).publishAfterCommit(eventCaptor.capture());
         InvoiceIssuedEvent event = (InvoiceIssuedEvent) eventCaptor.getValue();
+        assertEquals(199L, event.userId());
         assertEquals(41L, event.invoiceId());
         assertEquals("INV-20260310-001", event.invoiceCode());
+        assertEquals("테스트 거래처", event.clientName());
+        assertThat(event.occurredAt()).isBetween(publishedAtLowerBound, publishedAtUpperBound);
     }
 
     @Test

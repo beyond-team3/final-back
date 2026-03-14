@@ -32,8 +32,8 @@ public class BriefingResponseDto {
     @Schema(description = "AI 추천 영업 전략")
     private String strategySuggestion;
 
-    @Schema(description = "브리핑 생성 버전")
-    private String version;
+    @Schema(description = "데이터 갱신 버전")
+    private Integer revision;
 
     @Schema(description = "생성 일시")
     private LocalDateTime createdAt;
@@ -49,7 +49,7 @@ public class BriefingResponseDto {
                 .longTermPattern(entity.getLongTermPattern())
                 .evidenceNoteIds(entity.getEvidenceNoteIds())
                 .strategySuggestion(entity.getStrategySuggestion())
-                .version(entity.getVersion())
+                .revision(entity.getRevision())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

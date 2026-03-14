@@ -64,4 +64,8 @@ public class Payment extends BaseCreateEntity {
     public void complete() {
         this.status = PaymentStatus.COMPLETED;
     }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
 }

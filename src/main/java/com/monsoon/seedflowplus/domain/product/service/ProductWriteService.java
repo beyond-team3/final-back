@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -244,11 +245,15 @@ public class ProductWriteService {
             return;
         }
 
+        // 기존 매핑 삭제 후 즉시 flush하여 delete가 DB에 반영된 뒤 insert가 실행되도록 보장
         productTagRepository.deleteByProduct_Id(product.getId());
+        productTagRepository.flush();
 
         if (tagMap.isEmpty()) {
             return;
         }
+
+        List<ProductTag> newProductTags = new ArrayList<>();
 
         for (Map.Entry<String, List<String>> entry : tagMap.entrySet()) {
             String categoryCode = entry.getKey();
@@ -258,12 +263,16 @@ public class ProductWriteService {
                 Tag tag = tagService.getOrCreateTag(categoryCode, tagName);
 
                 if (tag != null) { // 유효한 태그인 경우에만 매핑
-                    productTagRepository.save(ProductTag.builder()
+                    newProductTags.add(ProductTag.builder()
                             .product(product)
                             .tag(tag)
                             .build());
                 }
             }
+        }
+
+        if (!newProductTags.isEmpty()) {
+            productTagRepository.saveAll(newProductTags);
         }
     }
 

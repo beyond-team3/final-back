@@ -232,9 +232,9 @@ public class OrderService {
                 .build();
     }
 
-    // 주문 확정
+    // 주문 확정은 승인 완료 후 내부 이벤트에서만 호출한다.
     @Transactional
-    public OrderResponse confirmOrder(Long orderId, CustomUserDetails principal) {
+    OrderResponse confirmOrderFromApproval(Long orderId, CustomUserDetails principal) {
         OrderHeader orderHeader = orderHeaderRepository.findById(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
 

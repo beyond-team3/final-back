@@ -52,7 +52,6 @@ public class GeminiAiClient implements AiClient {
                     .longTermPattern(aiResult.getLongTermPattern())
                     .strategySuggestion(aiResult.getStrategySuggestion())
                     .evidenceNoteIds(aiResult.getEvidenceNoteIds())
-                    .version("RAGseed-Standard-v1.3")
                     .build();
 
         } catch (Exception e) {
@@ -90,7 +89,19 @@ public class GeminiAiClient implements AiClient {
                 """, scopeDescription, contextText, userPrompt, scopeDescription);
 
             Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2);
-            return callGemini(requestBody);
+            String rawResponse = callGemini(requestBody);
+
+            // JSON 모드 대응: 응답이 JSON 형식이면 "content" 필드만 추출
+            try {
+                com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(rawResponse);
+                if (root.has("content")) {
+                    return root.get("content").asText();
+                }
+            } catch (Exception e) {
+                log.debug("AI 응답이 표준 JSON 형식이 아니므로 원본을 반환합니다: {}", rawResponse);
+            }
+
+            return rawResponse;
 
         } catch (Exception e) {
             log.error("RAGseed 타겟 전략 생성 중 오류: {}", e.getMessage());
@@ -145,14 +156,17 @@ public class GeminiAiClient implements AiClient {
         1. 답변의 첫 문장은 반드시 "본 분석은 %s를 바탕으로 도출되었습니다."로 시작하세요.
         2. 과거 영업 기록을 분석하여 핵심 변화와 패턴을 도출하세요.
         3. 종자 카탈로그를 참조하여 고객에게 가장 적합한 품종을 전략적으로 제안하세요.
+        4. 모든 응답 필드, 특히 'strategy_suggestion'은 풍부한 마크다운(Markdown) 형식을 사용하여 가독성을 극대화하세요.
+           - 소제목(###), 글머리 기호(-), 번호 매기기(1.), 굵게(**텍스트**) 등을 적절히 섞어 전문적인 리포트 형태로 작성하십시오.
+        5. 'evidence_note_ids' 필드에는 분석의 근거가 된 [영업 기록]의 [ID] 숫자들을 리스트 형태로 포함하세요.
+           - 반드시 아래 제공된 데이터에 존재하는 실제 ID만 사용해야 하며, 절대 임의의 숫자를 지어내지 마세요.
 
         반드시 아래 JSON 구조로만 응답하세요:
         {
-          "status_change": ["최근 변화 리스트"],
-          "long_term_pattern": ["장기 패턴 리스트"],
-          "strategy_suggestion": "전문적인 영업 전략 제안",
-          "evidence_note_ids": [101, 102],
-          "version": "RAGseed-Standard-v1.3"
+          "status_change": ["최근 변화 리스트 (마크다운 강조 포함 가능)"],
+          "long_term_pattern": ["장기 패턴 리스트 (마크다운 강조 포함 가능)"],
+          "strategy_suggestion": "### 1. 주요 전략 요약\\n- 내용...\\n\\n### 2. 추천 제품 및 기대효과\\n...",
+          "evidence_note_ids": [101, 102]
         }
 
         [데이터: Seed - 영업 기록]
@@ -241,8 +255,7 @@ public class GeminiAiClient implements AiClient {
           "status_change": ["최근 변화 내용"],
           "long_term_pattern": ["포착된 장기 패턴"],
           "strategy_suggestion": "실행 가능한 구체적 영업 전략",
-          "evidence_note_ids": [101, 102],
-          "version": "v1.1"
+          "evidence_note_ids": [101, 102]
         }
 
         [회의록 데이터]
