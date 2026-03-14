@@ -317,7 +317,7 @@ public class QuotationService {
                             client != null ? client.getClientName() : null,
                             client != null ? client.getManagerName() : null,
                             authorId,
-                            q.getCreatedAt().toLocalDate(),
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
                             requestId,
                             deal != null ? deal.getId() : null,
@@ -335,20 +335,35 @@ public class QuotationService {
     public List<QuotationListResponse> getRejectedQuotations() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        // 1. 권한 체크: 영업 담당자(SALES_REP)만 반려 목록 조회 가능
-        if (user.getRole() != Role.SALES_REP) {
+        // 1. 권한 체크: 영업 담당자(SALES_REP)와 관리자(ADMIN) 조회 가능
+        if (user.getRole() != Role.SALES_REP && user.getRole() != Role.ADMIN) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        if (user.getEmployeeId() == null) {
-            // 인증 정보에 직원 ID가 누락된 경우 (보안/세션 이상 상태 은닉 방지)
-            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
-        }
+        List<QuotationStatus> targetStatuses = List.of(
+                QuotationStatus.REJECTED_ADMIN,
+                QuotationStatus.REJECTED_CLIENT,
+                QuotationStatus.EXPIRED);
 
-        List<QuotationHeader> quotations = quotationRepository.findActiveRejectedQuotations(
-                user.getEmployeeId(),
-                List.of(QuotationStatus.REJECTED_ADMIN, QuotationStatus.REJECTED_CLIENT, QuotationStatus.EXPIRED),
-                QuotationStatus.DELETED);
+        log.info("[QuotationService] 반려/만료 견적서 조회 시작 - User: {}, Role: {}", user.getLoginId(), user.getRole());
+
+        List<QuotationHeader> quotations;
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            quotations = quotationRepository.findAllActiveRejectedQuotations(
+                    targetStatuses);
+            log.info("[QuotationService] 관리자 전역 조회 완료 - 검색 건수: {}건", quotations.size());
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                log.warn("[QuotationService] 영업사원 employeeId 누락 - User: {}", user.getLoginId());
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            quotations = quotationRepository.findActiveRejectedQuotations(
+                    user.getEmployeeId(),
+                    targetStatuses);
+            log.info("[QuotationService] 영업사원({}) 본인 건 조회 완료 - 검색 건수: {}건", user.getEmployeeId(), quotations.size());
+        }
 
         // 2. N+1 문제 해결: 한 번의 쿼리로 반려 사유 조회
         Map<Long, String> reasonsMap = fetchReasonsMap(quotations);
@@ -382,7 +397,7 @@ public class QuotationService {
                             client != null ? client.getClientName() : null,
                             client != null ? client.getManagerName() : null,
                             authorId,
-                            q.getCreatedAt().toLocalDate(),
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
                             requestId,
                             deal != null ? deal.getId() : null,
@@ -401,19 +416,31 @@ public class QuotationService {
     public List<QuotationListResponse> getRejectedQuotationsForContract() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        if (user.getRole() != Role.SALES_REP) {
+        // 1. 권한 체크: 영업 담당자(SALES_REP)와 관리자(ADMIN) 조회 가능
+        if (user.getRole() != Role.SALES_REP && user.getRole() != Role.ADMIN) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        if (user.getEmployeeId() == null) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
-        }
+        List<ContractStatus> rejectedStatuses = List.of(
+                ContractStatus.REJECTED_ADMIN,
+                ContractStatus.REJECTED_CLIENT);
 
-        List<QuotationHeader> quotations = quotationRepository.findQuotationsReadyForContractRewrite(
-                user.getEmployeeId(),
-                QuotationStatus.WAITING_CONTRACT,
-                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
-                ContractStatus.DELETED);
+        List<QuotationHeader> quotations;
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            quotations = quotationRepository.findAllQuotationsReadyForContractRewrite(
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            quotations = quotationRepository.findQuotationsReadyForContractRewrite(
+                    user.getEmployeeId(),
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        }
 
         return quotations.stream()
                 .map(q -> {
@@ -441,7 +468,7 @@ public class QuotationService {
                             client != null ? client.getClientName() : null,
                             client != null ? client.getManagerName() : null,
                             authorId,
-                            q.getCreatedAt().toLocalDate(),
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
                             requestId,
                             deal != null ? deal.getId() : null,
@@ -628,8 +655,10 @@ public class QuotationService {
                 .map(QuotationHeader::getId)
                 .toList();
 
-        return approvalDecisionRepository
-                .findReasonsByTargets(DealType.QUO, quotationIds).stream()
+        List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> reasons = approvalDecisionRepository.findReasonsByTargets(DealType.QUO, quotationIds);
+        if (reasons == null) return Map.of();
+
+        return reasons.stream()
                 .filter(dto -> dto.targetId() != null && dto.reason() != null)
                 .collect(Collectors.toMap(
                         ReasonDto::targetId,
@@ -847,7 +876,7 @@ public class QuotationService {
         }
 
         // 4. 아무 문서도 없으면 초기 상태로 중립화
-        deal.updateSnapshot(DealStage.CREATED, "OPEN", DealType.RFQ, 0L, null, LocalDateTime.now());
+        deal.updateSnapshot(DealStage.CREATED, QuotationRequestStatus.PENDING.name(), DealType.RFQ, 0L, null, LocalDateTime.now());
     }
 
     private int getContractStatusPriority(ContractStatus status) {
