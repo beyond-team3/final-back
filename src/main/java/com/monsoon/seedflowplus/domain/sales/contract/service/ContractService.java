@@ -647,8 +647,9 @@ public class ContractService {
 
         return quotations.stream()
                 .map(q -> {
+                    Client client = q.getClient();
                     Long authorId = q.getAuthor() != null ? q.getAuthor().getId() : null;
-                    String managerName = q.getClient() != null ? q.getClient().getManagerName() : null;
+                    String managerName = client != null ? client.getManagerName() : null;
                     Long requestId = q.getQuotationRequest() != null ? q.getQuotationRequest().getId() : null;
                     Long dealId = q.getDeal() != null ? q.getDeal().getId() : null;
                     String memo = (authorId != null && authorId.equals(user.getEmployeeId())) ? q.getMemo() : null;
@@ -658,8 +659,8 @@ public class ContractService {
                     return new QuotationListResponse(
                             q.getId(),
                             q.getQuotationCode(),
-                            q.getClient().getId(),
-                            q.getClient().getClientName(),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
                             managerName,
                             authorId,
                             q.getCreatedAt().toLocalDate(),
@@ -709,8 +710,9 @@ public class ContractService {
                                     item.getAmount()))
                             .toList();
 
+                    Client client = c.getClient();
                     Long authorId = c.getAuthor() != null ? c.getAuthor().getId() : null;
-                    String managerName = c.getClient() != null ? c.getClient().getManagerName() : null;
+                    String managerName = client != null ? client.getManagerName() : null;
                     Long quotationId = c.getQuotation() != null ? c.getQuotation().getId() : null;
                     Long dealId = c.getDeal() != null ? c.getDeal().getId() : null;
                     String memo = (authorId != null && authorId.equals(user.getEmployeeId())) ? c.getMemo() : null;
@@ -719,8 +721,8 @@ public class ContractService {
                     return new ContractListResponse(
                             c.getId(),
                             c.getContractCode(),
-                            c.getClient().getId(),
-                            c.getClient().getClientName(),
+                            client != null ? client.getId() : null,
+                            client != null ? client.getClientName() : null,
                             managerName,
                             authorId,
                             c.getCreatedAt().toLocalDate(),
@@ -978,7 +980,8 @@ public class ContractService {
                         || q.getStatus() == QuotationStatus.REJECTED_CLIENT);
 
         boolean allRfqClosed = quotationRequestRepository.findByDealId(deal.getId()).stream()
-                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED);
+                .allMatch(r -> r.getStatus() == QuotationRequestStatus.DELETED
+                        || r.getStatus() == QuotationRequestStatus.COMPLETED);
 
         return allCntClosed && allQuoClosed && allRfqClosed;
     }
