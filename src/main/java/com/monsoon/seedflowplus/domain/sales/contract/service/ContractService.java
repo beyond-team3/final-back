@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
+import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.ActionType;
 import com.monsoon.seedflowplus.domain.deal.common.ActorType;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -72,6 +73,7 @@ public class ContractService {
     private final DealLogQueryService dealLogQueryService;
     private final ApprovalCancellationService approvalCancellationService;
     private final ApprovalDecisionRepository approvalDecisionRepository;
+    private final ApprovalSubmissionService approvalSubmissionService;
 
     public ContractPrefillResponse getPrefillData(Long quotationId, Long contractId) {
         CustomUserDetails userDetails = getAuthenticatedUser();
@@ -578,6 +580,21 @@ public class ContractService {
                 quotation.getQuotationRequest().updateStatus(QuotationRequestStatus.COMPLETED);
             }
         }
+
+        // 8. 결재 요청 제출
+        log.info("[ContractService] 계약 생성 완료. 결재 요청 제출 시도 - CNT_ID: {}, Code: {}", contract.getId(), finalCode);
+        try {
+            approvalSubmissionService.submitFromDocumentCreation(
+                    DealType.CNT,
+                    contract.getId(),
+                    finalCode,
+                    userDetails
+            );
+            log.info("[ContractService] 결재 요청 제출 성공 - CNT_ID: {}", contract.getId());
+        } catch (Exception e) {
+            log.error("[ContractService] 결재 요청 제출 실패 - CNT_ID: {}, Error: {}", contract.getId(), e.getMessage());
+            throw e;
+        }
     }
 
     private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
@@ -639,11 +656,24 @@ public class ContractService {
             throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
         }
 
-        List<QuotationHeader> quotations = quotationRepository.findQuotationsReadyForContractRewrite(
-                user.getEmployeeId(),
-                QuotationStatus.WAITING_CONTRACT,
-                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
-                ContractStatus.DELETED);
+        List<ContractStatus> rejectedStatuses = List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT);
+        List<QuotationHeader> quotations;
+
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            quotations = quotationRepository.findAllQuotationsReadyForContractRewrite(
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            quotations = quotationRepository.findQuotationsReadyForContractRewrite(
+                    user.getEmployeeId(),
+                    QuotationStatus.WAITING_CONTRACT,
+                    rejectedStatuses);
+        }
 
         return quotations.stream()
                 .map(q -> {
@@ -663,7 +693,7 @@ public class ContractService {
                             client != null ? client.getClientName() : null,
                             managerName,
                             authorId,
-                            q.getCreatedAt().toLocalDate(),
+                            q.getCreatedAt() != null ? q.getCreatedAt().toLocalDate() : null,
                             q.getStatus(),
                             requestId,
                             dealId,
@@ -681,18 +711,29 @@ public class ContractService {
     public List<ContractListResponse> getRejectedContracts() {
         CustomUserDetails user = getAuthenticatedUser();
 
-        if (user.getRole() != Role.SALES_REP) {
+        // 1. 권한 체크: 영업 담당자(SALES_REP)와 관리자(ADMIN) 조회 가능
+        if (user.getRole() != Role.SALES_REP && user.getRole() != Role.ADMIN) {
             throw new CoreException(ErrorType.ACCESS_DENIED);
         }
 
-        if (user.getEmployeeId() == null) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
-        }
+        List<ContractStatus> targetStatuses = List.of(
+                ContractStatus.REJECTED_ADMIN,
+                ContractStatus.REJECTED_CLIENT);
 
-        List<ContractHeader> contracts = contractRepository.findActiveRejectedContracts(
-                user.getEmployeeId(),
-                List.of(ContractStatus.REJECTED_ADMIN, ContractStatus.REJECTED_CLIENT),
-                ContractStatus.DELETED);
+        List<ContractHeader> contracts;
+        if (user.getRole() == Role.ADMIN) {
+            // 관리자는 전역 조회
+            contracts = contractRepository.findAllActiveRejectedContracts(
+                    targetStatuses);
+        } else {
+            // 영업 담당자는 본인 관련 건만 조회
+            if (user.getEmployeeId() == null) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "employeeId is null");
+            }
+            contracts = contractRepository.findActiveRejectedContracts(
+                    user.getEmployeeId(),
+                    targetStatuses);
+        }
 
         Map<Long, String> reasonsMap = fetchReasonsMap(contracts);
 
@@ -725,7 +766,7 @@ public class ContractService {
                             client != null ? client.getClientName() : null,
                             managerName,
                             authorId,
-                            c.getCreatedAt().toLocalDate(),
+                            c.getCreatedAt() != null ? c.getCreatedAt().toLocalDate() : null,
                             c.getStatus(),
                             quotationId,
                             dealId,
@@ -745,8 +786,10 @@ public class ContractService {
                 .map(ContractHeader::getId)
                 .toList();
 
-        return approvalDecisionRepository
-                .findReasonsByTargets(DealType.CNT, contractIds).stream()
+        List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> reasons = approvalDecisionRepository.findReasonsByTargets(DealType.CNT, contractIds);
+        if (reasons == null) return Map.of();
+
+        return reasons.stream()
                 .filter(dto -> dto.targetId() != null && dto.reason() != null)
                 .collect(Collectors.toMap(
                         ReasonDto::targetId,
@@ -939,7 +982,7 @@ public class ContractService {
         }
 
         // 4. 아무 문서도 없으면 초기 상태로 중립화
-        deal.updateSnapshot(DealStage.CREATED, "OPEN", DealType.RFQ, 0L, null, LocalDateTime.now());
+        deal.updateSnapshot(DealStage.CREATED, com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.PENDING.name(), DealType.RFQ, 0L, null, LocalDateTime.now());
     }
 
     private int getContractStatusPriority(ContractStatus status) {
