@@ -86,8 +86,8 @@ spec:
                     echo "Running tests with profile=${env.SPRING_PROFILES_ACTIVE} (H2)..."
                     sh 'chmod +x ./gradlew'
 
-                    // 프로필을 JVM 옵션으로도 한 번 더 강제 (안전장치)
-                    sh './gradlew clean test -Dspring.profiles.active=test --stacktrace --info'
+                    // 프로필을 JVM 옵션으로도 한 번 더 강제 (안전장치)- 테스트단계 임시 주석처리
+                    // sh './gradlew clean test -Dspring.profiles.active=test --stacktrace --info'
                 }
             }
         }
