@@ -200,6 +200,37 @@ class ProductReadServiceTest {
                 .isEqualTo("프리미엄 수박");
     }
 
+    @Test
+    @DisplayName("수확 기간이 이미 시작되었어도 이번달 또는 다음달과 겹치면 수확 임박으로 포함한다")
+    void getHarvestImminentIncludesOngoingHarvestWindow() {
+        Client client = createClient("거래처B");
+        ReflectionTestUtils.setField(client, "id", 2L);
+
+        ClientCrop crop = ClientCrop.builder()
+                .cropName("수박")
+                .client(client)
+                .build();
+        ReflectionTestUtils.setField(crop, "id", 11L);
+
+        Product ongoingHarvest = createDummyProduct("P010", "중만생 수박", new BigDecimal("17000"));
+
+        when(clientRepository.findAllByManagerEmployeeId(7L)).thenReturn(List.of(client));
+        when(clientCropRepository.findAllByClientIdIn(List.of(2L))).thenReturn(List.of(crop));
+        when(productRepository.findAll()).thenReturn(List.of(ongoingHarvest));
+        when(cultivationTimeRepository.findAllByProductIdIn(List.of(ongoingHarvest.getId())))
+                .thenReturn(List.of(
+                        createCultivationTime(ongoingHarvest, 1, 2, 2, 4, "노지", "충남")
+                ));
+
+        ProductHarvestImminentResponse response = productReadService.getHarvestImminent(3, salesRepPrincipal(7L));
+
+        assertThat(response.getClients()).hasSize(1);
+        assertThat(response.getClients().getFirst().getCrops()).hasSize(1);
+        assertThat(response.getClients().getFirst().getCrops().getFirst().getMatchedProducts()).hasSize(1);
+        assertThat(response.getClients().getFirst().getCrops().getFirst().getMatchedProducts().getFirst().getProductName())
+                .isEqualTo("중만생 수박");
+    }
+
     private static long counter = 1L;
 
     private Product createDummyProduct(String code, String name, BigDecimal price) {

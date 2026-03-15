@@ -473,11 +473,17 @@ public class ProductReadService {
 
         private boolean isHarvestImminent(CultivationTime cultivationTime, int targetMonth, int nextMonth) {
                 Integer harvestingStart = cultivationTime.getHarvestingStart();
-                return harvestingStart != null && (harvestingStart == targetMonth || harvestingStart == nextMonth);
+                Integer harvestingEnd = cultivationTime.getHarvestingEnd();
+                if (harvestingStart == null || harvestingEnd == null) {
+                        return false;
+                }
+                return isBetweenInclusive(targetMonth, harvestingStart, harvestingEnd)
+                                || isBetweenInclusive(nextMonth, harvestingStart, harvestingEnd);
         }
 
         private int harvestPriority(CultivationTime cultivationTime, int targetMonth) {
-                return Objects.equals(cultivationTime.getHarvestingStart(), targetMonth) ? 0 : 1;
+                return isBetweenInclusive(targetMonth, cultivationTime.getHarvestingStart(),
+                                cultivationTime.getHarvestingEnd()) ? 0 : 1;
         }
 
         private boolean isBetweenInclusive(int targetMonth, Integer start, Integer end) {
