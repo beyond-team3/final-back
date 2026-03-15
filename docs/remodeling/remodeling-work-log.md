@@ -238,3 +238,21 @@
 
 ### 다음 단계
 9단계 문서 업데이트 정리 및 10단계 최종 점검
+
+## [2026-03-15 10:08] v2 문서 인벤토리 및 전환 가이드 정리
+
+### 작업 내용
+- 수정 파일: `docs/api/domain-api-list.csv` — v2 deal/quotation/contract/statistics API 목록 추가
+- 수정 파일: `api-test/http/deal/deal-v2.http` — v2 deal 조회/KPI/manual test 요청 컬렉션 추가
+- 수정 파일: `api-test/http/deal/document-v2.http` — v2 quotation/contract 생성·재작성·취소 요청 컬렉션 추가
+- 수정 파일: `api-test/http/statistics/billing-revenue-v2.http` — v2 billing revenue 요청 컬렉션 추가
+- 수정 파일: `docs/remodeling/v1-v2-transition-guide.md` — v1→v2 전환 가이드 초안 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 9단계 문서 정리 구조 기록
+- 수정 파일: `PROGRESS.md` — 9단계 완료 및 10단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 코드 변경 없음
+
+### 다음 단계
+10단계 최종 점검 및 전환 가이드 보완

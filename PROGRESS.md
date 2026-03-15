@@ -24,12 +24,12 @@
 - [x] 6. snapshot 재계산 로직 작성
 - [x] 7. 알림/일정/통계 연계 수정
 - [x] 8. 컨트롤러 / SecurityConfig / 테스트 작성
-- [ ] 9. 문서 업데이트 정리
+- [x] 9. 문서 업데이트 정리
 - [ ] 10. 최종 점검 및 전환 가이드 초안
 
 ## Current Focus
 
-현재 진행 단계: `9. 문서 업데이트 정리`
+현재 진행 단계: `10. 최종 점검 및 전환 가이드 초안`
 
 1단계 분석 결과:
 - `SalesDeal.currentStatus` 는 문서별 enum 문자열과 직접 결합되어 있음
@@ -52,5 +52,7 @@
 - 완료: `/api/v2/**` 보안 매처와 v2 컨트롤러 테스트 추가
 - 완료: `DealSchedule` soft-cancel 상태(`CANCELLED`) 도입 및 조회 제외 처리
 - 완료: `/api/v2/statistics/billing/revenue/**` 래퍼 엔드포인트 추가
-- 남음: 9단계 문서 업데이트 정리
+- 완료: `docs/api/domain-api-list.csv` 에 v2 API 인벤토리 반영
+- 완료: `api-test/http` v2 요청 컬렉션 추가
+- 완료: `v1-v2-transition-guide.md` 초안 추가
 - 남음: 10단계 최종 점검과 v1→v2 전환 가이드 초안

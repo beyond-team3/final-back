@@ -152,3 +152,20 @@
 
 ### 변경 이유
 7단계 목표인 일정의 삭제 금지/상태 전환 정책과 매출 통계의 v2 전용 경로 분리를 동시에 마무리하기 위함입니다.
+
+## [2026-03-15] v2 문서 인벤토리 및 전환 가이드 정리
+
+### 변경 대상
+- 파일: `docs/api/domain-api-list.csv`
+- 파일: `api-test/http/deal/deal-v2.http`
+- 파일: `api-test/http/deal/document-v2.http`
+- 파일: `api-test/http/statistics/billing-revenue-v2.http`
+- 파일: `docs/remodeling/v1-v2-transition-guide.md`
+
+### 변경 내용
+`domain-api-list.csv` 에 현재까지 추가된 v2 deal/quotation/contract/statistics 엔드포인트를 등록했습니다.
+IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v2 호출 예제를 별도 파일로 분리했습니다.
+`v1-v2-transition-guide.md` 에 현재 v2 적용 범위, 정책 차이, QA 체크포인트, 남은 전환 작업을 초안으로 정리했습니다.
+
+### 변경 이유
+9단계 목표인 API 인벤토리, 수동 검증 컬렉션, 전환 문서 초안을 병행 관리하기 위함입니다.
