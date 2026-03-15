@@ -299,3 +299,22 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-15 11:45] 수동 청구서 초안 담당자 귀속 및 발행 권한 분리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/repository/InvoiceRepository.java` — 영업사원 가시 범위를 invoice 담당자, 거래처 담당자, deal owner까지 포함하도록 조회 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 관리자 수동 초안 생성 시 담당자 귀속, 영업사원 전용 발행 권한 검증, 목록 조회 기준 보강
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 수동 초안 담당자 귀속, 관리자 발행 차단, 확장 조회 범위 검증 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 청구서 권한/조회 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.billing.invoice.service.InvoiceServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.controller.InvoiceControllerTest'` 성공
+
+### 다음 단계
+없음

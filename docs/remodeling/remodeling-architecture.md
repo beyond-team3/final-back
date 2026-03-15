@@ -199,3 +199,17 @@ IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v
 
 ### 변경 이유
 프론트 명세서 상세 빈 화면 문제를 DTO 수준에서 해소하고, billing cycle 기반 청구서 플로우를 운영 전 테스트할 수 있는 수동 트리거를 제공하기 위함입니다.
+
+## [2026-03-15] 수동 청구서 초안 담당자 귀속 및 발행 권한 분리
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/repository/InvoiceRepository.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java`
+
+### 변경 내용
+관리자 수동 생성 청구서 초안에도 계약의 deal owner, 거래처 담당자, 계약 작성자를 순서대로 해석해 `Invoice.employee`를 채우도록 조정했습니다.
+영업사원 청구서 목록은 기존 `employee_id` 단일 기준 대신 invoice 담당자, 거래처 담당자, deal owner 범위를 모두 포함하는 조회로 확장했습니다.
+청구서 발행은 서비스에서 `SALES_REP` 전용으로 강제하고, 조회 권한 검증을 재사용해 담당 범위를 벗어난 발행을 차단했습니다.
+
+### 변경 이유
+관리자가 초안을 생성한 뒤 담당 영업사원이 동일 청구서를 조회·발행할 수 있어야 하고, 반대로 관리자의 발행이나 비담당 영업사원의 발행은 허용하지 않기 때문입니다.
