@@ -71,16 +71,18 @@ public class NotificationCommandService {
     public void createCultivationSowingPromotion(
             Long userId,
             Long productId,
-            LocalDateTime sowingStart,
-            LocalDateTime sowingEnd,
-            LocalDateTime now
+            String productName,
+            Integer sowingStartMonth,
+            Integer clientCount,
+            LocalDateTime scheduledAt
     ) {
         cultivationNotificationService.createSowingPromotionNotification(
                 userId,
                 productId,
-                sowingStart,
-                sowingEnd,
-                now
+                productName,
+                sowingStartMonth,
+                clientCount,
+                scheduledAt
         );
     }
 
@@ -88,16 +90,18 @@ public class NotificationCommandService {
     public void createCultivationHarvestFeedback(
             Long userId,
             Long productId,
-            LocalDateTime harvestingStart,
-            LocalDateTime harvestingEnd,
-            LocalDateTime now
+            String productName,
+            Integer harvestingStartMonth,
+            Integer clientCount,
+            LocalDateTime scheduledAt
     ) {
         cultivationNotificationService.createHarvestFeedbackNotification(
                 userId,
                 productId,
-                harvestingStart,
-                harvestingEnd,
-                now
+                productName,
+                harvestingStartMonth,
+                clientCount,
+                scheduledAt
         );
     }
 }
