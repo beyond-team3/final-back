@@ -1,6 +1,7 @@
 package com.monsoon.seedflowplus.domain.billing.invoice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -16,8 +17,12 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoicePublishResponse;
+import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
+import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
 import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
@@ -27,6 +32,9 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
@@ -140,9 +148,11 @@ class InvoiceServiceTest {
         User clientUser = org.mockito.Mockito.mock(User.class);
         when(clientUser.getId()).thenReturn(199L);
 
+        client.updateManagerEmployee(ownerEmployee);
+
         CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
-        when(principal.getRole()).thenReturn(Role.ADMIN);
-        when(principal.getEmployeeId()).thenReturn(100L);
+        when(principal.getRole()).thenReturn(Role.SALES_REP);
+        when(principal.getEmployeeId()).thenReturn(12L);
 
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
         when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(assigneeUser));
@@ -174,10 +184,6 @@ class InvoiceServiceTest {
 
     @Test
     void publishInvoiceShouldFallbackToPrincipalUserWhenOwnerUserMissing() {
-        Client client = org.mockito.Mockito.mock(Client.class);
-        when(client.getId()).thenReturn(7L);
-        when(client.getClientName()).thenReturn("테스트 거래처");
-
         Employee ownerEmployee = org.mockito.Mockito.mock(Employee.class);
         when(ownerEmployee.getId()).thenReturn(12L);
 
@@ -185,13 +191,27 @@ class InvoiceServiceTest {
         when(deal.getId()).thenReturn(88L);
         when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
 
-        Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
+        Client typedClient = Client.builder()
+                .clientCode("C-2")
+                .clientName("테스트 거래처")
+                .clientBrn("222-22-22222")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .managerEmployee(ownerEmployee)
+                .build();
+        ReflectionTestUtils.setField(typedClient, "id", 7L);
+
+        Invoice invoice = Invoice.create(10L, typedClient, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
                 LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
         ReflectionTestUtils.setField(invoice, "id", 41L);
 
         CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
-        when(principal.getRole()).thenReturn(Role.ADMIN);
-        when(principal.getEmployeeId()).thenReturn(100L);
+        when(principal.getRole()).thenReturn(Role.SALES_REP);
+        when(principal.getEmployeeId()).thenReturn(12L);
         when(principal.getUserId()).thenReturn(7002L);
 
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
@@ -202,5 +222,144 @@ class InvoiceServiceTest {
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
         assertEquals(7002L, commandCaptor.getValue().assigneeUserId());
+    }
+
+    @Test
+    void createDraftInvoiceByAdminCreatesImmediateDraftForContract() {
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("테스트 거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        Employee ownerEmployee = Employee.builder()
+                .employeeCode("EMP-1")
+                .employeeName("담당 영업")
+                .employeeEmail("owner@test.com")
+                .employeePhone("010-1111-1111")
+                .address("서울")
+                .build();
+        ReflectionTestUtils.setField(ownerEmployee, "id", 12L);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        when(deal.getId()).thenReturn(55L);
+
+        ContractHeader contract = ContractHeader.create(
+                "CNT-20260315-001",
+                null,
+                client,
+                deal,
+                ownerEmployee,
+                java.math.BigDecimal.valueOf(100000),
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 6, 30),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(contract, "id", 10L);
+        ReflectionTestUtils.setField(contract, "status", ContractStatus.COMPLETED);
+
+        Statement statement = org.mockito.Mockito.mock(Statement.class);
+        when(statement.getTotalAmount()).thenReturn(java.math.BigDecimal.valueOf(55000));
+
+        when(contractRepository.findById(10L)).thenReturn(Optional.of(contract));
+        when(invoiceRepository.existsByContractIdAndStatusIn(10L, List.of(InvoiceStatus.DRAFT, InvoiceStatus.PUBLISHED))).thenReturn(false);
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> {
+            Invoice invoice = invocation.getArgument(0);
+            ReflectionTestUtils.setField(invoice, "id", 41L);
+            return invoice;
+        });
+        when(invoiceRepository.saveAndFlush(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceStatementRepository.findBillableStatements(10L)).thenReturn(List.of(statement));
+        when(invoiceStatementRepository.save(any(InvoiceStatement.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceStatementRepository.findAllByInvoiceId(41L)).thenReturn(List.of());
+        when(dealLogQueryService.getRecentDocumentLogs(55L, DealType.INV, 41L)).thenReturn(List.of());
+
+        InvoiceDetailResponse response = invoiceService.createDraftInvoiceByAdmin(10L);
+
+        assertThat(response.getInvoiceId()).isEqualTo(41L);
+        assertThat(response.getContractCode()).isEqualTo("CNT-20260315-001");
+        assertThat(response.getStatus()).isEqualTo(InvoiceStatus.DRAFT);
+        assertThat(response.getClientName()).isEqualTo("테스트 거래처");
+        ArgumentCaptor<Invoice> invoiceCaptor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository, times(1)).save(invoiceCaptor.capture());
+        assertThat(invoiceCaptor.getValue().getEmployee()).isEqualTo(ownerEmployee);
+    }
+
+    @Test
+    void adminCannotPublishInvoiceEvenWhenDraftExists() {
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("테스트 거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        Employee ownerEmployee = Employee.builder()
+                .employeeCode("EMP-1")
+                .employeeName("담당 영업")
+                .employeeEmail("owner@test.com")
+                .employeePhone("010-1111-1111")
+                .address("서울")
+                .build();
+        ReflectionTestUtils.setField(ownerEmployee, "id", 12L);
+        client.updateManagerEmployee(ownerEmployee);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+
+        Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
+        ReflectionTestUtils.setField(invoice, "id", 41L);
+
+        CustomUserDetails principal = org.mockito.Mockito.mock(CustomUserDetails.class);
+        when(principal.getRole()).thenReturn(Role.ADMIN);
+
+        when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> invoiceService.publishInvoice(41L, principal))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    void getInvoicesByEmployeeUsesExpandedVisibleScope() {
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("테스트 거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+
+        Invoice invoice = Invoice.create(10L, client, deal, null, LocalDate.of(2026, 3, 15),
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
+        ReflectionTestUtils.setField(invoice, "id", 41L);
+
+        when(invoiceRepository.findAllVisibleByEmployeeScope(12L)).thenReturn(List.of(invoice));
+        List<com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceListResponse> invoices =
+                invoiceService.getInvoicesByEmployee(12L);
+
+        assertThat(invoices).hasSize(1);
+        verify(invoiceRepository, times(1)).findAllVisibleByEmployeeScope(12L);
     }
 }

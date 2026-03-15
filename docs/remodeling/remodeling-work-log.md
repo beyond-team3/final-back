@@ -1,0 +1,453 @@
+# Remodeling Work Log
+
+## [2026-03-15 03:40] AGENTS v2 버전 계층 계획 추가 및 문구 보정
+
+### 작업 내용
+- 수정 파일: `AGENTS.md` — `/api/v2/**` 신규 버전 계층 추가 계획, 권장 패키지 구조, 1차/보류 대상, 구현 단계, 주의사항을 추가
+- 수정 파일: `AGENTS.md` — 범위 외 항목의 `AGENTS.md 자체 수정` 문구를 사용자 명시 요청 없는 임의 수정 금지로 보정
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 리모델링 전용 작업 로그 파일 신규 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+`/api/v2/**` 1차 대상 도메인별 컨트롤러/서비스 패키지 초안 정리
+
+## [2026-03-15 03:48] AGENTS 엔티티/Enum 보존 규칙 추가
+
+### 작업 내용
+- 수정 파일: `AGENTS.md` — 엔티티/enum 변경 시 기존 내용을 바로 삭제하지 말고 우선 주석 또는 대체 보존 방식으로 남기도록 지시사항 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+사용자 요청 시 AGENTS 문서 변경분 stage 및 커밋
+
+## [2026-03-15 04:05] 리모델링 진행 체크리스트 문서 추가
+
+### 작업 내용
+- 수정 파일: `PROGRESS.md` — 권장 구현 순서를 기준으로 단계별 체크리스트와 현재 분석 진행 상태를 추가
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 진행 체크리스트 추가 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+1단계 현재 구조 파악 세부 분석 계속 진행
+
+## [2026-03-15 04:17] 현재 구조 파악 1단계 분석 완료
+
+### 작업 내용
+- 수정 파일: `PROGRESS.md` — 문서 상태 결합, deal 자동 연결, snapshot 갱신, 일정/알림/통계 귀속 기준에 대한 1단계 분석 결과를 반영하고 다음 단계 포커스를 갱신
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 1단계 분석 완료 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+2단계 v2 정책 반영용 설계 뼈대 작성
+
+## [2026-03-15 04:26] v2 공통 모델 초안 추가
+
+### 작업 내용
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — `v2` 공통 상태 enum과 deal 중심 DTO 추가 구조를 기록
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentLifecycleStatus.java` — 문서 생명주기 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentApprovalStatus.java` — 문서 승인 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/common/DocumentRole.java` — 문서 대표성 역할 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/RevisionInfoDto.java` — 재작성 계보 DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealSnapshotDto.java` — deal snapshot DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealSummaryDto.java` — deal 목록 DTO 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDetailDto.java` — deal 상세 DTO 초안 추가
+- 수정 파일: `PROGRESS.md` — 2단계, 3단계 완료 처리 및 4단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 컴파일 확인 전
+
+### 다음 단계
+4단계 deal 중심 조회 계층 작성
+
+## [2026-03-15 04:39] v2 deal 조회 계층 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — `/api/v2/deals` 목록/상세/문서목록 조회 엔드포인트 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2QueryService.java` — 기존 deal/document 리포지토리 재사용 기반의 `v2` 조회 서비스 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDocumentSummaryDto.java` — deal 문서 목록 응답 DTO 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — `v2` deal 조회 계층 구조를 기록
+- 수정 파일: `PROGRESS.md` — 4단계 완료 처리 및 5단계 포커스 반영
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — `v2` deal 조회 계층 추가 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 최초 compileJava 실패(`Iterable.stream()`, `updatedAt` getter) 후 수정하여 재컴파일 성공
+
+### 다음 단계
+5단계 문서 생성/재작성/승인/취소 흐름 개편
+
+## [2026-03-15 05:06] v2 QUO/CNT 생성 및 재작성 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/entity/QuotationHeader.java` — 견적서 재작성 계보 필드와 설정 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractHeader.java` — 계약서 재작성 계보 필드와 설정 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/repository/QuotationRepository.java` — revision group 기준 최신 revision 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java` — revision group 기준 최신 revision 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/**` — 견적서 v2 생성/재작성 DTO, 서비스, 컨트롤러 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/**` — 계약서 v2 생성/재작성 DTO, 서비스, 컨트롤러 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealDocumentCommandResultDto.java` — 생성/재작성 결과 DTO 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 5단계 명령 계층 초안 구조 기록
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 5단계 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `ContractV2CommandService` 에 `ClientRepository`, `EmployeeRepository` import 누락으로 최초 실패 후 수정하여 재컴파일 성공
+
+### 다음 단계
+5단계 컴파일 확인 및 cancel/supersede 보완
+
+## [2026-03-15 05:22] v2 cancel 및 snapshot 재동기화 초안 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java` — document summary 기반 deal snapshot 재동기화 서비스 초안 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — v2 견적서 취소, approval 취소, snapshot 재동기화 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java` — v2 계약서 취소, approval 취소, snapshot 재동기화 후처리 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2Controller.java` — 견적서 cancel API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2Controller.java` — 계약서 cancel API 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — cancel/snapshot 후처리 구조 기록
+- 수정 파일: `PROGRESS.md` — 5단계 완료 처리 및 6단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+6단계 snapshot 재계산 로직 일반화
+
+## [2026-03-15 05:33] v2 snapshot 재계산 경로 일반화
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2SnapshotSyncService.java` — 대표 문서 우선순위 비교와 공통 재계산 진입점을 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — 견적서 생성/재작성/취소 후 공통 snapshot 재계산 경로 사용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/v2/service/ContractV2CommandService.java` — 계약서 생성/재작성/취소 후 공통 snapshot 재계산 경로 사용
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 6단계 snapshot 일반화 구조 기록
+- 수정 파일: `PROGRESS.md` — 6단계 완료 처리 및 7단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest'` 성공
+
+### 다음 단계
+7단계 알림/일정/통계 연계 수정 및 v1 회귀 확인
+
+## [2026-03-15 05:47] v2 deal 문맥 알림/일정 조회 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2ContextQueryService.java` — deal 문맥 알림/일정 조회 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — deal notifications/schedules 조회 API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/repository/NotificationRepository.java` — deal 문맥 알림 조회용 repository query 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/service/QuotationV2CommandService.java` — 견적서 v2 생성 시 만료 일정 upsert 연계 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 7단계 deal 문맥 조회 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 진행 현황 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest'` 성공
+
+### 다음 단계
+7단계 통계/KPI v2 반영 범위 정리 후 8단계 보안/테스트 확장
+
+## [2026-03-15 06:21] v2 deal KPI 조회 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/dto/DealKpiDto.java` — deal KPI 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/service/DealV2KpiQueryService.java` — deal KPI 집계 서비스 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryController.java` — `/api/v2/deals/kpis` 조회 API 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — deal KPI 조회 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 진행 현황에 KPI 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractSyncIntegrationTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+7단계 잔여 이슈 정리 후 8단계 보안 매처와 v2 테스트 확장
+
+## [2026-03-15 06:45] v2 보안 매처 및 컨트롤러 테스트 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — `/api/v2/quotations`, `/api/v2/contracts` 의 생성/재작성/취소 권한 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 환경용 v2 보안 매처 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/v2/controller/DealV2QueryControllerTest.java` — deal 조회/KPI 인증 경계 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/v2/controller/QuotationV2ControllerTest.java` — 견적 v2 생성/취소 권한 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/v2/controller/ContractV2ControllerTest.java` — 계약 v2 생성/취소 권한 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 보안 매처 및 컨트롤러 테스트 구조 기록
+- 수정 파일: `PROGRESS.md` — 8단계 완료 및 잔여 이슈 상태 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `DealV2QueryControllerTest` 의 `getAuthorities()` mock 제네릭 반환 타입 문제를 수정한 뒤 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.v2.controller.DealV2QueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.v2.controller.QuotationV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.v2.controller.ContractV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+7단계 잔여 이슈 정리 및 9단계 문서 업데이트 정리
+
+## [2026-03-15 09:55] 일정 soft-cancel 및 v2 billing revenue 래퍼 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java` — 거래 일정 상태 필드와 cancel 전환 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealScheduleStatus.java` — 거래 일정 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepository.java` — 취소 일정 제외 조회 메서드로 전환
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java` — deal 일정 조회에서 `CANCELLED` 제외 처리 반영
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java` — `deleteByExternalKey` 를 soft-cancel 동작으로 변경
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/response/ScheduleItemDto.java` — deal 일정 응답 status 포함
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/v2/controller/BillingRevenueStatisticsV2Controller.java` — v2 billing revenue 래퍼 API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — v2 billing revenue 보안 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 매처 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/schedule/**` — 일정 상태 도입에 맞춘 entity/query/repository/sync 테스트 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/v2/controller/BillingRevenueStatisticsV2ControllerTest.java` — v2 billing revenue 권한/응답 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 일정 soft-cancel 및 v2 billing revenue 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 완료 및 현재 포커스 갱신
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `ScheduleQueryServiceTest` 의 repository 메서드명 정합성 수정 후 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncServiceTest' --tests 'com.monsoon.seedflowplus.domain.schedule.query.ScheduleQueryServiceTest' --tests 'com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleTest' --tests 'com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.controller.BillingRevenueStatisticsControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.v2.controller.BillingRevenueStatisticsV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest'` 성공
+
+### 다음 단계
+9단계 문서 업데이트 정리 및 10단계 최종 점검
+
+## [2026-03-15 16:05] 캘린더 품종 추천 및 수확 임박 API 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/controller/ProductCalendarController.java` — 캘린더 추천 품종, 수확 임박 조회 엔드포인트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 월별 추천 품종 계산과 담당 거래처 기준 수확 임박 집계 로직 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductCalendarRecommendationResponse.java` — 캘린더 추천 품종 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductHarvestImminentResponse.java` — 거래처별 수확 임박 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/repository/ClientCropRepository.java` — 거래처 다건 품종 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 캘린더 product API 를 영업사원 전용으로 제한
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 추천 품종 및 수확 임박 서비스 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/controller/ProductCalendarControllerTest.java` — 캘린더 API 인증/인가/정상 응답 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 매처 반영
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+프론트 연동용 API 사용 예시와 응답 스펙 전달
+
+## [2026-03-15 16:45] 캘린더 수확 임박 조건 완화 및 디버그 로그 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 수확 임박 판정을 `harvestingStart~harvestingEnd` 가 이번달/다음달과 겹치는 조건으로 완화
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/service/AccountService.java` — 거래처 crop 조회 임시 디버그 출력 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 진행 중인 수확 기간도 포함되는지 검증 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 조건 완화 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+캘린더 API 프론트 호출 경로와 기존 거래처 crop 호출 경로 분리 점검
+
+## [2026-03-15 10:08] v2 문서 인벤토리 및 전환 가이드 정리
+
+### 작업 내용
+- 수정 파일: `docs/api/domain-api-list.csv` — v2 deal/quotation/contract/statistics API 목록 추가
+- 수정 파일: `api-test/http/deal/deal-v2.http` — v2 deal 조회/KPI/manual test 요청 컬렉션 추가
+- 수정 파일: `api-test/http/deal/document-v2.http` — v2 quotation/contract 생성·재작성·취소 요청 컬렉션 추가
+- 수정 파일: `api-test/http/statistics/billing-revenue-v2.http` — v2 billing revenue 요청 컬렉션 추가
+- 수정 파일: `docs/remodeling/v1-v2-transition-guide.md` — v1→v2 전환 가이드 초안 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 9단계 문서 정리 구조 기록
+- 수정 파일: `PROGRESS.md` — 9단계 완료 및 10단계 포커스 반영
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 코드 변경 없음
+
+### 다음 단계
+10단계 최종 점검 및 전환 가이드 보완
+
+## [2026-03-15 10:17] 최종 점검 및 전환 체크리스트 보강
+
+### 작업 내용
+- 수정 파일: `PROGRESS.md` — 10단계 완료 처리
+- 수정 파일: `docs/remodeling/v1-v2-transition-guide.md` — 운영 전환 체크리스트와 잔여 리스크 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 최종 점검 구조 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.v2.controller.DealV2QueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.quotation.v2.controller.QuotationV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.sales.contract.v2.controller.ContractV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.v2.controller.BillingRevenueStatisticsV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.controller.BillingRevenueStatisticsControllerTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 17:44] 영업히스토리 bootstrap deal 비노출 처리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryImpl.java` — bootstrap placeholder 및 삭제된 초기 문서만 남은 deal을 목록 쿼리에서 제외하는 가시성 조건 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryTest.java` — placeholder deal과 deleted-only quotation deal 비노출 회귀 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 영업히스토리 목록 비노출 정책과 쿼리 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava compileTestJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealQueryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.v2.controller.DealV2QueryControllerTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 17:28] 재배 적기 운영 알림 스케줄러 연결
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 캘린더 추천/수확 임박 집계를 공통 재배 알림 서비스로 위임
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java` — 재배 알림 생성 인자를 월 기준 문맥과 예약 시각 중심으로 조정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationService.java` — 상품명/거래처 수 문구 추가 및 `scheduledAt` 기준 dedupe로 전환
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductCultivationAlertService.java` — 캘린더/수확 임박/재배 알림 후보 계산 공통 서비스 추가
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/CultivationNotificationCandidate.java` — 재배 알림 후보 전달 DTO 추가
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/scheduler/CultivationNotificationScheduler.java` — 영업사원 대상 재배 알림 생성 스케줄러 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 읽기 서비스 위임 테스트로 정리
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductCultivationAlertServiceTest.java` — 공통 매칭/후보 계산 규칙 테스트 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationServiceTest.java` — 예약 시각 dedupe 및 문구 생성 테스트 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/scheduler/CultivationNotificationSchedulerTest.java` — 스케줄러의 command service 호출 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 공통 집계 서비스와 운영 알림 연결 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava compileTestJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.product.service.ProductCultivationAlertServiceTest' --tests 'com.monsoon.seedflowplus.domain.product.service.ProductReadServiceTest' --tests 'com.monsoon.seedflowplus.domain.notification.service.CultivationNotificationServiceTest' --tests 'com.monsoon.seedflowplus.domain.notification.scheduler.CultivationNotificationSchedulerTest' --tests 'com.monsoon.seedflowplus.domain.notification.scheduler.NotificationDeliverySchedulerTest' --tests 'com.monsoon.seedflowplus.domain.notification.command.NotificationCommandServiceTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 10:38] 명세서 상세 응답 보강 및 관리자 수동 청구서 초안 생성 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/dto/response/StatementResponse.java` — 계약/거래처/딜/배송/품목 정보를 포함하도록 명세서 상세 DTO 확장
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — 명세서 상세 응답 생성 시 주문 상세를 함께 매핑
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 관리자 수동 청구서 초안 생성 메서드와 자동 생성 공통 경로 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/controller/InvoiceController.java` — `/api/v1/invoices/contracts/{contractId}/manual-draft` 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 관리자 전용 수동 청구서 초안 생성 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java` — 확장된 명세서 상세 응답 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 관리자 수동 청구서 초안 생성 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/controller/InvoiceControllerTest.java` — 관리자/비관리자/비인증 접근 제어 테스트 추가
+- 수정 파일: `docs/api/domain-api-list.csv` — 수동 청구서 초안 생성 API 인벤토리 반영
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `CustomUserDetails` 기반 테스트 principal 정합성 수정 후 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.billing.statement.service.StatementServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.service.InvoiceServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.controller.InvoiceControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 11:45] 수동 청구서 초안 담당자 귀속 및 발행 권한 분리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/repository/InvoiceRepository.java` — 영업사원 가시 범위를 invoice 담당자, 거래처 담당자, deal owner까지 포함하도록 조회 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 관리자 수동 초안 생성 시 담당자 귀속, 영업사원 전용 발행 권한 검증, 목록 조회 기준 보강
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 수동 초안 담당자 귀속, 관리자 발행 차단, 확장 조회 범위 검증 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 청구서 권한/조회 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.billing.invoice.service.InvoiceServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.controller.InvoiceControllerTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 12:11] SSE 연결 종료 로그 노이즈 완화
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java` — Broken pipe 계열 SSE 종료를 benign disconnect로 분류해 debug 로그만 남기도록 조정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseServiceTest.java` — benign disconnect/debug 로그와 비정상 IOException/warn 로그 분기 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — SSE 로그 정책 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.notification.command.NotificationSseServiceTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 12:26] 참조 견적서 없는 신규 계약의 deal 자동 연결 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 견적서 없는 신규 계약과 deal 없는 견적서 기반 계약 생성 시 기존 열린 deal 자동 연결 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 신규 계약 시 새 deal 생성 검증과 기존 삭제 회귀 테스트 보강
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 계약 생성 정책 정렬 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractServiceTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-15 13:15] 참조 RFQ 없는 신규 견적의 deal 자동 연결 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — RFQ 없는 QUO 생성과 deal 없는 RFQ 기반 QUO 생성 시 기존 열린 deal 자동 연결 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 신규 견적 생성 및 deal 없는 RFQ 기반 생성이 항상 새 deal을 만드는지 회귀 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationServiceTest'` 성공
+
+### 다음 단계
+없음

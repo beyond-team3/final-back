@@ -29,6 +29,8 @@ public interface QuotationRepository extends JpaRepository<QuotationHeader, Long
 
     List<QuotationHeader> findByDealId(Long dealId);
 
+    java.util.Optional<QuotationHeader> findTopByRevisionGroupKeyOrderByRevisionNoDesc(String revisionGroupKey);
+
     List<QuotationHeader> findAllByStatus(QuotationStatus status);
 
     List<QuotationHeader> findAllByStatusAndAuthorId(QuotationStatus status, Long authorId);

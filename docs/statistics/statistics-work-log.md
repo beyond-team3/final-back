@@ -10,6 +10,81 @@
 ### 다음 단계
 없음
 
+## [2026-03-14 21:55] 파이프라인 리모델링 정책 결정 체크리스트 문서 추가
+
+### 작업 내용
+- 수정 파일: `REMODELING_PIPELINE.md` — deal/문서/승인/일정/알림/통계 리모델링 전에 확정해야 할 정책 결정 항목과 추가 결정사항을 체크리스트 형태로 정리
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+문서 항목별 정책 확정 후 도메인 리모델링 범위와 우선순위 산정
+
+## [2026-03-15 03:33] 파이프라인 문서 Markdown 형식 정리
+
+### 작업 내용
+- 수정 파일: `REMODELING_PIPELINE.md` — 기존 내용은 유지한 채 섹션 헤더와 목록 구조를 Markdown 형식에 맞게 정리
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+문서 항목별 정책 초안 확정
+
+## [2026-03-14 21:41] QuotationServiceTest git conflict 해소
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — `ContractRepository`와 `DealScheduleSyncService` 의존성을 함께 유지하도록 conflict marker 제거 및 중복 mock/import 정리
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — `createQuotation` 경로에서 실제 호출되지 않는 불필요한 stub 제거로 strict Mockito 실패 해소
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-14 17:46] merge 충돌 해소: statistics 문서와 QuotationService 유지 병합
+
+### 작업 내용
+- 수정 파일: `docs/statistics/statistics-architecture.md` — 양쪽 변경 이력을 모두 유지하도록 merge conflict marker 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — `ApprovalDecisionRepository`와 견적 일정 동기화 import를 함께 유지하도록 merge conflict marker 제거
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [x] 오류 있음 → `./gradlew compileJava` 실패, `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` 기존 문법 오류로 중단
+
+### 다음 단계
+`src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` 남은 merge conflict 해소 후 전체 컴파일/테스트 재확인
+
+## [2026-03-14 18:00] merge 충돌 해소: QuotationServiceTest 병합 및 stub 보정
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 양쪽 테스트를 모두 유지하도록 merge conflict marker 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — `ApprovalDecisionRepository` mock 추가 및 `createQuotation()`의 `findByIdWithLock`/`findByDealId` 호출에 맞게 stub 보정
+
+### 컴파일 결과
+- [ ] 오류 없음
+- [x] 오류 있음 → `./gradlew test --tests com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationServiceTest` 실패, `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` 기존 문법 오류로 `:compileJava` 단계에서 중단
+
+### 다음 단계
+merge 해소 파일 `git add` 후 `InvoiceService.java` 기존 컴파일 오류 정리 전까지 Quotation 테스트 단독 검증 불가
+
+## [2026-03-14 18:02] InvoiceService 클래스 구조 복구 및 검증 재실행
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 클래스 종료 브레이스 밖으로 밀린 `getInvoicesByEmployee` 메서드를 클래스 내부로 복구
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+merge 해소 파일 stage 후 목적별 커밋 수행
+
 ## [2026-03-13 18:10] 리뷰 지적 재검증 후 필요한 항목만 반영
 
 ### 작업 내용
@@ -97,6 +172,25 @@
 ### 컴파일 결과
 - [x] 오류 없음
 - [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-13 13:50] schedule 견적 만료일 추가 및 결제 완료 일정 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — 견적 생성 시 만료일 deal 일정 upsert, 견적 완료/삭제 시 만료 일정 삭제 로직 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentService.java` — 결제 완료 `PAYMENT_RECEIVED` 일정 생성 경로와 관련 의존 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 견적 만료 일정 생성 및 삭제 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentServiceTest.java` — 결제 처리 테스트를 일정 비생성 정책 기준으로 보정
+- 수정 파일: `docs/statistics/statistics-architecture.md` — schedule 정책 반영 구조 변경 이력 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+커밋
 
 ### 다음 단계
 없음

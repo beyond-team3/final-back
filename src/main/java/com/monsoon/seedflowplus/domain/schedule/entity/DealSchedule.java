@@ -84,6 +84,10 @@ public class DealSchedule extends BaseModifyEntity {
     @Column(name = "source", nullable = false, length = 20)
     private ScheduleSource source;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private DealScheduleStatus status;
+
     @Column(name = "external_key", nullable = false, length = 180)
     private String externalKey;
 
@@ -104,10 +108,11 @@ public class DealSchedule extends BaseModifyEntity {
             Long refDocId,
             Long refDealLogId,
             ScheduleSource source,
+            DealScheduleStatus status,
             String externalKey,
             LocalDateTime lastSyncedAt
     ) {
-        validate(deal, client, assigneeUser, title, startAt, endAt, eventType, docType, source, externalKey, lastSyncedAt);
+        validate(deal, client, assigneeUser, title, startAt, endAt, eventType, docType, source, status, externalKey, lastSyncedAt);
         this.deal = deal;
         this.client = client;
         this.assigneeUser = assigneeUser;
@@ -120,6 +125,7 @@ public class DealSchedule extends BaseModifyEntity {
         this.refDocId = refDocId;
         this.refDealLogId = refDealLogId;
         this.source = source;
+        this.status = status;
         this.externalKey = externalKey == null ? null : externalKey.trim();
         this.lastSyncedAt = lastSyncedAt;
     }
@@ -135,9 +141,10 @@ public class DealSchedule extends BaseModifyEntity {
             Long refDocId,
             Long refDealLogId,
             ScheduleSource source,
+            DealScheduleStatus status,
             LocalDateTime lastSyncedAt
     ) {
-        validate(this.deal, this.client, assigneeUser, title, startAt, endAt, eventType, docType, source, this.externalKey, lastSyncedAt);
+        validate(this.deal, this.client, assigneeUser, title, startAt, endAt, eventType, docType, source, status, this.externalKey, lastSyncedAt);
         this.assigneeUser = assigneeUser;
         this.title = title.trim();
         this.description = description;
@@ -148,6 +155,15 @@ public class DealSchedule extends BaseModifyEntity {
         this.refDocId = refDocId;
         this.refDealLogId = refDealLogId;
         this.source = source;
+        this.status = status;
+        this.lastSyncedAt = lastSyncedAt;
+    }
+
+    public void cancel(LocalDateTime lastSyncedAt) {
+        if (lastSyncedAt == null) {
+            throw new IllegalArgumentException("lastSyncedAt");
+        }
+        this.status = DealScheduleStatus.CANCELLED;
         this.lastSyncedAt = lastSyncedAt;
     }
 
@@ -161,6 +177,7 @@ public class DealSchedule extends BaseModifyEntity {
             DealScheduleEventType eventType,
             DealDocType docType,
             ScheduleSource source,
+            DealScheduleStatus status,
             String externalKey,
             LocalDateTime lastSyncedAt
     ) {
@@ -193,6 +210,9 @@ public class DealSchedule extends BaseModifyEntity {
         }
         if (source == null) {
             throw new IllegalArgumentException("source");
+        }
+        if (status == null) {
+            throw new IllegalArgumentException("status");
         }
         if (externalKey == null || externalKey.isBlank()) {
             throw new IllegalArgumentException("externalKey");

@@ -8,6 +8,7 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.PersonalSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
@@ -24,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ScheduleQueryService {
+
+    private static final DealScheduleStatus EXCLUDED_DEAL_STATUS = DealScheduleStatus.CANCELLED;
 
     private final PersonalScheduleRepository personalScheduleRepository;
     private final DealScheduleRepository dealScheduleRepository;
@@ -102,42 +105,42 @@ public class ScheduleQueryService {
 
         if (assigneeUserId != null && clientId != null && dealId != null) {
             return dealScheduleRepository
-                    .findByAssigneeUserIdAndClientIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            assigneeUserId, clientId, dealId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByAssigneeUserIdAndClientIdAndDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            assigneeUserId, clientId, dealId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (assigneeUserId != null && clientId != null) {
             return dealScheduleRepository
-                    .findByAssigneeUserIdAndClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            assigneeUserId, clientId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByAssigneeUserIdAndClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            assigneeUserId, clientId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (assigneeUserId != null && dealId != null) {
             return dealScheduleRepository
-                    .findByAssigneeUserIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            assigneeUserId, dealId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByAssigneeUserIdAndDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            assigneeUserId, dealId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (clientId != null && dealId != null) {
             return dealScheduleRepository
-                    .findByClientIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            clientId, dealId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByClientIdAndDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            clientId, dealId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (assigneeUserId != null) {
             return dealScheduleRepository
-                    .findByAssigneeUserIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            assigneeUserId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByAssigneeUserIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            assigneeUserId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (clientId != null) {
             return dealScheduleRepository
-                    .findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            clientId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            clientId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (dealId != null) {
             return dealScheduleRepository
-                    .findByDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            dealId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            dealId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         return dealScheduleRepository
-                .findByStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                        condition.getRangeEnd(), condition.getRangeStart());
+                .findByStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                        EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
     }
 
     private List<DealSchedule> findForSalesRep(ScheduleSearchCondition condition, User actor) {
@@ -159,21 +162,21 @@ public class ScheduleQueryService {
         if (dealId != null) {
             if (clientId != null) {
                 return dealScheduleRepository
-                        .findByClientIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                                clientId, dealId, condition.getRangeEnd(), condition.getRangeStart());
+                        .findByClientIdAndDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                                clientId, dealId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
             }
             return dealScheduleRepository
-                    .findByDealIdAndClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            dealId, managerEmployeeId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByDealIdAndClientManagerEmployeeIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            dealId, managerEmployeeId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         if (clientId != null) {
             return dealScheduleRepository
-                    .findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                            clientId, condition.getRangeEnd(), condition.getRangeStart());
+                    .findByClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                            clientId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
         }
         return dealScheduleRepository
-                .findByClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                        managerEmployeeId, condition.getRangeEnd(), condition.getRangeStart());
+                .findByClientManagerEmployeeIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                        managerEmployeeId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
     }
 
     private List<DealSchedule> findForClient(ScheduleSearchCondition condition, User actor) {
@@ -191,8 +194,8 @@ public class ScheduleQueryService {
         }
 
         return dealScheduleRepository
-                .findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
-                        actorClientId, condition.getRangeEnd(), condition.getRangeStart());
+                .findByClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                        actorClientId, EXCLUDED_DEAL_STATUS, condition.getRangeEnd(), condition.getRangeStart());
     }
 
     private Role resolveActorRole(Role requestedRole, User actor) {

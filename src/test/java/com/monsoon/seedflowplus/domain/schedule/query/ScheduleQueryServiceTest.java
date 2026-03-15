@@ -22,6 +22,7 @@ import com.monsoon.seedflowplus.domain.schedule.dto.response.ScheduleItemDto;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.PersonalSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleVisibility;
@@ -65,8 +66,9 @@ class ScheduleQueryServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(dealScheduleRepository
-                .findByAssigneeUserIdAndClientIdAndDealIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+                .findByAssigneeUserIdAndClientIdAndDealIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
                         11L, 22L, 33L,
+                        DealScheduleStatus.CANCELLED,
                         LocalDateTime.of(2026, 3, 31, 23, 59),
                         LocalDateTime.of(2026, 3, 1, 0, 0)
                 ))
@@ -239,8 +241,9 @@ class ScheduleQueryServiceTest {
         DealSchedule dealSchedule = dealSchedule(501L);
 
         when(userRepository.findById(5L)).thenReturn(Optional.of(actor));
-        when(dealScheduleRepository.findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+        when(dealScheduleRepository.findByClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
                 701L,
+                DealScheduleStatus.CANCELLED,
                 LocalDateTime.of(2026, 3, 31, 23, 59),
                 LocalDateTime.of(2026, 3, 1, 0, 0)
         )).thenReturn(List.of(dealSchedule));
@@ -259,8 +262,9 @@ class ScheduleQueryServiceTest {
         );
 
         assertThat(result).hasSize(1);
-        verify(dealScheduleRepository).findByClientIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+        verify(dealScheduleRepository).findByClientIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
                 701L,
+                DealScheduleStatus.CANCELLED,
                 LocalDateTime.of(2026, 3, 31, 23, 59),
                 LocalDateTime.of(2026, 3, 1, 0, 0)
         );
@@ -274,8 +278,9 @@ class ScheduleQueryServiceTest {
         DealSchedule dealSchedule = dealSchedule(120L);
 
         when(userRepository.findById(3L)).thenReturn(Optional.of(salesRep));
-        when(dealScheduleRepository.findByClientManagerEmployeeIdAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
+        when(dealScheduleRepository.findByClientManagerEmployeeIdAndStatusNotAndStartAtLessThanAndEndAtGreaterThanOrderByStartAtAscIdAsc(
                 300L,
+                DealScheduleStatus.CANCELLED,
                 LocalDateTime.of(2026, 3, 31, 23, 59),
                 LocalDateTime.of(2026, 3, 1, 0, 0)
         )).thenReturn(List.of(dealSchedule));
@@ -325,6 +330,7 @@ class ScheduleQueryServiceTest {
                 .refDocId(1L)
                 .refDealLogId(2L)
                 .source(ScheduleSource.AUTO_SYNC)
+                .status(DealScheduleStatus.ACTIVE)
                 .externalKey("ext-key-1")
                 .lastSyncedAt(LocalDateTime.of(2026, 3, 10, 9, 0))
                 .build();

@@ -235,16 +235,11 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<ClientCropResponse> getClientCrops(Long clientId) {
-        System.out.println("[DEBUG] AccountService.getClientCrops requested for clientId: " + clientId);
         validateAndGetClient(clientId);
 
-        List<ClientCropResponse> crops = clientCropRepository.findAllByClientId(clientId).stream()
+        return clientCropRepository.findAllByClientId(clientId).stream()
                 .map(ClientCropResponse::from)
                 .toList();
-
-        System.out.println(
-                "[DEBUG] AccountService.getClientCrops found " + crops.size() + " crops for clientId: " + clientId);
-        return crops;
     }
 
     @Transactional

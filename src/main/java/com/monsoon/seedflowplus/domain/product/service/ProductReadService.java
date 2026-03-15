@@ -4,6 +4,8 @@ import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
 import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductCalendarRecommendationResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductHarvestImminentResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
@@ -27,6 +29,9 @@ import java.util.stream.Collectors;
 import java.util.Collections;
 import com.monsoon.seedflowplus.domain.product.entity.ProductTag;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import java.time.LocalDate;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +43,7 @@ public class ProductReadService {
         private final ProductBookmarkRepository productBookmarkRepository;
         private final ProductCompareRepository productCompareRepository;
         private final ProductTagRepository productTagRepository;
+        private final ProductCultivationAlertService productCultivationAlertService;
 
         // 상품 전체목록 (검색 조건 적용)
         public List<ProductResponse> getAllProducts(Role role, ProductSearchCondition condition) {
@@ -191,6 +197,16 @@ public class ProductReadService {
                                 .toList();
         }
 
+        public ProductCalendarRecommendationResponse getCalendarRecommendations(Integer month) {
+                return productCultivationAlertService.getCalendarRecommendations(month);
+        }
+
+        public ProductHarvestImminentResponse getHarvestImminent(Integer month, CustomUserDetails userDetails) {
+                return productCultivationAlertService.getHarvestImminent(
+                                month,
+                                resolveSalesRepEmployeeId(userDetails));
+        }
+
         private ProductResponse convertToDto(Product product, boolean canViewPrice) {
                 return convertToDto(product, canViewPrice,
                                 cultivationTimeRepository.findByProductId(product.getId()));
@@ -248,5 +264,15 @@ public class ProductReadService {
                 }
 
                 return builder.build();
+        }
+
+        private Long resolveSalesRepEmployeeId(CustomUserDetails userDetails) {
+                if (userDetails == null || userDetails.getRole() != Role.SALES_REP) {
+                        throw new CoreException(ErrorType.ACCESS_DENIED);
+                }
+                if (userDetails.getEmployeeId() == null) {
+                        throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+                }
+                return userDetails.getEmployeeId();
         }
 }

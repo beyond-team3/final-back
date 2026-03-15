@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,8 @@ import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
+import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalCancellationService;
 import com.monsoon.seedflowplus.domain.approval.service.ApprovalSubmissionService;
 import com.monsoon.seedflowplus.domain.deal.common.DealStage;
@@ -28,19 +31,23 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestHeader;
+import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestDetail;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
 import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
-import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
-import com.monsoon.seedflowplus.domain.approval.repository.ApprovalDecisionRepository;
+import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
+import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -60,6 +67,8 @@ class QuotationServiceTest {
     @Mock
     private EmployeeRepository employeeRepository;
     @Mock
+    private UserRepository userRepository;
+    @Mock
     private ProductRepository productRepository;
     @Mock
     private SalesDealRepository salesDealRepository;
@@ -67,6 +76,8 @@ class QuotationServiceTest {
     private DealPipelineFacade dealPipelineFacade;
     @Mock
     private DealLogWriteService dealLogWriteService;
+    @Mock
+    private ApprovalDecisionRepository approvalDecisionRepository;
     @Mock
     private DealLogQueryService dealLogQueryService;
     @Mock
@@ -76,7 +87,7 @@ class QuotationServiceTest {
     @Mock
     private ContractRepository contractRepository;
     @Mock
-    private ApprovalDecisionRepository approvalDecisionRepository;
+    private DealScheduleSyncService dealScheduleSyncService;
 
     @InjectMocks
     private QuotationService quotationService;
@@ -118,6 +129,7 @@ class QuotationServiceTest {
         assertThat(deal.getLatestDocType()).isEqualTo(DealType.RFQ);
         assertThat(deal.getLatestRefId()).isEqualTo(rfq.getId());
         verify(approvalCancellationService).cancelPendingRequest(DealType.QUO, 100L);
+        verify(dealScheduleSyncService).deleteByExternalKey("QUO_100_EXPIRATION");
         verify(dealLogWriteService).write(
                 eq(deal),
                 eq(DealType.QUO),
@@ -134,6 +146,144 @@ class QuotationServiceTest {
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<java.util.List<DealLogWriteService.DiffField>>any()
         );
+    }
+
+    @Test
+    @DisplayName("견적 생성 시 만료일 deal 일정을 생성한다")
+    void createQuotationCreatesExpirationSchedule() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal deal = deal(client, author);
+
+        when(clientRepository.findByIdWithLock(30L)).thenReturn(Optional.of(client));
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
+            SalesDeal saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 500L);
+            return saved;
+        });
+        when(salesDealRepository.findByIdWithLock(500L)).thenReturn(Optional.of(deal));
+        when(quotationRepository.save(any(QuotationHeader.class))).thenAnswer(invocation -> {
+            QuotationHeader saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 100L);
+            ReflectionTestUtils.setField(saved, "expiredDate", LocalDate.now().plusDays(30));
+            return saved;
+        });
+
+        setAuthentication(salesRepUser(author));
+
+        quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
+                null,
+                30L,
+                java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
+                        null,
+                        "양배추",
+                        "VEG",
+                        2,
+                        "BOX",
+                        BigDecimal.valueOf(1500)
+                )),
+                "memo"
+        ));
+
+        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
+        verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
+        DealScheduleUpsertCommand command = commandCaptor.getValue();
+        assertThat(command.externalKey()).isEqualTo("QUO_100_EXPIRATION");
+        assertThat(command.title()).isEqualTo("견적 만료일: 거래처");
+        assertThat(command.startAt()).isEqualTo(LocalDate.now().plusDays(30).atStartOfDay());
+        assertThat(command.endAt()).isEqualTo(LocalDate.now().plusDays(31).atStartOfDay());
+        verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(anyLong());
+    }
+
+    @Test
+    @DisplayName("참조 RFQ 없는 신규 견적은 새 deal을 생성한다")
+    void createQuotationWithoutRequestCreatesNewDeal() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal persistedDeal = deal(client, author);
+
+        when(clientRepository.findByIdWithLock(30L)).thenReturn(Optional.of(client));
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
+            SalesDeal saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 500L);
+            return saved;
+        });
+        when(salesDealRepository.findByIdWithLock(500L)).thenReturn(Optional.of(persistedDeal));
+        when(quotationRepository.save(any(QuotationHeader.class))).thenAnswer(invocation -> {
+            QuotationHeader saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 101L);
+            ReflectionTestUtils.setField(saved, "expiredDate", LocalDate.now().plusDays(30));
+            return saved;
+        });
+
+        setAuthentication(salesRepUser(author));
+
+        quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
+                null,
+                30L,
+                java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
+                        null,
+                        "양배추",
+                        "VEG",
+                        2,
+                        "BOX",
+                        BigDecimal.valueOf(1500)
+                )),
+                "memo"
+        ));
+
+        verify(salesDealRepository).save(any(SalesDeal.class));
+        verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(anyLong());
+    }
+
+    @Test
+    @DisplayName("deal 없는 RFQ 기반 견적도 새 deal을 생성한다")
+    void createQuotationFromRequestWithoutDealCreatesNewDeal() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal requestDeal = deal(client, author);
+        SalesDeal persistedDeal = deal(client, author);
+        QuotationRequestHeader request = QuotationRequestHeader.create(client, "req", requestDeal);
+        request.addItem(new QuotationRequestDetail(null, "VEG", "양배추", 2, "BOX"));
+        ReflectionTestUtils.setField(request, "id", 40L);
+        ReflectionTestUtils.setField(request, "deal", null);
+
+        when(clientRepository.findByIdWithLock(30L)).thenReturn(Optional.of(client));
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
+        when(quotationRequestRepository.findByIdWithLock(40L)).thenReturn(Optional.of(request));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenAnswer(invocation -> {
+            SalesDeal saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 500L);
+            return saved;
+        });
+        when(salesDealRepository.findByIdWithLock(500L)).thenReturn(Optional.of(persistedDeal));
+        when(quotationRepository.save(any(QuotationHeader.class))).thenAnswer(invocation -> {
+            QuotationHeader saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 102L);
+            ReflectionTestUtils.setField(saved, "expiredDate", LocalDate.now().plusDays(30));
+            return saved;
+        });
+
+        setAuthentication(salesRepUser(author));
+
+        quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
+                40L,
+                30L,
+                java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
+                        null,
+                        "양배추",
+                        "VEG",
+                        2,
+                        "BOX",
+                        BigDecimal.valueOf(1500)
+                )),
+                "memo"
+        ));
+
+        verify(salesDealRepository).save(any(SalesDeal.class));
+        verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(anyLong());
     }
 
     @Test
@@ -163,19 +313,19 @@ class QuotationServiceTest {
         // managerEmployee가 null인 상황 가정
         Client client = client(30L, null);
         SalesDeal deal = deal(client, author);
-        
+
         // author가 null인 견적서 생성 (create 메서드 사용)
         QuotationHeader q = QuotationHeader.create(
                 null, "QUO-ERR", client, deal, null, BigDecimal.ZERO, "memo"
         );
         ReflectionTestUtils.setField(q, "id", 200L);
         ReflectionTestUtils.setField(q, "createdAt", java.time.LocalDateTime.now());
-        
+
         when(quotationRepository.findActiveRejectedQuotations(anyLong(), anyList()))
                 .thenReturn(java.util.List.of(q));
         setAuthentication(salesRepUser(author));
 
-        java.util.List<com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse> result = 
+        java.util.List<com.monsoon.seedflowplus.domain.sales.quotation.dto.response.QuotationListResponse> result =
                 quotationService.getRejectedQuotations();
 
         assertThat(result).hasSize(1);
@@ -190,14 +340,16 @@ class QuotationServiceTest {
     }
 
     private CustomUserDetails salesRepUser(Employee employee) {
-        return new CustomUserDetails(User.builder()
+        User user = User.builder()
                 .loginId("sales")
                 .loginPw("pw")
                 .status(Status.ACTIVATE)
                 .role(Role.SALES_REP)
                 .employee(employee)
                 .client(null)
-                .build());
+                .build();
+        ReflectionTestUtils.setField(user, "id", 77L);
+        return new CustomUserDetails(user);
     }
 
     private Employee employee(Long id) {
