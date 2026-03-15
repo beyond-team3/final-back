@@ -68,4 +68,5 @@ public class Payment extends BaseCreateEntity {
     public void setPaymentMethod(PaymentMethod paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
+
 }
