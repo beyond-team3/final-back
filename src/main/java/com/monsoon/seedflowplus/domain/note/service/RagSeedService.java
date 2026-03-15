@@ -67,10 +67,8 @@ public class RagSeedService {
 
             SalesBriefing analyzedResult = aiClient.analyzeSalesStrategy(clientId, combined, scopeDesc);
 
-            // [교차 검증 필터] AI가 반환한 근거 ID 중 실제 컨텍스트에 존재하는 ID만 필터링
-            Set<Long> validContextIds = extractIdsFromSegments(combined);
-            // 만약 productContexts에만 존재하는 ID가 있다면 그것도 포함 (combined에 이미 포함되어 있으나 명시적 결합)
-            validContextIds.addAll(extractIdsFromSegments(productContexts));
+            // [교차 검증 필터] AI가 반환한 근거 ID 중 실제 컨텍스트(노트)에 존재하는 ID만 필터링
+            Set<Long> validContextIds = extractIdsFromSegments(noteContexts);
 
             List<Long> rawEvidenceIds = analyzedResult.getEvidenceNoteIds();
             List<Long> verifiedEvidenceIds = (rawEvidenceIds != null)
@@ -158,8 +156,8 @@ public class RagSeedService {
 
         String aiResponse = aiClient.generateTargetedResponse(hiddenPrompt, combined, scopeDesc);
         
-        // 실제 인출된 데이터의 ID들을 결과에 포함 (공통 메서드 활용)
-        List<Long> evidenceIds = new ArrayList<>(extractIdsFromSegments(combined));
+        // 실제 인출된 데이터의 ID들을 결과에 포함 (노트 ID만 추출하도록 수정)
+        List<Long> evidenceIds = new ArrayList<>(extractIdsFromSegments(noteContexts));
 
         return RagSeedResponseDto.builder()
                 .content(aiResponse)
