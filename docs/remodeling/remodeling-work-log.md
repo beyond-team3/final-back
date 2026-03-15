@@ -311,6 +311,24 @@
 ### 다음 단계
 없음
 
+## [2026-03-15 17:44] 영업히스토리 bootstrap deal 비노출 처리
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryImpl.java` — bootstrap placeholder 및 삭제된 초기 문서만 남은 deal을 목록 쿼리에서 제외하는 가시성 조건 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryTest.java` — placeholder deal과 deleted-only quotation deal 비노출 회귀 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 영업히스토리 목록 비노출 정책과 쿼리 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava compileTestJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealQueryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.v2.controller.DealV2QueryControllerTest'` 성공
+
+### 다음 단계
+없음
+
 ## [2026-03-15 17:28] 재배 적기 운영 알림 스케줄러 연결
 
 ### 작업 내용
