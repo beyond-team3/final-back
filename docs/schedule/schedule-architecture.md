@@ -1,0 +1,252 @@
+## [2026-03-06] Schedule 엔티티 Phase 2 명세 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#cancel
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java
+- 클래스/메서드: DealSchedule (@Table indexes)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleStatus.java
+- 클래스/메서드: ScheduleStatus
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleVisibility.java
+- 클래스/메서드: ScheduleVisibility
+
+### 변경 내용
+PersonalSchedule에 soft delete 전용 `cancel()` 메서드를 추가해 상태 변경 책임을 엔티티에 명시했다.
+DealSchedule 인덱스를 `assignee/client/deal + start_at + end_at` 조합으로 보강해 기간 겹침 조회에 맞췄다.
+일정 상태 enum은 `ACTIVE/CANCELED`로, 공개 범위 enum은 `PRIVATE/PUBLIC`로 정렬했다.
+
+### 변경 이유
+Phase 2 정책(엔티티 필드/soft delete/인덱스 규칙) 일치
+
+## [2026-03-06] Phase 3 패키지 정렬 및 개인 일정 삭제 도메인화
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java
+- 클래스/메서드: PersonalScheduleCommandService#delete
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/PersonalScheduleCreateRequest.java
+- 클래스/메서드: PersonalScheduleCreateRequest
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/PersonalScheduleUpdateRequest.java
+- 클래스/메서드: PersonalScheduleUpdateRequest
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/validation/ValidTimeRange.java
+- 클래스/메서드: ValidTimeRange
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/validation/ValidTimeRangeValidator.java
+- 클래스/메서드: ValidTimeRangeValidator
+
+### 변경 내용
+`PersonalScheduleCommandService`를 `service` 패키지에서 `command` 패키지로 이동해 Phase 구조를 맞췄다.
+`ValidTimeRange`/`Validator`를 `dto.validation`에서 `validation` 패키지로 이동하고 요청 DTO import를 정리했다.
+개인 일정 삭제는 서비스가 직접 필드를 덮어쓰지 않고 `PersonalSchedule.cancel()`을 호출하도록 변경했다.
+컨트롤러의 서비스 import도 새 패키지 경로로 동기화했다.
+
+### 변경 이유
+Phase 3 정책(패키지 구조 및 개인 일정 soft delete 도메인 메서드 사용) 일치
+
+## [2026-03-06] Phase 4 통합 조회 계층 패키지 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/ScheduleQueryService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java
+- 클래스/메서드: ScheduleQueryService
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController#getSchedules
+
+### 변경 내용
+통합 조회 서비스 `ScheduleQueryService`를 `service` 패키지에서 `query` 패키지로 이동해
+CQRS 성격의 조회 계층 구조를 명시했다.
+컨트롤러는 새 패키지 경로를 참조하도록 import를 동기화했고,
+기존 `GET /api/schedules` 동작 및 조건 생성 로직은 유지했다.
+
+### 변경 이유
+Phase 4 정책(통합 조회 서비스의 query 계층 분리) 일치
+
+## [2026-03-06] Phase 5 거래 일정 동기화 패키지 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/DealScheduleUpsertCommand.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/service/DealScheduleSyncService.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java
+- 클래스/메서드: DealScheduleSyncService#upsertFromEvent
+
+### 변경 내용
+`DealScheduleUpsertCommand`를 `dto/request`에서 `dto/command`로 이동해 명령 모델 경계를 명확히 했다.
+`DealScheduleSyncService`를 `service`에서 `sync` 패키지로 이동하고 import 경로를 동기화했다.
+`upsertFromEvent(...)`의 externalKey 기반 upsert와 `DataIntegrityViolationException` 단일 재시도 구조는 기존 구현을 유지했다.
+
+### 변경 이유
+Phase 5 정책(동기화 전용 계층/명령 DTO 패키지 분리) 일치
+
+## [2026-03-06] Phase 6 일정 도메인 테스트 추가
+
+### 변경 대상
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java
+- 클래스/메서드: ScheduleControllerTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandServiceTest.java
+- 클래스/메서드: PersonalScheduleCommandServiceTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryServiceTest.java
+- 클래스/메서드: ScheduleQueryServiceTest
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncServiceTest.java
+- 클래스/메서드: DealScheduleSyncServiceTest
+
+### 변경 내용
+`@WebMvcTest + TestSecurityConfig` 기반 컨트롤러 테스트로 개인 일정 CRUD와 통합 조회(ADMIN/SALES_REP/CLIENT) 요청 바인딩을 검증했다.
+개인 일정 명령 서비스 테스트에 create/update/delete 흐름과 `USER_NOT_FOUND`, `PERSONAL_SCHEDULE_NOT_FOUND`, 시간 검증 예외를 추가했다.
+통합 조회 서비스 테스트에 역할별 접근 제어(`ACCESS_DENIED`, `EMPLOYEE_NOT_LINKED`) 및 include flag 검증을 추가했다.
+거래 일정 동기화 테스트에 신규 생성, externalKey update, `DataIntegrityViolationException` 재시도, deal-client 불일치 검증을 추가했다.
+
+### 변경 이유
+Phase 6 정책(일정 도메인 테스트 보강 및 역할 기반 회귀 방지) 반영
+
+## [2026-03-06] Schedule 예외 정책 및 API 경로 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand (canonical constructor)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java
+- 클래스/메서드: DealSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController#createPersonalSchedule, ScheduleController(@RequestMapping)
+
+### 변경 내용
+일정 도메인 명령/엔티티 내부 검증에서 `IllegalArgumentException` 대신
+`CoreException(ErrorType.INVALID_INPUT_VALUE)`를 사용하도록 통일했다.
+개인 일정 생성 API는 `@ResponseStatus(HttpStatus.CREATED)`를 적용했고,
+컨트롤러 base path를 프로젝트 공통 정책에 맞춰 `/api/v1/schedules`로 정렬했다.
+
+### 변경 이유
+예외 처리/REST 경로 정책 일관성 확보
+
+## [2026-03-06] Schedule 하위호환성 및 선검증 보강
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleStatus.java
+- 클래스/메서드: ScheduleStatus
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/ScheduleVisibility.java
+- 클래스/메서드: ScheduleVisibility
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController(@RequestMapping)
+
+### 변경 내용
+기존 DB 문자열 로딩 호환을 위해 일정 상태 enum에 `DONE`, 공개 범위 enum에 `TEAM` 레거시 값을 `@Deprecated`로 복구했다.
+개인 일정 엔티티 검증에 `title.trim().length() > 200` 선검증을 추가해 DB 제약 위반 전에 `INVALID_INPUT_VALUE`를 반환하도록 정렬했다.
+컨트롤러 base path는 기존 `/api/v1/schedules`를 유지하면서 `/api/schedules` alias를 추가해 구 클라이언트 요청도 수용하도록 확장했다.
+
+### 변경 이유
+운영 데이터/클라이언트 하위호환 및 표준 예외 정책 준수
+
+## [2026-03-06] PersonalSchedule soft delete/PK 컬럼명 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule (@AttributeOverride, @SQLDelete, @SQLRestriction)
+
+### 변경 내용
+`PersonalSchedule` PK 컬럼 매핑을 `psked_id`에서 `personal_schedule_id`로 정렬했다.
+엔티티에 `is_deleted` 컬럼과 Hibernate soft delete 어노테이션을 추가해 물리 삭제 대신 논리 삭제 정책을 따르도록 수정했다.
+`cancel()` 메서드는 상태 전이(`CANCELED`)와 soft delete 플래그(`isDeleted=true`)를 함께 반영한다.
+
+### 변경 이유
+이슈 #1, #2 (soft delete 정책 누락 및 PK 컬럼명 규칙 불일치) 수정
+
+## [2026-03-06] Phase 2 DTO 보안 노출/선검증/패키지 경로 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/response/ScheduleItemDto.java
+- 클래스/메서드: ScheduleItemDto#fromDeal
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand (canonical constructor)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/request/ScheduleSearchCondition.java → src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleSearchCondition.java
+- 클래스/메서드: ScheduleSearchCondition
+
+### 변경 내용
+거래 일정 통합 응답 DTO에서 내부 동기화 식별자(`externalKey`)와 내부 참조 ID(`refDocId`, `refDealLogId`) 필드를 제거해 외부 노출을 차단했다.
+`ScheduleItemDto.fromDeal()`는 거래 일정에서 `status`, `ownerUserId`를 채우지 않으므로 해당 필드는 `null`이며, `ScheduleController`는 PERSONAL/DEAL 항목을 단일 리스트로 병합 반환한다.
+`DealScheduleUpsertCommand` canonical constructor에 `title` 공백/길이(200), `externalKey` 길이(180) 선검증을 추가해 엔티티 검증 전 입력을 조기 차단하도록 보강했다.
+`ScheduleSearchCondition`를 `dto/request`에서 `query` 패키지로 이동해 Phase 패키지 규칙과 실제 경로를 정렬하고, controller/query/test import를 동기화했다.
+
+### 변경 이유
+Phase 2 리뷰 이슈(민감 식별자 노출, command 선검증 부족, 클래스 위치 불일치) 수정
+
+## [2026-03-06] DealScheduleSyncService 조회 포트 분리
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java
+- 클래스/메서드: DealScheduleSyncService#upsertFromEvent
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReader.java
+- 클래스/메서드: DealScheduleReferenceReader#loadForSync
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleReferenceReaderImpl.java
+- 클래스/메서드: DealScheduleReferenceReaderImpl#loadForSync
+
+### 변경 내용
+거래 일정 동기화 서비스가 `SalesDealRepository`, `ClientRepository`, `UserRepository`를 직접 주입하지 않도록
+`DealScheduleReferenceReader` 조회 포트를 도입했다.
+`DealScheduleSyncService`는 포트를 통해 deal/client/assignee 참조를 조회하고,
+실제 repository 접근 및 not found 예외 매핑은 `DealScheduleReferenceReaderImpl`에 캡슐화했다.
+
+### 변경 이유
+도메인 경계 결합 완화(타 도메인 Repository 직접 의존 제거)
+
+## [2026-03-06] Phase 6 테스트 경계값/예외 커버리지 보강
+
+### 변경 대상
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleControllerTest.java
+- 클래스/메서드: ScheduleControllerTest#createPersonalScheduleRejectsEqualTimeRange, ScheduleControllerTest#updatePersonalScheduleRejectsEqualTimeRange
+- 파일: src/test/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandServiceTest.java
+- 클래스/메서드: PersonalScheduleCommandServiceTest#getMyScheduleThrowsWhenScheduleNotFound, PersonalScheduleCommandServiceTest#updateThrowsWhenScheduleNotFound, PersonalScheduleCommandServiceTest#deleteThrowsWhenScheduleNotFound
+
+### 변경 내용
+컨트롤러 테스트에 `@ValidTimeRange` 경계값(`endAt == startAt`) 요청이 400으로 차단되는 시나리오를 추가했다.
+서비스 테스트의 `PERSONAL_SCHEDULE_NOT_FOUND` 검증을 `getMySchedule` 단일 경로에서 `update/delete`까지 분리해 보강했다.
+기존 비즈니스 로직은 변경하지 않고 테스트 커버리지 누락만 보완했다.
+
+### 변경 이유
+Phase 6 PRE_RABBIT 리뷰 지적(경계값 검증 누락, not found 예외 경로 미커버) 반영
+
+## [2026-03-07] 리뷰 반영: soft delete/CQRS/권한 조회/도메인 검증 경계 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/PersonalSchedule.java
+- 클래스/메서드: PersonalSchedule#cancel
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/controller/ScheduleController.java
+- 클래스/메서드: ScheduleController#getPersonalSchedule
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java
+- 클래스/메서드: ScheduleQueryService#getMySchedule, findForSalesRep
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java
+- 클래스/메서드: PersonalScheduleCommandService#create, update
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/command/DealScheduleUpsertCommand.java
+- 클래스/메서드: DealScheduleUpsertCommand (canonical constructor)
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java
+- 클래스/메서드: DealSchedule#validate
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepository.java
+- 클래스/메서드: managerEmployeeId 기반 조회 메서드 추가
+
+### 변경 내용
+개인 일정 취소 시 `status=CANCELED`와 `isDeleted=true`를 함께 반영해 `@SQLRestriction` soft delete 조건과 동작을 일치시켰다.
+개인 일정 단건 조회를 command 서비스에서 query 서비스로 이동해 CQRS 경계를 정리했고, 컨트롤러와 테스트 의존을 동기화했다.
+SALES_REP 통합 조회는 `clientId IN (...)` 대신 `managerEmployeeId` 조건 리포지토리 메서드로 조회해 대량 ID materialize를 제거했다.
+레거시 enum(`DONE`, `TEAM`)은 create/update 저장 경로에서 차단하고, `DealSchedule` 엔티티 검증은 `IllegalArgumentException(필드명)`으로 도메인 예외 경계를 분리했다.
+`DealScheduleUpsertCommand`는 `title/externalKey`를 trim 후 검증/저장하도록 정규화했다.
+
+### 변경 이유
+리뷰 지적 반영(soft delete 누락, CQRS 경계 혼재, SALES_REP 조회 성능, 레거시 enum 입력 허용, 엔티티-HTTP 예외 결합)
+
+## [2026-03-07] 예외 응답 메시지 비노출 및 개인 일정 업데이트 레거시 허용 정렬
+
+### 변경 대상
+- 파일: src/main/java/com/monsoon/seedflowplus/core/common/support/error/GlobalExceptionHandler.java
+- 클래스/메서드: GlobalExceptionHandler#handleIllegalArgumentException
+- 파일: src/main/java/com/monsoon/seedflowplus/domain/schedule/command/PersonalScheduleCommandService.java
+- 클래스/메서드: PersonalScheduleCommandService#resolveStatusForUpdate, resolveVisibilityForCreate, resolveVisibilityForUpdate
+
+### 변경 내용
+`IllegalArgumentException` 처리 응답이 내부 예외 메시지를 그대로 노출하지 않도록 고정 사용자 메시지(`Invalid input.`)를 반환하도록 변경했다.
+진단 목적 로그는 예외 메시지와 stack trace를 남기도록 강화했다.
+개인 일정 update/create 시 `DONE`/`TEAM` 금지 검증은 "요청값이 명시된 경우"에만 적용되도록 조정해,
+기존 DB 레거시 값이 현재값으로 존재하는 경우에는 null 요청(update 무변경) 흐름이 차단되지 않게 했다.
+
+### 변경 이유
+리뷰 지적 반영(내부 예외 정보 노출 방지, 레거시 데이터 업데이트 호환성 보장)

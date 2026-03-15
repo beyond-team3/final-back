@@ -1,0 +1,112 @@
+대분류,소분류,테스트 내용,수행 결과
+리포지토리 집계,월별 집계(카테고리 없음),"입력: from/to 유효 + category=null
+성공: 공통 필터 조건(invoice/statement 상태 등) 충족 데이터만 월별 합산
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,월별 집계(tomato),"입력: category=tomato
+성공: tomato 품목 금액만 월별 합산
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,월별 집계(cabbage),"입력: category=cabbage
+성공: cabbage 품목 금액만 월별 합산
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,월별 집계(존재하지 않는 카테고리),"입력: category=pepper(미존재)
+성공: 집계 결과 empty + 합계 0
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,혼합 품종 월별 카테고리 필터,"입력: 혼합 품종 invoice + category별 월별 조회
+성공: 조회한 category 금액만 반영(중복 합산 없음)
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,혼합 품종 품종별 집계,"입력: 혼합 품종 invoice + by-category 조회
+성공: 각 category별 금액이 분리 집계(총액 중복 없음)
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,혼합 품종 월별-품종별 집계,"입력: 혼합 품종 invoice + monthly-by-category 조회
+성공: month|category 단위 금액 정확 집계
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,집계 기준 금액 검증,"입력: invoice 총액과 statement line 금액이 다르도록 fixture 구성
+성공: issued statement line 금액 기준으로 집계
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+리포지토리 집계,영업사원 스코프 집계,"입력: employee 2명 fixture + employeeId 지정 조회
+성공: 지정 employee 담당 주문만 월별/품종별/월별품종별 집계
+실패: 현재 실행에서 ConstraintViolationException 발생",PASS
+쿼리 서비스,유효 기간 월별 조회,"입력: from=2024-01-01, to=2025-12-31, ADMIN principal
+성공: repository.findMonthlyRevenue(filter, null) 1회 호출
+실패: 기간 유효한데 예외 발생 또는 repo 미호출",PASS
+쿼리 서비스,기간 24개월 경계 허용,"입력: 포함 기준 정확히 24개월 기간
+성공: INVALID_INPUT_VALUE 없이 조회 수행
+실패: 경계값을 초과로 오판해 예외 발생",PASS
+쿼리 서비스,기간 25개월 초과 차단,"입력: 포함 기준 25개월 기간
+성공: CoreException(INVALID_INPUT_VALUE), repository 미호출
+실패: 초과 기간인데 조회 진행",PASS
+쿼리 서비스,ADMIN 전체 조회,"입력: principal.role=ADMIN
+성공: employeeId scope 없이 repository(..., null) 호출
+실패: ADMIN에 employee scope 강제",PASS
+쿼리 서비스,SALES_REP 본인 범위 조회,"입력: principal.role=SALES_REP, employeeId=321
+성공: repository(..., 321) 호출
+실패: null scope 호출로 전체 데이터 조회",PASS
+쿼리 서비스,SALES_REP employeeId 누락 차단,"입력: principal.role=SALES_REP, employeeId=null
+성공: CoreException(EMPLOYEE_NOT_LINKED), repository 미호출
+실패: 식별자 없이 조회 허용",PASS
+쿼리 서비스,비허용 역할 차단,"입력: principal.role=CLIENT
+성공: CoreException(ACCESS_DENIED), repository 미호출
+실패: 비허용 역할 조회 허용",PASS
+쿼리 서비스,from>to 입력 검증,"입력: fromDate가 toDate보다 이후
+성공: CoreException(INVALID_INPUT_VALUE), repository 미호출
+실패: 역전 기간이 통과",PASS
+쿼리 서비스,fromDate null 검증,"입력: fromDate=null
+성공: CoreException(INVALID_INPUT_VALUE), repository 미호출
+실패: 시작일 없는 조회 허용",PASS
+쿼리 서비스,toDate null 검증,"입력: toDate=null
+성공: CoreException(INVALID_INPUT_VALUE), repository 미호출
+실패: 종료일 없는 조회 허용",PASS
+컨트롤러 API,월별 파라미터 바인딩,"입력: GET /monthly?from=2026-01-01&to=2026-12-31&category=수박
+성공: 200 + SUCCESS 응답, QueryService에 동일 filter 바인딩 전달
+실패: filter 값 누락/변조 전달",PASS
+컨트롤러 API,품종별 응답 래핑,"입력: GET /by-category
+성공: 200 + SUCCESS 응답 래퍼(result/data) 구조 유지
+실패: 공통 응답 포맷 불일치",PASS
+컨트롤러 API,월별-품종별 파라미터 바인딩,"입력: GET /monthly-by-category + from/to/category
+성공: 200 + SUCCESS, QueryService로 filter 정확 전달
+실패: 파라미터 바인딩 누락",PASS
+컨트롤러 API,구 경로 차단,"입력: GET /statistics/billing/revenue/monthly (legacy path)
+성공: 404 + QueryService 미호출
+실패: 레거시 경로가 살아있어 이중 진입점 발생",PASS
+컨트롤러 API,날짜 형식 검증,"입력: from=2026/01/01 (잘못된 형식)
+성공: 400 + QueryService 미호출
+실패: 잘못된 날짜 포맷 허용",PASS
+컨트롤러 API,principal 전달,"입력: controller 직접 호출(getMonthlyRevenue)
+성공: QueryService 호출 시 동일 principal 객체 전달
+실패: principal null 치환/유실",PASS
+컨트롤러 보안,월별 SALES_REP 허용,"입력: SALES_REP 권한으로 /monthly 호출
+성공: 200 반환
+실패: 허용 권한인데 403/401",PASS
+컨트롤러 보안,월별 ADMIN 허용,"입력: ADMIN 권한으로 /monthly 호출
+성공: 200 반환
+실패: 허용 권한인데 403/401",PASS
+컨트롤러 보안,월별 CLIENT 차단,"입력: CLIENT 권한으로 /monthly 호출
+성공: 403 + QueryService 미호출
+실패: 비허용 권한 접근 허용",PASS
+컨트롤러 보안,월별 비인증 차단,"입력: 비인증으로 /monthly 호출
+성공: 401 + QueryService 미호출
+실패: 비인증 접근 허용",PASS
+컨트롤러 보안,품종별 SALES_REP 허용,"입력: SALES_REP 권한으로 /by-category 호출
+성공: 200 반환
+실패: 허용 권한인데 차단",PASS
+컨트롤러 보안,품종별 ADMIN 허용,"입력: ADMIN 권한으로 /by-category 호출
+성공: 200 반환
+실패: 허용 권한인데 차단",PASS
+컨트롤러 보안,품종별 CLIENT 차단,"입력: CLIENT 권한으로 /by-category 호출
+성공: 403 + QueryService 미호출
+실패: 비허용 권한 접근 허용",PASS
+컨트롤러 보안,품종별 비인증 차단,"입력: 비인증으로 /by-category 호출
+성공: 401 + QueryService 미호출
+실패: 비인증 접근 허용",PASS
+컨트롤러 보안,월별-품종별 SALES_REP 허용,"입력: SALES_REP 권한으로 /monthly-by-category 호출
+성공: 200 반환
+실패: 허용 권한인데 차단",PASS
+컨트롤러 보안,월별-품종별 ADMIN 허용,"입력: ADMIN 권한으로 /monthly-by-category 호출
+성공: 200 반환
+실패: 허용 권한인데 차단",PASS
+컨트롤러 보안,월별-품종별 CLIENT 차단,"입력: CLIENT 권한으로 /monthly-by-category 호출
+성공: 403 + QueryService 미호출
+실패: 비허용 권한 접근 허용",PASS
+컨트롤러 보안,월별-품종별 비인증 차단,"입력: 비인증으로 /monthly-by-category 호출
+성공: 401 + QueryService 미호출
+실패: 비인증 접근 허용",PASS

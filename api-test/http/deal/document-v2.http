@@ -1,0 +1,126 @@
+### Quotation/Contract v2 API Test
+### 사전 준비
+### - `_env.http` 로그인 실행
+### - `clientId`, `dealId`, `quotationId`, `contractId` 는 로컬 데이터에 맞게 보정
+
+@baseUrl = http://localhost:8080
+@clientId = 920001
+@dealId = 930001
+@quotationId = 950001
+@contractId = 960001
+
+### [S1] 견적서 v2 생성
+POST {{baseUrl}}/api/v2/quotations
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "dealId": {{dealId}},
+  "clientId": {{clientId}},
+  "items": [
+    {
+      "productId": null,
+      "productName": "테스트 종자",
+      "productCategory": "VEG",
+      "quantity": 10,
+      "unit": "EA",
+      "unitPrice": 1000
+    }
+  ],
+  "memo": "v2 quotation create"
+}
+
+### [S2] 견적서 v2 재작성
+POST {{baseUrl}}/api/v2/quotations/{{quotationId}}/revise
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": null,
+      "productName": "테스트 종자 수정",
+      "productCategory": "VEG",
+      "quantity": 12,
+      "unit": "EA",
+      "unitPrice": 1100
+    }
+  ],
+  "memo": "v2 quotation revise"
+}
+
+### [S3] 견적서 v2 취소
+PATCH {{baseUrl}}/api/v2/quotations/{{quotationId}}/cancel
+Authorization: Bearer {{salesAccessToken}}
+
+### [S4] 계약서 v2 생성
+POST {{baseUrl}}/api/v2/contracts
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "dealId": {{dealId}},
+  "clientId": {{clientId}},
+  "startDate": "2026-03-15",
+  "endDate": "2026-06-15",
+  "billingCycle": "MONTHLY",
+  "specialTerms": "특약",
+  "memo": "v2 contract create",
+  "items": [
+    {
+      "productId": null,
+      "productName": "테스트 종자",
+      "productCategory": "VEG",
+      "totalQuantity": 10,
+      "unit": "EA",
+      "unitPrice": 1000
+    }
+  ]
+}
+
+### [S5] 계약서 v2 재작성
+POST {{baseUrl}}/api/v2/contracts/{{contractId}}/revise
+Authorization: Bearer {{salesAccessToken}}
+Content-Type: application/json
+
+{
+  "startDate": "2026-03-20",
+  "endDate": "2026-06-30",
+  "billingCycle": "MONTHLY",
+  "specialTerms": "수정 특약",
+  "memo": "v2 contract revise",
+  "items": [
+    {
+      "productId": null,
+      "productName": "테스트 종자 수정",
+      "productCategory": "VEG",
+      "totalQuantity": 12,
+      "unit": "EA",
+      "unitPrice": 1100
+    }
+  ]
+}
+
+### [S6] 계약서 v2 취소
+PATCH {{baseUrl}}/api/v2/contracts/{{contractId}}/cancel
+Authorization: Bearer {{salesAccessToken}}
+
+### [F1] 견적서 v2 생성 권한 오류
+POST {{baseUrl}}/api/v2/quotations
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "dealId": {{dealId}},
+  "clientId": {{clientId}},
+  "items": [
+    {
+      "productId": null,
+      "productName": "권한 오류 테스트",
+      "productCategory": "VEG",
+      "quantity": 1,
+      "unit": "EA",
+      "unitPrice": 1000
+    }
+  ]
+}

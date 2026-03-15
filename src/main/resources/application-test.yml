@@ -1,0 +1,57 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+# 테스트를 위한 더미값
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+
+  cloud:
+    aws:
+      s3:
+        bucket: test-dummy-bucket
+      credentials:
+        access-key: test-access-key
+        secret-key: test-secret-key
+      region:
+        static: ap-northeast-2
+
+  mail:
+      host: localhost
+      port: 587
+      username: test
+      password: test
+
+  # JWT 관련 더미 설정
+jwt:
+    secret: KHXxMP9orpMgPBvTyJYuajPO6tqyej2zx7od31vITTs=
+    access-token-expiration-ms: 3600000
+    refresh-token-expiration-ms: 1209600000
+
+google:
+  gemini:
+    api:
+      key: this-is-dummy-gemini-api-key
+      url: https://dummy.gemini.api.url
+
+ncpms:
+  api:
+    key: this-is-dummy-ncpms-api-key
+
+kakao:
+  api:
+    key: "DUMMY_KAKAO_REST_API_KEY"

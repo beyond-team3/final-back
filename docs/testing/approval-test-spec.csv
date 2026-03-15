@@ -1,0 +1,85 @@
+대분류,소분류,테스트 내용,수행 결과
+리포지토리 조회,CLIENT 최신 로그 기준 노출,"입력: legacy approval row + 과거/최신 SalesDealLog 2건
+성공: 최신 로그의 clientId로만 searchForClient 결과 노출
+실패: 과거 로그 clientId로 노출되면 접근제어 역전",PASS
+리포지토리 조회,SALES_REP 최신 owner 기준 노출,"입력: owner 변경 이력이 있는 SalesDealLog
+성공: searchForSalesRep가 최신 owner 기준으로만 결과 반환
+실패: 이전 owner에게도 노출되면 권한 누수",PASS
+리포지토리 조회,snapshot 우선 적용,"입력: clientIdSnapshot 존재 + 최신 로그 client 불일치
+성공: snapshot client 기준으로만 searchForClient 결과 반환
+실패: snapshot 무시 시 승인권자 오판",PASS
+승인요청 생성,QUO 생성 기본 플로우,"입력: QUO target WAITING_ADMIN, 중복 pending 없음
+성공: ApprovalRequest 저장 + client snapshot 설정 + ADMIN/CLIENT step 2개 생성
+실패: step 누락/순서 오류/스냅샷 누락",PASS
+승인요청 생성,QUO snapshot 자동 보정,"입력: 요청 clientIdSnapshot=null, 문서 clientId 존재
+성공: 저장 ApprovalRequest.clientIdSnapshot이 문서 clientId로 채워짐
+실패: null 저장 시 접근제어 기준 유실",PASS
+승인요청 생성,QUO snapshot 불일치 차단,"입력: 요청 snapshot != 문서 거래처
+성공: CoreException(APPROVAL_CLIENT_MISMATCH), 요청 미저장
+실패: 불일치 허용 시 타 거래처 승인 생성 가능",PASS
+승인요청 생성,ADMIN submit 로그 actor 매핑,"입력: principal.role=ADMIN, employeeId 존재
+성공: writeSubmit(..., ActorType.ADMIN, employeeId) 호출
+실패: actorType/actorId 오기록 시 감사로그 무효",PASS
+승인요청 생성,CLIENT submit 로그 actor 매핑,"입력: principal.role=CLIENT, clientId 존재
+성공: writeSubmit(..., ActorType.CLIENT, clientId) 호출
+실패: actor 매핑 불일치 시 책임주체 추적 실패",PASS
+승인요청 생성,ADMIN 식별자 누락,"입력: ADMIN principal.employeeId=null
+성공: CoreException(UNAUTHORIZED) 발생
+실패: 예외 없이 생성되면 관리자 식별 우회",PASS
+승인요청 생성,CLIENT 식별자 누락,"입력: CLIENT principal.clientId=null
+성공: CoreException(UNAUTHORIZED) 발생
+실패: client 식별 없이 승인 생성 허용",PASS
+승인요청 생성,SALES_REP employeeId 필수,"입력: SALES_REP principal.userId만 존재, employeeId=null
+성공: CoreException(UNAUTHORIZED) 발생
+실패: userId로 대체 허용 시 정책 위반",PASS
+승인요청 생성,SALES_REP QUO 소유권 차단,"입력: SALES_REP employeeId != QUO deal owner
+성공: CoreException(UNAUTHORIZED), 요청 미저장
+실패: 타 담당 딜 submit 허용",PASS
+승인요청 생성,SALES_REP QUO 소유권 허용,"입력: SALES_REP employeeId == QUO deal owner
+성공: 요청 생성 성공 + writeSubmit(..., ActorType.SALES_REP, employeeId) 호출
+실패: 본인 딜인데 거부되거나 actor 오기록",PASS
+승인요청 생성,SALES_REP CNT owner 없음 차단,"입력: CNT deal.ownerEmp=null, principal=SALES_REP
+성공: CoreException(UNAUTHORIZED), 요청 미저장
+실패: 담당자 없는 딜 submit 허용",PASS
+승인요청 생성,ADMIN CNT submit 허용,"입력: principal=ADMIN, CNT deal owner는 임의 값
+성공: 요청 생성 성공, writeSubmit ADMIN actor 기록
+실패: owner 조건으로 ADMIN까지 차단",PASS
+승인 단계 처리,QUO ADMIN 승인,"입력: step1=ADMIN WAITING, 문서=WAITING_ADMIN, decision=APPROVE
+성공: 문서 WAITING_CLIENT 전이, step1 APPROVED, step2 WAITING 유지, 요청 PENDING 유지
+실패: 상태 전이/step 전이/로그 파라미터 불일치",PASS
+승인 단계 처리,QUO CLIENT 승인,"입력: step1 APPROVED + step2 CLIENT WAITING, 문서=WAITING_CLIENT
+성공: 문서 FINAL_APPROVED, step2 APPROVED, 요청 APPROVED
+실패: 최종 승인 후 요청 상태 미완료",PASS
+승인 단계 처리,QUO ADMIN 반려,"입력: step1 ADMIN WAITING, decision=REJECT
+성공: 문서 REJECTED_ADMIN, 요청 REJECTED
+실패: 반려 후 pending/approved 유지",PASS
+승인 단계 처리,QUO CLIENT 반려,"입력: step2 CLIENT WAITING, decision=REJECT
+성공: 문서 REJECTED_CLIENT, 요청 REJECTED
+실패: 2차 반려가 최종 상태로 반영되지 않음",PASS
+승인 단계 처리,CNT ADMIN 승인,"입력: CNT step1 ADMIN APPROVE, 문서 WAITING_ADMIN
+성공: 문서 WAITING_CLIENT, 요청 PENDING
+실패: 1단계 승인에서 요청이 조기 APPROVED 처리",PASS
+승인 단계 처리,CNT CLIENT 승인,"입력: CNT step2 CLIENT APPROVE, 문서 WAITING_CLIENT
+성공: 문서 COMPLETED, 요청 APPROVED
+실패: 계약 완료 상태 미반영",PASS
+승인 단계 처리,step 순서 강제,"입력: step1 미승인 상태에서 step2 처리 시도
+성공: CoreException(APPROVAL_STEP_NOT_ACTIVE)
+실패: step 순서 무시하고 처리됨",PASS
+승인 단계 처리,상태 전이 validator 선검증,"입력: 현재 문서 상태가 승인 전이 불가 상태(REJECTED_ADMIN)
+성공: CoreException(INVALID_DOC_STATUS_TRANSITION), writeDecision 미호출
+실패: validator 실패 후에도 로그/상태 변경 진행",PASS
+승인요청 조회,CLIENT 스코프 검색,"입력: principal=CLIENT(clientId=77)
+성공: searchForClient 호출 결과를 그대로 반환, 일반 search 미호출
+실패: 범용 search 호출로 데이터 과노출",PASS
+승인요청 조회,SALES_REP 스코프 검색,"입력: principal=SALES_REP(employeeId=501)
+성공: searchForSalesRep 호출 결과를 그대로 반환, 일반 search 미호출
+실패: 스코프 미적용으로 타 담당 승인 조회 가능",PASS
+로그 기록,fromStage 불일치 차단,"입력: writeDecision fromStage=PENDING_ADMIN, deal.currentStage=PENDING_CLIENT
+성공: CoreException(INVALID_DOC_STATUS_TRANSITION), recordAndSync 미호출
+실패: stage mismatch인데도 로그 동기화 진행",PASS
+로그 기록,submit 로그 전용 경로,"입력: writeSubmit(request, actorType, actorId)
+성공: DealLogWriteService.write 호출, DealPipelineFacade.recordAndSync 미호출
+실패: submit에서 snapshot 동기화까지 수행되어 과도한 부작용 발생",PASS
+로그 기록,fromStage enum 파싱 실패 처리,"입력: writeDecision fromStage=NOT_A_STAGE
+성공: CoreException(INVALID_DOC_STATUS_TRANSITION), recordAndSync 미호출
+실패: 잘못된 stage 문자열이 그대로 처리됨",PASS

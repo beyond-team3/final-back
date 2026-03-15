@@ -1,0 +1,26 @@
+### Billing revenue statistics v2 검증 시나리오
+### 사전 준비:
+### 1) bootstrap-billing-revenue.sql 실행
+### 2) local 서버 기동
+### 3) _env.http 로그인 또는 본 파일 로그인 실행
+
+@baseUrl = http://localhost:8080
+
+### [S1] SALES_REP v2 월별 청구 매출 조회
+GET {{baseUrl}}/api/v2/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{salesAccessToken}}
+
+### [S2] ADMIN v2 품종별 청구 매출 조회
+GET {{baseUrl}}/api/v2/statistics/billing/revenue/by-category?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{adminAccessToken}}
+
+### [S3] ADMIN v2 월별/품종별 청구 매출 조회
+GET {{baseUrl}}/api/v2/statistics/billing/revenue/monthly-by-category?from=2026-01-01&to=2026-12-31&category=%EC%88%98%EB%B0%95
+Authorization: Bearer {{adminAccessToken}}
+
+### [F1] CLIENT 접근 차단
+GET {{baseUrl}}/api/v2/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{client1AccessToken}}
+
+### [F2] 비인증 접근 차단
+GET {{baseUrl}}/api/v2/statistics/billing/revenue/monthly?from=2026-01-01&to=2026-12-31
