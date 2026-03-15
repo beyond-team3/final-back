@@ -148,14 +148,14 @@ public class QuotationService {
             quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
             SalesDeal resolvedDeal = quotationRequest.getDeal() != null
                     ? quotationRequest.getDeal()
-                    : resolveOrCreateOpenDeal(client, author);
+                    : createDealBootstrap(client, author);
 
             // RFQ 분기에서도 Deal 락을 획득하여 동시성 제어 (단, 중복 견적 체크는 RFQ 레벨에서만 수행하도록 완화)
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
         } else {
             // 3-2. 일반 견적 작성 시 검증
-            SalesDeal resolvedDeal = resolveOrCreateOpenDeal(client, author);
+            SalesDeal resolvedDeal = createDealBootstrap(client, author);
             // 동시성 제어를 위해 Deal에 락을 획득하여 다시 조회
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
@@ -729,17 +729,6 @@ public class QuotationService {
                     .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
         }
         throw new CoreException(ErrorType.USER_NOT_FOUND);
-    }
-
-    private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
-        Long clientId = client.getId();
-        if (clientId == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-
-        // 주의: 호출부(createQuotation)에서 이미 Client에 대해 비관적 락(findByIdWithLock)을 획득한 상태여야 함
-        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .orElseGet(() -> createDealBootstrap(client, ownerEmp));
     }
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
