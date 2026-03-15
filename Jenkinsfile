@@ -196,13 +196,23 @@ spec:
         stage('Notify Deployment') {
             steps {
                 script {
-                    discordSend(
-                        webhookURL: env.DISCORD_WEBHOOK,
-                        title: "[Backend] 새 버전 배포 준비 완료 (Preview)",
-                        description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG}) 매니페스트가 성공적으로 업데이트되었습니다.\n ArgoCD가 곧 자동 동기화를 시작합니다!",
-                        result: 'SUCCESS',
-                        color: '#00FF00'
-                    )
+                    if (env.BRANCH_NAME == 'main') {
+                        discordSend(
+                            webhookURL: env.DISCORD_WEBHOOK,
+                            title: "🚀 [Backend] 운영 배포 준비 완료 (main)",
+                            description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG}) 매니페스트가 성공적으로 업데이트되었습니다.\n ArgoCD가 곧 자동 동기화를 시작합니다!",
+                            result: 'SUCCESS'
+                        )
+                    }
+
+                    else {
+                        discordSend(
+                            webhookURL: env.DISCORD_WEBHOOK,
+                            title: "🟢 [Backend] 빌드 성공 (${env.BRANCH_NAME})",
+                            description: "Branch: ${env.BRANCH_NAME}\n 새로운 버전(${env.FINAL_TAG})의 도커 이미지가 ECR에 성공적으로 푸시되었습니다.",
+                            result: 'SUCCESS'
+                        )
+                    }
                 }
             }
         }
