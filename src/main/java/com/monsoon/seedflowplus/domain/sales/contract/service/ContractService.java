@@ -456,7 +456,7 @@ public class ContractService {
             author = quotation.getAuthor();
             deal = quotation.getDeal() != null
                     ? quotation.getDeal()
-                    : resolveOrCreateOpenDeal(client, author);
+                    : createDealBootstrap(client, author);
         } else {
             // 1-2. 신규 작성 (견적서 없음)
             client = clientRepository.findById(request.clientId())
@@ -469,7 +469,7 @@ public class ContractService {
 
             author = employeeRepository.findById(userDetails.getEmployeeId())
                     .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
-            deal = resolveOrCreateOpenDeal(client, author);
+            deal = createDealBootstrap(client, author);
         }
 
         // 2. 계약 기간 검증
@@ -612,15 +612,6 @@ public class ContractService {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
-    }
-
-    private SalesDeal resolveOrCreateOpenDeal(Client client, Employee ownerEmp) {
-        Long clientId = client.getId();
-        if (clientId == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-        return salesDealRepository.findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(clientId)
-                .orElseGet(() -> createDealBootstrap(client, ownerEmp));
     }
 
     private SalesDeal createDealBootstrap(Client client, Employee ownerEmp) {
