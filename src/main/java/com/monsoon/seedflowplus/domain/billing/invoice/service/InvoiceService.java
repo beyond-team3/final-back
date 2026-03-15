@@ -341,17 +341,37 @@ public class InvoiceService {
                 .toList();
     }
 
+    @Transactional
+    public InvoiceDetailResponse createDraftInvoiceByAdmin(Long contractId) {
+        ContractHeader contract = contractHeaderRepository.findById(contractId)
+                .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+        if (contract.getStatus() != com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.COMPLETED
+                && contract.getStatus() != com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.ACTIVE_CONTRACT) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "완료 또는 활성 계약만 수동 청구서 생성을 허용합니다.");
+        }
+
+        return createDraftInvoiceInternal(contract, true);
+    }
+
     /**
      * 스케줄러용 자동 생성 (billing_cycle 기준)
      * InvoiceScheduler에서 호출
      */
     @Transactional
     public void createDraftInvoice(ContractHeader contract) {
+        createDraftInvoiceInternal(contract, false);
+    }
+
+    private InvoiceDetailResponse createDraftInvoiceInternal(ContractHeader contract, boolean failOnExistingInvoice) {
 
         if (invoiceRepository.existsByContractIdAndStatusIn(
                 contract.getId(),
                 List.of(InvoiceStatus.DRAFT, InvoiceStatus.PUBLISHED))) {
-            return;
+            if (failOnExistingInvoice) {
+                throw new CoreException(ErrorType.INVOICE_ALREADY_EXISTS);
+            }
+            return null;
         }
 
         LocalDate today = LocalDate.now();
@@ -403,6 +423,18 @@ public class InvoiceService {
                 invoice.changeCode(newCode);
             }
         }
+
+        List<InvoiceStatement> invoiceStatements = invoiceStatementRepository.findAllByInvoiceId(invoice.getId());
+        return InvoiceDetailResponse.of(
+                invoice,
+                invoiceStatements,
+                dealLogQueryService.getRecentDocumentLogs(
+                        invoice.getDeal() != null ? invoice.getDeal().getId() : null,
+                        DealType.INV,
+                        invoice.getId()
+                ),
+                resolveContractCode(invoice.getContractId())
+        );
     }
 
 

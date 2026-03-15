@@ -41,6 +41,16 @@ public class InvoiceController {
         );
     }
 
+    @Operation(summary = "청구서 초안 수동 생성 (관리자)", description = "billing cycle 대기 없이 특정 계약 기준 청구서 초안을 즉시 생성합니다.")
+    @PostMapping("/contracts/{contractId}/manual-draft")
+    public ApiResult<InvoiceDetailResponse> createInvoiceDraftManually(
+            @PathVariable Long contractId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        requireAdmin(userDetails);
+        return ApiResult.success(invoiceService.createDraftInvoiceByAdmin(contractId));
+    }
+
 
     @Operation(summary = "청구서 발행 확정", description = "DRAFT 상태의 청구서를 PUBLISHED로 변경합니다.")
     @PatchMapping("/{invoiceId}/publish")
@@ -124,5 +134,11 @@ public class InvoiceController {
         if (userDetails == null || userDetails.getClientId() == null)
             throw new CoreException(ErrorType.ACCESS_DENIED);
         return userDetails.getClientId();
+    }
+
+    private void requireAdmin(CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getRole() != Role.ADMIN) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
     }
 }

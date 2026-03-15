@@ -16,8 +16,11 @@ import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.account.repository.EmployeeRepository;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoicePublishResponse;
+import com.monsoon.seedflowplus.domain.billing.invoice.dto.response.InvoiceDetailResponse;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
+import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatement;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
+import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
 import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
@@ -27,6 +30,9 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.notification.event.InvoiceIssuedEvent;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
@@ -202,5 +208,72 @@ class InvoiceServiceTest {
         ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
         verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
         assertEquals(7002L, commandCaptor.getValue().assigneeUserId());
+    }
+
+    @Test
+    void createDraftInvoiceByAdminCreatesImmediateDraftForContract() {
+        Client client = Client.builder()
+                .clientCode("C-1")
+                .clientName("테스트 거래처")
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("client@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 7L);
+
+        Employee ownerEmployee = Employee.builder()
+                .employeeCode("EMP-1")
+                .employeeName("담당 영업")
+                .employeeEmail("owner@test.com")
+                .employeePhone("010-1111-1111")
+                .address("서울")
+                .build();
+        ReflectionTestUtils.setField(ownerEmployee, "id", 12L);
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        when(deal.getId()).thenReturn(55L);
+
+        ContractHeader contract = ContractHeader.create(
+                "CNT-20260315-001",
+                null,
+                client,
+                deal,
+                ownerEmployee,
+                java.math.BigDecimal.valueOf(100000),
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 6, 30),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(contract, "id", 10L);
+        ReflectionTestUtils.setField(contract, "status", ContractStatus.COMPLETED);
+
+        Statement statement = org.mockito.Mockito.mock(Statement.class);
+        when(statement.getTotalAmount()).thenReturn(java.math.BigDecimal.valueOf(55000));
+
+        when(contractRepository.findById(10L)).thenReturn(Optional.of(contract));
+        when(invoiceRepository.existsByContractIdAndStatusIn(10L, List.of(InvoiceStatus.DRAFT, InvoiceStatus.PUBLISHED))).thenReturn(false);
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> {
+            Invoice invoice = invocation.getArgument(0);
+            ReflectionTestUtils.setField(invoice, "id", 41L);
+            return invoice;
+        });
+        when(invoiceRepository.saveAndFlush(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceStatementRepository.findBillableStatements(10L)).thenReturn(List.of(statement));
+        when(invoiceStatementRepository.save(any(InvoiceStatement.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceStatementRepository.findAllByInvoiceId(41L)).thenReturn(List.of());
+        when(dealLogQueryService.getRecentDocumentLogs(55L, DealType.INV, 41L)).thenReturn(List.of());
+
+        InvoiceDetailResponse response = invoiceService.createDraftInvoiceByAdmin(10L);
+
+        assertThat(response.getInvoiceId()).isEqualTo(41L);
+        assertThat(response.getContractCode()).isEqualTo("CNT-20260315-001");
+        assertThat(response.getStatus()).isEqualTo(InvoiceStatus.DRAFT);
+        assertThat(response.getClientName()).isEqualTo("테스트 거래처");
     }
 }
