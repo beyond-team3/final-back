@@ -58,6 +58,20 @@
 - `/api/v2/statistics/billing/revenue/**` 응답이 v1과 동일 집계값을 반환하는지 확인
 - v1 문서 조회/일정/통계 회귀가 없는지 확인
 
+## 운영 전환 체크리스트
+- 프론트에서 deal 메인 목록 호출을 `/api/v2/deals` 로 전환
+- QUO/CNT 생성/재작성/취소 액션을 `/api/v2/quotations/**`, `/api/v2/contracts/**` 로 전환
+- KPI 화면은 `/api/v2/deals/kpis` 로 전환
+- billing revenue 화면은 필요 시 `/api/v2/statistics/billing/revenue/**` 로 전환
+- QA에서 `api-test/http/deal/deal-v2.http`, `api-test/http/deal/document-v2.http`, `api-test/http/statistics/billing-revenue-v2.http` 시나리오 실행
+- 운영 반영 전 `DocumentSummaryQueryControllerTest`, `ScheduleControllerTest`, `StatisticsControllerTest` 재실행
+
+## 잔여 리스크
+- `SalesDeal.currentStatus` 는 여전히 v1 복합 상태 문자열이라 완전한 3축 영속 모델은 아직 아니다.
+- RFQ/ORD/STMT/INV/PAY 명령 API는 v2로 아직 분리되지 않았다.
+- `dealCode`, `dealTitle` 은 read model 계약에는 반영됐지만 영속 필드는 아직 확정되지 않았다.
+- reopen 명시 API는 아직 추가되지 않았다.
+
 ## 남은 전환 작업
 - RFQ/ORD/STMT/INV/PAY의 v2 명령 API 분리 여부 결정
 - reopen 명시 API 추가
