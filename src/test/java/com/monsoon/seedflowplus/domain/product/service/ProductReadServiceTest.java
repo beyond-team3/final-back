@@ -1,14 +1,24 @@
 package com.monsoon.seedflowplus.domain.product.service;
 
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
+import com.monsoon.seedflowplus.domain.account.entity.ClientCrop;
+import com.monsoon.seedflowplus.domain.account.entity.ClientType;
+import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductCalendarRecommendationResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductHarvestImminentResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
+import com.monsoon.seedflowplus.domain.product.entity.CultivationTime;
 import com.monsoon.seedflowplus.domain.product.entity.Product;
 import com.monsoon.seedflowplus.domain.product.entity.ProductCategory;
 import com.monsoon.seedflowplus.domain.product.entity.ProductStatus;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,8 +30,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,8 +43,16 @@ class ProductReadServiceTest {
     private ProductRepository productRepository;
 
     @Mock
-    @SuppressWarnings("unused")
     private CultivationTimeRepository cultivationTimeRepository;
+
+    @Mock
+    private ProductTagRepository productTagRepository;
+
+    @Mock
+    private ClientRepository clientRepository;
+
+    @Mock
+    private ClientCropRepository clientCropRepository;
 
     @InjectMocks
     private ProductReadService productReadService;
@@ -121,6 +141,65 @@ class ProductReadServiceTest {
         assertThat(response.getPrice()).isEqualByComparingTo("45000");
     }
 
+    @Test
+    @DisplayName("캘린더 추천 품종 조회 시 sowingStart와 plantingStart 사이의 상품만 반환한다")
+    void getCalendarRecommendationsFiltersByMonthWindow() {
+        Product recommended = createDummyProduct("P006", "봄 수박", new BigDecimal("12000"));
+        Product excluded = createDummyProduct("P007", "여름 배추", new BigDecimal("9000"));
+
+        when(productRepository.findAll()).thenReturn(List.of(recommended, excluded));
+        when(cultivationTimeRepository.findAllByProductIdIn(List.of(recommended.getId(), excluded.getId())))
+                .thenReturn(List.of(
+                        createCultivationTime(recommended, 3, 4, 7, 8, "노지", "전남"),
+                        createCultivationTime(excluded, 1, 2, 5, 6, "하우스", "경남")
+                ));
+
+        ProductCalendarRecommendationResponse response = productReadService.getCalendarRecommendations(3);
+
+        assertThat(response.getMonth()).isEqualTo(3);
+        assertThat(response.getItems()).hasSize(1);
+        assertThat(response.getItems().getFirst().getProductName()).isEqualTo("봄 수박");
+        assertThat(response.getItems().getFirst().getSowingStart()).isEqualTo(3);
+        assertThat(response.getItems().getFirst().getPlantingStart()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("수확 임박 조회 시 담당 거래처의 취급 품종과 매칭된 상품만 반환한다")
+    void getHarvestImminentReturnsManagedClientMatches() {
+        Client client = createClient("거래처A");
+        ReflectionTestUtils.setField(client, "id", 1L);
+
+        ClientCrop crop = ClientCrop.builder()
+                .cropName("수박")
+                .client(client)
+                .build();
+        ReflectionTestUtils.setField(crop, "id", 10L);
+
+        Product matched = createDummyProduct("P008", "프리미엄 수박", new BigDecimal("15000"));
+        Product notImminent = createDummyProduct("P009", "늦수확 수박", new BigDecimal("13000"));
+
+        when(clientRepository.findAllByManagerEmployeeId(7L)).thenReturn(List.of(client));
+        when(clientCropRepository.findAllByClientIdIn(List.of(1L))).thenReturn(List.of(crop));
+        when(productRepository.findAll()).thenReturn(List.of(matched, notImminent));
+        when(cultivationTimeRepository.findAllByProductIdIn(List.of(matched.getId(), notImminent.getId())))
+                .thenReturn(List.of(
+                        createCultivationTime(matched, 2, 3, 3, 4, "노지", "전북"),
+                        createCultivationTime(notImminent, 2, 3, 6, 7, "노지", "경북")
+                ));
+
+        ProductHarvestImminentResponse response = productReadService.getHarvestImminent(3, salesRepPrincipal(7L));
+
+        assertThat(response.getMonth()).isEqualTo(3);
+        assertThat(response.getNextMonth()).isEqualTo(4);
+        assertThat(response.getClients()).hasSize(1);
+        assertThat(response.getClients().getFirst().getClientName()).isEqualTo("거래처A");
+        assertThat(response.getClients().getFirst().getCrops()).hasSize(1);
+        assertThat(response.getClients().getFirst().getCrops().getFirst().getCropName()).isEqualTo("수박");
+        assertThat(response.getClients().getFirst().getCrops().getFirst().getMatchedProducts()).hasSize(1);
+        assertThat(response.getClients().getFirst().getCrops().getFirst().getMatchedProducts().getFirst().getProductName())
+                .isEqualTo("프리미엄 수박");
+    }
+
     private static long counter = 1L;
 
     private Product createDummyProduct(String code, String name, BigDecimal price) {
@@ -137,5 +216,45 @@ class ProductReadServiceTest {
                 .build();
         ReflectionTestUtils.setField(product, "id", counter++);
         return product;
+    }
+
+    private CultivationTime createCultivationTime(Product product, Integer sowingStart, Integer plantingStart,
+                                                  Integer harvestingStart, Integer harvestingEnd,
+                                                  String croppingSystem, String region) {
+        CultivationTime cultivationTime = CultivationTime.builder()
+                .product(product)
+                .croppingSystem(croppingSystem)
+                .region(region)
+                .sowingStart(sowingStart)
+                .sowingEnd(sowingStart)
+                .plantingStart(plantingStart)
+                .plantingEnd(plantingStart)
+                .harvestingStart(harvestingStart)
+                .harvestingEnd(harvestingEnd)
+                .build();
+        ReflectionTestUtils.setField(cultivationTime, "id", counter++);
+        return cultivationTime;
+    }
+
+    private Client createClient(String clientName) {
+        return Client.builder()
+                .clientCode("CLNT-0001")
+                .clientName(clientName)
+                .clientBrn("123-45-67890")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울시")
+                .clientType(ClientType.NURSERY)
+                .managerName("담당자")
+                .managerPhone("010-0000-0000")
+                .managerEmail("manager@test.com")
+                .build();
+    }
+
+    private CustomUserDetails salesRepPrincipal(Long employeeId) {
+        CustomUserDetails principal = mock(CustomUserDetails.class);
+        when(principal.getRole()).thenReturn(Role.SALES_REP);
+        when(principal.getEmployeeId()).thenReturn(employeeId);
+        return principal;
     }
 }
