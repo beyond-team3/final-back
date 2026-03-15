@@ -156,6 +156,7 @@ public class InvoiceService {
     public InvoicePublishResponse publishInvoice(Long invoiceId, CustomUserDetails principal) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new CoreException(ErrorType.INVOICE_NOT_FOUND));
+        validateInvoicePublishPermission(invoice, principal);
 
         if (invoice.getStatus() != InvoiceStatus.DRAFT) {
             throw new CoreException(ErrorType.INVOICE_ALREADY_PUBLISHED);
@@ -387,7 +388,7 @@ public class InvoiceService {
                 contract.getId(),
                 contract.getClient(),
                 contract.getDeal(),
-                null,
+                resolveResponsibleEmployee(contract),
                 today,
                 startDate,
                 endDate,
@@ -571,6 +572,23 @@ public class InvoiceService {
         throw new CoreException(ErrorType.ACCESS_DENIED);
     }
 
+    private void validateInvoicePublishPermission(Invoice invoice, CustomUserDetails principal) {
+        if (principal == null || principal.getRole() != Role.SALES_REP || principal.getEmployeeId() == null) {
+            throw new CoreException(ErrorType.ACCESS_DENIED);
+        }
+        validateInvoiceReadPermission(invoice, principal);
+    }
+
+    private Employee resolveResponsibleEmployee(ContractHeader contract) {
+        if (contract.getDeal() != null && contract.getDeal().getOwnerEmp() != null) {
+            return contract.getDeal().getOwnerEmp();
+        }
+        if (contract.getClient() != null && contract.getClient().getManagerEmployee() != null) {
+            return contract.getClient().getManagerEmployee();
+        }
+        return contract.getAuthor();
+    }
+
     private void publishInvoiceIssuedNotification(Invoice invoice) {
         if (invoice.getClient() == null || invoice.getClient().getId() == null) {
             log.warn("Skipping invoice issued notification due to missing client or client id. invoiceId={}, client={}",
@@ -598,7 +616,7 @@ public class InvoiceService {
     }
 
     public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
-        return invoiceRepository.findAllByEmployeeId(employeeId).stream()
+        return invoiceRepository.findAllVisibleByEmployeeScope(employeeId).stream()
                 .map(invoice -> InvoiceListResponse.from(
                         invoice,
                         resolveContractCode(invoice.getContractId())
