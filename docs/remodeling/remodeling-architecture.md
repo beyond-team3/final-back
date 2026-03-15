@@ -182,3 +182,20 @@ IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v
 
 ### 변경 이유
 10단계 목표인 최종 점검과 전환 가이드 초안의 운영 관점 보강을 마무리하기 위함입니다.
+
+## [2026-03-15] 명세서 상세 응답 보강 및 관리자 수동 청구서 초안 생성 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/dto/response/StatementResponse.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/controller/InvoiceController.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java`
+
+### 변경 내용
+명세서 상세 응답에 계약/딜/거래처/작성자/배송/품목 정보를 추가해 프론트가 다른 문서 상세 모달과 유사한 형태로 렌더링할 수 있게 했습니다.
+관리자 전용 `POST /api/v1/invoices/contracts/{contractId}/manual-draft` 엔드포인트를 추가해 billing cycle 스케줄을 기다리지 않고 특정 계약 기준 청구서 초안을 즉시 생성할 수 있게 했습니다.
+기존 자동 초안 생성 로직은 내부 공통 메서드로 재사용하고, 보안 매처는 ADMIN 전용으로 분리했습니다.
+
+### 변경 이유
+프론트 명세서 상세 빈 화면 문제를 DTO 수준에서 해소하고, billing cycle 기반 청구서 플로우를 운영 전 테스트할 수 있는 수동 트리거를 제공하기 위함입니다.

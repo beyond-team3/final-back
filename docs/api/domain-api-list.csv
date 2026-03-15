@@ -69,6 +69,7 @@
 "sales-order","주문","주문 취소","PATCH","/api/v1/orders/{orderId}/cancel","주문 상태를 CANCELED로 변경","인증 사용자(거래처 컨텍스트 필요)"
 "sales-order","주문","거래처 거래요약 조회","GET","/api/v1/orders/clients/{clientId}/trade-summary","거래처 월간 거래요약/여신정보 조회","SALES_REP, ADMIN"
 "billing-invoice","청구서","청구서 수동 생성","POST","/api/v1/invoices","청구서 생성","SALES_REP(직원 컨텍스트 필요)"
+"billing-invoice","청구서","청구서 초안 수동 생성 (관리자)","POST","/api/v1/invoices/contracts/{contractId}/manual-draft","billing cycle 대기 없이 특정 계약 기준 청구서 초안 즉시 생성","ADMIN"
 "billing-invoice","청구서","청구서 발행 확정","PATCH","/api/v1/invoices/{invoiceId}/publish","DRAFT 청구서를 PUBLISHED로 변경","SALES_REP(직원 컨텍스트 필요)"
 "billing-invoice","청구서","청구서 명세서 토글","PATCH","/api/v1/invoices/{invoiceId}/statements/{statementId}/toggle","청구서 명세서 포함/제외 토글","SALES_REP(직원 컨텍스트 필요)"
 "billing-invoice","청구서","청구서 단건 조회","GET","/api/v1/invoices/{invoiceId}","청구서 단건 조회","인증 사용자"

@@ -274,3 +274,28 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-15 10:38] 명세서 상세 응답 보강 및 관리자 수동 청구서 초안 생성 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/dto/response/StatementResponse.java` — 계약/거래처/딜/배송/품목 정보를 포함하도록 명세서 상세 DTO 확장
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java` — 명세서 상세 응답 생성 시 주문 상세를 함께 매핑
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 관리자 수동 청구서 초안 생성 메서드와 자동 생성 공통 경로 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/controller/InvoiceController.java` — `/api/v1/invoices/contracts/{contractId}/manual-draft` 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 관리자 전용 수동 청구서 초안 생성 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementServiceTest.java` — 확장된 명세서 상세 응답 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 관리자 수동 청구서 초안 생성 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/controller/InvoiceControllerTest.java` — 관리자/비관리자/비인증 접근 제어 테스트 추가
+- 수정 파일: `docs/api/domain-api-list.csv` — 수동 청구서 초안 생성 API 인벤토리 반영
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `CustomUserDetails` 기반 테스트 principal 정합성 수정 후 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.billing.statement.service.StatementServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.service.InvoiceServiceTest' --tests 'com.monsoon.seedflowplus.domain.billing.invoice.controller.InvoiceControllerTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+
+### 다음 단계
+없음
