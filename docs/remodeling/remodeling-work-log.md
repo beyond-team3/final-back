@@ -209,3 +209,32 @@
 
 ### 다음 단계
 7단계 잔여 이슈 정리 및 9단계 문서 업데이트 정리
+
+## [2026-03-15 09:55] 일정 soft-cancel 및 v2 billing revenue 래퍼 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java` — 거래 일정 상태 필드와 cancel 전환 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealScheduleStatus.java` — 거래 일정 상태 enum 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepository.java` — 취소 일정 제외 조회 메서드로 전환
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java` — deal 일정 조회에서 `CANCELLED` 제외 처리 반영
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java` — `deleteByExternalKey` 를 soft-cancel 동작으로 변경
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/dto/response/ScheduleItemDto.java` — deal 일정 응답 status 포함
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/v2/controller/BillingRevenueStatisticsV2Controller.java` — v2 billing revenue 래퍼 API 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — v2 billing revenue 보안 매처 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 매처 반영
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/schedule/**` — 일정 상태 도입에 맞춘 entity/query/repository/sync 테스트 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/statistics/billing/v2/controller/BillingRevenueStatisticsV2ControllerTest.java` — v2 billing revenue 권한/응답 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 일정 soft-cancel 및 v2 billing revenue 구조 기록
+- 수정 파일: `PROGRESS.md` — 7단계 완료 및 현재 포커스 갱신
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `ScheduleQueryServiceTest` 의 repository 메서드명 정합성 수정 후 재검증 성공
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncServiceTest' --tests 'com.monsoon.seedflowplus.domain.schedule.query.ScheduleQueryServiceTest' --tests 'com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleTest' --tests 'com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.schedule.controller.ScheduleControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.controller.BillingRevenueStatisticsControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.billing.v2.controller.BillingRevenueStatisticsV2ControllerTest' --tests 'com.monsoon.seedflowplus.domain.statistics.controller.StatisticsControllerTest'` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest'` 성공
+
+### 다음 단계
+9단계 문서 업데이트 정리 및 10단계 최종 점검

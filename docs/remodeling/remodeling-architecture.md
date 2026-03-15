@@ -134,3 +134,21 @@
 
 ### 변경 이유
 8단계 목표인 `/api/v2/**` 접근 제어 반영과 `v1` 유지 조건 하의 테스트 확장을 분리된 보안 계층에서 마무리하기 위함입니다.
+
+## [2026-03-15] 일정 soft-cancel 및 v2 billing revenue 래퍼 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealSchedule.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/entity/DealScheduleStatus.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/repository/DealScheduleRepository.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/query/ScheduleQueryService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/schedule/sync/DealScheduleSyncService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/statistics/billing/v2/controller/BillingRevenueStatisticsV2Controller.java`
+
+### 변경 내용
+`DealSchedule` 에 `DealScheduleStatus` 를 추가하고, 기존 `deleteByExternalKey(...)` 호출은 물리 삭제 대신 `CANCELLED` 상태 전환으로 처리하도록 바꿨습니다.
+거래 일정 조회는 `CANCELLED` 상태를 제외하도록 repository/query 계층을 조정했고, deal 일정 응답에도 상태 문자열을 포함하도록 맞췄습니다.
+청구 매출 통계는 기존 `BillingRevenueStatisticsQueryService` 를 그대로 재사용하는 `/api/v2/statistics/billing/revenue/**` 래퍼 컨트롤러를 추가해 `PAY COMPLETED` 기준을 유지한 채 v2 경로를 분리했습니다.
+
+### 변경 이유
+7단계 목표인 일정의 삭제 금지/상태 전환 정책과 매출 통계의 v2 전용 경로 분리를 동시에 마무리하기 위함입니다.
