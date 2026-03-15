@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class DealScheduleSyncService {
                                 command.refDocId(),
                                 command.refDealLogId(),
                                 ScheduleSource.AUTO_SYNC,
+                                DealScheduleStatus.ACTIVE,
                                 command.lastSyncedAt()
                         );
                         return existing;
@@ -64,6 +66,7 @@ public class DealScheduleSyncService {
                             .refDocId(command.refDocId())
                             .refDealLogId(command.refDealLogId())
                             .source(ScheduleSource.AUTO_SYNC)
+                            .status(DealScheduleStatus.ACTIVE)
                             .externalKey(command.externalKey())
                             .lastSyncedAt(command.lastSyncedAt())
                             .build());
@@ -83,6 +86,7 @@ public class DealScheduleSyncService {
                     command.refDocId(),
                     command.refDealLogId(),
                     ScheduleSource.AUTO_SYNC,
+                    DealScheduleStatus.ACTIVE,
                     command.lastSyncedAt()
             );
             return dealScheduleRepository.save(existing).getId();
@@ -94,7 +98,12 @@ public class DealScheduleSyncService {
         if (externalKey == null || externalKey.isBlank()) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
-        return dealScheduleRepository.deleteByExternalKey(externalKey.trim());
+        return dealScheduleRepository.findByExternalKey(externalKey.trim())
+                .map(schedule -> {
+                    schedule.cancel(java.time.LocalDateTime.now());
+                    return 1L;
+                })
+                .orElse(0L);
     }
 
     private void validateCommand(DealScheduleUpsertCommand command) {

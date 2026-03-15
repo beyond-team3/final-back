@@ -21,6 +21,7 @@ import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCo
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import com.monsoon.seedflowplus.domain.schedule.repository.DealScheduleRepository;
 import java.time.LocalDateTime;
@@ -121,14 +122,16 @@ class DealScheduleSyncServiceTest {
     }
 
     @Test
-    @DisplayName("externalKey로 기존 거래 일정을 삭제할 수 있다")
+    @DisplayName("externalKey로 기존 거래 일정을 취소 상태로 전환할 수 있다")
     void deletesByExternalKey() {
-        when(dealScheduleRepository.deleteByExternalKey("ext-delete")).thenReturn(1L);
+        Fixture fixture = fixture(104L, 204L, 304L);
+        DealSchedule existing = existingSchedule("ext-delete", fixture);
+        when(dealScheduleRepository.findByExternalKey("ext-delete")).thenReturn(Optional.of(existing));
 
         long deleted = dealScheduleSyncService.deleteByExternalKey(" ext-delete ");
 
         assertThat(deleted).isEqualTo(1L);
-        verify(dealScheduleRepository).deleteByExternalKey("ext-delete");
+        assertThat(existing.getStatus()).isEqualTo(DealScheduleStatus.CANCELLED);
     }
 
     private DealScheduleUpsertCommand command(String externalKey, Long dealId, Long clientId, Long assigneeUserId) {
@@ -163,6 +166,7 @@ class DealScheduleSyncServiceTest {
                 .refDocId(1L)
                 .refDealLogId(2L)
                 .source(ScheduleSource.AUTO_SYNC)
+                .status(DealScheduleStatus.ACTIVE)
                 .externalKey(externalKey)
                 .lastSyncedAt(LocalDateTime.of(2026, 3, 11, 9, 0))
                 .build();

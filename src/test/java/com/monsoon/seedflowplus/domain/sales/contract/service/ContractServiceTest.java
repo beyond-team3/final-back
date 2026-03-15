@@ -26,6 +26,7 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
+import com.monsoon.seedflowplus.domain.sales.contract.dto.request.ContractCreateRequest;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
@@ -111,6 +112,8 @@ class ContractServiceTest {
         ReflectionTestUtils.setField(contract, "id", 200L);
 
         when(contractRepository.findById(200L)).thenReturn(Optional.of(contract));
+        when(contractRepository.findByDealId(600L)).thenReturn(java.util.List.of());
+        when(quotationRepository.findByDealId(600L)).thenReturn(java.util.List.of(quotation));
         setAuthentication(salesRepUser(author));
 
         contractService.deleteContract(200L);
@@ -128,7 +131,7 @@ class ContractServiceTest {
                 eq(200L),
                 eq("CNT-1"),
                 eq(DealStage.PENDING_ADMIN),
-                eq(DealStage.APPROVED),
+                eq(DealStage.PENDING_CLIENT),
                 eq(ContractStatus.WAITING_ADMIN.name()),
                 eq(QuotationStatus.FINAL_APPROVED.name()),
                 eq(com.monsoon.seedflowplus.domain.deal.common.ActionType.CANCEL),
@@ -170,6 +173,48 @@ class ContractServiceTest {
         assertThat(contract.getStatus()).isEqualTo(ContractStatus.DELETED);
         verify(approvalCancellationService).cancelPendingRequest(DealType.CNT, 201L);
         verifyNoInteractions(dealLogWriteService);
+    }
+
+    @Test
+    @DisplayName("참조 견적서 없는 신규 계약은 새 deal을 생성한다")
+    void createContractWithoutQuotationCreatesNewDeal() {
+        Employee author = employee(10L);
+        Client client = client(30L, author);
+        SalesDeal createdDeal = deal(client, author);
+        ReflectionTestUtils.setField(createdDeal, "id", 700L);
+
+        when(clientRepository.findById(30L)).thenReturn(Optional.of(client));
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
+        when(salesDealRepository.save(any(SalesDeal.class))).thenReturn(createdDeal);
+        when(contractRepository.save(any(ContractHeader.class))).thenAnswer(invocation -> {
+            ContractHeader contract = invocation.getArgument(0);
+            ReflectionTestUtils.setField(contract, "id", 800L);
+            return contract;
+        });
+
+        setAuthentication(salesRepUser(author));
+
+        contractService.createContract(new ContractCreateRequest(
+                null,
+                30L,
+                LocalDate.of(2026, 3, 15),
+                LocalDate.of(2026, 6, 30),
+                BillingCycle.MONTHLY,
+                null,
+                "memo",
+                java.util.List.of(new ContractCreateRequest.Item(
+                        null,
+                        "상품",
+                        "비료",
+                        3,
+                        "BOX",
+                        BigDecimal.valueOf(10000)
+                ))
+        ));
+
+        verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(any());
+        verify(salesDealRepository).save(any(SalesDeal.class));
+        verify(contractRepository).save(any(ContractHeader.class));
     }
 
     private void setAuthentication(CustomUserDetails principal) {

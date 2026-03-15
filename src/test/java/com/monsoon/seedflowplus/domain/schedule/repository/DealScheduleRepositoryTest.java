@@ -15,6 +15,7 @@ import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealSchedule;
 import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
+import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleStatus;
 import com.monsoon.seedflowplus.domain.schedule.entity.ScheduleSource;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -102,6 +103,7 @@ class DealScheduleRepositoryTest {
                 .refDocId(1L)
                 .refDealLogId(null)
                 .source(ScheduleSource.AUTO_SYNC)
+                .status(DealScheduleStatus.ACTIVE)
                 .externalKey("CNT_1_DOC_APPROVED_2026-03-15")
                 .lastSyncedAt(LocalDateTime.of(2026, 3, 10, 10, 5))
                 .build();

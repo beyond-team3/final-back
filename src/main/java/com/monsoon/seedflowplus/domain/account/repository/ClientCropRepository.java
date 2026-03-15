@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface ClientCropRepository extends JpaRepository<ClientCrop, Long> {
     List<ClientCrop> findAllByClientId(Long clientId);
+
+    List<ClientCrop> findAllByClientIdIn(List<Long> clientIds);
 }

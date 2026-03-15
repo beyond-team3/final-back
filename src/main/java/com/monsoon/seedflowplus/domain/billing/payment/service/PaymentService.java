@@ -3,9 +3,7 @@ package com.monsoon.seedflowplus.domain.billing.payment.service;
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
-import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
@@ -22,11 +20,6 @@ import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentListR
 import com.monsoon.seedflowplus.domain.billing.payment.dto.response.PaymentResponse;
 import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
 import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentRepository;
-import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
-import com.monsoon.seedflowplus.domain.schedule.entity.DealDocType;
-import com.monsoon.seedflowplus.domain.schedule.entity.DealScheduleEventType;
-import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
-import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -45,10 +38,8 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
-    private final UserRepository userRepository;
     private final DealPipelineFacade dealPipelineFacade;
     private final DealLogQueryService dealLogQueryService;
-    private final DealScheduleSyncService dealScheduleSyncService;
 
     /**
      * 결제 처리
@@ -115,7 +106,6 @@ public class PaymentService {
                         new DealLogWriteService.DiffField("paymentMethod", "결제 수단", null, payment.getPaymentMethod().name(), "ENUM")
                 )
         );
-        syncPaymentReceivedSchedule(payment, clientId);
 
         return PaymentResponse.from(
                 payment,
@@ -236,47 +226,4 @@ public class PaymentService {
         return "";
     }
 
-    private void syncPaymentReceivedSchedule(Payment payment, Long clientId) {
-        if (payment.getCreatedAt() == null) {
-            return;
-        }
-        if (payment.getDeal() == null) {
-            throw new CoreException(ErrorType.DEAL_NOT_FOUND);
-        }
-
-        Long assigneeUserId = resolveScheduleAssigneeUserId(payment.getDeal(), clientId);
-        LocalDateTime startAt = payment.getCreatedAt().toLocalDate().atStartOfDay();
-
-        dealScheduleSyncService.upsertFromEvent(new DealScheduleUpsertCommand(
-                "PAY_" + payment.getId() + "_PAYMENT_RECEIVED",
-                payment.getDeal().getId(),
-                payment.getClient().getId(),
-                assigneeUserId,
-                DealScheduleEventType.PAYMENT_RECEIVED,
-                DealDocType.PAY,
-                payment.getId(),
-                null,
-                "결제 완료: " + payment.getClient().getClientName(),
-                null,
-                startAt,
-                startAt.plusDays(1),
-                LocalDateTime.now()
-        ));
-    }
-
-    private Long resolveScheduleAssigneeUserId(SalesDeal deal, Long clientId) {
-        if (deal.getOwnerEmp() != null && deal.getOwnerEmp().getId() != null) {
-            java.util.Optional<Long> ownerUserId = userRepository.findByEmployeeId(deal.getOwnerEmp().getId())
-                    .map(User::getId);
-            if (ownerUserId.isPresent()) {
-                return ownerUserId.get();
-            }
-        }
-        if (clientId != null) {
-            return userRepository.findByClientId(clientId)
-                    .map(User::getId)
-                    .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
-        }
-        throw new CoreException(ErrorType.USER_NOT_FOUND);
-    }
 }

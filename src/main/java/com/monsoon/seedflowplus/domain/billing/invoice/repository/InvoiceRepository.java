@@ -25,6 +25,21 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     List<Invoice> findAllByEmployeeId(Long employeeId);
 
+    @Query("""
+            SELECT DISTINCT i
+            FROM Invoice i
+            LEFT JOIN i.client c
+            LEFT JOIN c.managerEmployee managerEmployee
+            LEFT JOIN i.deal d
+            LEFT JOIN d.ownerEmp ownerEmp
+            LEFT JOIN i.employee invoiceEmployee
+            WHERE invoiceEmployee.id = :employeeId
+               OR managerEmployee.id = :employeeId
+               OR ownerEmp.id = :employeeId
+            ORDER BY i.id DESC
+            """)
+    List<Invoice> findAllVisibleByEmployeeScope(@Param("employeeId") Long employeeId);
+
     @Query("SELECT MAX(CAST(SUBSTRING(i.invoiceCode, LENGTH(:prefix) + 1) AS integer)) " +
             "FROM Invoice i WHERE i.invoiceCode LIKE CONCAT(:prefix, '%')")
     Optional<Integer> findMaxSuffixByPrefix(@Param("prefix") String prefix);

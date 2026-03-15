@@ -2,17 +2,11 @@ package com.monsoon.seedflowplus.domain.billing.payment.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
-import com.monsoon.seedflowplus.domain.account.entity.Role;
-import com.monsoon.seedflowplus.domain.account.entity.Status;
-import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
-import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.Invoice;
 import com.monsoon.seedflowplus.domain.billing.invoice.entity.InvoiceStatus;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceRepository;
@@ -24,8 +18,6 @@ import com.monsoon.seedflowplus.domain.billing.payment.repository.PaymentReposit
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
-import com.monsoon.seedflowplus.domain.schedule.dto.command.DealScheduleUpsertCommand;
-import com.monsoon.seedflowplus.domain.schedule.sync.DealScheduleSyncService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,7 +25,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -48,13 +39,9 @@ class PaymentServiceTest {
     @Mock
     private ClientRepository clientRepository;
     @Mock
-    private UserRepository userRepository;
-    @Mock
     private DealPipelineFacade dealPipelineFacade;
     @Mock
     private DealLogQueryService dealLogQueryService;
-    @Mock
-    private DealScheduleSyncService dealScheduleSyncService;
 
     private PaymentService paymentService;
 
@@ -64,15 +51,13 @@ class PaymentServiceTest {
                 paymentRepository,
                 invoiceRepository,
                 clientRepository,
-                userRepository,
                 dealPipelineFacade,
-                dealLogQueryService,
-                dealScheduleSyncService
+                dealLogQueryService
         );
     }
 
     @Test
-    void processPaymentShouldUpsertPaymentReceivedSchedule() {
+    void processPaymentShouldCompleteWithoutCreatingSchedule() {
         Client client = Client.builder()
                 .clientCode("C-1")
                 .clientName("테스트 거래처")
@@ -97,7 +82,6 @@ class PaymentServiceTest {
 
         SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
         when(deal.getId()).thenReturn(55L);
-        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
 
         Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
                 LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260310-001", null);
@@ -108,15 +92,6 @@ class PaymentServiceTest {
         ReflectionTestUtils.setField(payment, "id", 51L);
         ReflectionTestUtils.setField(payment, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
 
-        User assigneeUser = User.builder()
-                .loginId("sales")
-                .loginPw("pw")
-                .status(Status.ACTIVATE)
-                .role(Role.SALES_REP)
-                .employee(ownerEmployee)
-                .build();
-        ReflectionTestUtils.setField(assigneeUser, "id", 99L);
-
         PaymentCreateRequest request = new PaymentCreateRequest();
         ReflectionTestUtils.setField(request, "invoiceId", 41L);
         ReflectionTestUtils.setField(request, "paymentMethod", PaymentMethod.TRANSFER);
@@ -130,34 +105,23 @@ class PaymentServiceTest {
             ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
             return saved;
         });
-        when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.of(assigneeUser));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
         PaymentResponse response = paymentService.processPayment(request, 7L);
 
-        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
-        verify(dealScheduleSyncService, times(1)).upsertFromEvent(commandCaptor.capture());
-        DealScheduleUpsertCommand command = commandCaptor.getValue();
-        assertEquals("PAY_51_PAYMENT_RECEIVED", command.externalKey());
-        assertEquals("결제 완료: 테스트 거래처", command.title());
-        assertEquals(LocalDateTime.of(2026, 3, 10, 0, 0), command.startAt());
-        assertEquals(LocalDateTime.of(2026, 3, 11, 0, 0), command.endAt());
         assertEquals(51L, response.getPaymentId());
         assertEquals(com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus.COMPLETED, response.getStatus());
     }
 
     @Test
-    void processPaymentShouldFallbackToClientUserWhenOwnerUserMissing() {
+    void processPaymentShouldSucceedWithoutScheduleAssigneeLookup() {
         Client client = org.mockito.Mockito.mock(Client.class);
         when(client.getId()).thenReturn(7L);
-        when(client.getClientName()).thenReturn("테스트 거래처");
 
         Employee ownerEmployee = org.mockito.Mockito.mock(Employee.class);
-        when(ownerEmployee.getId()).thenReturn(12L);
 
         com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal deal = org.mockito.Mockito.mock(com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal.class);
         when(deal.getId()).thenReturn(88L);
-        when(deal.getOwnerEmp()).thenReturn(ownerEmployee);
 
         Invoice invoice = Invoice.create(10L, client, deal, ownerEmployee, LocalDate.of(2026, 3, 15),
                 LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "INV-20260315-001", null);
@@ -168,15 +132,6 @@ class PaymentServiceTest {
         ReflectionTestUtils.setField(request, "invoiceId", 41L);
         ReflectionTestUtils.setField(request, "paymentMethod", PaymentMethod.TRANSFER);
 
-        User clientUser = User.builder()
-                .loginId("client")
-                .loginPw("pw")
-                .status(Status.ACTIVATE)
-                .role(Role.CLIENT)
-                .client(client)
-                .build();
-        ReflectionTestUtils.setField(clientUser, "id", 7003L);
-
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
         when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
         when(paymentRepository.findMaxSuffixByPrefix(any())).thenReturn(Optional.of(0));
@@ -186,14 +141,11 @@ class PaymentServiceTest {
             ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
             return saved;
         });
-        when(userRepository.findByEmployeeId(12L)).thenReturn(Optional.empty());
-        when(userRepository.findByClientId(7L)).thenReturn(Optional.of(clientUser));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
-        paymentService.processPayment(request, 7L);
+        PaymentResponse response = paymentService.processPayment(request, 7L);
 
-        ArgumentCaptor<DealScheduleUpsertCommand> commandCaptor = ArgumentCaptor.forClass(DealScheduleUpsertCommand.class);
-        verify(dealScheduleSyncService).upsertFromEvent(commandCaptor.capture());
-        assertEquals(7003L, commandCaptor.getValue().assigneeUserId());
+        assertEquals(51L, response.getPaymentId());
+        assertEquals(com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentStatus.COMPLETED, response.getStatus());
     }
 }

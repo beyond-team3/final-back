@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Employee;
+import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.entity.User;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.billing.invoice.repository.InvoiceStatementRepository;
@@ -18,8 +20,13 @@ import com.monsoon.seedflowplus.domain.deal.log.service.DealLogQueryService;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealPipelineFacade;
 import com.monsoon.seedflowplus.domain.notification.event.NotificationEventPublisher;
 import com.monsoon.seedflowplus.domain.notification.event.StatementIssuedEvent;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractDetail;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.order.entity.OrderDetail;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
+import com.monsoon.seedflowplus.domain.sales.order.repository.OrderDetailRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,6 +54,8 @@ class StatementServiceTest {
     private UserRepository userRepository;
     @Mock
     private NotificationEventPublisher notificationEventPublisher;
+    @Mock
+    private OrderDetailRepository orderDetailRepository;
 
     private StatementService statementService;
 
@@ -58,7 +67,8 @@ class StatementServiceTest {
                 dealPipelineFacade,
                 dealLogQueryService,
                 userRepository,
-                notificationEventPublisher
+                notificationEventPublisher,
+                orderDetailRepository
         );
     }
 
@@ -116,5 +126,73 @@ class StatementServiceTest {
         assertEquals(51L, thirdEvent.statementId());
         assertEquals(firstEvent.occurredAt(), secondEvent.occurredAt());
         assertEquals(secondEvent.occurredAt(), thirdEvent.occurredAt());
+    }
+
+    @Test
+    void getStatementIncludesDocumentContextAndItems() {
+        Client client = org.mockito.Mockito.mock(Client.class);
+        when(client.getId()).thenReturn(7L);
+        when(client.getClientName()).thenReturn("테스트 거래처");
+
+        Employee employee = org.mockito.Mockito.mock(Employee.class);
+        when(employee.getId()).thenReturn(12L);
+        when(employee.getEmployeeName()).thenReturn("담당 영업");
+
+        SalesDeal deal = org.mockito.Mockito.mock(SalesDeal.class);
+        when(deal.getId()).thenReturn(55L);
+
+        ContractHeader contract = ContractHeader.create(
+                "CNT-1",
+                null,
+                client,
+                deal,
+                employee,
+                BigDecimal.valueOf(10000),
+                java.time.LocalDate.of(2026, 3, 1),
+                java.time.LocalDate.of(2026, 6, 30),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(contract, "id", 91L);
+
+        OrderHeader orderHeader = OrderHeader.create(contract, client, deal, employee, "ORD-1");
+        ReflectionTestUtils.setField(orderHeader, "id", 41L);
+        ReflectionTestUtils.setField(orderHeader, "deliveryDate", java.time.LocalDate.of(2026, 3, 20));
+        orderHeader.updateTotalAmount(new BigDecimal("150000"));
+
+        Statement statement = Statement.create(orderHeader, deal, new BigDecimal("150000"), "STMT-1");
+        ReflectionTestUtils.setField(statement, "id", 51L);
+        ReflectionTestUtils.setField(statement, "createdAt", LocalDateTime.of(2026, 3, 12, 15, 0));
+
+        ContractDetail contractDetail = new ContractDetail(null, "토마토", "VEG", 10, "EA", BigDecimal.valueOf(1000), BigDecimal.valueOf(10000));
+        ReflectionTestUtils.setField(contractDetail, "id", 77L);
+        OrderDetail orderDetail = OrderDetail.create(orderHeader, contractDetail, 5L, "홍길동", "010-1111-2222", "서울", "101호", "문앞");
+        ReflectionTestUtils.setField(orderDetail, "id", 88L);
+
+        User principalUser = User.builder()
+                .loginId("sales")
+                .loginPw("pw")
+                .status(Status.ACTIVATE)
+                .role(Role.SALES_REP)
+                .employee(employee)
+                .build();
+        ReflectionTestUtils.setField(principalUser, "id", 99L);
+        CustomUserDetails principal = new CustomUserDetails(principalUser);
+        when(statementRepository.findById(51L)).thenReturn(Optional.of(statement));
+        when(invoiceStatementRepository.findTopByStatementIdAndIncludedTrueOrderByIdDesc(51L)).thenReturn(Optional.empty());
+        when(dealLogQueryService.getRecentDocumentLogs(55L, com.monsoon.seedflowplus.domain.deal.common.DealType.STMT, 51L)).thenReturn(List.of());
+        when(orderDetailRepository.findByOrderHeader_Id(41L)).thenReturn(List.of(orderDetail));
+
+        com.monsoon.seedflowplus.domain.billing.statement.dto.response.StatementResponse response =
+                statementService.getStatement(51L, principal);
+
+        assertEquals(91L, response.getContractId());
+        assertEquals("CNT-1", response.getContractCode());
+        assertEquals("테스트 거래처", response.getClientName());
+        assertEquals(BillingCycle.MONTHLY, response.getBillingCycle());
+        assertEquals(1, response.getItems().size());
+        assertEquals("토마토", response.getItems().get(0).getProductName());
+        assertEquals("홍길동", response.getShippingName());
     }
 }
