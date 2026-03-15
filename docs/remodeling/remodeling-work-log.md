@@ -311,6 +311,32 @@
 ### 다음 단계
 없음
 
+## [2026-03-15 17:28] 재배 적기 운영 알림 스케줄러 연결
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 캘린더 추천/수확 임박 집계를 공통 재배 알림 서비스로 위임
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationCommandService.java` — 재배 알림 생성 인자를 월 기준 문맥과 예약 시각 중심으로 조정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationService.java` — 상품명/거래처 수 문구 추가 및 `scheduledAt` 기준 dedupe로 전환
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductCultivationAlertService.java` — 캘린더/수확 임박/재배 알림 후보 계산 공통 서비스 추가
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/CultivationNotificationCandidate.java` — 재배 알림 후보 전달 DTO 추가
+- 신규 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/scheduler/CultivationNotificationScheduler.java` — 영업사원 대상 재배 알림 생성 스케줄러 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 읽기 서비스 위임 테스트로 정리
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductCultivationAlertServiceTest.java` — 공통 매칭/후보 계산 규칙 테스트 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/service/CultivationNotificationServiceTest.java` — 예약 시각 dedupe 및 문구 생성 테스트 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/scheduler/CultivationNotificationSchedulerTest.java` — 스케줄러의 command service 호출 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 공통 집계 서비스와 운영 알림 연결 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava compileTestJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.product.service.ProductCultivationAlertServiceTest' --tests 'com.monsoon.seedflowplus.domain.product.service.ProductReadServiceTest' --tests 'com.monsoon.seedflowplus.domain.notification.service.CultivationNotificationServiceTest' --tests 'com.monsoon.seedflowplus.domain.notification.scheduler.CultivationNotificationSchedulerTest' --tests 'com.monsoon.seedflowplus.domain.notification.scheduler.NotificationDeliverySchedulerTest' --tests 'com.monsoon.seedflowplus.domain.notification.command.NotificationCommandServiceTest'` 성공
+
+### 다음 단계
+없음
+
 ## [2026-03-15 10:38] 명세서 상세 응답 보강 및 관리자 수동 청구서 초안 생성 추가
 
 ### 작업 내용
