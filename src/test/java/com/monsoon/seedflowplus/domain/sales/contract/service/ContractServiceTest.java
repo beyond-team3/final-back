@@ -196,7 +196,6 @@ class ContractServiceTest {
 
         contractService.createContract(new ContractCreateRequest(
                 null,
-                null,
                 30L,
                 LocalDate.of(2026, 3, 15),
                 LocalDate.of(2026, 6, 30),
@@ -216,70 +215,6 @@ class ContractServiceTest {
         verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(any());
         verify(salesDealRepository).save(any(SalesDeal.class));
         verify(contractRepository).save(any(ContractHeader.class));
-    }
-
-    @Test
-    @DisplayName("반려된 계약서 재작성은 원본 deal을 계승한다")
-    void createContractFromRejectedContractUsesSameDeal() {
-        Employee author = employee(10L);
-        Client client = client(30L, author);
-        SalesDeal deal = deal(client, author);
-        ReflectionTestUtils.setField(deal, "id", 700L);
-        ContractHeader source = ContractHeader.create(
-                "CNT-OLD",
-                null,
-                client,
-                deal,
-                author,
-                BigDecimal.TEN,
-                LocalDate.of(2026, 1, 1),
-                LocalDate.of(2026, 12, 31),
-                BillingCycle.MONTHLY,
-                null,
-                "old"
-        );
-        ReflectionTestUtils.setField(source, "id", 210L);
-        source.updateStatus(ContractStatus.REJECTED_ADMIN);
-
-        when(contractRepository.findById(210L)).thenReturn(Optional.of(source));
-        when(contractRepository.findTopByRevisionGroupKeyOrderByRevisionNoDesc("CNT-210")).thenReturn(Optional.empty());
-        when(productRepository.existsById(1L)).thenReturn(true);
-        when(productRepository.getReferenceById(1L)).thenReturn(null);
-        when(contractRepository.save(any(ContractHeader.class))).thenAnswer(invocation -> {
-            ContractHeader contract = invocation.getArgument(0);
-            ReflectionTestUtils.setField(contract, "id", 811L);
-            return contract;
-        });
-
-        setAuthentication(salesRepUser(author));
-
-        contractService.createContract(new ContractCreateRequest(
-                null,
-                210L,
-                30L,
-                LocalDate.of(2026, 3, 15),
-                LocalDate.of(2026, 6, 30),
-                BillingCycle.MONTHLY,
-                null,
-                "rewrite",
-                java.util.List.of(new ContractCreateRequest.Item(
-                        1L,
-                        "상품",
-                        "비료",
-                        3,
-                        "BOX",
-                        BigDecimal.valueOf(10000)
-                ))
-        ));
-
-        org.mockito.ArgumentCaptor<ContractHeader> contractCaptor = org.mockito.ArgumentCaptor.forClass(ContractHeader.class);
-        verify(contractRepository).save(contractCaptor.capture());
-        ContractHeader rewritten = contractCaptor.getValue();
-        assertThat(rewritten.getDeal()).isEqualTo(deal);
-        assertThat(rewritten.getSourceDocumentId()).isEqualTo(210L);
-        assertThat(rewritten.getRevisionGroupKey()).isEqualTo("CNT-210");
-        assertThat(rewritten.getRevisionNo()).isEqualTo(1);
-        verify(salesDealRepository, never()).save(any(SalesDeal.class));
     }
 
     private void setAuthentication(CustomUserDetails principal) {

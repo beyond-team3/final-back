@@ -371,18 +371,3 @@
 
 ### 다음 단계
 없음
-
-## [2026-03-15 13:35] 반려 계약서 재작성의 원본 deal 계승 보강
-
-### 작업 내용
-- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/dto/request/ContractCreateRequest.java` — v1 계약 생성 요청에 `sourceContractId` 추가
-- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 반려/만료 계약서 재작성 시 원본 deal 및 revision lineage를 계승하도록 보강
-- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 재작성이 원본 deal을 유지하는 회귀 테스트 추가
-- 수정 파일: `docs/remodeling/remodeling-architecture.md` — v1 계약 재작성/신규 생성 분기 구조 기록 추가
-
-### 컴파일 결과
-- [x] 오류 없음
-- [ ] 오류 있음 → 없음
-
-### 다음 단계
-없음
