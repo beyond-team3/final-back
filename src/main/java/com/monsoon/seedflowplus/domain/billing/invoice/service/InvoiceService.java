@@ -50,6 +50,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 
 @Slf4j
@@ -180,16 +182,15 @@ public class InvoiceService {
 
         invoice.publish();
 
-        String paymentCode = generateCode("PAY");
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String todayPrefix = "PAY-" + date + "-";
 
-        Payment payment = Payment.create(
-                invoice,
-                invoice.getClient(),
-                invoice.getDeal(),
-                null,          // 아직 결제 안했으니까 method 없음
-                paymentCode
-        );
+        int nextSeq = paymentRepository.findMaxSuffixByPrefix(todayPrefix)
+                .map(max -> max + 1)
+                .orElse(1);
+        String paymentCode = todayPrefix + String.format("%03d", nextSeq);
 
+        Payment payment = Payment.create(invoice, invoice.getClient(), invoice.getDeal(), null, paymentCode);
         paymentRepository.save(payment);
 
         ActorType actorType = resolveActorType(principal);
@@ -564,7 +565,7 @@ public class InvoiceService {
                         )
                 );
     }
-}
+
     public List<InvoiceListResponse> getInvoicesByEmployee(Long employeeId) {
         return invoiceRepository.findAllByEmployeeId(employeeId).stream()
                 .map(invoice -> InvoiceListResponse.from(
