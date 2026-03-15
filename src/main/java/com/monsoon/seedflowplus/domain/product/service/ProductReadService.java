@@ -2,8 +2,14 @@ package com.monsoon.seedflowplus.domain.product.service;
 
 import com.monsoon.seedflowplus.core.common.support.error.CoreException;
 import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
+import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.ClientCrop;
+import com.monsoon.seedflowplus.domain.account.repository.ClientCropRepository;
+import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.product.dto.request.CultivationTimeDto;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductCalendarRecommendationResponse;
+import com.monsoon.seedflowplus.domain.product.dto.response.ProductHarvestImminentResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductContractResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductEstimateReqResponse;
@@ -27,6 +33,14 @@ import java.util.stream.Collectors;
 import java.util.Collections;
 import com.monsoon.seedflowplus.domain.product.entity.ProductTag;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +52,8 @@ public class ProductReadService {
         private final ProductBookmarkRepository productBookmarkRepository;
         private final ProductCompareRepository productCompareRepository;
         private final ProductTagRepository productTagRepository;
+        private final ClientRepository clientRepository;
+        private final ClientCropRepository clientCropRepository;
 
         // 상품 전체목록 (검색 조건 적용)
         public List<ProductResponse> getAllProducts(Role role, ProductSearchCondition condition) {
@@ -191,6 +207,72 @@ public class ProductReadService {
                                 .toList();
         }
 
+        public ProductCalendarRecommendationResponse getCalendarRecommendations(Integer month) {
+                int targetMonth = resolveMonth(month);
+                List<Product> products = productRepository.findAll();
+                Map<Long, List<CultivationTime>> cultivationTimeMap = getCultivationTimeMap(
+                                products.stream().map(Product::getId).toList());
+
+                List<ProductCalendarRecommendationResponse.RecommendedProductItem> items = products.stream()
+                                .map(product -> buildRecommendationItem(product, cultivationTimeMap.get(product.getId()),
+                                                targetMonth))
+                                .flatMap(Optional::stream)
+                                .sorted(Comparator
+                                                .comparing(
+                                                                ProductCalendarRecommendationResponse.RecommendedProductItem::getPlantingStart,
+                                                                Comparator.nullsLast(Integer::compareTo))
+                                                .thenComparing(
+                                                                ProductCalendarRecommendationResponse.RecommendedProductItem::getProductCategoryLabel,
+                                                                Comparator.nullsLast(String::compareTo))
+                                                .thenComparing(
+                                                                ProductCalendarRecommendationResponse.RecommendedProductItem::getProductName,
+                                                                Comparator.nullsLast(String::compareTo)))
+                                .toList();
+
+                return ProductCalendarRecommendationResponse.builder()
+                                .month(targetMonth)
+                                .items(items)
+                                .build();
+        }
+
+        public ProductHarvestImminentResponse getHarvestImminent(Integer month, CustomUserDetails userDetails) {
+                int targetMonth = resolveMonth(month);
+                int nextMonth = targetMonth == 12 ? 1 : targetMonth + 1;
+                Long employeeId = resolveSalesRepEmployeeId(userDetails);
+
+                List<Client> managedClients = clientRepository.findAllByManagerEmployeeId(employeeId);
+                if (managedClients.isEmpty()) {
+                        return ProductHarvestImminentResponse.builder()
+                                        .month(targetMonth)
+                                        .nextMonth(nextMonth)
+                                        .clients(List.of())
+                                        .build();
+                }
+
+                List<Long> clientIds = managedClients.stream().map(Client::getId).toList();
+                Map<Long, List<ClientCrop>> clientCropMap = clientCropRepository.findAllByClientIdIn(clientIds).stream()
+                                .collect(Collectors.groupingBy(crop -> crop.getClient().getId()));
+
+                List<Product> products = productRepository.findAll();
+                Map<Long, List<CultivationTime>> cultivationTimeMap = getCultivationTimeMap(
+                                products.stream().map(Product::getId).toList());
+
+                List<ProductHarvestImminentResponse.ClientHarvestImminentItem> clientItems = managedClients.stream()
+                                .map(client -> buildHarvestClientItem(client, clientCropMap.get(client.getId()), products,
+                                                cultivationTimeMap, targetMonth, nextMonth))
+                                .flatMap(Optional::stream)
+                                .sorted(Comparator.comparing(
+                                                ProductHarvestImminentResponse.ClientHarvestImminentItem::getClientName,
+                                                Comparator.nullsLast(String::compareTo)))
+                                .toList();
+
+                return ProductHarvestImminentResponse.builder()
+                                .month(targetMonth)
+                                .nextMonth(nextMonth)
+                                .clients(clientItems)
+                                .build();
+        }
+
         private ProductResponse convertToDto(Product product, boolean canViewPrice) {
                 return convertToDto(product, canViewPrice,
                                 cultivationTimeRepository.findByProductId(product.getId()));
@@ -248,5 +330,181 @@ public class ProductReadService {
                 }
 
                 return builder.build();
+        }
+
+        private Optional<ProductCalendarRecommendationResponse.RecommendedProductItem> buildRecommendationItem(
+                        Product product,
+                        List<CultivationTime> cultivationTimes,
+                        int targetMonth) {
+                if (cultivationTimes == null || cultivationTimes.isEmpty()) {
+                        return Optional.empty();
+                }
+
+                return cultivationTimes.stream()
+                                .filter(ct -> isBetweenInclusive(targetMonth, ct.getSowingStart(), ct.getPlantingStart()))
+                                .min(Comparator.comparing(CultivationTime::getPlantingStart,
+                                                Comparator.nullsLast(Integer::compareTo)))
+                                .map(ct -> ProductCalendarRecommendationResponse.RecommendedProductItem.builder()
+                                                .productId(product.getId())
+                                                .productName(product.getProductName())
+                                                .productCategory(product.getProductCategory().name())
+                                                .productCategoryLabel(product.getProductCategory().getDescription())
+                                                .description(product.getProductDescription())
+                                                .imageUrl(product.getProductImageUrl())
+                                                .sowingStart(ct.getSowingStart())
+                                                .plantingStart(ct.getPlantingStart())
+                                                .croppingSystem(ct.getCroppingSystem())
+                                                .region(ct.getRegion())
+                                                .build());
+        }
+
+        private Optional<ProductHarvestImminentResponse.ClientHarvestImminentItem> buildHarvestClientItem(
+                        Client client,
+                        List<ClientCrop> clientCrops,
+                        List<Product> products,
+                        Map<Long, List<CultivationTime>> cultivationTimeMap,
+                        int targetMonth,
+                        int nextMonth) {
+                if (clientCrops == null || clientCrops.isEmpty()) {
+                        return Optional.empty();
+                }
+
+                List<ProductHarvestImminentResponse.CropHarvestImminentItem> cropItems = clientCrops.stream()
+                                .map(clientCrop -> buildHarvestCropItem(clientCrop, products, cultivationTimeMap,
+                                                targetMonth, nextMonth))
+                                .flatMap(Optional::stream)
+                                .sorted(Comparator.comparing(
+                                                ProductHarvestImminentResponse.CropHarvestImminentItem::getCropName,
+                                                Comparator.nullsLast(String::compareTo)))
+                                .toList();
+
+                if (cropItems.isEmpty()) {
+                        return Optional.empty();
+                }
+
+                return Optional.of(ProductHarvestImminentResponse.ClientHarvestImminentItem.builder()
+                                .clientId(client.getId())
+                                .clientName(client.getClientName())
+                                .crops(cropItems)
+                                .build());
+        }
+
+        private Optional<ProductHarvestImminentResponse.CropHarvestImminentItem> buildHarvestCropItem(
+                        ClientCrop clientCrop,
+                        List<Product> products,
+                        Map<Long, List<CultivationTime>> cultivationTimeMap,
+                        int targetMonth,
+                        int nextMonth) {
+                LinkedHashMap<Long, ProductHarvestImminentResponse.HarvestProductItem> matchedProducts = new LinkedHashMap<>();
+
+                for (Product product : products) {
+                        if (!matchesClientCrop(clientCrop.getCropName(), product)) {
+                                continue;
+                        }
+
+                        pickHarvestWindow(product, cultivationTimeMap.get(product.getId()), targetMonth, nextMonth)
+                                        .ifPresent(item -> matchedProducts.put(product.getId(), item));
+                }
+
+                if (matchedProducts.isEmpty()) {
+                        return Optional.empty();
+                }
+
+                List<ProductHarvestImminentResponse.HarvestProductItem> items = matchedProducts.values().stream()
+                                .sorted(Comparator
+                                                .comparing(
+                                                                ProductHarvestImminentResponse.HarvestProductItem::getHarvestingStart,
+                                                                Comparator.nullsLast(Integer::compareTo))
+                                                .thenComparing(
+                                                                ProductHarvestImminentResponse.HarvestProductItem::getProductName,
+                                                                Comparator.nullsLast(String::compareTo)))
+                                .toList();
+
+                return Optional.of(ProductHarvestImminentResponse.CropHarvestImminentItem.builder()
+                                .cropName(clientCrop.getCropName())
+                                .matchedProducts(items)
+                                .build());
+        }
+
+        private Optional<ProductHarvestImminentResponse.HarvestProductItem> pickHarvestWindow(
+                        Product product,
+                        List<CultivationTime> cultivationTimes,
+                        int targetMonth,
+                        int nextMonth) {
+                if (cultivationTimes == null || cultivationTimes.isEmpty()) {
+                        return Optional.empty();
+                }
+
+                return cultivationTimes.stream()
+                                .filter(ct -> isHarvestImminent(ct, targetMonth, nextMonth))
+                                .sorted(Comparator
+                                                .comparing((CultivationTime ct) -> harvestPriority(ct, targetMonth))
+                                                .thenComparing(CultivationTime::getHarvestingStart,
+                                                                Comparator.nullsLast(Integer::compareTo)))
+                                .findFirst()
+                                .map(ct -> ProductHarvestImminentResponse.HarvestProductItem.builder()
+                                                .productId(product.getId())
+                                                .productName(product.getProductName())
+                                                .productCategory(product.getProductCategory().name())
+                                                .productCategoryLabel(product.getProductCategory().getDescription())
+                                                .imageUrl(product.getProductImageUrl())
+                                                .harvestingStart(ct.getHarvestingStart())
+                                                .harvestingEnd(ct.getHarvestingEnd())
+                                                .croppingSystem(ct.getCroppingSystem())
+                                                .region(ct.getRegion())
+                                                .build());
+        }
+
+        private boolean matchesClientCrop(String cropName, Product product) {
+                String normalizedCropName = normalize(cropName);
+                if (normalizedCropName.isEmpty()) {
+                        return false;
+                }
+
+                String categoryLabel = normalize(product.getProductCategory().getDescription());
+                String productName = normalize(product.getProductName());
+                String categoryName = normalize(product.getProductCategory().name());
+
+                return normalizedCropName.equals(categoryLabel)
+                                || normalizedCropName.equals(categoryName)
+                                || productName.contains(normalizedCropName)
+                                || normalizedCropName.contains(productName);
+        }
+
+        private boolean isHarvestImminent(CultivationTime cultivationTime, int targetMonth, int nextMonth) {
+                Integer harvestingStart = cultivationTime.getHarvestingStart();
+                return harvestingStart != null && (harvestingStart == targetMonth || harvestingStart == nextMonth);
+        }
+
+        private int harvestPriority(CultivationTime cultivationTime, int targetMonth) {
+                return Objects.equals(cultivationTime.getHarvestingStart(), targetMonth) ? 0 : 1;
+        }
+
+        private boolean isBetweenInclusive(int targetMonth, Integer start, Integer end) {
+                if (start == null || end == null) {
+                        return false;
+                }
+                return start <= targetMonth && targetMonth <= end;
+        }
+
+        private int resolveMonth(Integer month) {
+                return month != null ? month : LocalDate.now().getMonthValue();
+        }
+
+        private Long resolveSalesRepEmployeeId(CustomUserDetails userDetails) {
+                if (userDetails == null || userDetails.getRole() != Role.SALES_REP) {
+                        throw new CoreException(ErrorType.ACCESS_DENIED);
+                }
+                if (userDetails.getEmployeeId() == null) {
+                        throw new CoreException(ErrorType.EMPLOYEE_NOT_LINKED);
+                }
+                return userDetails.getEmployeeId();
+        }
+
+        private String normalize(String value) {
+                if (value == null) {
+                        return "";
+                }
+                return value.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
         }
 }
