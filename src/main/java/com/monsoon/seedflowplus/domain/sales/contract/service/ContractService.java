@@ -421,9 +421,15 @@ public class ContractService {
         CustomUserDetails userDetails = getAuthenticatedUser();
 
         QuotationHeader quotation = null;
+        ContractHeader sourceContract = null;
+        RevisionSeed revisionSeed = null;
         Client client;
         Employee author;
         SalesDeal deal;
+
+        if (request.quotationId() != null && request.sourceContractId() != null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "quotationId와 sourceContractId 중 하나만 전달해야 합니다.");
+        }
 
         if (request.quotationId() != null) {
             // 1-1. 견적서 기반 작성
@@ -456,6 +462,27 @@ public class ContractService {
             author = quotation.getAuthor();
             deal = quotation.getDeal() != null
                     ? quotation.getDeal()
+                    : createDealBootstrap(client, author);
+        } else if (request.sourceContractId() != null) {
+            sourceContract = contractRepository.findById(request.sourceContractId())
+                    .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
+
+            if (sourceContract.getAuthor() == null
+                    || !sourceContract.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            validateRevisionSource(sourceContract.getStatus());
+
+            if (!sourceContract.getClient().getId().equals(request.clientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            client = sourceContract.getClient();
+            author = sourceContract.getAuthor();
+            quotation = sourceContract.getQuotation();
+            revisionSeed = buildRevisionSeed(sourceContract);
+            deal = sourceContract.getDeal() != null
+                    ? sourceContract.getDeal()
                     : createDealBootstrap(client, author);
         } else {
             // 1-2. 신규 작성 (견적서 없음)
@@ -526,6 +553,13 @@ public class ContractService {
                 request.billingCycle(),
                 request.specialTerms(),
                 request.memo());
+        if (revisionSeed != null) {
+            contract.assignRevisionLineage(
+                    revisionSeed.sourceDocumentId(),
+                    revisionSeed.revisionGroupKey(),
+                    revisionSeed.revisionNo()
+            );
+        }
 
         // 5. 계약 상세 품목 생성 및 추가
         request.items().forEach(itemRequest -> {
@@ -595,6 +629,24 @@ public class ContractService {
             log.error("[ContractService] 결재 요청 제출 실패 - CNT_ID: {}, Error: {}", contract.getId(), e.getMessage());
             throw e;
         }
+    }
+
+    private void validateRevisionSource(ContractStatus status) {
+        if (status != ContractStatus.REJECTED_ADMIN
+                && status != ContractStatus.REJECTED_CLIENT
+                && status != ContractStatus.EXPIRED) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "반려 또는 만료된 계약서만 재작성할 수 있습니다.");
+        }
+    }
+
+    private RevisionSeed buildRevisionSeed(ContractHeader source) {
+        String revisionGroupKey = source.getRevisionGroupKey() != null
+                ? source.getRevisionGroupKey()
+                : "CNT-" + source.getId();
+        int nextRevisionNo = contractRepository.findTopByRevisionGroupKeyOrderByRevisionNoDesc(revisionGroupKey)
+                .map(ContractHeader::getRevisionNo)
+                .orElse(source.getRevisionNo() != null ? source.getRevisionNo() : 0) + 1;
+        return new RevisionSeed(source.getId(), revisionGroupKey, nextRevisionNo);
     }
 
     private void validateQuotationAuthorAccess(QuotationHeader quotation, CustomUserDetails userDetails) {
@@ -1030,5 +1082,8 @@ public class ContractService {
     }
 
     private record ExpiringContractContext(Long contractId, String contractCode, Long dealId) {
+    }
+
+    private record RevisionSeed(Long sourceDocumentId, String revisionGroupKey, Integer revisionNo) {
     }
 }

@@ -13,6 +13,8 @@ import java.util.List;
 public record ContractCreateRequest(
         Long quotationId,
 
+        Long sourceContractId,
+
         @NotNull(message = "거래처 ID는 필수입니다.") Long clientId,
 
         @NotNull(message = "계약 시작일은 필수입니다.") LocalDate startDate,

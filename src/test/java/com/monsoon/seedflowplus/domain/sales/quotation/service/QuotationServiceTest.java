@@ -174,7 +174,6 @@ class QuotationServiceTest {
 
         quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
                 null,
-                null,
                 30L,
                 java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
                         null,
@@ -222,7 +221,6 @@ class QuotationServiceTest {
         setAuthentication(salesRepUser(author));
 
         quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
-                null,
                 null,
                 30L,
                 java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
@@ -272,7 +270,6 @@ class QuotationServiceTest {
 
         quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
                 40L,
-                null,
                 30L,
                 java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
                         null,
@@ -287,56 +284,6 @@ class QuotationServiceTest {
 
         verify(salesDealRepository).save(any(SalesDeal.class));
         verify(salesDealRepository, never()).findTopByClientIdAndClosedAtIsNullOrderByLastActivityAtDesc(anyLong());
-    }
-
-    @Test
-    @DisplayName("반려된 견적서 재작성은 원본 deal을 계승한다")
-    void createQuotationFromRejectedQuotationUsesSameDeal() {
-        Employee author = employee(10L);
-        Client client = client(30L, author);
-        SalesDeal deal = deal(client, author);
-        ReflectionTestUtils.setField(deal, "id", 500L);
-        QuotationHeader source = QuotationHeader.create(null, "QUO-OLD", client, deal, author, BigDecimal.TEN, "old");
-        ReflectionTestUtils.setField(source, "id", 200L);
-        source.updateStatus(QuotationStatus.REJECTED_ADMIN);
-
-        when(clientRepository.findByIdWithLock(30L)).thenReturn(Optional.of(client));
-        when(employeeRepository.findById(10L)).thenReturn(Optional.of(author));
-        when(quotationRepository.findById(200L)).thenReturn(Optional.of(source));
-        when(quotationRepository.findTopByRevisionGroupKeyOrderByRevisionNoDesc("QUO-200")).thenReturn(Optional.empty());
-        when(salesDealRepository.findByIdWithLock(500L)).thenReturn(Optional.of(deal));
-        when(quotationRepository.save(any(QuotationHeader.class))).thenAnswer(invocation -> {
-            QuotationHeader saved = invocation.getArgument(0);
-            ReflectionTestUtils.setField(saved, "id", 201L);
-            ReflectionTestUtils.setField(saved, "expiredDate", LocalDate.now().plusDays(30));
-            return saved;
-        });
-
-        setAuthentication(salesRepUser(author));
-
-        quotationService.createQuotation(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest(
-                null,
-                200L,
-                30L,
-                java.util.List.of(new com.monsoon.seedflowplus.domain.sales.quotation.dto.request.QuotationCreateRequest.QuotationItemRequest(
-                        null,
-                        "양배추",
-                        "VEG",
-                        2,
-                        "BOX",
-                        BigDecimal.valueOf(1500)
-                )),
-                "rewrite"
-        ));
-
-        ArgumentCaptor<QuotationHeader> quotationCaptor = ArgumentCaptor.forClass(QuotationHeader.class);
-        verify(quotationRepository).save(quotationCaptor.capture());
-        QuotationHeader rewritten = quotationCaptor.getValue();
-        assertThat(rewritten.getDeal()).isEqualTo(deal);
-        assertThat(rewritten.getSourceDocumentId()).isEqualTo(200L);
-        assertThat(rewritten.getRevisionGroupKey()).isEqualTo("QUO-200");
-        assertThat(rewritten.getRevisionNo()).isEqualTo(1);
-        verify(salesDealRepository, never()).save(any(SalesDeal.class));
     }
 
     @Test
