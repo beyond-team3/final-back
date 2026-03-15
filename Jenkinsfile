@@ -223,6 +223,19 @@ spec:
     }
 
     post {
+        always {
+            // HTML Report 퍼블리싱
+            publishHTML(target: [
+                allowMissing: true, // 테스트 스킵 시 파일이 없어도 에러 안 나게 처리
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'build/reports/tests/test', // HTML 파일이 생성되는 경로
+                reportFiles: 'index.html', // 띄울 메인 파일 이름
+                reportName: 'HTML Test Report', // 젠킨스 좌측 메뉴에 표시될 버튼 이름
+                reportTitles: 'Gradle Test Result'
+            ])
+        }
+
         failure {
             discordSend(
                 webhookURL: env.DISCORD_WEBHOOK,
