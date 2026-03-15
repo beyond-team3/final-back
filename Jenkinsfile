@@ -20,7 +20,7 @@ spec:
     command: ['cat']
     tty: true
   - name: argocd-cli
-    image: argoproj/argocd:v2.10.1
+    image: quay.io/argoproj/argocd:v2.10.1
     command: ['cat']
     tty: true
   volumes:
@@ -36,10 +36,13 @@ spec:
     }
 
     environment {
-        DOCKER_CREDENTIAL_ID = 'docker-hub-id'
+        AWS_CREDENTIAL_ID = 'aws-ecr-credentials'
+        AWS_REGION = 'ap-northeast-2'
+        ECR_REGISTRY = '906034468269.dkr.ecr.ap-northeast-2.amazonaws.com'
+        IMAGE_NAME = "${ECR_REGISTRY}/monsoon-backend"
+
         ARGOCD_CREDENTIAL_ID = 'argocd-admin-login'
         DISCORD_WEBHOOK = credentials('discord-webhook-url')
-        IMAGE_NAME = '21monsoon/monsoon-backend'
         APP_VERSION_PREFIX = '0.0'
         FINAL_TAG = ""
         // CI에서는 테스트 프로필 강제
@@ -98,29 +101,33 @@ spec:
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Docker Build & Push to ECR') {
             steps {
                 container('docker-cli') {
                     script {
-                        withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
-                            usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIAL_ID,
+                            usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
 
-                            echo "Building and Pushing Tag: " + env.FINAL_TAG
+                            echo "1. Installing AWS CLI..."
+                            sh "apk add --no-cache aws-cli"
 
-                            // 도커 빌드 (고유 태그 및 latest)
+                            echo "2. Building Tag: " + env.FINAL_TAG
                             sh "docker build --no-cache -t ${IMAGE_NAME}:${env.FINAL_TAG} ."
 
-                            // 도커 로그인 및 푸시
-                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            echo "3. Logging into AWS ECR..."
+                            sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+
+                            echo "4. Pushing Image to ECR..."
                             sh "docker push ${IMAGE_NAME}:${env.FINAL_TAG}"
 
-                            // main 브랜치일 경우에만 latest 푸시
+                            // main 브랜치일 경우에만 latest 태그 추가 푸시
                             if (env.BRANCH_NAME == 'main') {
                                 sh "docker tag ${IMAGE_NAME}:${env.FINAL_TAG} ${IMAGE_NAME}:latest"
                                 sh "docker push ${IMAGE_NAME}:latest"
                             }
 
-                            sh "docker logout"
+                            // 보안을 위해 작업 후 로그아웃
+                            sh "docker logout ${ECR_REGISTRY}"
                         }
                     }
                 }
