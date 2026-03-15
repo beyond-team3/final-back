@@ -1,384 +1,145 @@
-Deal Log / Deal Lifecycle 수정 정리
-기준일: 2026-03-13
+프론트 반영용 프롬프트
 
-전제
-- INV는 취소 기능을 구현하지 않는다.
-- 기존 동작 충돌 방지를 위해 가능한 한 기존 코드 흐름은 유지하고, 필요한 지점에 최소 수정으로 정책을 덧붙인다.
-- 수정 대상은 deal log, approval 정리, deal 생성/종결 규칙이다.
+아래 조건에 맞춰 프론트엔드 코드를 수정하라.
 
-확정 정책
-1. 새 deal 생성 시점은 새 RFQ 생성 시점이다.
-2. ORD, STMT는 삭제 시 deal log에 기록되어야 한다. INV는 취소 기능을 구현하지 않으므로 현 시점 수정 대상에서 제외한다.
-3. QUO, CNT, ORD는 삭제 시 진행 중 approval을 정리해야 한다.
-4. deal이 닫히는 삭제는 RFQ 삭제뿐이다.
-5. deal이 닫히는 비삭제 이벤트는 견적서 만료, 계약 만료 시점이다.
-
-현재 코드 상태 요약
-1. RFQ 생성
-- 현재는 새 RFQ 생성 시 항상 새 deal을 만들지 않는다.
-- QuotationRequestService.resolveOrCreateOpenDeal()가 client 기준 open deal을 재사용한다.
-- 관련 파일:
-  - src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java
-  - src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealRepository.java
-
-2. RFQ 삭제
-- 현재는 상태만 DELETED로 바꾸고 끝난다.
-- 삭제 deal log 없음.
-- deal.close() 호출 없음.
-
-3. QUO 삭제
-- 현재는 상태를 DELETED로 바꾸고 approvalCancellationService.cancelPendingRequest(DealType.QUO, ...)는 수행한다.
-- 삭제 deal log 없음.
-- deal 종료 없음.
-
-4. CNT 삭제
-- 현재는 상태를 DELETED로 바꾸고 approvalCancellationService.cancelPendingRequest(DealType.CNT, ...)는 수행한다.
-- 삭제 deal log 없음.
-- deal 종료 없음.
-
-5. ORD 삭제
-- 실제로는 delete가 아니라 cancel API로 처리한다.
-- 상태를 CANCELED로 바꾸고 deal log는 이미 남긴다.
-- approval 정리는 없다.
-- deal 종료 없음.
-
-6. STMT 삭제
-- 실제로는 delete가 아니라 cancel API로 처리한다.
-- 상태를 CANCELED로 바꾸고 deal log는 이미 남긴다.
-- approval 없음.
-- deal 종료 없음.
-
-7. INV 삭제
-- 엔티티와 transition policy에는 cancel 개념이 있으나 실제 서비스/컨트롤러 취소 흐름이 없다.
-- 정책상 이번 작업에서는 취소 기능을 구현하지 않는다.
-
-8. deal 종료
-- SalesDeal.close()는 존재하지만 실제 호출처가 없다.
-- 즉 RFQ 삭제, 견적 만료, 계약 만료 어느 쪽도 closedAt을 세팅하지 않는다.
-
-9. approval -> deal log 추적
-- submit 로그는 남는다.
-- decision 로그도 남는다.
-- QUO/CNT는 recordAndSync()를 사용해 deal snapshot 동기화까지 수행한다.
-- ORD는 승인 시 confirmOrder()가 별도 recordAndSync()를 수행하고, approval decision 로그는 write()로만 추가 기록한다.
-- 현재 approval 추적 자체는 동작하지만 삭제 시 approval cancel 정리와는 연결이 덜 되어 있다.
-
-정책 반영 후 목표 상태
-1. RFQ 생성 시 항상 새 deal 생성
-- open deal 재사용 제거
-- RFQ는 항상 새 deal bootstrap 생성 후 연결
-
-2. RFQ 삭제 시
-- RFQ 상태를 DELETED로 변경
-- 삭제 deal log 기록
-- deal closedAt 설정
-
-3. QUO 삭제 시
-- 상태 DELETED 유지
-- 진행 중 approval 취소 유지
-- 삭제 deal log 추가
-- deal은 닫지 않음
-
-4. CNT 삭제 시
-- 상태 DELETED 유지
-- 진행 중 approval 취소 유지
-- 삭제 deal log 추가
-- deal은 닫지 않음
-
-5. ORD 삭제 시
-- 기존 cancel API/상태 CANCELED 유지
-- 진행 중 approval 취소 추가
-- 기존 cancel deal log 유지
-- deal은 닫지 않음
-
-6. STMT 삭제 시
-- 기존 cancel API/상태 CANCELED 유지
-- 기존 cancel deal log 유지
-- deal은 닫지 않음
-
-7. QUO 만료 시
-- 기존 EXPIRED 상태 전환 유지
-- 추가로 해당 deal closedAt 설정
-
-8. CNT 만료 시
-- 기존 EXPIRED 상태 전환 유지
-- 추가로 해당 deal closedAt 설정
-
-수정 원칙
-1. 상태 enum은 되도록 그대로 둔다.
-- RFQ/QUO/CNT는 DELETED 유지
-- ORD/STMT는 CANCELED 유지
-- INV는 미수정
-
-2. 기존 API 형태는 되도록 유지한다.
-- ORD/STMT는 현재 cancel API를 삭제 정책으로 해석한다.
-- 새 delete API를 만들지 않는다.
-
-3. deal log는 문서별 현재 상태명을 사용해 남긴다.
-- RFQ/QUO/CNT: toStatus = DELETED
-- ORD/STMT: toStatus = CANCELED
-
-4. deal 종료는 별도 helper에서만 수행한다.
-- 산발적으로 deal.close()를 직접 호출하지 말고 공통 private helper 또는 전용 domain service로 감싼다.
-
-수정 우선순위
-P1. RFQ 생성 시 새 deal 생성으로 변경
-P2. RFQ 삭제 시 삭제 deal log + deal close 추가
-P3. QUO 삭제 시 삭제 deal log 추가
-P4. CNT 삭제 시 삭제 deal log 추가
-P5. ORD 취소 시 approval cancel 추가
-P6. 견적 만료/계약 만료 시 deal close 추가
-P7. 테스트 보강
-P8. deal log 관련 문서 정리
-
-파일별 TODO
-
-1. src/main/java/com/monsoon/seedflowplus/domain/sales/request/service/QuotationRequestService.java
 목표
-- RFQ 생성 시 항상 새 deal 생성
-- RFQ 삭제 시 삭제 deal log 기록
-- RFQ 삭제 시 deal 종료
+- 기존 `v1` 화면을 유지하면서, 이번 리모델링으로 추가된 `v2` API를 프론트에서 선택적으로 테스트할 수 있게 만든다.
+- 절대 기존 `v1` API 경로를 통째로 `v2`로 바꿔치기하지 않는다.
+- 전역 `base_url=/api/v1` 구조를 깨지 말고, 필요한 API 함수만 개별적으로 `v2` 절대 경로를 사용하게 한다.
+- 환경변수 또는 feature flag로 `v2` 사용 여부를 켜고 끌 수 있게 한다.
 
-TODO
-- createQuotationRequest()에서 resolveOrCreateOpenDeal(client) 호출을 제거하거나 우회하고 createDealBootstrap(client)을 직접 사용하도록 변경
-- resolveOrCreateOpenDeal()는 제거하거나 deprecated 성격으로 남길지 결정
-- deleteQuotationRequest()에 아래 순서 추가
-  1. fromStatus 확보
-  2. 상태 전이 검증 추가 여부 결정
-  3. header.delete()
-  4. dealPipelineFacade 또는 dealLogWriteService로 삭제 로그 기록
-  5. header.getDeal().close(actionAt) 수행
-- RFQ 삭제 로그에는 최소 diffField("status", "문서 상태", fromStatus, DELETED, "STATUS") 포함
+핵심 원칙
+1. `v1` 기본 동작은 유지한다.
+2. `deal`, `quotation`, `contract`, `deal KPI`, `billing revenue`만 `v2` 테스트 대상으로 분리한다.
+3. `RFQ`, `ORD`, `STMT`, `INV`, `PAY`, 일반 통계는 기존 `v1` 유지한다.
+4. 화면 단위 전환보다 API client 함수 단위 전환을 우선한다.
+5. 응답 shape가 달라진 경우 화면 adapter/mapper를 추가해서 흡수하고, 컴포넌트를 크게 갈아엎지 않는다.
 
-검증
-- RFQ 2건 연속 생성 시 서로 다른 dealId가 생성되는지 테스트
-- RFQ 삭제 후 recentLogs에 삭제 이벤트가 포함되는지 테스트
-- RFQ 삭제 후 deal.closedAt != null 인지 테스트
-- RFQ 삭제 후 동일 client로 RFQ 생성 시 새 dealId가 생성되는지 테스트
+반영 대상 API
+- `GET /api/v2/deals`
+- `GET /api/v2/deals/{dealId}`
+- `GET /api/v2/deals/{dealId}/documents`
+- `GET /api/v2/deals/{dealId}/notifications`
+- `GET /api/v2/deals/{dealId}/schedules`
+- `GET /api/v2/deals/kpis`
+- `POST /api/v2/quotations`
+- `POST /api/v2/quotations/{quotationId}/revise`
+- `PATCH /api/v2/quotations/{quotationId}/cancel`
+- `POST /api/v2/contracts`
+- `POST /api/v2/contracts/{contractId}/revise`
+- `PATCH /api/v2/contracts/{contractId}/cancel`
+- `GET /api/v2/statistics/billing/revenue/monthly`
+- `GET /api/v2/statistics/billing/revenue/by-category`
+- `GET /api/v2/statistics/billing/revenue/monthly-by-category`
 
-영향
-- 기존 open deal 재사용 전제에 기대던 흐름이 바뀐다.
-- QuotationService/ContractService가 RFQ의 deal을 따라가므로, 이후 문서가 새 deal 체인으로 붙는지 회귀 확인 필요
-- client 기준 최근 open deal 조회 결과가 달라질 수 있다
+권장 구현 방식
+1. feature flag 추가
+- 예시:
+  - `VITE_USE_DEAL_V2=true`
+  - `VITE_USE_QUOTATION_V2=true`
+  - `VITE_USE_CONTRACT_V2=true`
+  - `VITE_USE_BILLING_STATS_V2=true`
+- 또는 하나로 묶어서:
+  - `VITE_ENABLE_PIPELINE_V2=true`
 
-2. src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java
-목표
-- QUO 삭제 시 approval 정리 유지
-- QUO 삭제 deal log 추가
-- 견적 만료 시 deal 종료
+2. API client 분기 추가
+- 기존 공통 `baseUrl`은 그대로 둔다.
+- 아래 함수만 개별적으로 `/api/v2/...` 절대 경로 사용:
+  - deal 목록/상세/문서/알림/일정/KPI
+  - quotation 생성/재작성/취소
+  - contract 생성/재작성/취소
+  - billing revenue 통계
 
-TODO
-- deleteQuotation()에 삭제 로그 추가
-- approvalCancellationService.cancelPendingRequest(DealType.QUO, ...) 호출 순서는 유지
-- syncQuotationStatuses()에서 EXPIRED로 바뀐 견적과 연결된 deal을 닫는 후처리 추가
-- 벌크 update 후 deal close를 하려면 대상 QUO/deal 목록 조회가 필요하므로, bulk update만으로 끝내지 말고 대상 식별자를 조회하는 보조 repository 메서드 검토
+3. mapper 추가
+- `v2` 응답이 기존 `v1` 화면 모델과 다르면 adapter를 만든다.
+- 예:
+  - `mapDealV2SummaryToViewModel`
+  - `mapDealV2DetailToViewModel`
+  - `mapDealV2DocumentsToTimelineItems`
+- UI 컴포넌트는 가능한 그대로 두고 mapper에서 맞춘다.
 
-검증
-- WAITING_ADMIN QUO 삭제 시 approval가 CANCELED 되는지 테스트
-- QUO 삭제 후 deal log에 DELETED 이벤트가 남는지 테스트
-- 만료 대상 QUO 처리 후 관련 deal.closedAt이 설정되는지 테스트
-- 이미 닫힌 deal을 다시 닫아도 부작용 없는지 테스트
+4. 화면 노출 방식
+- `v2` 테스트용 토글이 켜졌을 때만 새 API 사용
+- 토글이 꺼져 있으면 기존 `v1` 호출 유지
+- 가능하면 화면 어딘가에 `V2 TEST` 배지나 dev-only label을 표시
 
-영향
-- 현재 syncQuotationStatuses()는 bulk update만 수행하므로, deal close를 붙이면 조회/반복 로직이 추가된다
-- 견적 만료 후 RFQ 상태 복구 로직과 충돌 없는지 확인 필요
-- 만료 로그를 따로 남길지 여부는 정책 미정이므로 이번엔 close만 우선 적용 가능
+주의사항
+- 기존 `v1` api 함수명을 `v2`로 덮어쓰지 말 것
+- 전역 `axios instance`의 기본 prefix를 `/api/v2`로 바꾸지 말 것
+- `v1` 화면 전체를 한 번에 전환하지 말 것
+- 미구현 도메인까지 억지로 `v2`로 연결하지 말 것
+- 백엔드 alias나 임시 rewrite를 전제로 구현하지 말 것
 
-3. src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java
-목표
-- CNT 삭제 시 approval 정리 유지
-- CNT 삭제 deal log 추가
-- 계약 만료 시 deal 종료
+우선 수정 추천 영역
+1. deal 메인 목록 화면
+2. deal 상세 화면
+3. quotation 작성/재작성/취소
+4. contract 작성/재작성/취소
+5. deal KPI
+6. billing revenue 통계
 
-TODO
-- deleteContract()에 삭제 로그 추가
-- approvalCancellationService.cancelPendingRequest(DealType.CNT, ...) 호출 유지
-- syncContractStatuses()에서 EXPIRED 계약과 연결된 deal close 후처리 추가
-- bulk update 기반이면 대상 계약/deal 조회용 repository 메서드 추가 검토
+체크리스트
 
-검증
-- WAITING_ADMIN CNT 삭제 시 approval가 CANCELED 되는지 테스트
-- CNT 삭제 후 deal log에 DELETED 이벤트가 남는지 테스트
-- EXPIRED 처리된 계약의 deal.closedAt이 설정되는지 테스트
+[설정]
+- [ ] `v2` 테스트용 환경변수 또는 feature flag를 추가했다
+- [ ] flag가 꺼지면 기존 `v1` 호출만 사용한다
+- [ ] flag가 켜져도 대상 API만 `v2`를 사용한다
 
-영향
-- 계약 만료 배치가 상태 동기화 외에 deal 종료 책임까지 갖게 된다
-- ACTIVE_CONTRACT -> EXPIRED 벌크 처리와 deal close 후처리의 트랜잭션 범위를 주의해야 한다
+[deal]
+- [ ] deal 목록 API를 `v2`로 분기했다
+- [ ] deal 상세 API를 `v2`로 분기했다
+- [ ] deal documents API를 `v2`로 분기했다
+- [ ] deal notifications API를 `v2`로 분기했다
+- [ ] deal schedules API를 `v2`로 분기했다
+- [ ] deal KPI API를 `v2`로 분기했다
+- [ ] `v2` 응답을 기존 화면 모델로 변환하는 mapper를 추가했다
 
-4. src/main/java/com/monsoon/seedflowplus/domain/sales/order/service/OrderService.java
-목표
-- 기존 cancel 방식 유지
-- 취소 시 approval 정리 추가
+[quotation]
+- [ ] quotation 생성 API를 `v2`로 분기했다
+- [ ] quotation revise API를 `v2`로 분기했다
+- [ ] quotation cancel API를 `v2`로 분기했다
+- [ ] 생성/재작성/취소 후 후속 조회 또는 invalidate 로직이 정상 동작한다
 
-TODO
-- ApprovalCancellationService 주입
-- cancelOrder()에서 orderHeader.cancel() 전후로 approvalCancellationService.cancelPendingRequest(DealType.ORD, orderId) 추가
-- 기존 deal log 기록 로직은 유지
-- API 이름은 cancel 그대로 유지하고 내부 정책 문서에서 삭제 의미로 해석
+[contract]
+- [ ] contract 생성 API를 `v2`로 분기했다
+- [ ] contract revise API를 `v2`로 분기했다
+- [ ] contract cancel API를 `v2`로 분기했다
+- [ ] 생성/재작성/취소 후 후속 조회 또는 invalidate 로직이 정상 동작한다
 
-검증
-- PENDING approval가 있는 ORD 취소 시 approval status가 CANCELED 되는지 테스트
-- ORD 취소 후 기존 deal log가 그대로 남는지 테스트
-- approval가 없는 ORD 취소 시 no-op인지 테스트
+[statistics]
+- [ ] billing revenue 월별 API를 `v2`로 분기했다
+- [ ] billing revenue 품종별 API를 `v2`로 분기했다
+- [ ] billing revenue 월별/품종별 API를 `v2`로 분기했다
+- [ ] 일반 매출 추이/랭킹 통계는 여전히 `v1`을 사용한다
 
-영향
-- 주문 취소 후 approval 검색 결과가 달라진다
-- ApprovalCancellationService는 현재 QUO/CNT만 암묵적으로 사용 중이라 ORD 추가 회귀 확인 필요
+[UI/안전장치]
+- [ ] `v2` 테스트 중인 화면 또는 섹션을 dev-only로 식별할 수 있다
+- [ ] `v2` 응답 shape 차이로 인한 런타임 에러가 없다
+- [ ] 에러 처리 메시지가 `v1`과 충돌하지 않는다
+- [ ] flag off 시 기존 화면이 그대로 동작한다
 
-5. src/main/java/com/monsoon/seedflowplus/domain/billing/statement/service/StatementService.java
-목표
-- 기존 cancel 기반 삭제 정책 유지
-- 별도 구조 변경 없이 현재 delete 의미를 문서화
+[수동 테스트]
+- [ ] deal 목록 진입이 정상 동작한다
+- [ ] deal 상세에서 문서/알림/일정 탭이 정상 동작한다
+- [ ] quotation 생성이 정상 동작한다
+- [ ] quotation revise가 정상 동작한다
+- [ ] quotation cancel이 정상 동작한다
+- [ ] contract 생성이 정상 동작한다
+- [ ] contract revise가 정상 동작한다
+- [ ] contract cancel이 정상 동작한다
+- [ ] deal KPI가 정상 조회된다
+- [ ] billing revenue 통계가 정상 조회된다
+- [ ] flag를 끄면 전부 기존 `v1`로 복귀한다
 
-TODO
-- 코드 수정은 최소화
-- 필요 시 주석/문서에서 statement cancel이 삭제 정책임을 명확화
-- deal log 기록은 이미 있으므로 유지
+참고 백엔드 문서
+- `docs/remodeling/v1-v2-transition-guide.md`
+- `docs/api/domain-api-list.csv`
+- `api-test/http/deal/deal-v2.http`
+- `api-test/http/deal/document-v2.http`
+- `api-test/http/statistics/billing-revenue-v2.http`
 
-검증
-- 기존 cancelStatement 테스트가 deal log 포함 상태로 통과하는지 확인
-
-영향
-- 구조 변경이 없으면 영향 거의 없음
-
-6. src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java
-목표
-- INV 취소 미구현 방침을 명시
-
-TODO
-- 코드 수정은 하지 않음
-- output/문서에만 "INV는 취소 미구현"을 명시
-- 추후 정책 변경 전까지 deal log 대상에서 제외
-
-검증
-- 없음
-
-영향
-- DocStatusTransitionPolicy에는 CANCEL 규칙이 남아 있으나 실제 진입점이 없다는 점을 팀에 공유 필요
-
-7. src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCancellationService.java
-목표
-- QUO/CNT/ORD 삭제 시 approval 정리 공통 유지
-
-TODO
-- 서비스 자체는 그대로 재사용
-- 필요하면 테스트에 ORD 케이스만 추가
-
-검증
-- QUO/CNT/ORD 각각 PENDING approval cancel 동작 테스트
-
-영향
-- 없음. 호출처만 늘어난다
-
-8. src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/SalesDeal.java
-목표
-- close()/reopen() 사용 정책 명확화
-
-TODO
-- 엔티티 변경은 최소화
-- close()는 idempotent하게 써도 되는지 확인
-- 필요 시 중복 close 방지 가드 추가 여부 검토
-
-검증
-- 동일 deal에 close 두 번 호출해도 비정상 상태가 생기지 않는지 테스트
-
-영향
-- 현재 호출처가 없어서 새 호출처 추가 후 회귀 범위가 생긴다
-
-9. src/main/java/com/monsoon/seedflowplus/domain/deal/log/service/DealPipelineFacade.java
-목표
-- 기존 recordAndSync는 유지
-- deal 종료와 snapshot 갱신 책임 분리 여부 검토
-
-TODO
-- 가능한 한 기존 메서드는 건드리지 않는다
-- RFQ 삭제, QUO 만료, CNT 만료처럼 closedAt 처리가 필요한 곳은 서비스 레벨에서 deal.close()를 직접 호출하고 recordAndSync와 분리한다
-- 공통화가 꼭 필요할 때만 helper 추가
-
-검증
-- 기존 approval/문서 생성/취소 로그가 깨지지 않는지 회귀 테스트
-
-영향
-- facade 변경을 최소화하면 기존 흐름 영향이 가장 작다
-
-10. src/main/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicy.java
-목표
-- 기존 transition 규칙 유지
-
-TODO
-- RFQ/QUO/CNT 삭제 로그를 남길 때 validation이 필요하면 DELETE/REJECT/CANCEL 중 어떤 action으로 검증할지 확정해야 한다
-- 최소 수정 원칙상, 삭제 로그는 dealLogWriteService.write() 직접 호출로 처리하면 transition policy 변경을 피할 수 있다
-
-검증
-- 기존 transition 관련 테스트 회귀
-
-영향
-- 이 파일을 건드리면 전 문서 상태 전이 테스트 영향이 크다
-- 가능하면 미수정 권장
-
-승인 deal log 추적 점검 결과
-1. 승인 요청 생성
-- ApprovalSubmissionService.submit() -> approvalDealLogWriter.writeSubmit() 경로로 SUBMIT 로그 기록
-- 현재 정상
-
-2. 승인/반려 결정
-- ApprovalCommandService.decideStep() -> approvalDealLogWriter.writeDecision() 경로로 APPROVE/REJECT 로그 기록
-- 현재 정상
-
-3. QUO/CNT
-- approval decision 시 recordAndSync()를 사용하므로 deal snapshot과 문서 상태가 함께 맞춰진다
-- 현재 정상
-
-4. ORD
-- approve 시 orderService.confirmOrder()가 주문 확정 로그를 별도로 남긴다
-- 이후 approval decision 로그도 별도로 남는다
-- reject 시 주문 상태는 그대로이고 approval decision REJECT 로그만 남는다
-- 현재 정책상 허용 가능
-
-5. 보완 필요 지점
-- 삭제로 인해 approval request가 CANCELED 될 때는 approval 자체의 cancel event가 deal log에 별도로 남지 않는다
-- 이번 정책의 핵심은 문서 삭제/취소 로그와 approval request 정리이므로, approval cancel 자체의 deal log 추가는 필수 아님
-- 우선순위는 문서 로그/approval 정리/deal close가 더 높다
-
-추천 구현 순서
-1. RFQ 새 deal 생성으로 변경
-2. RFQ 삭제 로그 + deal close
-3. QUO 삭제 로그
-4. CNT 삭제 로그
-5. ORD approval cancel
-6. QUO 만료 deal close
-7. CNT 만료 deal close
-8. 테스트 및 문서 정리
-
-수정 작업 체크리스트
-- [ ] RFQ 생성 재사용 제거
-- [ ] RFQ 삭제 deal log 추가
-- [ ] RFQ 삭제 deal close 추가
-- [ ] QUO 삭제 deal log 추가
-- [ ] CNT 삭제 deal log 추가
-- [ ] ORD 취소 시 approval cancel 추가
-- [ ] QUO 만료 시 deal close 추가
-- [ ] CNT 만료 시 deal close 추가
-- [ ] 회귀 테스트 보강
-- [ ] deal log 문서/정책 문서 업데이트
-
-검증 원칙
-모든 수정 단계에 아래 검증을 포함한다.
-1. 단위 수정 직후 관련 테스트 실행
-2. 문서 상태 전이 관련 테스트 실행
-3. approval 관련 테스트 실행
-4. deal log 관련 테스트 실행
-5. 최종적으로 compile/test 재검증
-
-권장 검증 순서
-1. ./gradlew compileJava compileTestJava
-2. 수정한 서비스의 단위 테스트
-3. approval 테스트
-4. deal log 테스트
-5. 관련 integration 또는 repository 테스트
-
-최종 주의사항
-- INV 취소는 이번 작업 범위에서 제외한다.
-- 기존 상태 enum과 API 형태는 되도록 유지한다.
-- DealPipelineFacade, DocStatusTransitionPolicy는 영향 범위가 넓으므로 마지막까지 수정 최소화 전략을 유지한다.
-- deal.close()는 RFQ 삭제, 견적 만료, 계약 만료 세 경우에만 호출한다.
+최종 산출물 요구
+- 수정된 프론트 파일 목록
+- 어떤 화면/API가 `v2`로 분기됐는지 요약
+- 남아 있는 `v1` 의존 영역 요약
+- 수동 테스트 결과
