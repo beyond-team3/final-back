@@ -239,6 +239,27 @@
 ### 다음 단계
 9단계 문서 업데이트 정리 및 10단계 최종 점검
 
+## [2026-03-15 16:05] 캘린더 품종 추천 및 수확 임박 API 추가
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/controller/ProductCalendarController.java` — 캘린더 추천 품종, 수확 임박 조회 엔드포인트 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 월별 추천 품종 계산과 담당 거래처 기준 수확 임박 집계 로직 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductCalendarRecommendationResponse.java` — 캘린더 추천 품종 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductHarvestImminentResponse.java` — 거래처별 수확 임박 응답 DTO 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/repository/ClientCropRepository.java` — 거래처 다건 품종 조회 메서드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java` — 캘린더 product API 를 영업사원 전용으로 제한
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 추천 품종 및 수확 임박 서비스 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/controller/ProductCalendarControllerTest.java` — 캘린더 API 인증/인가/정상 응답 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/config/TestSecurityConfig.java` — 테스트 보안 매처 반영
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+프론트 연동용 API 사용 예시와 응답 스펙 전달
+
 ## [2026-03-15 10:08] v2 문서 인벤토리 및 전환 가이드 정리
 
 ### 작업 내용

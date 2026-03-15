@@ -216,6 +216,24 @@ IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v
 
 ## [2026-03-15] SSE 연결 종료 로그 노이즈 완화
 
+## [2026-03-15] 캘린더 품종 추천 및 수확 임박 조회 추가
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/controller/ProductCalendarController.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductCalendarRecommendationResponse.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/dto/response/ProductHarvestImminentResponse.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/repository/ClientCropRepository.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/infra/security/SecurityConfig.java`
+
+### 변경 내용
+캘린더 페이지에서 바로 사용할 수 있도록 `product` 도메인에 `GET /api/v1/products/calendar/recommendations`, `GET /api/v1/products/calendar/harvest-imminent` 조회 API를 추가합니다.
+추천 품종은 상품의 재배적기 중 `sowingStart <= month <= plantingStart` 인 항목을 기준으로 계산하고, 수확 임박은 로그인한 영업사원이 담당하는 거래처의 `ClientCrop` 과 상품/재배적기를 매칭해 `harvestingStart` 가 이번 달 또는 다음 달인 항목만 집계합니다.
+전용 DTO를 분리해 프론트가 carousel 과 거래처별 수확 임박 섹션을 한 번에 그릴 수 있는 응답 구조를 제공합니다.
+
+### 변경 이유
+캘린더 페이지 요구사항인 월별 추천 품종과 담당 거래처 기준 수확 임박 정보를 기존 상품/거래처 API 조합 없이 직접 조회할 수 있게 하기 위함입니다.
+
 ### 변경 대상
 - 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java`
 - 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseServiceTest.java`
