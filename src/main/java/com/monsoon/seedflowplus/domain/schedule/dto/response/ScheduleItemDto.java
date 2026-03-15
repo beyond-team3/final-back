@@ -51,7 +51,7 @@ public class ScheduleItemDto {
                 .startAt(schedule.getStartAt())
                 .endAt(schedule.getEndAt())
                 .allDay(false)
-                .status(null)
+                .status(schedule.getStatus().name())
                 .assigneeUserId(schedule.getAssigneeUser().getId())
                 .clientId(schedule.getClient().getId())
                 .dealId(schedule.getDeal().getId())

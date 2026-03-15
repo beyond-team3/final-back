@@ -20,6 +20,7 @@ public class TestSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/approvals").hasRole("ADMIN")
                         .requestMatchers("/api/v1/statistics/billing/revenue/**").hasAnyRole("SALES_REP", "ADMIN")
+                        .requestMatchers("/api/v2/statistics/billing/revenue/**").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/sales-rep").hasAnyRole("SALES_REP", "ADMIN")
                         .requestMatchers("/api/v1/statistics/admin").hasRole("ADMIN")
                         .requestMatchers("/api/v1/statistics/by-employee").hasRole("ADMIN")
