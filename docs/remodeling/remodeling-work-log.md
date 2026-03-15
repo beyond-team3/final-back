@@ -336,3 +336,21 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-15 12:26] 참조 견적서 없는 신규 계약의 deal 자동 연결 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 견적서 없는 신규 계약과 deal 없는 견적서 기반 계약 생성 시 기존 열린 deal 자동 연결 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java` — 신규 계약 시 새 deal 생성 검증과 기존 삭제 회귀 테스트 보강
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 계약 생성 정책 정렬 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.sales.contract.service.ContractServiceTest'` 성공
+
+### 다음 단계
+없음

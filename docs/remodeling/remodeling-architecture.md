@@ -227,3 +227,17 @@ SSE 전송 실패 시 `Broken pipe`, `AsyncRequestNotUsableException`, Tomcat `C
 
 ### 변경 이유
 같은 브라우저에서 계정 전환·새로고침 시 반복적으로 발생하는 SSE 종료 로그가 운영 콘솔을 오염시키지 않게 하면서, 실제 알림 전송 이상은 계속 식별할 수 있게 하기 위함입니다.
+
+## [2026-03-15] 참조 견적서 없는 신규 계약의 deal 자동 연결 제거
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractServiceTest.java`
+
+### 변경 내용
+v1 계약 생성 서비스에서 참조 견적서가 없는 신규 계약, 그리고 deal이 비어 있는 견적서 기반 계약 생성 시 기존 열린 deal을 조회해 재사용하던 경로를 제거했습니다.
+이제 두 경우 모두 항상 `createDealBootstrap(...)`을 통해 새 deal을 생성한 뒤 계약을 연결합니다.
+회귀 테스트에는 “참조 견적서 없는 계약이 기존 열린 deal에 붙지 않고 새 deal을 만든다”는 케이스를 추가했습니다.
+
+### 변경 이유
+`REMODELING_POLICY.md`의 “같은 client의 최근 열린 deal 자동 연결 금지” 및 “상위 문서 없는 CNT 생성 시 새 deal 생성” 정책에 맞춰 계약 생성 동작을 정렬하기 위함입니다.
