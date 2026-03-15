@@ -354,3 +354,20 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-15 13:15] 참조 RFQ 없는 신규 견적의 deal 자동 연결 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationService.java` — RFQ 없는 QUO 생성과 deal 없는 RFQ 기반 QUO 생성 시 기존 열린 deal 자동 연결 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationServiceTest.java` — 신규 견적 생성 및 deal 없는 RFQ 기반 생성이 항상 새 deal을 만드는지 회귀 테스트 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationServiceTest'` 성공
+
+### 다음 단계
+없음
