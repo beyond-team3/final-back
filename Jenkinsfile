@@ -19,6 +19,9 @@ spec:
     image: aquasec/trivy:latest
     command: ['cat']
     tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
   - name: argocd-cli
     image: quay.io/argoproj/argocd:v2.10.1
     command: ['cat']
@@ -53,8 +56,17 @@ spec:
         stage('Prepare Tag') {
             steps {
                 script {
-                    // 태그 생성 로직
-                    env.FINAL_TAG = "${env.APP_VERSION_PREFIX}.${env.BRANCH_NAME.replaceAll("/", "-")}.${env.BUILD_NUMBER}.${env.GIT_COMMIT.take(7)}"
+                    def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+
+                    // 브랜치 이름 직접 추출 (가져오지 못하면 기본값 'main' 사용)
+                    def branchName = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    if (branchName == "HEAD") { branchName = "main" }
+
+                    env.FINAL_TAG = "${env.APP_VERSION_PREFIX}.${branchName.replaceAll("/", "-")}.${env.BUILD_NUMBER}.${gitCommit}"
+
+                    env.BRANCH_NAME = branchName
+
+                    echo "생성된 안전한 태그: ${env.FINAL_TAG}"
                 }
             }
         }
