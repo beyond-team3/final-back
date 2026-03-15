@@ -63,16 +63,11 @@ spec:
             steps {
                 script {
                     def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-
-                    // 브랜치 이름 직접 추출 (가져오지 못하면 기본값 'main' 사용)
                     def branchName = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     if (branchName == "HEAD") { branchName = "main" }
 
-                    env.FINAL_TAG = "${env.APP_VERSION_PREFIX}.${branchName.replaceAll("/", "-")}.${env.BUILD_NUMBER}.${gitCommit}"
-
-                    env.BRANCH_NAME = branchName
-
-                    echo "생성된 안전한 태그: ${env.FINAL_TAG}"
+                    env.FINAL_TAG = "0.0.${branchName.replaceAll('/', '-')}.${env.BUILD_NUMBER}.${gitCommit}"
+                    echo "완벽하게 생성된 태그: ${env.FINAL_TAG}"
                 }
             }
         }
@@ -198,29 +193,16 @@ spec:
             }
         }
 
-        stage('Wait for ArgoCD Sync') {
+        stage('Notify Deployment') {
             steps {
-                container('docker-cli') {
-                    script {
-                        withCredentials([usernamePassword(credentialsId: env.ARGOCD_CREDENTIAL_ID,
-                            usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
-
-                            sh "apk add --no-cache curl"
-                            sh "curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
-                            sh "chmod +x /usr/local/bin/argocd"
-
-                            sh 'argocd login argocd-server.argocd.svc.cluster.local --username $ARGO_USER --password $ARGO_PASS --insecure'
-                            sh "argocd app wait monsoon-app --timeout 300"
-                        }
-
-                        discordSend(
-                            webhookURL: env.DISCORD_WEBHOOK,
-                            title: "[Backend] 새 버전 배포 준비 완료 (Preview)",
-                            description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG})이 생성되어 트래픽 전환을 대기 중입니다.\n ArgoCD 또는 터미널에서 Promote를 실행해 주세요!",
-                            result: 'SUCCESS',
-                            color: '#00FF00'
-                        )
-                    }
+                script {
+                    discordSend(
+                        webhookURL: env.DISCORD_WEBHOOK,
+                        title: "[Backend] 새 버전 배포 준비 완료 (Preview)",
+                        description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG}) 매니페스트가 성공적으로 업데이트되었습니다.\n ArgoCD가 곧 자동 동기화를 시작합니다!",
+                        result: 'SUCCESS',
+                        color: '#00FF00'
+                    )
                 }
             }
         }
