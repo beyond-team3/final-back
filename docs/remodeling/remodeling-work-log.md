@@ -318,3 +318,21 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-15 12:11] SSE 연결 종료 로그 노이즈 완화
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java` — Broken pipe 계열 SSE 종료를 benign disconnect로 분류해 debug 로그만 남기도록 조정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseServiceTest.java` — benign disconnect/debug 로그와 비정상 IOException/warn 로그 분기 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — SSE 로그 정책 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 추가 검증
+- `./gradlew compileJava` 성공
+- `./gradlew test --tests 'com.monsoon.seedflowplus.domain.notification.command.NotificationSseServiceTest'` 성공
+
+### 다음 단계
+없음

@@ -213,3 +213,17 @@ IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v
 
 ### 변경 이유
 관리자가 초안을 생성한 뒤 담당 영업사원이 동일 청구서를 조회·발행할 수 있어야 하고, 반대로 관리자의 발행이나 비담당 영업사원의 발행은 허용하지 않기 때문입니다.
+
+## [2026-03-15] SSE 연결 종료 로그 노이즈 완화
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java`
+- 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseServiceTest.java`
+
+### 변경 내용
+SSE 전송 실패 시 `Broken pipe`, `AsyncRequestNotUsableException`, Tomcat `ClientAbortException` 계열을 정상적인 클라이언트 연결 종료로 분류해 stacktrace 없는 `debug` 로그만 남기도록 조정했습니다.
+그 외 예외는 기존처럼 `warn`으로 유지하고, 실패 emitter 제거 동작은 그대로 유지합니다.
+로그 레벨 분기와 emitter 제거가 의도대로 동작하는 단위 테스트를 추가했습니다.
+
+### 변경 이유
+같은 브라우저에서 계정 전환·새로고침 시 반복적으로 발생하는 SSE 종료 로그가 운영 콘솔을 오염시키지 않게 하면서, 실제 알림 전송 이상은 계속 식별할 수 있게 하기 위함입니다.
