@@ -260,6 +260,21 @@
 ### 다음 단계
 프론트 연동용 API 사용 예시와 응답 스펙 전달
 
+## [2026-03-15 16:45] 캘린더 수확 임박 조건 완화 및 디버그 로그 제거
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java` — 수확 임박 판정을 `harvestingStart~harvestingEnd` 가 이번달/다음달과 겹치는 조건으로 완화
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/service/AccountService.java` — 거래처 crop 조회 임시 디버그 출력 제거
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductReadServiceTest.java` — 진행 중인 수확 기간도 포함되는지 검증 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 조건 완화 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+캘린더 API 프론트 호출 경로와 기존 거래처 crop 호출 경로 분리 점검
+
 ## [2026-03-15 10:08] v2 문서 인벤토리 및 전환 가이드 정리
 
 ### 작업 내용

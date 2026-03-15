@@ -234,6 +234,20 @@ IntelliJ HTTP Client 기준으로 deal 조회, QUO/CNT 명령, billing revenue v
 ### 변경 이유
 캘린더 페이지 요구사항인 월별 추천 품종과 담당 거래처 기준 수확 임박 정보를 기존 상품/거래처 API 조합 없이 직접 조회할 수 있게 하기 위함입니다.
 
+## [2026-03-15] 캘린더 수확 임박 조건 완화 및 거래처 crop 디버그 로그 정리
+
+### 변경 대상
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/product/service/ProductReadService.java`
+- 파일: `src/main/java/com/monsoon/seedflowplus/domain/account/service/AccountService.java`
+
+### 변경 내용
+캘린더 수확 임박 계산을 `harvestingStart == 이번달/다음달` 단일 조건에서, `harvestingStart ~ harvestingEnd` 구간이 이번달 또는 다음달과 겹치면 포함하는 방식으로 완화했습니다.
+이로써 이미 수확이 시작된 품종이 현재 월에도 유효한 경우 빈 결과로 빠지는 문제를 줄였습니다.
+동시에 `AccountService.getClientCrops()` 의 임시 `System.out` 디버그 로그를 제거해, 새 캘린더 API 문제처럼 보이던 기존 거래처 crop 조회 로그 노이즈를 정리했습니다.
+
+### 변경 이유
+실제 운영 데이터에서는 수확 시작 월이 지난 상태에서도 현재 월에 수확 기간이 이어지는 품종이 존재할 수 있어, 기존 조건이 지나치게 좁았습니다.
+
 ### 변경 대상
 - 파일: `src/main/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseService.java`
 - 파일: `src/test/java/com/monsoon/seedflowplus/domain/notification/command/NotificationSseServiceTest.java`
