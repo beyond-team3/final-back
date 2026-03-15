@@ -103,7 +103,12 @@ public class QuotationService {
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
         QuotationRequestHeader quotationRequest = null;
+        QuotationHeader sourceQuotation = null;
+        RevisionSeed revisionSeed = null;
         SalesDeal deal;
+        if (request.requestId() != null && request.sourceQuotationId() != null) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE, "requestId와 sourceQuotationId 중 하나만 전달해야 합니다.");
+        }
         if (request.requestId() != null) {
             // 3. 견적요청서 기반 작성 시 검증 (비관적 락 사용으로 동시성 문제 해결)
             quotationRequest = quotationRequestRepository.findByIdWithLock(request.requestId())
@@ -153,6 +158,31 @@ public class QuotationService {
             // RFQ 분기에서도 Deal 락을 획득하여 동시성 제어 (단, 중복 견적 체크는 RFQ 레벨에서만 수행하도록 완화)
             deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
                     .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
+        } else if (request.sourceQuotationId() != null) {
+            sourceQuotation = quotationRepository.findById(request.sourceQuotationId())
+                    .orElseThrow(() -> new CoreException(ErrorType.QUOTATION_NOT_FOUND));
+
+            if (sourceQuotation.getAuthor() == null
+                    || !sourceQuotation.getAuthor().getId().equals(userDetails.getEmployeeId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+            validateRevisionSource(sourceQuotation.getStatus());
+
+            if (!sourceQuotation.getClient().getId().equals(request.clientId())) {
+                throw new CoreException(ErrorType.ACCESS_DENIED);
+            }
+
+            quotationRequest = sourceQuotation.getQuotationRequest();
+            if (quotationRequest != null && quotationRequest.getStatus() != QuotationRequestStatus.DELETED) {
+                quotationRequest.updateStatus(QuotationRequestStatus.REVIEWING);
+            }
+
+            revisionSeed = buildRevisionSeed(sourceQuotation);
+            SalesDeal resolvedDeal = sourceQuotation.getDeal() != null
+                    ? sourceQuotation.getDeal()
+                    : createDealBootstrap(client, author);
+            deal = salesDealRepository.findByIdWithLock(resolvedDeal.getId())
+                    .orElseThrow(() -> new CoreException(ErrorType.DEAL_NOT_FOUND));
         } else {
             // 3-2. 일반 견적 작성 시 검증
             SalesDeal resolvedDeal = createDealBootstrap(client, author);
@@ -179,6 +209,13 @@ public class QuotationService {
                 author,
                 totalAmount,
                 request.memo());
+        if (revisionSeed != null) {
+            quotation.assignRevisionLineage(
+                    revisionSeed.sourceDocumentId(),
+                    revisionSeed.revisionGroupKey(),
+                    revisionSeed.revisionNo()
+            );
+        }
 
         // 6. 품목 추가
         request.items().forEach(itemRequest -> {
@@ -235,6 +272,24 @@ public class QuotationService {
                 userDetails
         );
         syncQuotationExpirationSchedule(quotation, userDetails);
+    }
+
+    private void validateRevisionSource(QuotationStatus status) {
+        if (status != QuotationStatus.REJECTED_ADMIN
+                && status != QuotationStatus.REJECTED_CLIENT
+                && status != QuotationStatus.EXPIRED) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "반려 또는 만료된 견적서만 재작성할 수 있습니다.");
+        }
+    }
+
+    private RevisionSeed buildRevisionSeed(QuotationHeader source) {
+        String revisionGroupKey = source.getRevisionGroupKey() != null
+                ? source.getRevisionGroupKey()
+                : "QUO-" + source.getId();
+        int nextRevisionNo = quotationRepository.findTopByRevisionGroupKeyOrderByRevisionNoDesc(revisionGroupKey)
+                .map(QuotationHeader::getRevisionNo)
+                .orElse(source.getRevisionNo() != null ? source.getRevisionNo() : 0) + 1;
+        return new RevisionSeed(source.getId(), revisionGroupKey, nextRevisionNo);
     }
 
     public QuotationResponse getQuotationDetail(Long id) {
@@ -985,5 +1040,8 @@ public class QuotationService {
     }
 
     private record ExpiringQuotationContext(Long quotationId, String quotationCode, Long dealId) {
+    }
+
+    private record RevisionSeed(Long sourceDocumentId, String revisionGroupKey, Integer revisionNo) {
     }
 }
