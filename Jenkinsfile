@@ -53,6 +53,12 @@ spec:
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Prepare Tag') {
             steps {
                 script {
@@ -68,12 +74,6 @@ spec:
 
                     echo "생성된 안전한 태그: ${env.FINAL_TAG}"
                 }
-            }
-        }
-
-        stage('Checkout') {
-            steps {
-                checkout scm
             }
         }
 
@@ -200,19 +200,23 @@ spec:
 
         stage('Wait for ArgoCD Sync') {
             steps {
-                container('argocd-cli') {
+                container('docker-cli') {
                     script {
                         withCredentials([usernamePassword(credentialsId: env.ARGOCD_CREDENTIAL_ID,
                             usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
 
-                            sh "argocd login argocd-server.argocd.svc.cluster.local --username ${ARGO_USER} --password ${ARGO_PASS} --insecure"
-                            sh "argocd app wait monsoon-app --timeout 300"
+                            sh "apk add --no-cache curl"
+                            sh "curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
+                            sh "chmod +x /usr/local/bin/argocd"
 
+                            sh 'argocd login argocd-server.argocd.svc.cluster.local --username $ARGO_USER --password $ARGO_PASS --insecure'
+                            sh "argocd app wait monsoon-app --timeout 300"
                         }
+
                         discordSend(
                             webhookURL: env.DISCORD_WEBHOOK,
-                            title: "[Backend] 배포 완료!",
-                            description: "도메인: https://www.monsoonseed.com\n버전: ${env.FINAL_TAG}",
+                            title: "[Backend] 새 버전 배포 준비 완료 (Preview)",
+                            description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG})이 생성되어 트래픽 전환을 대기 중입니다.\n ArgoCD 또는 터미널에서 Promote를 실행해 주세요!",
                             result: 'SUCCESS',
                             color: '#00FF00'
                         )
