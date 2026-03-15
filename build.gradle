@@ -48,7 +48,7 @@ dependencies {
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
-    // ⚡ [Cache & Session] 성능 최적화 및 세션 관리
+    // [Cache & Session] 성능 최적화 및 세션 관리
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     // [Security & Auth] 보안 및 JWT 인증
@@ -88,6 +88,14 @@ dependencies {
     constraints {
         implementation('org.apache.commons:commons-lang3:3.17.0') {
             because 'previous versions have CVE-2025-48924'
+        }
+
+        implementation('ai.djl:api:0.31.1') {
+            because 'CVE-2025-0851 (Path Traversal)'
+        }
+
+        implementation('org.apache.tomcat.embed:tomcat-embed-core:10.1.35') {
+            because 'CVE-2025-24813 (Tomcat RCE)'
         }
     }
 }
