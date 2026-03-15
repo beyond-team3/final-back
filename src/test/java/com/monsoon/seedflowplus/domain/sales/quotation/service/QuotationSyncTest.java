@@ -9,6 +9,7 @@ import com.monsoon.seedflowplus.domain.deal.common.DealType;
 import com.monsoon.seedflowplus.domain.deal.core.entity.SalesDeal;
 import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
+import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
 import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
 import com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus;
@@ -37,6 +38,9 @@ class QuotationSyncTest {
 
     @Mock
     private QuotationRepository quotationRepository;
+
+    @Mock
+    private ContractRepository contractRepository;
 
     @Mock
     private QuotationRequestRepository quotationRequestRepository;
@@ -84,6 +88,7 @@ class QuotationSyncTest {
         QuotationHeader quotation = org.mockito.Mockito.mock(QuotationHeader.class);
         when(quotation.getId()).thenReturn(101L);
         when(quotation.getQuotationCode()).thenReturn("QUO-101");
+        when(quotation.getStatus()).thenReturn(QuotationStatus.EXPIRED);
         when(quotation.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
@@ -103,6 +108,9 @@ class QuotationSyncTest {
         when(quotationRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
         when(quotationRepository.findByIdInAndStatusAndExpiredDateLessThanEqual(List.of(101L), QuotationStatus.EXPIRED, today))
                 .thenReturn(List.of(quotation));
+        when(contractRepository.findByDealId(10L)).thenReturn(List.of());
+        when(quotationRepository.findByDealId(10L)).thenReturn(List.of(quotation));
+        when(quotationRequestRepository.findByDealId(10L)).thenReturn(List.of());
         when(salesDealRepository.findAllById(any())).thenReturn(List.of(managedDeal));
 
         quotationService.syncQuotationStatuses();

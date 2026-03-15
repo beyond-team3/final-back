@@ -98,13 +98,7 @@ class PaymentServiceTest {
 
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
         when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
-        when(paymentRepository.findMaxSuffixByPrefix(any())).thenReturn(Optional.of(0));
-        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
-            Payment saved = invocation.getArgument(0);
-            ReflectionTestUtils.setField(saved, "id", 51L);
-            ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
-            return saved;
-        });
+        when(paymentRepository.findByInvoiceId(41L)).thenReturn(Optional.of(payment));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
         PaymentResponse response = paymentService.processPayment(request, 7L);
@@ -128,19 +122,17 @@ class PaymentServiceTest {
         ReflectionTestUtils.setField(invoice, "id", 41L);
         invoice.publish();
 
+        Payment payment = Payment.create(invoice, client, deal, PaymentMethod.TRANSFER, "PAY-20260315-001");
+        ReflectionTestUtils.setField(payment, "id", 51L);
+        ReflectionTestUtils.setField(payment, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
+
         PaymentCreateRequest request = new PaymentCreateRequest();
         ReflectionTestUtils.setField(request, "invoiceId", 41L);
         ReflectionTestUtils.setField(request, "paymentMethod", PaymentMethod.TRANSFER);
 
         when(invoiceRepository.findById(41L)).thenReturn(Optional.of(invoice));
         when(clientRepository.findById(7L)).thenReturn(Optional.of(client));
-        when(paymentRepository.findMaxSuffixByPrefix(any())).thenReturn(Optional.of(0));
-        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
-            Payment saved = invocation.getArgument(0);
-            ReflectionTestUtils.setField(saved, "id", 51L);
-            ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 3, 10, 9, 0));
-            return saved;
-        });
+        when(paymentRepository.findByInvoiceId(41L)).thenReturn(Optional.of(payment));
         when(dealLogQueryService.getRecentDocumentLogs(any(), any(), any())).thenReturn(List.of());
 
         PaymentResponse response = paymentService.processPayment(request, 7L);

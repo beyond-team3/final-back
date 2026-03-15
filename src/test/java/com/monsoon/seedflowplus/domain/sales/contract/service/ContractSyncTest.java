@@ -8,6 +8,8 @@ import com.monsoon.seedflowplus.domain.deal.core.repository.SalesDealRepository;
 import com.monsoon.seedflowplus.domain.deal.log.service.DealLogWriteService;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
 import com.monsoon.seedflowplus.domain.sales.contract.repository.ContractRepository;
+import com.monsoon.seedflowplus.domain.sales.quotation.repository.QuotationRepository;
+import com.monsoon.seedflowplus.domain.sales.request.repository.QuotationRequestRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +34,12 @@ class ContractSyncTest {
 
     @Mock
     private ContractRepository contractRepository;
+
+    @Mock
+    private QuotationRepository quotationRepository;
+
+    @Mock
+    private QuotationRequestRepository quotationRequestRepository;
 
     @Mock
     private SalesDealRepository salesDealRepository;
@@ -75,6 +83,7 @@ class ContractSyncTest {
         ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
         when(contract.getId()).thenReturn(201L);
         when(contract.getContractCode()).thenReturn("CNT-201");
+        when(contract.getStatus()).thenReturn(ContractStatus.EXPIRED);
         when(contract.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
@@ -93,6 +102,9 @@ class ContractSyncTest {
                 .thenReturn(List.of(contract));
         when(contractRepository.updateStatusForActivation(any(), any(), any())).thenReturn(0);
         when(contractRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
+        when(contractRepository.findByDealId(20L)).thenReturn(List.of(contract));
+        when(quotationRepository.findByDealId(20L)).thenReturn(List.of());
+        when(quotationRequestRepository.findByDealId(20L)).thenReturn(List.of());
         when(salesDealRepository.findAllById(java.util.Set.of(20L))).thenReturn(List.of(managedDeal));
 
         contractService.syncContractStatuses();
@@ -127,6 +139,7 @@ class ContractSyncTest {
         ContractHeader contract = org.mockito.Mockito.mock(ContractHeader.class);
         when(contract.getId()).thenReturn(301L);
         when(contract.getContractCode()).thenReturn("CNT-301");
+        when(contract.getStatus()).thenReturn(ContractStatus.EXPIRED);
         when(contract.getDeal()).thenReturn(deal);
 
         SalesDeal managedDeal = SalesDeal.builder()
@@ -145,6 +158,9 @@ class ContractSyncTest {
         when(contractRepository.updateStatusForExpiration(any(), any(), any())).thenReturn(1);
         when(contractRepository.findByStatusAndEndDateLessThan(ContractStatus.ACTIVE_CONTRACT, today))
                 .thenReturn(List.of(contract));
+        when(contractRepository.findByDealId(30L)).thenReturn(List.of(contract));
+        when(quotationRepository.findByDealId(30L)).thenReturn(List.of());
+        when(quotationRequestRepository.findByDealId(30L)).thenReturn(List.of());
         when(salesDealRepository.findAllById(java.util.Set.of(30L))).thenReturn(List.of(managedDeal));
 
         contractService.syncContractStatuses();
