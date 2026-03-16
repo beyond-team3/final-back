@@ -54,9 +54,12 @@ public class ProductReadService {
 
                 List<Long> productIds = products.stream().map(Product::getId).toList();
                 Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<ProductTag>> tagMap = getProductTagMap(productIds);
 
                 return products.stream()
-                                .map(product -> convertToDto(product, canViewPrice, ctMap.get(product.getId())))
+                                .map(product -> convertToDto(product, canViewPrice,
+                                                ctMap.get(product.getId()),
+                                                tagMap.getOrDefault(product.getId(), Collections.emptyList())))
                                 .toList();
         }
 
@@ -68,10 +71,12 @@ public class ProductReadService {
 
                 List<Long> productIds = bookmarks.stream().map(b -> b.getProduct().getId()).toList();
                 Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<ProductTag>> tagMap = getProductTagMap(productIds);
 
                 return bookmarks.stream()
                                 .map(bookmark -> convertToDto(bookmark.getProduct(), canViewPrice,
-                                                ctMap.get(bookmark.getProduct().getId())))
+                                                ctMap.get(bookmark.getProduct().getId()),
+                                                tagMap.getOrDefault(bookmark.getProduct().getId(), Collections.emptyList())))
                                 .toList();
         }
 
@@ -130,9 +135,12 @@ public class ProductReadService {
                 boolean canViewPrice = (role == Role.ADMIN) || (role == Role.SALES_REP);
 
                 Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(productIds);
+                Map<Long, List<ProductTag>> tagMap = getProductTagMap(productIds);
 
                 return products.stream()
-                                .map(product -> convertToDto(product, canViewPrice, ctMap.get(product.getId())))
+                                .map(product -> convertToDto(product, canViewPrice,
+                                                ctMap.get(product.getId()),
+                                                tagMap.getOrDefault(product.getId(), Collections.emptyList())))
                                 .toList();
         }
 
@@ -148,6 +156,7 @@ public class ProductReadService {
                                 .distinct()
                                 .toList();
                 Map<Long, List<CultivationTime>> ctMap = getCultivationTimeMap(allProductIds);
+                Map<Long, List<ProductTag>> tagMap = getProductTagMap(allProductIds);
 
                 return histories.stream()
                                 .map(history -> CompareHistoryResponse.builder()
@@ -157,7 +166,8 @@ public class ProductReadService {
                                                 .products(history.getItems().stream()
                                                                 .map(item -> convertToDto(item.getProduct(),
                                                                                 canViewPrice,
-                                                                                ctMap.get(item.getProduct().getId())))
+                                                                                ctMap.get(item.getProduct().getId()),
+                                                                                tagMap.getOrDefault(item.getProduct().getId(), Collections.emptyList())))
                                                                 .toList())
                                                 .build())
                                 .toList();
@@ -180,6 +190,15 @@ public class ProductReadService {
                 }
                 return cultivationTimeRepository.findAllByProductIdIn(productIds).stream()
                                 .collect(Collectors.groupingBy(ct -> ct.getProduct().getId()));
+        }
+
+        // 여러 상품의 태그를 한 번에 조회하여 productId 기준 Map으로 반환 (N+1 방지)
+        private Map<Long, List<ProductTag>> getProductTagMap(List<Long> productIds) {
+                if (productIds == null || productIds.isEmpty()) {
+                        return Collections.emptyMap();
+                }
+                return productTagRepository.findAllByProduct_IdIn(productIds).stream()
+                                .collect(Collectors.groupingBy(pt -> pt.getProduct().getId()));
         }
 
         public List<CultivationTimeDto> getCultivationTimes(Long productId) {
@@ -222,15 +241,20 @@ public class ProductReadService {
                 "재배편의성", "conv"
         );
 
+        // 단건 조회용 (상품 상세페이지): 태그를 직접 조회
         private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
-
-                // 태그 정보 조회 (ProductTagRepository 활용)
                 List<ProductTag> productTags = Collections.emptyList();
                 try {
-                    productTags = productTagRepository.findAllByProduct_Id(product.getId());
+                        productTags = productTagRepository.findAllByProduct_Id(product.getId());
                 } catch (Exception e) {
                         log.warn("태그 조회 실패 - productId: {}", product.getId(), e);
                 }
+                return convertToDto(product, canViewPrice, ctList, productTags);
+        }
+
+        // 다건 조회용 (목록/비교/즐겨찾기): 미리 조회한 태그 리스트를 주입받아 N+1 방지
+        private ProductResponse convertToDto(Product product, boolean canViewPrice,
+                        List<CultivationTime> ctList, List<ProductTag> productTags) {
 
                 Map<String, List<String>> tagMap = productTags.stream()
                         .collect(Collectors.groupingBy(

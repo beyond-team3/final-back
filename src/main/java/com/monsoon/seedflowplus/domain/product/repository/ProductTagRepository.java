@@ -11,4 +11,7 @@ public interface ProductTagRepository extends JpaRepository<ProductTag, Long> {
 
     // 특정 상품에 연결된 모든 태그 매핑 조회
     List<ProductTag> findAllByProduct_Id(Long productId);
+
+    // 여러 상품의 태그를 한 번에 조회 (N+1 방지)
+    List<ProductTag> findAllByProduct_IdIn(List<Long> productIds);
 }
