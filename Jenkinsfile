@@ -46,7 +46,6 @@ spec:
 
         ARGOCD_CREDENTIAL_ID = 'argocd-admin-login'
         DISCORD_WEBHOOK = credentials('discord-webhook-url')
-        FINAL_TAG = ""
         // CI에서는 테스트 프로필 강제
         SPRING_PROFILES_ACTIVE = 'test'
     }
@@ -63,12 +62,9 @@ spec:
                 script {
                     sh 'git rev-parse --short HEAD > tag.txt'
 
-                    def gitCommit = readFile('tag.txt').trim()
+                    env.FINAL_TAG = readFile('tag.txt').trim()
 
-                    env.FINAL_TAG = gitCommit
-                    echo "확인된 커밋 해시: ${gitCommit}"
-                    echo "최종 배포 태그: ${env.FINAL_TAG}"
-
+                    echo "생성 태그: ${env.FINAL_TAG}"
                     sh 'rm tag.txt'
                 }
             }
