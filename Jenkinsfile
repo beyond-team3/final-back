@@ -19,6 +19,9 @@ spec:
     image: aquasec/trivy:latest
     command: ['cat']
     tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
   - name: argocd-cli
     image: quay.io/argoproj/argocd:v2.10.1
     command: ['cat']
@@ -50,18 +53,22 @@ spec:
     }
 
     stages {
-        stage('Prepare Tag') {
-            steps {
-                script {
-                    // 태그 생성 로직
-                    env.FINAL_TAG = "${env.APP_VERSION_PREFIX}.${env.BRANCH_NAME.replaceAll("/", "-")}.${env.BUILD_NUMBER}.${env.GIT_COMMIT.take(7)}"
-                }
-            }
-        }
-
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Prepare Tag') {
+            steps {
+                script {
+                    def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    def branchName = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    if (branchName == "HEAD") { branchName = "main" }
+
+                    env.FINAL_TAG = "0.0.${branchName.replaceAll('/', '-')}.${env.BUILD_NUMBER}.${gitCommit}"
+                    echo "완벽하게 생성된 태그: ${env.FINAL_TAG}"
+                }
             }
         }
 
@@ -186,23 +193,24 @@ spec:
             }
         }
 
-        stage('Wait for ArgoCD Sync') {
+        stage('Notify Deployment') {
             steps {
-                container('argocd-cli') {
-                    script {
-                        withCredentials([usernamePassword(credentialsId: env.ARGOCD_CREDENTIAL_ID,
-                            usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
-
-                            sh "argocd login argocd-server.argocd.svc.cluster.local --username ${ARGO_USER} --password ${ARGO_PASS} --insecure"
-                            sh "argocd app wait monsoon-app --timeout 300"
-
-                        }
+                script {
+                    if (env.BRANCH_NAME == 'main') {
                         discordSend(
                             webhookURL: env.DISCORD_WEBHOOK,
-                            title: "[Backend] 배포 완료!",
-                            description: "도메인: https://www.monsoonseed.com\n버전: ${env.FINAL_TAG}",
-                            result: 'SUCCESS',
-                            color: '#00FF00'
+                            title: "🚀 [Backend] 운영 배포 준비 완료 (main)",
+                            description: "도메인: https://www.monsoonseed.com\n 새 버전(${env.FINAL_TAG}) 매니페스트가 성공적으로 업데이트되었습니다.\n ArgoCD가 곧 자동 동기화를 시작합니다!",
+                            result: 'SUCCESS'
+                        )
+                    }
+
+                    else {
+                        discordSend(
+                            webhookURL: env.DISCORD_WEBHOOK,
+                            title: "🟢 [Backend] 빌드 성공 (${env.BRANCH_NAME})",
+                            description: "Branch: ${env.BRANCH_NAME}\n 새로운 버전(${env.FINAL_TAG})의 도커 이미지가 ECR에 성공적으로 푸시되었습니다.",
+                            result: 'SUCCESS'
                         )
                     }
                 }
@@ -211,6 +219,19 @@ spec:
     }
 
     post {
+        always {
+            // HTML Report 퍼블리싱
+            publishHTML(target: [
+                allowMissing: true, // 테스트 스킵 시 파일이 없어도 에러 안 나게 처리
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'build/reports/tests/test', // HTML 파일이 생성되는 경로
+                reportFiles: 'index.html', // 띄울 메인 파일 이름
+                reportName: 'HTML Test Report', // 젠킨스 좌측 메뉴에 표시될 버튼 이름
+                reportTitles: 'Gradle Test Result'
+            ])
+        }
+
         failure {
             discordSend(
                 webhookURL: env.DISCORD_WEBHOOK,
