@@ -101,12 +101,17 @@ public class ContractService {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
 
+            String rejectReason = approvalDecisionRepository.findReasonsByTargets(DealType.CNT, List.of(contract.getId()))
+                    .stream().findFirst().map(ReasonDto::reason).orElse(null);
+
             return new ContractPrefillResponse(
                     contract.getQuotation() != null ? contract.getQuotation().getId() : null,
                     contract.getQuotation() != null ? contract.getQuotation().getQuotationCode() : null,
                     contract.getClient().getId(),
                     contract.getClient().getClientName(),
                     contract.getClient().getManagerName(),
+                    contract.getClient().getManagerName(), // managerName 추가
+                    rejectReason, // rejectReason 추가
                     contract.getTotalAmount(),
                     contract.getDeal() != null ? contract.getDeal().getId() : null,
                     contract.getStartDate(),
@@ -144,6 +149,8 @@ public class ContractService {
                     quotation.getClient().getId(),
                     quotation.getClient().getClientName(),
                     quotation.getClient().getManagerName(),
+                    quotation.getClient().getManagerName(), // managerName 추가
+                    null, // 신규 계약 생성 시 반려 사유 없음
                     quotation.getTotalAmount(),
                     quotation.getDeal() != null ? quotation.getDeal().getId() : null,
                     null, null, null, null, null, // 신규 작성 시 날짜/조건 등은 빈값
