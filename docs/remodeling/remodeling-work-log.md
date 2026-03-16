@@ -210,6 +210,21 @@
 ### 다음 단계
 7단계 잔여 이슈 정리 및 9단계 문서 업데이트 정리
 
+## [2026-03-16 00:08] 테스트 실패 케이스 정합성 수정
+
+### 작업 내용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/payment/service/PaymentServiceTest.java` — 결제 처리 테스트를 현재의 기존 결제 조회 흐름에 맞게 목킹하도록 수정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncTest.java` — 계약 만료 동기화 테스트에 신규 의존성 mock과 snapshot 재계산용 상태 stubbing 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — 견적 만료 동기화 테스트에 신규 의존성 mock과 snapshot 재계산용 상태 stubbing 추가
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — 테스트 수정 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
 ## [2026-03-15 09:55] 일정 soft-cancel 및 v2 billing revenue 래퍼 추가
 
 ### 작업 내용
