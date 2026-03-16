@@ -35,8 +35,11 @@ public class ProductFeedbackController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FeedbackResponse>> getProductFeedbacks(@PathVariable Long productId) {
-        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId);
+    public ResponseEntity<List<FeedbackResponse>> getProductFeedbacks(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = (userDetails != null) ? extractUserIdFromUserDetails(userDetails) : null;
+        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId, userId);
         return ResponseEntity.ok(responses);
     }
 

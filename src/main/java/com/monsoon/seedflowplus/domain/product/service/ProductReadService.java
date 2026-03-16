@@ -212,27 +212,41 @@ public class ProductReadService {
                                 cultivationTimeRepository.findByProductId(product.getId()));
         }
 
+        // 프론트엔드 비교 페이지가 영문 단축키로 tags를 조회하므로 한글 categoryCode를 영문 키로 변환하여 응답
+        private static final Map<String, String> CATEGORY_CODE_TO_KEY = Map.of(
+                "재배환경",   "env",
+                "내병성",     "res",
+                "생육및숙기", "growth",
+                "과실품질",   "quality",
+                "재배편의성", "conv"
+        );
+
         private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
-                
+
                 // 1. 태그 정보 조회 (ProductTagRepository 활용)
                 List<ProductTag> productTags = Collections.emptyList();
                 try {
                     productTags = productTagRepository.findAllByProduct_Id(product.getId());
                 } catch (Exception e) { /* 태그 조회 실패 시 빈 목록으로 처리 */ }
-                
+
                 Map<String, List<String>> tagMap = productTags.stream()
                         .collect(Collectors.groupingBy(
-                                pt -> pt.getTag().getCategoryCode().toLowerCase(),
+                                pt -> CATEGORY_CODE_TO_KEY.getOrDefault(
+                                        pt.getTag().getCategoryCode(),
+                                        pt.getTag().getCategoryCode().toLowerCase()),
                                 Collectors.mapping(pt -> pt.getTag().getTagName(), Collectors.toList())
                         ));
-                
+
                 // 연관 테이블에 태그가 비어있다면, 기존 JSON 컬럼 참조(하위호환성 유지)
                 if (tagMap.isEmpty() && product.getTags() != null) {
-                    Map<String, List<String>> lowerTags = new java.util.HashMap<>();
+                    Map<String, List<String>> mappedTags = new java.util.HashMap<>();
                     for (Map.Entry<String, List<String>> entry : product.getTags().entrySet()) {
-                        lowerTags.put(entry.getKey().toLowerCase(), entry.getValue());
+                        String mappedKey = CATEGORY_CODE_TO_KEY.getOrDefault(
+                                entry.getKey(),
+                                entry.getKey().toLowerCase());
+                        mappedTags.put(mappedKey, entry.getValue());
                     }
-                    tagMap = lowerTags;
+                    tagMap = mappedTags;
                 }
 
                 ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
