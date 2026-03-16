@@ -59,7 +59,6 @@ public class DocumentSummaryQueryService {
     }
 
     private DocumentSummaryResponse toResponse(DocumentSummary documentSummary) {
-        // TODO: SalesDeal에 client/owner 이름 스냅샷 필드가 추가되면 응답에 매핑한다.
         return new DocumentSummaryResponse(
                 documentSummary.getSurrogateId(),
                 documentSummary.getDocType(),
@@ -69,8 +68,8 @@ public class DocumentSummaryQueryService {
                 documentSummary.getExpiredDate(),
                 documentSummary.getStatus(),
                 documentSummary.getCreatedAt(),
-                null,
-                null
+                documentSummary.getClientName(),
+                documentSummary.getOwnerEmployeeName()
         );
     }
 }
