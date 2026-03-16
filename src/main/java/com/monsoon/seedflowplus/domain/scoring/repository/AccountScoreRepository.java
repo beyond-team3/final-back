@@ -12,6 +12,12 @@ import java.util.Optional;
 public interface AccountScoreRepository extends JpaRepository<AccountScore, Long> {
     Optional<AccountScore> findByClient_Id(Long clientId);
 
+    @Query("SELECT s FROM AccountScore s JOIN FETCH s.client")
+    List<AccountScore> findAllWithClient();
+
+    @Query("SELECT s FROM AccountScore s JOIN FETCH s.client c WHERE c.managerEmployee.id = :managerEmployeeId")
+    List<AccountScore> findAllByManagerEmployeeId(@Param("managerEmployeeId") Long managerEmployeeId);
+
     @Query("SELECT s.client.id as clientId, s.totalScore as totalScore FROM AccountScore s WHERE s.client IS NOT NULL")
     List<ScoreProjection> findAllClientIdAndTotalScore();
 
