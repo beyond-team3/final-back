@@ -348,9 +348,8 @@ public class InvoiceService {
         ContractHeader contract = contractHeaderRepository.findById(contractId)
                 .orElseThrow(() -> new CoreException(ErrorType.CONTRACT_NOT_FOUND));
 
-        if (contract.getStatus() != com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.COMPLETED
-                && contract.getStatus() != com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.ACTIVE_CONTRACT) {
-            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "완료 또는 활성 계약만 수동 청구서 생성을 허용합니다.");
+        if (contract.getStatus() != com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus.ACTIVE_CONTRACT) {
+            throw new CoreException(ErrorType.INVALID_DOCUMENT_STATUS, "활성 계약만 수동 청구서 생성을 허용합니다.");
         }
 
         return createDraftInvoiceInternal(contract, true);

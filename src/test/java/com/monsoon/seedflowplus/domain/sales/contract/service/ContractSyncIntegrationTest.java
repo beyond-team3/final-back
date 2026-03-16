@@ -126,7 +126,7 @@ class ContractSyncIntegrationTest {
     }
 
     @Test
-    @DisplayName("오늘 시작하는 계약도 승인 직후에는 COMPLETED로 유지된다")
+    @DisplayName("오늘 시작하는 계약은 승인 시점에 즉시 ACTIVE_CONTRACT로 전이할 수 있다")
     void immediateActivationTest_TodayContract() {
         // given
         LocalDate today = LocalDate.now();
@@ -182,8 +182,8 @@ class ContractSyncIntegrationTest {
         assertEquals(ContractStatus.WAITING_ADMIN, contract.getStatus());
 
         // when
-        // 외부 서비스(ApprovalCommandService 등)에서 updateStatus(COMPLETED)를 호출하는 상황 모의
-        contract.updateStatus(ContractStatus.COMPLETED);
+        // 외부 서비스(ApprovalCommandService 등)에서 승인 시점 즉시 활성화를 반영하는 상황 모의
+        contract.updateStatus(ContractStatus.ACTIVE_CONTRACT);
         contractRepository.saveAndFlush(contract);
 
         // SecurityContext 모킹 (Service 레이어의 getAuthenticatedUser 통과 용도)
@@ -203,9 +203,8 @@ class ContractSyncIntegrationTest {
 
         try {
             // then
-            // 승인 시점에는 COMPLETED로 유지하고, ACTIVE_CONTRACT 전이는 별도 상태 동기화가 담당한다.
             ContractHeader dbContract = contractRepository.findById(contract.getId()).orElseThrow();
-            assertEquals(ContractStatus.COMPLETED, dbContract.getStatus());
+            assertEquals(ContractStatus.ACTIVE_CONTRACT, dbContract.getStatus());
         } finally {
             SecurityContextHolder.clearContext();
         }
