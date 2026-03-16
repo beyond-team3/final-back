@@ -34,29 +34,51 @@ public class ScoringService {
     private final SalesNoteRepository salesNoteRepository;
     private final AccountScoreRepository accountScoreRepository;
 
+    @Transactional(readOnly = true)
     public List<AccountPriorityResponse> getRankedAccounts() {
         CustomUserDetails userDetails = getCurrentUserDetails();
-        
-        List<Client> clients;
+
+        List<AccountScore> scores;
         if (userDetails.getRole() == Role.ADMIN) {
-            clients = clientRepository.findAll();
+            scores = accountScoreRepository.findAllWithClient();
         } else if (userDetails.getRole() == Role.SALES_REP) {
-            clients = clientRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId());
+            scores = accountScoreRepository.findAllByManagerEmployeeId(userDetails.getEmployeeId());
         } else {
-            return List.of(); // 다른 역할은 빈 목록 반환
+            return List.of();
         }
 
-        // N+1 최적화: 벌크 데이터 사전 조회
+        return scores.stream()
+                .map(score -> AccountPriorityResponse.builder()
+                        .accountId(score.getClient().getId())
+                        .accountName(score.getClient().getClientName())
+                        .totalScore(score.getTotalScore())
+                        .primaryReason(score.getPrimaryReason())
+                        .detailDescription(score.getDetailDescription())
+                        .breakdown(new AccountPriorityResponse.ScoreBreakdown(
+                                score.getContractScore(),
+                                score.getOrderScore(),
+                                score.getVisitScore()
+                        ))
+                        .build())
+                .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
+                .toList();
+    }
+
+    /**
+     * 주기적으로 모든 고객의 점수를 갱신합니다. (배치용)
+     */
+    @Transactional
+    public void updateAllAccountScores() {
+        List<Client> clients = clientRepository.findAll();
+
+        // 벌크 데이터 사전 조회 (성능 최적화)
         Map<Long, List<LocalDate>> endDatesMap = contractRepository.findAllClientEndDates();
         Set<Long> clientsWithOrders = orderHeaderRepository.findAllClientIdsWithOrders();
         Map<Long, LocalDate> lastVisitsMap = salesNoteRepository.findAllLastActivityDates();
 
-        List<AccountPriorityResponse> responses = clients.stream()
-                .map(client -> calculateAndPersistScore(client, endDatesMap, clientsWithOrders, lastVisitsMap))
-                .sorted(Comparator.comparing(AccountPriorityResponse::totalScore).reversed())
-                .toList();
-
-        return responses;
+        for (Client client : clients) {
+            calculateAndPersistScore(client, endDatesMap, clientsWithOrders, lastVisitsMap);
+        }
     }
 
     private AccountPriorityResponse calculateAndPersistScore(Client client,
