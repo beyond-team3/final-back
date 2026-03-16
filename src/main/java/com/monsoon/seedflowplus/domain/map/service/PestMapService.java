@@ -1,5 +1,7 @@
 package com.monsoon.seedflowplus.domain.map.service;
 
+import com.monsoon.seedflowplus.core.common.support.error.CoreException;
+import com.monsoon.seedflowplus.core.common.support.error.ErrorType;
 import com.monsoon.seedflowplus.domain.account.entity.Client;
 import com.monsoon.seedflowplus.domain.account.repository.ClientRepository;
 import com.monsoon.seedflowplus.domain.map.dto.request.PestMapSearchRequest;
@@ -175,7 +177,7 @@ public class PestMapService {
     private CustomUserDetails getCurrentUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new IllegalStateException("인증 정보를 찾을 수 없습니다.");
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
         return userDetails;
     }
