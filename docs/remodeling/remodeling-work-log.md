@@ -466,3 +466,28 @@
 
 ### 다음 단계
 없음
+
+## [2026-03-16 20:57] Contract Immediate Activation
+
+### 작업 내용
+- 수정 파일: `PROGRESS.md` — 계약 승인 즉시 활성화 작업의 사전 점검, 영향 분류, 구현 결과, 테스트 결과 기록
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 거래처 계약 승인 시 `startDate`와 승인일을 비교해 `ACTIVE_CONTRACT` 또는 `COMPLETED`로 전이하도록 조정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicy.java` — CNT 승인 허용 전이에 `WAITING_CLIENT -> ACTIVE_CONTRACT` 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractStatus.java` — `COMPLETED`와 `ACTIVE_CONTRACT` 설명을 새 의미에 맞게 보강
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java` — 활성 계약 조회에서 `COMPLETED + 기간내` 우회 조건 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 활성 계약 조회 호출 정리 및 상태 동기화 배치 주석/의미를 미래 시작 계약 중심으로 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 수동 청구서 생성 가능 조건을 `ACTIVE_CONTRACT`로 한정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/scheduler/InvoiceScheduler.java` — 자동 청구서 생성 대상을 `ACTIVE_CONTRACT`로 변경
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 계약 승인일과 시작일 비교에 따른 `COMPLETED/ACTIVE_CONTRACT` 분기 및 deal log 기대값 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicyTest.java` — CNT 승인 시 `ACTIVE_CONTRACT` 허용 전이 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncIntegrationTest.java` — 승인 시점 즉시 활성화 의미에 맞춰 회귀 테스트 기대값 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 활성 계약만 수동 청구 가능, 미래 시작 `COMPLETED` 계약 차단 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/scheduler/InvoiceSchedulerTest.java` — 자동 청구 스케줄러가 `ACTIVE_CONTRACT`만 조회하는지 검증하는 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 계약 승인 즉시 활성화와 활성 계약 조회 정렬 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
