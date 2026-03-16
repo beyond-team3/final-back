@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -19,11 +20,20 @@ public class TagService {
     private final TagRepository tagRepository;
     private final EntityManager entityManager;
 
+    // 허용된 카테고리 코드 (프론트엔드 키 매핑과 반드시 동기화)
+    public static final Set<String> VALID_CATEGORY_CODES =
+            Set.of("재배환경", "내병성", "생육및숙기", "과실품질", "재배편의성");
+
     // 공백 제거
     private String normalizeTagName(String tagName) {
         return tagName == null ? "" : tagName.replaceAll("\\s+", "");
     }
 
+    private void validateCategoryCode(String categoryCode) {
+        if (!VALID_CATEGORY_CODES.contains(categoryCode)) {
+            throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
+        }
+    }
 
     // 단건 태그 생성 (관리자 화면용)
     @Transactional
@@ -32,6 +42,7 @@ public class TagService {
         if (categoryCode == null || categoryCode.isBlank() || inputTagName == null) {
             throw new CoreException(ErrorType.INVALID_INPUT_VALUE);
         }
+        validateCategoryCode(categoryCode);
 
         String normalized = normalizeTagName(inputTagName);
 
@@ -56,6 +67,7 @@ public class TagService {
         if (categoryCode == null || categoryCode.isBlank()) {
             return null;
         }
+        validateCategoryCode(categoryCode);
 
         String normalized = normalizeTagName(inputTagName);
 

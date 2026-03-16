@@ -30,8 +30,6 @@ import java.util.Collections;
 import com.monsoon.seedflowplus.domain.product.entity.ProductTag;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
-import java.time.LocalDate;
-import java.util.ArrayList;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -215,6 +213,7 @@ public class ProductReadService {
         }
 
         // 프론트엔드 비교 페이지가 영문 단축키로 tags를 조회하므로 한글 categoryCode를 영문 키로 변환하여 응답
+        // ※ TagService.VALID_CATEGORY_CODES와 반드시 동기화 유지
         private static final Map<String, String> CATEGORY_CODE_TO_KEY = Map.of(
                 "재배환경",   "env",
                 "내병성",     "res",
@@ -235,9 +234,11 @@ public class ProductReadService {
 
                 Map<String, List<String>> tagMap = productTags.stream()
                         .collect(Collectors.groupingBy(
-                                pt -> CATEGORY_CODE_TO_KEY.getOrDefault(
-                                        pt.getTag().getCategoryCode(),
-                                        pt.getTag().getCategoryCode().toLowerCase()),
+                                pt -> {
+                                        String code = pt.getTag().getCategoryCode();
+                                        if (code == null) return "unknown";
+                                        return CATEGORY_CODE_TO_KEY.getOrDefault(code, code.toLowerCase());
+                                },
                                 Collectors.mapping(pt -> pt.getTag().getTagName(), Collectors.toList())
                         ));
 
@@ -245,9 +246,11 @@ public class ProductReadService {
                 if (tagMap.isEmpty() && product.getTags() != null) {
                     Map<String, List<String>> mappedTags = new java.util.HashMap<>();
                     for (Map.Entry<String, List<String>> entry : product.getTags().entrySet()) {
+                        String key = entry.getKey();
+                        if (key == null) continue;
                         String mappedKey = CATEGORY_CODE_TO_KEY.getOrDefault(
-                                entry.getKey(),
-                                entry.getKey().toLowerCase());
+                                key,
+                                key.toLowerCase());
                         mappedTags.put(mappedKey, entry.getValue());
                     }
                     tagMap = mappedTags;
