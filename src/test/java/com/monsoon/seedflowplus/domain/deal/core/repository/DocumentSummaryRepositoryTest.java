@@ -123,6 +123,42 @@ class DocumentSummaryRepositoryTest {
     }
 
     @Test
+    @DisplayName("문서 목록 조회는 거래처명과 담당자명을 함께 반환한다")
+    void searchDocumentsReturnsClientAndOwnerNames() {
+        Employee owner = persistEmployee("EMP-NAME");
+        Client client = persistClient("CLI-NAME", "555-55-55555", owner);
+        SalesDeal deal = persistDeal(client, owner, 501L, LocalDateTime.of(2026, 3, 10, 13, 0));
+        persistStatementGraph(
+                deal,
+                client,
+                owner,
+                "CNT-NAME-1",
+                "ORD-NAME-1",
+                "STMT-NAME-1",
+                new BigDecimal("55000"),
+                LocalDateTime.of(2026, 3, 10, 13, 0)
+        );
+        flushAndClear();
+
+        CustomUserDetails principal = adminPrincipal();
+
+        Page<DocumentSummary> result = documentSummaryRepository.searchDocuments(
+                DocumentSummarySearchCondition.builder()
+                        .docType(DealType.STMT)
+                        .build(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))),
+                principal
+        );
+
+        assertThat(result.getContent())
+                .singleElement()
+                .satisfies(document -> {
+                    assertThat(document.getClientName()).isEqualTo("CLI-NAME");
+                    assertThat(document.getOwnerEmployeeName()).isEqualTo("EMP-NAME");
+                });
+    }
+
+    @Test
     @DisplayName("CLIENT 조회는 client_id가 null인 ORD INV는 포함하지만 PAY는 제외한다")
     void searchDocumentsUsesDealClientForNullableClientDocsExceptPay() {
         Employee owner = persistEmployee("EMP-NULL-CLIENT");
