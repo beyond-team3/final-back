@@ -28,7 +28,7 @@ public class ScoringScheduler {
     /**
      * 매일 새벽 0시(자정)에 고객 관리 우선순위 점수를 갱신합니다. (24시간 주기)
      */
-    @Scheduled(cron = "0 0 0 * * *")
+    `@Scheduled`(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     public void runScoringBatch() {
         log.info("고객 관리 우선순위 점수 배치 갱신 시작: {}", LocalDateTime.now());
         try {
