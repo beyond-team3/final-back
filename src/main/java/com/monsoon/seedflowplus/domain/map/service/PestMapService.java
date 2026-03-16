@@ -135,6 +135,17 @@ public class PestMapService {
     }
 
     public List<SalesOfficeResponse> getAllSalesOffices() {
+        CustomUserDetails userDetails = getCurrentUserDetails();
+        
+        List<Client> clients;
+        if (userDetails.getRole() == com.monsoon.seedflowplus.domain.account.entity.Role.ADMIN) {
+            clients = clientRepository.findAllWithCropsAndCoordinates();
+        } else if (userDetails.getRole() == com.monsoon.seedflowplus.domain.account.entity.Role.SALES_REP) {
+            clients = clientRepository.findAllByManagerEmployeeIdWithCropsAndCoordinates(userDetails.getEmployeeId());
+        } else {
+            return Collections.emptyList();
+        }
+
         // 모든 점수를 가져와 맵으로 변환 (Client ID -> Score) - 최적화된 프로젝션 쿼리 사용
         Map<Long, Integer> clientScores = accountScoreRepository.findAllClientIdAndTotalScore().stream()
                 .collect(Collectors.toMap(
@@ -143,7 +154,7 @@ public class PestMapService {
                         (existing, replacement) -> existing
                 ));
 
-        return clientRepository.findAllWithCropsAndCoordinates().stream()
+        return clients.stream()
                 .map(client -> SalesOfficeResponse.builder()
                         .id(client.getId().toString())
                         .name(client.getClientName())
@@ -159,6 +170,14 @@ public class PestMapService {
                         )
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private CustomUserDetails getCurrentUserDetails() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new IllegalStateException("인증 정보를 찾을 수 없습니다.");
+        }
+        return userDetails;
     }
 
     private boolean isProductResistantToPest(Product product, String pestCode, String pestName) {

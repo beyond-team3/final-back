@@ -189,6 +189,10 @@ public class AccountService {
                     .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
         }
 
+        // 주소가 변경된 경우 좌표 갱신
+        String oldAddress = client.getAddress();
+        boolean isAddressChanged = request.address() != null && !request.address().equals(oldAddress);
+
         client.updateClientInfo(
                 request.clientName(),
                 request.clientBrn(),
@@ -200,6 +204,11 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+
+        if (isAddressChanged) {
+            log.info("거래처 주소 변경 감지 ({} -> {}), 좌표를 재계산합니다.", oldAddress, request.address());
+            geocodingService.fillCoordinates(client);
+        }
 
         if (manager != null) {
             client.updateManagerEmployee(manager);
