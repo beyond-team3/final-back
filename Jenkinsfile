@@ -61,10 +61,15 @@ spec:
         stage('Prepare Tag') {
             steps {
                 script {
-                    def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim() // 깃허브 커밋 해시 앞 7자리
+                    sh 'git rev-parse --short HEAD > tag.txt'
 
-                    env.FINAL_TAG = "${gitCommit}"
-                    echo "완벽하게 생성된 태그: ${env.FINAL_TAG}"
+                    def gitCommit = readFile('tag.txt').trim()
+
+                    env.FINAL_TAG = gitCommit
+                    echo "확인된 커밋 해시: ${gitCommit}"
+                    echo "최종 배포 태그: ${env.FINAL_TAG}"
+
+                    sh 'rm tag.txt'
                 }
             }
         }
