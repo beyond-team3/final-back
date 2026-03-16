@@ -189,6 +189,10 @@ public class AccountService {
                     .orElseThrow(() -> new CoreException(ErrorType.EMPLOYEE_NOT_FOUND));
         }
 
+        // 주소가 변경된 경우 좌표 갱신
+        String oldAddress = client.getAddress();
+        boolean isAddressChanged = request.address() != null && !request.address().equals(oldAddress);
+
         client.updateClientInfo(
                 request.clientName(),
                 request.clientBrn(),
@@ -200,6 +204,17 @@ public class AccountService {
                 request.managerPhone(),
                 request.managerEmail(),
                 request.totalCredit());
+
+        if (isAddressChanged) {
+            log.info("거래처 주소 변경 감지, clientId={} 좌표 재계산.", clientId);
+            try {
+                geocodingService.fillCoordinates(client);
+            } catch (Exception e) {
+                log.error("거래처(ID: {})의 주소 변환(Geocoding) 실패, 사유: {}", 
+                          clientId, e.getMessage());
+                // 좌표 변환 실패가 전체 거래처 정보 수정을 방해하지 않도록 예외를 삼킵니다.
+            }
+        }
 
         if (manager != null) {
             client.updateManagerEmployee(manager);
