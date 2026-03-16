@@ -99,5 +99,5 @@ all-sales-docs 기능은 RFQ, QUO, CNT, ORD, STMT, INV, PAY 문서를 하나의 
 
 ## 현재 제한 사항
 
-- `clientName`, `ownerEmployeeName`은 현재 `SalesDeal`에 이름 스냅샷 필드가 없어 `null`로 반환된다.
-- 이름 정보가 필요하면 `SalesDeal` 또는 조회 모델에 스냅샷 필드를 추가한 뒤 매핑 보완이 필요하다.
+- `clientName`, `ownerEmployeeName`은 `v_document_summary` 뷰에서 각각 거래처명과 deal owner 이름을 조인해 반환한다.
+- 문서 자체에 이름 스냅샷을 보관하지 않으므로, deal owner가 바뀌면 과거 문서 목록의 `ownerEmployeeName`도 최신 owner 기준으로 보일 수 있다.
