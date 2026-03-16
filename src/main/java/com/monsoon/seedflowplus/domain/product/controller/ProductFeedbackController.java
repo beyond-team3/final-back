@@ -7,6 +7,7 @@ import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
 import com.monsoon.seedflowplus.domain.product.dto.request.FeedbackRequest;
 import com.monsoon.seedflowplus.domain.product.dto.response.FeedbackResponse;
 import com.monsoon.seedflowplus.domain.product.service.ProductFeedbackService;
+import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
@@ -35,8 +36,11 @@ public class ProductFeedbackController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FeedbackResponse>> getProductFeedbacks(@PathVariable Long productId) {
-        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId);
+    public ResponseEntity<List<FeedbackResponse>> getProductFeedbacks(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = (userDetails != null) ? extractUserIdFromUserDetails(userDetails) : null;
+        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId, userId);
         return ResponseEntity.ok(responses);
     }
 
@@ -63,8 +67,8 @@ public class ProductFeedbackController {
 
     // UserId 추출 헬퍼 메서드 (ProductController와 동일한 방식 사용)
     private Long extractUserIdFromUserDetails(UserDetails userDetails) {
-        if (userDetails instanceof User user) {
-            return user.getId();
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+            return customUserDetails.getUserId();
         }
 
         return userRepository.findByLoginId(userDetails.getUsername())

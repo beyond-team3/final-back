@@ -39,9 +39,20 @@ public class ProductFeedbackService {
             throw new CoreException(ErrorType.USER_NOT_FOUND);
         }
 
+        // 답글인 경우 부모 피드백 확인
+        ProductFeedback parent = null;
+        if (request.getParentId() != null) {
+            parent = productFeedbackRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
+            if (!parent.getProduct().getId().equals(productId)) {
+                throw new CoreException(ErrorType.INVALID_FEEDBACK_PARENT);
+            }
+        }
+
         ProductFeedback feedback = ProductFeedback.builder()
                 .product(product)
                 .employee(employee)
+                .parent(parent)
                 .content(request.getContent())
                 .build();
 
@@ -49,19 +60,32 @@ public class ProductFeedbackService {
     }
 
     @Transactional(readOnly = true)
-    public List<FeedbackResponse> getProductFeedbacks(Long productId) {
+    public List<FeedbackResponse> getProductFeedbacks(Long productId, Long requestUserId) {
         // 엔티티 존재 여부 확인
         if (!productRepository.existsById(productId)) {
             throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
         }
 
+        // 현재 요청 사용자의 employeeId 조회 (로그인하지 않은 경우 null)
+        Long requestEmployeeId = null;
+        if (requestUserId != null) {
+            requestEmployeeId = userRepository.findById(requestUserId)
+                    .map(u -> u.getEmployee() != null ? u.getEmployee().getId() : null)
+                    .orElse(null);
+        }
+
         List<ProductFeedback> feedbackList = productFeedbackRepository.findByProductIdWithEmployee(productId);
 
+        final Long finalRequestEmployeeId = requestEmployeeId;
         return feedbackList.stream().map(feedback -> FeedbackResponse.builder()
                 .id(feedback.getId())
                 .productId(feedback.getProduct().getId())
+                .parentId(feedback.getParent() != null ? feedback.getParent().getId() : null)
                 .employeeId(feedback.getEmployee().getId())
                 .employeeName(feedback.getEmployee().getEmployeeName())
+                .sender(feedback.getEmployee().getEmployeeName())       // 프론트엔드 표시명
+                .isMine(finalRequestEmployeeId != null
+                        && finalRequestEmployeeId.equals(feedback.getEmployee().getId()))
                 .content(feedback.getContent())
                 .createdAt(feedback.getCreatedAt())
                 .updatedAt(feedback.getUpdatedAt())
