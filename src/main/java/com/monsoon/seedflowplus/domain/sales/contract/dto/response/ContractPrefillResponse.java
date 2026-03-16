@@ -10,6 +10,8 @@ public record ContractPrefillResponse(
         Long clientId,
         String clientName,
         String representativeName,
+        String managerName,
+        String rejectReason,
         BigDecimal totalAmount,
         Long historyId,
         LocalDate startDate,

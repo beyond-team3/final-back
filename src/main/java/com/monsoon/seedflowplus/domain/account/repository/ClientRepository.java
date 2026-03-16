@@ -33,6 +33,9 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
     @Query("SELECT c FROM Client c WHERE NOT EXISTS (SELECT 1 FROM User u WHERE u.client = c)")
     List<Client> findAllUnregistered();
 
+    @Query("SELECT DISTINCT c FROM Client c LEFT JOIN FETCH c.crops WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL AND c.managerEmployee.id = :employeeId")
+    List<Client> findAllByManagerEmployeeIdWithCropsAndCoordinates(@Param("employeeId") Long employeeId);
+
     @Query("SELECT DISTINCT c FROM Client c LEFT JOIN FETCH c.crops WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL")
     List<Client> findAllWithCropsAndCoordinates();
 }

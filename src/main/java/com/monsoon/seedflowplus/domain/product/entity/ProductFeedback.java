@@ -23,13 +23,18 @@ public class ProductFeedback extends BaseModifyEntity {
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_feedback_id")
+    private ProductFeedback parent;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
     @Builder
-    public ProductFeedback(Product product, Employee employee, String content) {
+    public ProductFeedback(Product product, Employee employee, ProductFeedback parent, String content) {
         this.product = product;
         this.employee = employee;
+        this.parent = parent;
         this.content = content;
     }
 
