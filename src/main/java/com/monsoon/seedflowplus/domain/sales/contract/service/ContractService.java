@@ -101,12 +101,18 @@ public class ContractService {
                 throw new CoreException(ErrorType.ACCESS_DENIED);
             }
 
+            String rejectReason = approvalDecisionRepository
+                    .findReasonsByTargets(DealType.CNT, List.of(contract.getId()))
+                    .stream().findFirst().map(ReasonDto::reason).orElse(null);
+
             return new ContractPrefillResponse(
                     contract.getQuotation() != null ? contract.getQuotation().getId() : null,
                     contract.getQuotation() != null ? contract.getQuotation().getQuotationCode() : null,
                     contract.getClient().getId(),
                     contract.getClient().getClientName(),
-                    contract.getClient().getManagerName(),
+                    contract.getClient().getCeoName(),
+                    contract.getClient().getManagerName(), // managerName 추가
+                    rejectReason, // rejectReason 추가
                     contract.getTotalAmount(),
                     contract.getDeal() != null ? contract.getDeal().getId() : null,
                     contract.getStartDate(),
@@ -143,7 +149,9 @@ public class ContractService {
                     quotation.getQuotationCode(),
                     quotation.getClient().getId(),
                     quotation.getClient().getClientName(),
-                    quotation.getClient().getManagerName(),
+                    quotation.getClient().getCeoName(),
+                    quotation.getClient().getManagerName(), // managerName 추가
+                    null, // 신규 계약 생성 시 반려 사유 없음
                     quotation.getTotalAmount(),
                     quotation.getDeal() != null ? quotation.getDeal().getId() : null,
                     null, null, null, null, null, // 신규 작성 시 날짜/조건 등은 빈값
@@ -588,8 +596,7 @@ public class ContractService {
                     DealType.CNT,
                     contract.getId(),
                     finalCode,
-                    userDetails
-            );
+                    userDetails);
             log.info("[ContractService] 결재 요청 제출 성공 - CNT_ID: {}", contract.getId());
         } catch (Exception e) {
             log.error("[ContractService] 결재 요청 제출 실패 - CNT_ID: {}, Error: {}", contract.getId(), e.getMessage());
@@ -777,8 +784,10 @@ public class ContractService {
                 .map(ContractHeader::getId)
                 .toList();
 
-        List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> reasons = approvalDecisionRepository.findReasonsByTargets(DealType.CNT, contractIds);
-        if (reasons == null) return Map.of();
+        List<com.monsoon.seedflowplus.domain.approval.dto.response.ReasonDto> reasons = approvalDecisionRepository
+                .findReasonsByTargets(DealType.CNT, contractIds);
+        if (reasons == null)
+            return Map.of();
 
         return reasons.stream()
                 .filter(dto -> dto.targetId() != null && dto.reason() != null)
@@ -870,25 +879,25 @@ public class ContractService {
                     for (ExpiringContractContext context : contexts) {
                         // 1. 개별 계약서 만료 로그 기록
                         dealLogWriteService.write(
-                            deal,
-                            DealType.CNT,
-                            context.contractId(),
-                            context.contractCode(),
-                            DealStage.CONFIRMED,
-                            DealStage.EXPIRED,
-                            ContractStatus.ACTIVE_CONTRACT.name(),
-                            ContractStatus.EXPIRED.name(),
-                            ActionType.EXPIRE,
-                            actionAt,
-                            ActorType.SYSTEM,
-                            null,
-                            null,
-                            List.of(new DealLogWriteService.DiffField(
-                                    "status",
-                                    "문서 상태",
-                                    ContractStatus.ACTIVE_CONTRACT.name(),
-                                    ContractStatus.EXPIRED.name(),
-                                    "STATUS")));
+                                deal,
+                                DealType.CNT,
+                                context.contractId(),
+                                context.contractCode(),
+                                DealStage.CONFIRMED,
+                                DealStage.EXPIRED,
+                                ContractStatus.ACTIVE_CONTRACT.name(),
+                                ContractStatus.EXPIRED.name(),
+                                ActionType.EXPIRE,
+                                actionAt,
+                                ActorType.SYSTEM,
+                                null,
+                                null,
+                                List.of(new DealLogWriteService.DiffField(
+                                        "status",
+                                        "문서 상태",
+                                        ContractStatus.ACTIVE_CONTRACT.name(),
+                                        ContractStatus.EXPIRED.name(),
+                                        "STATUS")));
                     }
 
                     // 2. 다중 문서 제안을 고려하여 Deal Snapshot 재계산
@@ -908,7 +917,8 @@ public class ContractService {
                 .sorted((c1, c2) -> {
                     int p1 = getContractStatusPriority(c1.getStatus());
                     int p2 = getContractStatusPriority(c2.getStatus());
-                    if (p1 != p2) return Integer.compare(p1, p2);
+                    if (p1 != p2)
+                        return Integer.compare(p1, p2);
                     return c2.getId().compareTo(c1.getId());
                 })
                 .toList();
@@ -922,8 +932,7 @@ public class ContractService {
                     DealType.CNT,
                     bestCnt.getId(),
                     bestCnt.getContractCode(),
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
             return;
         }
 
@@ -933,7 +942,8 @@ public class ContractService {
                 .sorted((q1, q2) -> {
                     int p1 = getQuotationStatusPriority(q1.getStatus());
                     int p2 = getQuotationStatusPriority(q2.getStatus());
-                    if (p1 != p2) return Integer.compare(p1, p2);
+                    if (p1 != p2)
+                        return Integer.compare(p1, p2);
                     return q2.getId().compareTo(q1.getId());
                 })
                 .toList();
@@ -947,8 +957,7 @@ public class ContractService {
                     DealType.QUO,
                     bestQuo.getId(),
                     bestQuo.getQuotationCode(),
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
             return;
         }
 
@@ -967,13 +976,14 @@ public class ContractService {
                     DealType.RFQ,
                     bestRfq.getId(),
                     bestRfq.getRequestCode(),
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
             return;
         }
 
         // 4. 아무 문서도 없으면 초기 상태로 중립화
-        deal.updateSnapshot(DealStage.CREATED, com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.PENDING.name(), DealType.RFQ, 0L, null, LocalDateTime.now());
+        deal.updateSnapshot(DealStage.CREATED,
+                com.monsoon.seedflowplus.domain.sales.request.entity.QuotationRequestStatus.PENDING.name(),
+                DealType.RFQ, 0L, null, LocalDateTime.now());
     }
 
     private int getContractStatusPriority(ContractStatus status) {
