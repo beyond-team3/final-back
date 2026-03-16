@@ -19,16 +19,16 @@ public class ScoringScheduler {
     /**
      * 서버 기동 시점에 점수 초기 계산을 수행합니다.
      */
-    @EventListener(ApplicationReadyEvent.class)
-    public void onApplicationReady() {
-        log.info("애플리케이션 시작: 초기 고객 점수 계산을 시작합니다.");
-        scoringService.updateAllAccountScores();
-    }
+//    @EventListener(ApplicationReadyEvent.class)
+//    public void onApplicationReady() {
+//        log.info("애플리케이션 시작: 초기 고객 점수 계산을 시작합니다.");
+//        scoringService.updateAllAccountScores();
+//    }
 
     /**
      * 매일 새벽 0시(자정)에 고객 관리 우선순위 점수를 갱신합니다. (24시간 주기)
      */
-    `@Scheduled`(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     public void runScoringBatch() {
         log.info("고객 관리 우선순위 점수 배치 갱신 시작: {}", LocalDateTime.now());
         try {
