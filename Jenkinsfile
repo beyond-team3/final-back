@@ -170,7 +170,7 @@ spec:
                             git clone git@github.com:beyond-team3/final-manifests.git temp-manifests
                             cd temp-manifests
                             git checkout ${targetBranch}
-                            sed -i "s|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${env.FINAL_TAG}|g" backend/deployment.yml
+                            sed -i "s|image: .*monsoon-backend:.*|image: ${IMAGE_NAME}:${env.FINAL_TAG}|g" backend/deployment.yml
 
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
