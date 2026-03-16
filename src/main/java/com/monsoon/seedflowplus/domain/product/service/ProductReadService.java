@@ -32,7 +32,9 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -223,11 +225,13 @@ public class ProductReadService {
 
         private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
 
-                // 1. 태그 정보 조회 (ProductTagRepository 활용)
+                // 태그 정보 조회 (ProductTagRepository 활용)
                 List<ProductTag> productTags = Collections.emptyList();
                 try {
                     productTags = productTagRepository.findAllByProduct_Id(product.getId());
-                } catch (Exception e) { /* 태그 조회 실패 시 빈 목록으로 처리 */ }
+                } catch (Exception e) {
+                        log.warn("태그 조회 실패 - productId: {}", product.getId(), e);
+                }
 
                 Map<String, List<String>> tagMap = productTags.stream()
                         .collect(Collectors.groupingBy(
