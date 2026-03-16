@@ -23,11 +23,13 @@ public enum ErrorType implements ErrorCodeProvider {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.U001, "존재하지 않는 사용자입니다.", LogLevel.WARN),
     DUPLICATE_LOGIN_ID(HttpStatus.BAD_REQUEST, ErrorCode.U002, "이미 존재하는 아이디입니다.", LogLevel.WARN),
 
+    // 상품
     DUPLICATE_PRODUCT_CODE(HttpStatus.BAD_REQUEST, ErrorCode.P001, "이미 존재하는 상품입니다.", LogLevel.WARN),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.P002, "존재하지 않는 상품입니다.", LogLevel.WARN),
     DUPLICATE_TAG(HttpStatus.BAD_REQUEST, ErrorCode.T001, "이미 존재하는 태그입니다.", LogLevel.WARN),
     INVALID_FILE_UPLOAD(HttpStatus.BAD_REQUEST, ErrorCode.F001, "파일이 첨부되지 않았거나 비어있습니다.", LogLevel.WARN),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, ErrorCode.F002, "지원하지 않는 파일 형식입니다. 이미지 파일(JPG, PNG, GIF, WEBP)만 업로드 가능합니다.", LogLevel.WARN),
+    INVALID_FEEDBACK_PARENT(HttpStatus.BAD_REQUEST, ErrorCode.FB001, "답글의 부모 피드백이 해당 상품의 피드백이 아닙니다.", LogLevel.WARN),
 
     // 주문
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.O001, "주문을 찾을 수 없습니다.", LogLevel.WARN),

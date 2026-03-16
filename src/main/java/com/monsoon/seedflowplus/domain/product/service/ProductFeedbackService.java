@@ -44,6 +44,9 @@ public class ProductFeedbackService {
         if (request.getParentId() != null) {
             parent = productFeedbackRepository.findById(request.getParentId())
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
+            if (!parent.getProduct().getId().equals(productId)) {
+                throw new CoreException(ErrorType.INVALID_FEEDBACK_PARENT);
+            }
         }
 
         ProductFeedback feedback = ProductFeedback.builder()
