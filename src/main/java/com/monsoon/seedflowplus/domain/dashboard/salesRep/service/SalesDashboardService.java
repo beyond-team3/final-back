@@ -230,11 +230,14 @@ public class SalesDashboardService {
         String title    = docLabel + " - " + clientName;
         String state    = COMPLETED_STAGES.contains(toStage) ? "completed" : "pending";
 
+        Long dealId = row.get("deal_id") instanceof Number n ? n.longValue() : null;
+
         return ActivityResponse.builder()
                 .date(actionAt.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
                 .title(title)
                 .detail(targetCode)
                 .state(state)
+                .dealId(dealId)
                 .build();
     }
 

@@ -185,11 +185,12 @@ public class SalesDashboardRepository {
 
     public List<Map<String, Object>> recentActivities(Long employeeId) {
         String sql = """
-            SELECT d.last_activity_at  AS action_datetime,
-                   d.latest_doc_type   AS doc_type,
-                   d.current_stage     AS to_stage,
-                   d.latest_target_code AS target_code,
-                   cl.client_name
+            SELECT d.deal_id,
+               d.last_activity_at  AS action_datetime,
+               d.latest_doc_type   AS doc_type,
+               d.current_stage     AS to_stage,
+               d.latest_target_code AS target_code,
+               cl.client_name
             FROM tbl_sales_deal d
             JOIN tbl_client cl ON cl.client_id = d.client_id
             WHERE d.owner_emp_id = :empId

@@ -23,4 +23,5 @@ public class ActivityResponse {
     private String title;
     private String detail;
     private String state;
+    private Long dealId;
 }
