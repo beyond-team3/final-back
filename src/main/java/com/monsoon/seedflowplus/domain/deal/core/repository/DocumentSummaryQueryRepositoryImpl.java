@@ -68,6 +68,8 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
     ) {
         return new Predicate[]{
                 excludePayType(),
+                excludeDeletedStatus(),
+                clientVisibleAfterAdminApproval(userDetails),
                 roleScope(userDetails),
                 ownerEmpIdEq(condition.ownerEmpId()),
                 clientIdEq(condition.clientId()),
@@ -109,6 +111,19 @@ public class DocumentSummaryQueryRepositoryImpl implements DocumentSummaryQueryR
 
     private BooleanExpression excludePayType() {
         return documentSummary.docType.ne(DealType.PAY);
+    }
+
+    private BooleanExpression excludeDeletedStatus() {
+        return documentSummary.status.ne("DELETED");
+    }
+
+    private BooleanExpression clientVisibleAfterAdminApproval(CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getRole() != Role.CLIENT) {
+            return null;
+        }
+        return documentSummary.docType.in(DealType.QUO, DealType.CNT)
+                .and(documentSummary.status.in("WAITING_ADMIN", "REJECTED_ADMIN"))
+                .not();
     }
 
     private BooleanExpression clientIdEq(Long clientId) {
