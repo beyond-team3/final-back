@@ -87,7 +87,7 @@ class ProductFeedbackServiceTest {
         when(productFeedbackRepository.findByProductIdWithEmployee(productId)).thenReturn(List.of(feedback));
 
         // when
-        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId);
+        List<FeedbackResponse> responses = productFeedbackService.getProductFeedbacks(productId, null);
 
         // then
         assertThat(responses).hasSize(1);

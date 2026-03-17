@@ -12,6 +12,7 @@ public class SalesDealSearchCondition {
 
     private Long ownerEmpId;
     private Long clientId;
+    private Boolean clientPostAdminApprovalOnly;
     private DealStage currentStage;
     private DealType latestDocType;
     private Boolean isClosed;

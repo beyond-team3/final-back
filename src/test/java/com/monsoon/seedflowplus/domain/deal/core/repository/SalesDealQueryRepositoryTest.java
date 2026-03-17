@@ -113,6 +113,47 @@ class SalesDealQueryRepositoryTest {
                 .containsExactly("QUO-KEEP");
     }
 
+    @Test
+    @DisplayName("거래처 뷰는 관리자 승인 전 또는 관리자 반려된 견적서/계약 deal을 제외한다")
+    void searchDealsExcludesAdminPendingDocumentsForClientView() {
+        Employee owner = persistEmployee("EMP-CLIENT-VIEW");
+        Client client = persistClient("CLI-CLIENT-VIEW", "333-44-55555", owner);
+
+        persistDeal(
+                client,
+                owner,
+                DealStage.REJECTED_ADMIN,
+                QuotationStatus.REJECTED_ADMIN.name(),
+                DealType.QUO,
+                31L,
+                "QUO-HIDDEN",
+                LocalDateTime.of(2026, 3, 16, 9, 0, 0)
+        );
+        persistDeal(
+                client,
+                owner,
+                DealStage.PENDING_CLIENT,
+                QuotationStatus.WAITING_CLIENT.name(),
+                DealType.QUO,
+                32L,
+                "QUO-VISIBLE",
+                LocalDateTime.of(2026, 3, 16, 10, 0, 0)
+        );
+        flushAndClear();
+
+        Page<SalesDeal> result = salesDealRepository.searchDeals(
+                SalesDealSearchCondition.builder()
+                        .clientId(client.getId())
+                        .clientPostAdminApprovalOnly(true)
+                        .build(),
+                PageRequest.of(0, 20, Sort.by(Sort.Order.desc("lastActivityAt")))
+        );
+
+        assertThat(result.getContent())
+                .extracting(SalesDeal::getLatestTargetCode)
+                .containsExactly("QUO-VISIBLE");
+    }
+
     private Employee persistEmployee(String code) {
         Employee employee = Employee.builder()
                 .employeeCode(code)

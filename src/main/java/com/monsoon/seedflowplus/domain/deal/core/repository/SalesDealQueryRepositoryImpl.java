@@ -55,6 +55,7 @@ public class SalesDealQueryRepositoryImpl implements SalesDealQueryRepository {
                 .leftJoin(deal.ownerEmp, ownerEmp)
                 .where(
                         visibleInHistory(),
+                        clientPostAdminApprovalVisible(condition.getClientPostAdminApprovalOnly()),
                         ownerEmpIdEq(condition.getOwnerEmpId()),
                         clientIdEq(condition.getClientId()),
                         currentStageEq(condition.getCurrentStage()),
@@ -75,6 +76,7 @@ public class SalesDealQueryRepositoryImpl implements SalesDealQueryRepository {
                 .leftJoin(deal.ownerEmp, ownerEmp)
                 .where(
                         visibleInHistory(),
+                        clientPostAdminApprovalVisible(condition.getClientPostAdminApprovalOnly()),
                         ownerEmpIdEq(condition.getOwnerEmpId()),
                         clientIdEq(condition.getClientId()),
                         currentStageEq(condition.getCurrentStage()),
@@ -90,6 +92,15 @@ public class SalesDealQueryRepositoryImpl implements SalesDealQueryRepository {
 
     private BooleanExpression ownerEmpIdEq(Long ownerEmpId) {
         return ownerEmpId == null ? null : deal.ownerEmp.id.eq(ownerEmpId);
+    }
+
+    private BooleanExpression clientPostAdminApprovalVisible(Boolean clientPostAdminApprovalOnly) {
+        if (!Boolean.TRUE.equals(clientPostAdminApprovalOnly)) {
+            return null;
+        }
+        return deal.latestDocType.in(DealType.QUO, DealType.CNT)
+                .and(deal.currentStage.in(DealStage.PENDING_ADMIN, DealStage.REJECTED_ADMIN))
+                .not();
     }
 
     private BooleanExpression visibleInHistory() {

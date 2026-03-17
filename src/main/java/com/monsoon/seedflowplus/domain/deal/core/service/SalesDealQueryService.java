@@ -65,6 +65,7 @@ public class SalesDealQueryService {
             }
             return base.toBuilder()
                     .clientId(user.getClientId())
+                    .clientPostAdminApprovalOnly(true)
                     .build();
         }
 
