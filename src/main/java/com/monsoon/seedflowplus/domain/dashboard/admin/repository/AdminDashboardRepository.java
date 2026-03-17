@@ -113,12 +113,17 @@ public class AdminDashboardRepository {
                    dl.action_at,
                    e.employee_name  AS actor_name,
                    cl.client_name,
-                   a.approval_request_id AS approval_id
+                   a.approval_id
             FROM tbl_sales_deal_log dl
             JOIN tbl_sales_deal d  ON d.deal_id    = dl.deal_id
             JOIN tbl_client cl     ON cl.client_id  = dl.client_id
-            LEFT JOIN tbl_employee e        ON e.employee_id  = dl.actor_id
-            LEFT JOIN tbl_approval_request a ON a.target_code_snapshot = dl.target_code
+            LEFT JOIN tbl_employee e ON e.employee_id = dl.actor_id
+            LEFT JOIN (
+                SELECT target_code_snapshot,
+                       MAX(approval_request_id) AS approval_id
+                FROM tbl_approval_request
+                GROUP BY target_code_snapshot
+            ) a ON a.target_code_snapshot = dl.target_code
             WHERE dl.to_stage = 'PENDING_ADMIN'
             ORDER BY dl.action_at DESC
             LIMIT 10
