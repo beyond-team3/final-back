@@ -256,8 +256,7 @@ public class ContractService {
 
         validateClientAccess(client, userDetails);
 
-        return contractRepository.findActiveContractsByClient(client, LocalDate.now(),
-                ContractStatus.ACTIVE_CONTRACT, ContractStatus.COMPLETED)
+        return contractRepository.findActiveContractsByClient(client, ContractStatus.ACTIVE_CONTRACT)
                 .stream()
                 .map(ContractSimpleResponse::from)
                 .toList();
@@ -290,13 +289,13 @@ public class ContractService {
 
     /**
      * 계약 상태 자동 동기화
-     * 1. COMPLETED(완료) -> 시작일(startDate) 도래 시 ACTIVE_CONTRACT(진행중)로 변경
+     * 1. COMPLETED(미래 시작 승인 계약) -> 시작일(startDate) 도래 시 ACTIVE_CONTRACT(진행중)로 변경
      * 2. ACTIVE_CONTRACT(진행중) -> 종료일(endDate) 경과 시 EXPIRED(만료)로 변경
      */
     @Transactional
     public void syncContractStatuses() {
         LocalDate today = LocalDate.now();
-        // 1. 활성화 대상 처리 (완료 상태인데 시작일이 오늘이거나 이전인 경우)
+        // 1. 미래 시작 승인 계약의 시작일 도래 처리
         int activatedCount = contractRepository.updateStatusForActivation(
                 ContractStatus.COMPLETED, ContractStatus.ACTIVE_CONTRACT, today);
 

@@ -108,6 +108,7 @@ public final class DocStatusTransitionPolicy {
                 transition(ContractStatus.WAITING_ADMIN, ActionType.REJECT, ContractStatus.REJECTED_ADMIN),
                 transition(ContractStatus.REJECTED_ADMIN, ActionType.RESUBMIT, ContractStatus.WAITING_ADMIN),
                 transition(ContractStatus.WAITING_CLIENT, ActionType.APPROVE, ContractStatus.COMPLETED),
+                transition(ContractStatus.WAITING_CLIENT, ActionType.APPROVE, ContractStatus.ACTIVE_CONTRACT),
                 transition(ContractStatus.WAITING_CLIENT, ActionType.REJECT, ContractStatus.REJECTED_CLIENT),
                 transition(ContractStatus.REJECTED_CLIENT, ActionType.RESUBMIT, ContractStatus.WAITING_CLIENT),
                 transition(ContractStatus.WAITING_ADMIN, ActionType.EXPIRE, ContractStatus.EXPIRED),

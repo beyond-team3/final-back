@@ -218,12 +218,64 @@
 - 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/quotation/service/QuotationSyncTest.java` — 견적 만료 동기화 테스트에 신규 의존성 mock과 snapshot 재계산용 상태 stubbing 추가
 - 수정 파일: `docs/remodeling/remodeling-work-log.md` — 테스트 수정 작업 로그 기록
 
+## [2026-03-16 21:35] SRS 요구사항 정의서 초안 추가
+
+### 작업 내용
+- 수정 파일: `docs/SRS/robin.csv` — `deal`, `approval`, `statistics`, `notification`, `schedule` 도메인의 기능 요구사항 정의서를 CSV 형식으로 신규 작성
+- 수정 파일: `docs/remodeling/remodeling-work-log.md` — SRS 문서 작성 작업 로그 기록
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 문서 작업만 수행하여 컴파일 대상 없음
+
+### 다음 단계
+SRS 검토 후 도메인별 누락 요구사항 보완 또는 우선순위 분류
+
 ### 컴파일 결과
 - [x] 오류 없음
 - [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음
+
+## [2026-03-17 11:29] 거래처/전체 문서 조회 가시성 보정
+
+### 작업 내용
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/service/SalesDealQueryService.java` — 거래처 deal 조회에 관리자 승인 이후 문서만 노출하는 스코프 플래그 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealSearchCondition.java` — 거래처 전용 가시성 플래그 필드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryImpl.java` — 거래처 뷰에서 QUO/CNT의 `PENDING_ADMIN/REJECTED_ADMIN` deal 제외 조건 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryQueryRepositoryImpl.java` — 문서 목록에서 `DELETED` 상태와 거래처 비가시 QUO/CNT 상태 제외 조건 추가
+- 수정 파일: `src/main/resources/db/migration/V1__create_v_document_summary.sql` — H2에서도 재생성 가능하도록 RFQ/QUO/CNT 뷰 컬럼 qualify
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java` — 거래처 비가시 문서/삭제 문서 제외 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/SalesDealQueryRepositoryTest.java` — 거래처 deal 목록 가시성 회귀 테스트 추가
+- 신규 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/service/SalesDealQueryServiceTest.java` — 거래처 스코프 플래그 강제 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/product/service/ProductFeedbackServiceTest.java` — 현재 서비스 시그니처에 맞게 기존 테스트 호출부 보정
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 조회 가시성 필터 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
+
+### 다음 단계
+없음
+
+## [2026-03-16 21:40] 문서 목록 거래처명 및 담당자명 응답 복구
+
+### 작업 내용
+- 수정 파일: `src/main/resources/db/migration/V1__create_v_document_summary.sql` — 문서 요약 뷰에 `client_name`, `owner_employee_name` 조인을 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/entity/DocumentSummary.java` — 뷰 신규 컬럼 매핑 필드 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/service/DocumentSummaryQueryService.java` — 응답 DTO에 거래처명/담당자명 매핑 적용
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/repository/DocumentSummaryRepositoryTest.java` — 문서 목록 조회 이름 컬럼 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/core/service/DocumentSummaryQueryServiceTest.java` — 응답 매핑 검증 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/core/docs/all-sales-docs-feature-summary.md` — 현재 제한 사항 설명을 실제 동작 기준으로 갱신
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 조회 모델 구조 변경 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → `./gradlew test --tests 'com.monsoon.seedflowplus.domain.deal.core.service.DocumentSummaryQueryServiceTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.repository.DocumentSummaryRepositoryTest' --tests 'com.monsoon.seedflowplus.domain.deal.core.controller.DocumentSummaryQueryControllerTest'` 실행 시 기존 `ProductFeedbackServiceTest` 시그니처 불일치로 `compileTestJava` 실패
+
+### 다음 단계
+기존 `ProductFeedbackServiceTest` 컴파일 오류 정리 후 문서 목록 관련 테스트 재실행
 
 ## [2026-03-15 09:55] 일정 soft-cancel 및 v2 billing revenue 래퍼 추가
 
@@ -463,6 +515,31 @@
 ### 추가 검증
 - `./gradlew compileJava` 성공
 - `./gradlew test --tests 'com.monsoon.seedflowplus.domain.sales.quotation.service.QuotationServiceTest'` 성공
+
+### 다음 단계
+없음
+
+## [2026-03-16 20:57] Contract Immediate Activation
+
+### 작업 내용
+- 수정 파일: `PROGRESS.md` — 계약 승인 즉시 활성화 작업의 사전 점검, 영향 분류, 구현 결과, 테스트 결과 기록
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandService.java` — 거래처 계약 승인 시 `startDate`와 승인일을 비교해 `ACTIVE_CONTRACT` 또는 `COMPLETED`로 전이하도록 조정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicy.java` — CNT 승인 허용 전이에 `WAITING_CLIENT -> ACTIVE_CONTRACT` 추가
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/entity/ContractStatus.java` — `COMPLETED`와 `ACTIVE_CONTRACT` 설명을 새 의미에 맞게 보강
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/repository/ContractRepository.java` — 활성 계약 조회에서 `COMPLETED + 기간내` 우회 조건 제거
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractService.java` — 활성 계약 조회 호출 정리 및 상태 동기화 배치 주석/의미를 미래 시작 계약 중심으로 정리
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceService.java` — 수동 청구서 생성 가능 조건을 `ACTIVE_CONTRACT`로 한정
+- 수정 파일: `src/main/java/com/monsoon/seedflowplus/domain/billing/invoice/scheduler/InvoiceScheduler.java` — 자동 청구서 생성 대상을 `ACTIVE_CONTRACT`로 변경
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/approval/service/ApprovalCommandServiceTest.java` — 계약 승인일과 시작일 비교에 따른 `COMPLETED/ACTIVE_CONTRACT` 분기 및 deal log 기대값 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/deal/log/policy/DocStatusTransitionPolicyTest.java` — CNT 승인 시 `ACTIVE_CONTRACT` 허용 전이 회귀 테스트 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/sales/contract/service/ContractSyncIntegrationTest.java` — 승인 시점 즉시 활성화 의미에 맞춰 회귀 테스트 기대값 보정
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/service/InvoiceServiceTest.java` — 활성 계약만 수동 청구 가능, 미래 시작 `COMPLETED` 계약 차단 검증 추가
+- 수정 파일: `src/test/java/com/monsoon/seedflowplus/domain/billing/invoice/scheduler/InvoiceSchedulerTest.java` — 자동 청구 스케줄러가 `ACTIVE_CONTRACT`만 조회하는지 검증하는 테스트 추가
+- 수정 파일: `docs/remodeling/remodeling-architecture.md` — 계약 승인 즉시 활성화와 활성 계약 조회 정렬 구조 기록 추가
+
+### 컴파일 결과
+- [x] 오류 없음
+- [ ] 오류 있음 → 없음
 
 ### 다음 단계
 없음

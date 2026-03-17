@@ -38,9 +38,9 @@ public class InvoiceScheduler {
             return;
         }
 
-        // 계약 완료(COMPLETED) 상태인 계약 전체 조회 (기간 체크는 아래서 수행)
+        // 현재 활성 계약만 조회하고, 기간 체크는 아래서 한 번 더 수행
         List<ContractHeader> activeContracts =
-                contractHeaderRepository.findAllByStatus(ContractStatus.COMPLETED);
+                contractHeaderRepository.findAllByStatus(ContractStatus.ACTIVE_CONTRACT);
 
         for (ContractHeader contract : activeContracts) {
             // 계약 기간 내인지 확인

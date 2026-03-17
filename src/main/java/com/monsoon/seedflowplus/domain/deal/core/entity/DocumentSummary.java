@@ -32,7 +32,8 @@ import org.hibernate.annotations.Synchronize;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Subselect("""
     SELECT surrogate_id, doc_type, doc_id, deal_id, client_id,
-           doc_code, amount, expired_date, status, created_at
+           doc_code, amount, expired_date, status, created_at,
+           client_name, owner_employee_name
     FROM v_document_summary
     """)
 public class DocumentSummary {
@@ -68,4 +69,10 @@ public class DocumentSummary {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "client_name")
+    private String clientName;
+
+    @Column(name = "owner_employee_name")
+    private String ownerEmployeeName;
 }
