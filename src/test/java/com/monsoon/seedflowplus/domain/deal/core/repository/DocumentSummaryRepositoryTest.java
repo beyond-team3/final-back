@@ -21,8 +21,11 @@ import com.monsoon.seedflowplus.domain.billing.payment.entity.Payment;
 import com.monsoon.seedflowplus.domain.billing.payment.entity.PaymentMethod;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.BillingCycle;
 import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractHeader;
+import com.monsoon.seedflowplus.domain.sales.contract.entity.ContractStatus;
 import com.monsoon.seedflowplus.domain.sales.order.entity.OrderHeader;
 import com.monsoon.seedflowplus.domain.billing.statement.entity.Statement;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationHeader;
+import com.monsoon.seedflowplus.domain.sales.quotation.entity.QuotationStatus;
 import com.monsoon.seedflowplus.infra.security.CustomUserDetails;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -156,6 +159,57 @@ class DocumentSummaryRepositoryTest {
                     assertThat(document.getClientName()).isEqualTo("CLI-NAME");
                     assertThat(document.getOwnerEmployeeName()).isEqualTo("EMP-NAME");
                 });
+    }
+
+    @Test
+    @DisplayName("CLIENT 문서 조회는 관리자 승인 전 또는 관리자 반려된 견적서와 계약서를 제외한다")
+    void searchDocumentsExcludesAdminPendingQuotationAndContractForClient() {
+        Employee owner = persistEmployee("EMP-CLIENT-DOC");
+        Client client = persistClient("CLI-CLIENT-DOC", "666-66-66666", owner);
+        SalesDeal deal = persistDeal(client, owner, 601L, LocalDateTime.of(2026, 3, 10, 14, 0));
+
+        persistQuotation(deal, client, owner, "QUO-HIDDEN", QuotationStatus.REJECTED_ADMIN, LocalDateTime.of(2026, 3, 10, 14, 0));
+        persistQuotation(deal, client, owner, "QUO-VISIBLE", QuotationStatus.WAITING_CLIENT, LocalDateTime.of(2026, 3, 10, 15, 0));
+        persistContract(client, deal, owner, "CNT-HIDDEN", BigDecimal.valueOf(10000), ContractStatus.WAITING_ADMIN, LocalDateTime.of(2026, 3, 10, 16, 0));
+        persistContract(client, deal, owner, "CNT-VISIBLE", BigDecimal.valueOf(20000), ContractStatus.COMPLETED, LocalDateTime.of(2026, 3, 10, 17, 0));
+        flushAndClear();
+
+        CustomUserDetails principal = clientPrincipal(client.getId());
+
+        assertThat(searchDocCodes(DealType.QUO, principal)).containsExactly("QUO-VISIBLE");
+        assertThat(searchDocCodes(DealType.CNT, principal)).containsExactly("CNT-VISIBLE");
+    }
+
+    @Test
+    @DisplayName("문서 목록 조회는 뷰에 남아 있어도 DELETED 상태 문서를 제외한다")
+    void searchDocumentsExcludesDeletedStatusEvenIfViewContainsIt() {
+        Employee owner = persistEmployee("EMP-DELETED-DOC");
+        Client client = persistClient("CLI-DELETED-DOC", "777-77-77777", owner);
+        SalesDeal deal = persistDeal(client, owner, 701L, LocalDateTime.of(2026, 3, 10, 18, 0));
+        persistQuotation(deal, client, owner, "QUO-DELETED", QuotationStatus.DELETED, LocalDateTime.of(2026, 3, 10, 18, 0));
+        flushAndClear();
+
+        entityManager.createNativeQuery("DROP VIEW IF EXISTS v_document_summary").executeUpdate();
+        entityManager.createNativeQuery("""
+                CREATE VIEW v_document_summary AS
+                SELECT CONCAT('QUO-', quo_id) AS surrogate_id,
+                       'QUO' AS doc_type, quo_id AS doc_id, deal_id, client_id,
+                       quotation_code AS doc_code, total_amount AS amount, expired_date,
+                       CONCAT('', status) AS status, created_at,
+                       NULL AS client_name, NULL AS owner_employee_name
+                FROM tbl_quotation_header
+                """).executeUpdate();
+        flushAndClear();
+
+        Page<DocumentSummary> result = documentSummaryRepository.searchDocuments(
+                DocumentSummarySearchCondition.builder()
+                        .docType(DealType.QUO)
+                        .build(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))),
+                adminPrincipal()
+        );
+
+        assertThat(result.getContent()).isEmpty();
     }
 
     @Test
@@ -352,6 +406,20 @@ class DocumentSummaryRepositoryTest {
             Employee owner,
             String contractCode,
             BigDecimal totalAmount,
+            ContractStatus status,
+            LocalDateTime createdAt
+    ) {
+        ContractHeader contract = persistContract(client, deal, owner, contractCode, totalAmount, createdAt);
+        contract.updateStatus(status);
+        return contract;
+    }
+
+    private ContractHeader persistContract(
+            Client client,
+            SalesDeal deal,
+            Employee owner,
+            String contractCode,
+            BigDecimal totalAmount,
             LocalDateTime createdAt
     ) {
         ContractHeader contract = ContractHeader.create(
@@ -370,6 +438,30 @@ class DocumentSummaryRepositoryTest {
         setModifiedAuditFields(contract, createdAt);
         entityManager.persist(contract);
         return contract;
+    }
+
+    private QuotationHeader persistQuotation(
+            SalesDeal deal,
+            Client client,
+            Employee owner,
+            String quotationCode,
+            QuotationStatus status,
+            LocalDateTime createdAt
+    ) {
+        QuotationHeader quotation = QuotationHeader.create(
+                null,
+                quotationCode,
+                client,
+                deal,
+                owner,
+                BigDecimal.valueOf(1000),
+                null
+        );
+        quotation.updateStatus(status);
+        ReflectionTestUtils.setField(quotation, "expiredDate", LocalDate.of(2026, 4, 10));
+        setModifiedAuditFields(quotation, createdAt);
+        entityManager.persist(quotation);
+        return quotation;
     }
 
     private OrderHeader persistOrder(
