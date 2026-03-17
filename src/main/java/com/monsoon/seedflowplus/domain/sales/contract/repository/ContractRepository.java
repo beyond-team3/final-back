@@ -55,17 +55,14 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
                         @Param("status") ContractStatus status);
 
         /**
-         * 거래처별 활성 계약 조회 (실제 ACTIVE_CONTRACT + 승인 즉시 활성 간주되는 COMPLETED 포함)
+         * 거래처별 활성 계약 조회
          */
         @Query("SELECT c FROM ContractHeader c " +
                         "WHERE c.client = :client " +
-                        "AND (c.status = :activeStatus " +
-                        "OR (c.status = :completedStatus AND c.startDate <= :today AND c.endDate >= :today)) " +
+                        "AND c.status = :activeStatus " +
                         "ORDER BY c.endDate ASC")
         List<ContractHeader> findActiveContractsByClient(@Param("client") Client client,
-                        @Param("today") LocalDate today,
-                        @Param("activeStatus") ContractStatus activeStatus,
-                        @Param("completedStatus") ContractStatus completedStatus);
+                        @Param("activeStatus") ContractStatus activeStatus);
 
         /**
          * 반려된 계약서 중 재작성이 필요한 '활성' 건만 조회합니다.

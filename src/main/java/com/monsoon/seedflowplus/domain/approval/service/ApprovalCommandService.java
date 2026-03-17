@@ -307,7 +307,7 @@ public class ApprovalCommandService {
                     ? ContractStatus.WAITING_CLIENT.name()
                     : ContractStatus.REJECTED_ADMIN.name();
             case CLIENT -> decision == DecisionType.APPROVE
-                    ? ContractStatus.COMPLETED.name()
+                    ? resolveApprovedContractStatus(contract, actionAt).name()
                     : ContractStatus.REJECTED_CLIENT.name();
             default -> throw new CoreException(ErrorType.APPROVAL_ROLE_MISMATCH);
         };
@@ -328,6 +328,13 @@ public class ApprovalCommandService {
                 toDealStageName(fromStatus),
                 toDealStageName(toStatus)
         );
+    }
+
+    private ContractStatus resolveApprovedContractStatus(ContractHeader contract, LocalDateTime actionAt) {
+        if (contract.getStartDate() != null && !contract.getStartDate().isAfter(actionAt.toLocalDate())) {
+            return ContractStatus.ACTIVE_CONTRACT;
+        }
+        return ContractStatus.COMPLETED;
     }
 
     private void syncUpstreamDocumentsAfterContractDecision(
@@ -756,6 +763,7 @@ public class ApprovalCommandService {
             case "REJECTED_ADMIN" -> DealStage.REJECTED_ADMIN.name();
             case "REJECTED_CLIENT" -> DealStage.REJECTED_CLIENT.name();
             case "FINAL_APPROVED", "COMPLETED" -> DealStage.APPROVED.name();
+            case "ACTIVE_CONTRACT" -> DealStage.CONFIRMED.name();
             default -> throw new CoreException(ErrorType.INVALID_DOC_STATUS_TRANSITION, "unsupported approval status=" + status);
         };
     }

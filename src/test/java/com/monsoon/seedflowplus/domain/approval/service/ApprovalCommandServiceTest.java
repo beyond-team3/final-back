@@ -571,8 +571,8 @@ class ApprovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("케이스 7: CNT CLIENT approve")
-    void approveContractByClient() {
+    @DisplayName("케이스 7: CNT CLIENT approve 시 시작일이 승인일과 같거나 이전이면 즉시 ACTIVE_CONTRACT로 전이한다")
+    void approveContractByClientActivatesImmediatelyWhenStartDateIsTodayOrPast() {
         ApprovalRequest request = cntRequest(600L, 8001L, 101L);
         ApprovalStep step1 = step(61L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
         ApprovalStep step2 = step(62L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
@@ -581,6 +581,7 @@ class ApprovalCommandServiceTest {
         QuotationRequestHeader rfq = quotationRequest(9001L, QuotationRequestStatus.REVIEWING, 101L, salesDeal(501L));
         QuotationHeader quotation = quotation(7001L, QuotationStatus.WAITING_CONTRACT, 101L, salesDeal(501L), rfq);
         ContractHeader contract = contract(8001L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L), quotation);
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.of(2025, 12, 31));
 
         when(approvalRequestRepository.findById(600L)).thenReturn(Optional.of(request));
         when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(62L, 600L)).thenReturn(Optional.of(step2));
@@ -606,12 +607,24 @@ class ApprovalCommandServiceTest {
                 mockUser(Role.CLIENT, null, 101L)
         );
 
-        assertThat(contract.getStatus()).isEqualTo(ContractStatus.COMPLETED);
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.COMPLETED);
         assertThat(rfq.getStatus()).isEqualTo(QuotationRequestStatus.COMPLETED);
         assertThat(request.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         verify(quotationService).completeAfterContractApproval(eq(quotation), eq(ActorType.SYSTEM), eq(null), any());
         verify(quotationRequestService).completeAfterContractApproval(eq(rfq), eq(ActorType.CLIENT), eq(101L), any());
+        verify(approvalDealLogWriter).writeDecision(
+                eq(request),
+                eq(step2),
+                eq(DecisionType.APPROVE),
+                eq("WAITING_CLIENT"),
+                eq("ACTIVE_CONTRACT"),
+                eq("PENDING_CLIENT"),
+                eq("CONFIRMED"),
+                eq(null),
+                eq(ActorType.CLIENT),
+                eq(101L)
+        );
         ArgumentCaptor<ContractApprovalSchedulesSyncEvent> eventCaptor =
                 ArgumentCaptor.forClass(ContractApprovalSchedulesSyncEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
@@ -620,6 +633,74 @@ class ApprovalCommandServiceTest {
         assertThat(eventCaptor.getValue().stepOrder()).isEqualTo(2);
         assertThat(eventCaptor.getValue().actorType()).isEqualTo(ActorType.CLIENT);
         assertThat(eventCaptor.getValue().decision()).isEqualTo(DecisionType.APPROVE);
+    }
+
+    @Test
+    @DisplayName("케이스 7-1: CNT CLIENT approve 시 시작일이 승인일보다 미래면 COMPLETED로 유지한다")
+    void approveContractByClientKeepsCompletedWhenStartDateIsInFuture() {
+        ApprovalRequest request = cntRequest(602L, 8004L, 101L);
+        ApprovalStep step1 = step(65L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(66L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8004L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.of(2026, 1, 2));
+
+        when(approvalRequestRepository.findById(602L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(66L, 602L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(602L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(602L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(66L)).thenReturn(false);
+        when(contractRepository.findById(8004L)).thenReturn(Optional.of(contract));
+
+        approvalCommandService.decideStep(
+                602L,
+                66L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.CLIENT, null, 101L)
+        );
+
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.COMPLETED);
+        verify(approvalDealLogWriter).writeDecision(
+                eq(request),
+                eq(step2),
+                eq(DecisionType.APPROVE),
+                eq("WAITING_CLIENT"),
+                eq("COMPLETED"),
+                eq("PENDING_CLIENT"),
+                eq("APPROVED"),
+                eq(null),
+                eq(ActorType.CLIENT),
+                eq(101L)
+        );
+    }
+
+    @Test
+    @DisplayName("케이스 7-2: CNT CLIENT approve 시 시작일이 승인일과 같으면 즉시 ACTIVE_CONTRACT로 전이한다")
+    void approveContractByClientActivatesImmediatelyWhenStartDateMatchesApprovalDate() {
+        ApprovalRequest request = cntRequest(603L, 8005L, 101L);
+        ApprovalStep step1 = step(67L, request, 1, ActorType.ADMIN, ApprovalStepStatus.APPROVED);
+        ApprovalStep step2 = step(68L, request, 2, ActorType.CLIENT, ApprovalStepStatus.WAITING);
+        request.addStep(step1);
+        request.addStep(step2);
+        ContractHeader contract = contract(8005L, ContractStatus.WAITING_CLIENT, 101L, salesDeal(501L));
+        ReflectionTestUtils.setField(contract, "startDate", LocalDate.of(2026, 1, 1));
+
+        when(approvalRequestRepository.findById(603L)).thenReturn(Optional.of(request));
+        when(approvalStepRepository.findByIdAndApprovalRequestIdForUpdate(68L, 603L)).thenReturn(Optional.of(step2));
+        when(approvalStepRepository.findByApprovalRequestIdAndStepOrder(603L, 1)).thenReturn(Optional.of(step1));
+        when(approvalStepRepository.findByApprovalRequestIdOrderByStepOrderAsc(603L)).thenReturn(List.of(step1, step2));
+        when(approvalDecisionRepository.existsByApprovalStepId(68L)).thenReturn(false);
+        when(contractRepository.findById(8005L)).thenReturn(Optional.of(contract));
+
+        approvalCommandService.decideStep(
+                603L,
+                68L,
+                new DecideApprovalRequest(DecisionType.APPROVE, null),
+                mockUser(Role.CLIENT, null, 101L)
+        );
+
+        assertThat(contract.getStatus()).isEqualTo(ContractStatus.ACTIVE_CONTRACT);
     }
 
     @Test

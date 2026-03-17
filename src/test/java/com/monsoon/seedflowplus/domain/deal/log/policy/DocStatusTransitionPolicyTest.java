@@ -64,6 +64,7 @@ class DocStatusTransitionPolicyTest {
                 Arguments.of(DealType.CNT, ContractStatus.WAITING_ADMIN.name(), ActionType.REJECT, ContractStatus.REJECTED_ADMIN.name()),
                 Arguments.of(DealType.CNT, ContractStatus.REJECTED_ADMIN.name(), ActionType.RESUBMIT, ContractStatus.WAITING_ADMIN.name()),
                 Arguments.of(DealType.CNT, ContractStatus.WAITING_CLIENT.name(), ActionType.APPROVE, ContractStatus.COMPLETED.name()),
+                Arguments.of(DealType.CNT, ContractStatus.WAITING_CLIENT.name(), ActionType.APPROVE, ContractStatus.ACTIVE_CONTRACT.name()),
                 Arguments.of(DealType.CNT, ContractStatus.WAITING_CLIENT.name(), ActionType.REJECT, ContractStatus.REJECTED_CLIENT.name()),
                 Arguments.of(DealType.CNT, ContractStatus.REJECTED_CLIENT.name(), ActionType.RESUBMIT, ContractStatus.WAITING_CLIENT.name()),
                 Arguments.of(DealType.CNT, ContractStatus.WAITING_ADMIN.name(), ActionType.EXPIRE, ContractStatus.EXPIRED.name()),

@@ -265,7 +265,7 @@ class InvoiceServiceTest {
                 null
         );
         ReflectionTestUtils.setField(contract, "id", 10L);
-        ReflectionTestUtils.setField(contract, "status", ContractStatus.COMPLETED);
+        ReflectionTestUtils.setField(contract, "status", ContractStatus.ACTIVE_CONTRACT);
 
         Statement statement = org.mockito.Mockito.mock(Statement.class);
         when(statement.getTotalAmount()).thenReturn(java.math.BigDecimal.valueOf(55000));
@@ -292,6 +292,45 @@ class InvoiceServiceTest {
         ArgumentCaptor<Invoice> invoiceCaptor = ArgumentCaptor.forClass(Invoice.class);
         verify(invoiceRepository, times(1)).save(invoiceCaptor.capture());
         assertThat(invoiceCaptor.getValue().getEmployee()).isEqualTo(ownerEmployee);
+    }
+
+    @Test
+    void createDraftInvoiceByAdminRejectsFutureStartCompletedContract() {
+        Client client = Client.builder()
+                .clientCode("C-2")
+                .clientName("미래 시작 거래처")
+                .clientBrn("123-45-67891")
+                .ceoName("대표")
+                .companyPhone("02-0000-0000")
+                .address("서울")
+                .managerName("담당자")
+                .managerPhone("010-0000-0001")
+                .managerEmail("future@test.com")
+                .build();
+        ReflectionTestUtils.setField(client, "id", 8L);
+
+        ContractHeader contract = ContractHeader.create(
+                "CNT-20260401-001",
+                null,
+                client,
+                org.mockito.Mockito.mock(SalesDeal.class),
+                org.mockito.Mockito.mock(Employee.class),
+                java.math.BigDecimal.valueOf(100000),
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 6, 30),
+                BillingCycle.MONTHLY,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(contract, "id", 11L);
+        ReflectionTestUtils.setField(contract, "status", ContractStatus.COMPLETED);
+
+        when(contractRepository.findById(11L)).thenReturn(Optional.of(contract));
+
+        assertThatThrownBy(() -> invoiceService.createDraftInvoiceByAdmin(11L))
+                .isInstanceOf(CoreException.class)
+                .extracting(ex -> ((CoreException) ex).getErrorType())
+                .isEqualTo(com.monsoon.seedflowplus.core.common.support.error.ErrorType.INVALID_DOCUMENT_STATUS);
     }
 
     @Test
