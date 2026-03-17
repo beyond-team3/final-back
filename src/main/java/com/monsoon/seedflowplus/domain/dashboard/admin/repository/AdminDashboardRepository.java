@@ -84,16 +84,17 @@ public class AdminDashboardRepository {
 
     public List<Map<String, Object>> salesRankingThisMonth(LocalDate start, LocalDate end) {
         String sql = """
-                SELECT e.employee_name,
-                       COALESCE(SUM(i.total_amount), 0) AS total
-                FROM tbl_invoice i
-                JOIN tbl_employee e ON e.employee_id = i.employee_id
-                WHERE i.status = 'PAID'
-                  AND i.invoice_date BETWEEN :start AND :end
-                GROUP BY i.employee_id, e.employee_name
-                ORDER BY total DESC
-                LIMIT 5
-                """;
+            SELECT e.employee_id,
+                   e.employee_name,
+                   COALESCE(SUM(i.total_amount), 0) AS total
+            FROM tbl_invoice i
+            JOIN tbl_employee e ON e.employee_id = i.employee_id
+            WHERE i.status = 'PAID'
+              AND i.invoice_date BETWEEN :start AND :end
+            GROUP BY i.employee_id, e.employee_name
+            ORDER BY total DESC
+            LIMIT 5
+            """;
         return jdbc.queryForList(sql,
                 new MapSqlParameterSource()
                         .addValue("start", start)
@@ -107,19 +108,21 @@ public class AdminDashboardRepository {
 
     public List<Map<String, Object>> recentApprovalRequests() {
         String sql = """
-                SELECT dl.doc_type,
-                       dl.target_code,
-                       dl.action_at,
-                       e.employee_name  AS actor_name,
-                       cl.client_name
-                FROM tbl_sales_deal_log dl
-                JOIN tbl_sales_deal d  ON d.deal_id   = dl.deal_id
-                JOIN tbl_client cl     ON cl.client_id = dl.client_id
-                LEFT JOIN tbl_employee e ON e.employee_id = dl.actor_id
-                WHERE dl.to_stage = 'PENDING_ADMIN'
-                ORDER BY dl.action_at DESC
-                LIMIT 10
-                """;
+            SELECT dl.doc_type,
+                   dl.target_code,
+                   dl.action_at,
+                   e.employee_name  AS actor_name,
+                   cl.client_name,
+                   a.approval_request_id AS approval_id
+            FROM tbl_sales_deal_log dl
+            JOIN tbl_sales_deal d  ON d.deal_id    = dl.deal_id
+            JOIN tbl_client cl     ON cl.client_id  = dl.client_id
+            LEFT JOIN tbl_employee e        ON e.employee_id  = dl.actor_id
+            LEFT JOIN tbl_approval_request a ON a.target_code_snapshot = dl.target_code
+            WHERE dl.to_stage = 'PENDING_ADMIN'
+            ORDER BY dl.action_at DESC
+            LIMIT 10
+            """;
         return jdbc.queryForList(sql, new MapSqlParameterSource());
     }
 }

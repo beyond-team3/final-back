@@ -16,4 +16,5 @@ public class ApprovalRequestResponse {
     private String meta;
     /** 요청일 "2026-03-02" */
     private String time;
+    private Long approvalId;
 }

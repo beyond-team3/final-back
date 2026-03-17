@@ -171,6 +171,7 @@ public class AdminDashboardService {
                     .name((String) row.get("employee_name"))
                     .amount("₩" + NumberFormat.getInstance(Locale.KOREA).format(total.longValue()))
                     .width(width)
+                    .employeeId(((Number) row.get("employee_id")).longValue()) // 추가
                     .build());
         }
         return result;
@@ -184,6 +185,7 @@ public class AdminDashboardService {
         String docType    = (String) row.get("doc_type");
         String clientName = (String) row.get("client_name");
         String actorName  = row.get("actor_name") != null ? (String) row.get("actor_name") : "-";
+        Long approvalId   = row.get("approval_id") instanceof Number n ? n.longValue() : null; // 추가
 
         String docLabel = DOC_LABEL.getOrDefault(docType, docType);
         String title    = docLabel + " 승인 요청 - " + clientName;
@@ -194,6 +196,7 @@ public class AdminDashboardService {
                 .title(title)
                 .meta(actorName)
                 .time(actionDate.format(DATE_FMT))
+                .approvalId(approvalId) // 추가
                 .build();
     }
 
