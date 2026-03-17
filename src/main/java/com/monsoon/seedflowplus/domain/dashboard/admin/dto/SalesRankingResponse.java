@@ -13,4 +13,5 @@ public class SalesRankingResponse {
     private String name;
     private String amount;  // "₩45,600,000"
     private int width;      // 1위=100, 나머지 비례
+    private Long employeeId;
 }
