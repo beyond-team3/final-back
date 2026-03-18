@@ -18,7 +18,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.monsoon.seedflowplus.config.TestSecurityConfig;
 import com.monsoon.seedflowplus.core.common.support.error.GlobalExceptionHandler;
 import com.monsoon.seedflowplus.domain.account.entity.Role;
+import com.monsoon.seedflowplus.domain.account.entity.Status;
 import com.monsoon.seedflowplus.domain.account.repository.UserRepository;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.monsoon.seedflowplus.domain.product.dto.response.CompareHistoryResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.ProductResponse;
 import com.monsoon.seedflowplus.domain.product.dto.response.SimilarProductResponse;
@@ -266,9 +268,13 @@ class ProductControllerTest {
 
     private com.monsoon.seedflowplus.domain.account.entity.User createUserMock(Long id) {
         com.monsoon.seedflowplus.domain.account.entity.User user =
-                Mockito.mock(com.monsoon.seedflowplus.domain.account.entity.User.class);
-        when(user.getId()).thenReturn(id);
-        when(user.getRole()).thenReturn(Role.SALES_REP);
+                com.monsoon.seedflowplus.domain.account.entity.User.builder()
+                        .loginId("test-user")
+                        .loginPw("pw")
+                        .status(Status.ACTIVATE)
+                        .role(Role.SALES_REP)
+                        .build();
+        ReflectionTestUtils.setField(user, "id", id);
         return user;
     }
 }
