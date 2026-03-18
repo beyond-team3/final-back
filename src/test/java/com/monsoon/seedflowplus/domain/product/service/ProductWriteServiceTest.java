@@ -17,6 +17,8 @@ import com.monsoon.seedflowplus.domain.product.repository.ProductRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductTagRepository;
 import com.monsoon.seedflowplus.domain.product.repository.CultivationTimeRepository;
 import com.monsoon.seedflowplus.domain.product.repository.ProductCompareItemRepository;
+import com.monsoon.seedflowplus.domain.product.repository.ProductCompareRepository;
+import com.monsoon.seedflowplus.domain.product.entity.ProductCompare;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.monsoon.seedflowplus.infra.aws.service.S3UploadService;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -62,6 +65,9 @@ class ProductWriteServiceTest {
 
         @Mock
         private ProductCompareItemRepository productCompareItemRepository;
+
+        @Mock
+        private ProductCompareRepository productCompareRepository;
 
         @Mock
         private UserRepository userRepository;
@@ -340,5 +346,122 @@ class ProductWriteServiceTest {
 
                 // then
                 verify(productRepository, times(1)).delete(product);
+        }
+
+        // ─── 비교 내역 저장 ─────────────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("비교 내역 저장 시 ProductCompare가 생성되고 ID가 반환된다")
+        void testSaveCompareHistory_Success() {
+                // given
+                Long userId = 1L;
+                List<Long> productIds = java.util.List.of(10L, 20L);
+                String title = "수박 비교";
+
+                User user = salesRepUser(userId);
+                Product p1 = Product.builder()
+                                .productCode("WM001").productName("수박A")
+                                .productCategory(ProductCategory.WATERMELON)
+                                .amount(10).unit("BOX").price(new BigDecimal("10000"))
+                                .status(ProductStatus.SALE).build();
+                org.springframework.test.util.ReflectionTestUtils.setField(p1, "id", 10L);
+                Product p2 = Product.builder()
+                                .productCode("WM002").productName("수박B")
+                                .productCategory(ProductCategory.WATERMELON)
+                                .amount(10).unit("BOX").price(new BigDecimal("12000"))
+                                .status(ProductStatus.SALE).build();
+                org.springframework.test.util.ReflectionTestUtils.setField(p2, "id", 20L);
+
+                ProductCompare savedCompare = ProductCompare.builder()
+                                .account(user)
+                                .title(title)
+                                .build();
+                org.springframework.test.util.ReflectionTestUtils.setField(savedCompare, "id", 99L);
+
+                when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+                when(productRepository.findAllById(productIds)).thenReturn(java.util.List.of(p1, p2));
+                when(productCompareRepository.save(any(ProductCompare.class))).thenReturn(savedCompare);
+
+                // when
+                Long compareId = productWriteService.saveCompareHistory(userId, productIds, title);
+
+                // then
+                assertThat(compareId).isEqualTo(99L);
+                verify(productCompareRepository, times(1)).save(any(ProductCompare.class));
+        }
+
+        @Test
+        @DisplayName("비교 내역 저장 시 productIds가 비어있으면 INVALID_INPUT_VALUE 예외가 발생한다")
+        void testSaveCompareHistory_EmptyIds() {
+                // when & then
+                org.assertj.core.api.Assertions.assertThatThrownBy(
+                                () -> productWriteService.saveCompareHistory(1L, java.util.List.of(), null))
+                                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class)
+                                .hasFieldOrPropertyWithValue("errorType",
+                                                com.monsoon.seedflowplus.core.common.support.error.ErrorType.INVALID_INPUT_VALUE);
+        }
+
+        @Test
+        @DisplayName("비교 내역 저장 시 존재하지 않는 상품 ID가 포함되면 PRODUCT_NOT_FOUND 예외가 발생한다")
+        void testSaveCompareHistory_ProductNotFound() {
+                // given
+                Long userId = 1L;
+                List<Long> productIds = java.util.List.of(100L, 200L);
+
+                User user = salesRepUser(userId);
+                when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+                // 하나만 조회됨 (200L은 없음)
+                Product p1 = mock(Product.class);
+                when(productRepository.findAllById(productIds)).thenReturn(java.util.List.of(p1));
+
+                // when & then
+                org.assertj.core.api.Assertions.assertThatThrownBy(
+                                () -> productWriteService.saveCompareHistory(userId, productIds, "타이틀"))
+                                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class)
+                                .hasFieldOrPropertyWithValue("errorType",
+                                                com.monsoon.seedflowplus.core.common.support.error.ErrorType.PRODUCT_NOT_FOUND);
+        }
+
+        // ─── 비교 내역 삭제 ─────────────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("본인 비교 내역 삭제 성공 시 ProductCompare 삭제 메서드가 호출된다")
+        void testDeleteCompareHistory_Success() {
+                // given
+                Long userId = 1L;
+                Long compareId = 10L;
+
+                User user = salesRepUser(userId);
+                ProductCompare compare = mock(ProductCompare.class);
+                when(compare.getAccount()).thenReturn(user);
+
+                when(productCompareRepository.findById(compareId)).thenReturn(Optional.of(compare));
+
+                // when
+                productWriteService.deleteCompareHistory(userId, compareId);
+
+                // then
+                verify(productCompareRepository, times(1)).delete(compare);
+        }
+
+        @Test
+        @DisplayName("타인의 비교 내역 삭제 시 ACCESS_DENIED 예외가 발생한다")
+        void testDeleteCompareHistory_AccessDenied() {
+                // given
+                Long userId = 1L;
+                Long compareId = 10L;
+
+                User owner = salesRepUser(99L); // 소유자 ID가 다름
+                ProductCompare compare = mock(ProductCompare.class);
+                when(compare.getAccount()).thenReturn(owner);
+
+                when(productCompareRepository.findById(compareId)).thenReturn(Optional.of(compare));
+
+                // when & then
+                org.assertj.core.api.Assertions.assertThatThrownBy(
+                                () -> productWriteService.deleteCompareHistory(userId, compareId))
+                                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class)
+                                .hasFieldOrPropertyWithValue("errorType",
+                                                com.monsoon.seedflowplus.core.common.support.error.ErrorType.ACCESS_DENIED);
         }
 }
