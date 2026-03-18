@@ -125,8 +125,10 @@ class ProductFeedbackServiceTest {
 
         // when & then
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> productFeedbackService.createFeedback(productId, userId, request))
-                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class);
+                        () -> productFeedbackService.createFeedback(productId, userId, request))
+                .isInstanceOf(com.monsoon.seedflowplus.core.common.support.error.CoreException.class)
+                .hasFieldOrPropertyWithValue("errorType",
+                        com.monsoon.seedflowplus.core.common.support.error.ErrorType.USER_NOT_FOUND);
     }
 
     @Test
@@ -173,7 +175,11 @@ class ProductFeedbackServiceTest {
 
         // then
         assertThat(createdId).isEqualTo(100L);
-        verify(productFeedbackRepository, times(1)).save(any(ProductFeedback.class));
+        org.mockito.ArgumentCaptor<ProductFeedback> captor =
+                org.mockito.ArgumentCaptor.forClass(ProductFeedback.class);
+        verify(productFeedbackRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getParent()).isEqualTo(parentFeedback);
+        assertThat(captor.getValue().getProduct().getId()).isEqualTo(productId);
     }
 
     // ─── getProductFeedbacks ────────────────────────────────────────────────────
