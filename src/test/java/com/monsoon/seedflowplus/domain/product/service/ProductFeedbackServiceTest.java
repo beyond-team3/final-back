@@ -77,6 +77,7 @@ class ProductFeedbackServiceTest {
 
         FeedbackRequest request = mock(FeedbackRequest.class);
         when(request.getContent()).thenReturn("개선 요망");
+        when(request.getParentId()).thenReturn(null);
 
         ProductFeedback dummyFeedback = ProductFeedback.builder().content("개선 요망").build();
         ReflectionTestUtils.setField(dummyFeedback, "id", 1L);
