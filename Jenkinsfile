@@ -166,18 +166,35 @@ spec:
                             mkdir -p ~/.ssh
                             ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
-                            echo "Starting Manifest Update..."
+                            echo "Starting Manifest Update for Prod & Preview..."
 
                             git clone git@github.com:beyond-team3/final-manifests.git temp-manifests
                             cd temp-manifests
                             git checkout ${targetBranch}
+
+                            // 운영용 (deployment) 업데이트
+                            // 이미지 태그 업데이트
                             sed -i "s|image: .*monsoon-backend:.*|image: ${IMAGE_NAME}:${env.FINAL_TAG}|g" backend/deployment.yml
+
+                            sed -i "s|value: \"root\"|value: \"monsoon_dev\"|g" backend/deployment.yml
+
+                            // 테스트용 (test-deployment) 업데이트
+                            // 이미지 태그 업데이트
+                            sed -i "s|image: .*monsoon-backend:.*|image: ${IMAGE_NAME}:${env.FINAL_TAG}|g" backend/test-deployment.yml
+                            // DB 이름을 monsoon_test_db로 확실하게 고정
+                            sed -i "s|monsoon_db|monsoon_test_db|g" backend/test-deployment.yml
+                            // 계정을 monsoon_back으로 확실하게 고정
+                            sed -i "s|value: \"root\"|value: \"monsoon_back\"|g" backend/test-deployment.yml
 
                             git config user.email "jenkins-bot@monsoon.com"
                             git config user.name "Jenkins-CI-Bot"
-                            git add backend/deployment.yml
+
+                            # 두 파일 모두 스테이징 영역에 추가
+                            git add backend/deployment.yml backend/test-deployment.yml
+
+                            # 변경 사항이 하나라도 있으면 커밋 및 푸시
                             if ! git diff --cached --quiet; then
-                                git commit -m "[CD] Update backend to ${env.FINAL_TAG} [skip ci]"
+                                git commit -m "[CD] Update backend to ${env.FINAL_TAG} (Prod & Preview) [skip ci]"
                                 git push origin ${targetBranch}
                             fi
                         """
