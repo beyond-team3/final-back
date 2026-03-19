@@ -282,19 +282,24 @@ public class ProductReadService {
                                 if (key == null)
                                         continue;
                                 List<String> values = entry.getValue();
+                                if (values == null || values.isEmpty())
+                                        continue;
 
-                                // 1. 원본 키 유지
+                                // 원본 키 유지
                                 tagMap.computeIfAbsent(key, k -> new java.util.ArrayList<>()).addAll(values);
 
-                                // 2. 영문 단축 키 추가
+                                // 영문 단축 키 추가
                                 String mappedKey = CATEGORY_CODE_TO_KEY.get(key);
                                 if (mappedKey != null && !mappedKey.equals(key)) {
                                         tagMap.computeIfAbsent(mappedKey, k -> new java.util.ArrayList<>())
                                                         .addAll(values);
                                 } else if (mappedKey == null) {
-                                        // 명시적 매핑이 없는 경우만 소문자 키 추가 (기존 로직 유지)
-                                        tagMap.computeIfAbsent(key.toLowerCase(), k -> new java.util.ArrayList<>())
+                                        // 명시적 매핑이 없는 경우만 소문자 키 추가
+                                        String lowerKey = key.toLowerCase(java.util.Locale.ROOT);
+                                        if (!lowerKey.equals(key)) {
+                                                tagMap.computeIfAbsent(lowerKey, k -> new java.util.ArrayList<>())
                                                         .addAll(values);
+                                        }
                                 }
                         }
                 }
