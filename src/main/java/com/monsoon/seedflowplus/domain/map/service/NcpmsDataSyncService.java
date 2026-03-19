@@ -110,20 +110,9 @@ public class NcpmsDataSyncService {
                 continue;
             }
 
-            // 1. 시도 단위 데이터 저장 (시군구 상세가 없거나 전체 요약이 필요할 때를 대비)
-            PestForecast sidoEntity = buildPestForecast(
-                item.getKncrNm(), 
-                sido.getSidoNm(), 
-                currentSidoCode, 
-                "000", // 시군구 코드가 없는 광역 데이터는 000으로 표시
-                sido.getDbyhsNm(), 
-                sido.getInqireValue()
-            );
-            if (sidoEntity != null) accumulated.add(sidoEntity);
-
             Thread.sleep(100); // API 서버 부하 방지용 대기
             
-            // 2. 시군구 단위 상세 데이터 저장
+            // 시군구 단위 상세 데이터 저장
             List<NcpmsSigunguDto> sigunguList = ncpmsApiClient.fetchSigungu(insectKey, currentSidoCode);
             if (sigunguList != null && !sigunguList.isEmpty()) {
                 List<PestForecast> entities = convertToEntityList(item.getKncrNm(), sigunguList, currentSidoCode);
@@ -193,38 +182,52 @@ public class NcpmsDataSyncService {
     }
 
     /**
-     * 안정적인 작물 매핑 (고추, 양파만 수집)
+     * 안정적인 작물 매핑 (고추, 양파, 마늘만 수집)
      */
     private String mapCropNameToCode(String name) {
         if (name == null) return "UNKNOWN";
-        if (name.contains("고추")) return "pepper";
-        if (name.contains("양파")) return "onion";
+        if (name.contains("고추")) return "PEPPER";
+        if (name.contains("양파")) return "ONION";
+        if (name.contains("마늘")) return "GARLIC";
         return "UNKNOWN";
     }
 
     /**
-     * 안정적인 병해충 매핑 (부분 일치 허용)
+     * 안정적인 병해충 매핑 (NCPMS 주요 병해충 코드 매핑 보강)
      */
     private String mapPestNameToCode(String name) {
         if (name == null) return "UNKNOWN";
         
+        // 공통/주요 병해
         if (name.contains("노균병")) return "P01";
         if (name.contains("무름병")) return "P02";
         if (name.contains("탄저병")) return "P03";
         if (name.contains("뿌리혹병")) return "P04";
         if (name.contains("역병")) return "P05";
-        if (name.contains("시들음병") || name.contains("위황병")) return "P24";
+        if (name.contains("덩굴마름병")) return "P06";
         if (name.contains("잎마름병")) return "P07";
-        if (name.contains("진딧물")) return "P08";
-        if (name.contains("나방")) return "P09";
-        if (name.contains("응애")) return "P10";
         if (name.contains("균핵병")) return "P11";
+        if (name.contains("잿빛곰팡이병")) return "P12";
+        if (name.contains("잎집썩음병")) return "P13";
         if (name.contains("바이러스")) return "P21";
         if (name.contains("흰가루병")) return "P22";
-        if (name.contains("청고병") || name.contains("풋마름병")) return "P23";
-        if (name.contains("깜부기병")) return "P25";
-        if (name.contains("불마름병") || name.contains("잎가름병")) return "P26";
+//        if (name.contains("청고병") || name.contains("풋마름병")) return "P23";
         
+        // 주요 해충
+//        if (name.contains("진딧물")) return "P08";
+//        if (name.contains("나방")) return "P09";
+//        if (name.contains("응애")) return "P10";
+//        if (name.contains("총채벌레")) return "P13";
+//        if (name.contains("멸구")) return "P14";
+//        if (name.contains("가루이")) return "P15";
+//        if (name.contains("굴파리")) return "P16";
+//
+//        // 기타/특수
+//        if (name.contains("깜부기병")) return "P25";
+//        if (name.contains("불마름병") || name.contains("잎가름병")) return "P26";
+        
+        // 매핑되지 않은 경우에도 저장을 위해 기본 코드 부여를 고려할 수 있으나, 
+        // 현재 buildPestForecast 로직상 UNKNOWN이면 스킵되므로 최대한 매핑을 늘리는 것이 중요합니다.
         return "UNKNOWN";
     }
 

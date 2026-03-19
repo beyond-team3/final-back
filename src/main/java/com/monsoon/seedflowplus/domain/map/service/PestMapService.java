@@ -120,6 +120,10 @@ public class PestMapService {
             case "탄저병" -> List.of("P03", "PP01");
             case "뿌리혹병" -> List.of("P04");
             case "역병" -> List.of("P05", "PP02", "TM01");
+            case "바이러스" -> List.of("P21");
+            case "잎마름병" -> List.of("P07");
+            case "균핵병" -> List.of("P11");
+            case "잎집썩음병" -> List.of("P13");
             default -> List.of(originalCode);
         };
     }
@@ -229,6 +233,10 @@ public class PestMapService {
             case "P02", "CB01", "RD01" -> "무름병";
             case "P03", "PP01" -> "탄저병";
             case "P04" -> "뿌리혹병";
+            case "P21" -> "바이러스";
+            case "P07" -> "잎마름병";
+            case "P11" -> "균핵병";
+            case "P13" -> "잎집썩음병";
             case "P05", "PP02", "TM01" -> "역병";
             default -> pestCode;
         };
