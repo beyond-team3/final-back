@@ -30,37 +30,37 @@
 <table width="100%">
   <tr>
     <td align="center" width="20%">
-      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <img width="1000" height="980" alt="김수진" src="https://github.com/user-attachments/assets/676f4f84-94b1-4002-8630-462368b595c9" />
       <b>김수진</b><br />
       <sub>FE & BE</sub>
     </td>
     <td align="center" width="20%">
-      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <img width="1000" height="980" alt="이건우" src="https://github.com/user-attachments/assets/5d2dbdce-9614-463f-a497-9fccd87a2784" />
       <b>이건우</b><br />
       <sub>FE & BE & Infra</sub>
     </td>
     <td align="center" width="20%">
-      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <img width="1000" height="980" alt="이경민" src="https://github.com/user-attachments/assets/f7b01630-eb3e-468c-a148-9bc26f1f19d1" />
       <b>이경민</b><br />
       <sub>FE & BE & RAG</sub>
     </td>
     <td align="center" width="20%">
-      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <img width="1000" height="980" alt="이하경" src="https://github.com/user-attachments/assets/23d9414d-04c3-4381-a441-3e55809afdf5" />
       <b>이하경</b><br />
       <sub>팀장 & FE & BE & Core</sub>
     </td>
     <td align="center" width="20%">
-      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <img width="1000" height="980" alt="정하경" src="https://github.com/user-attachments/assets/b95e4ad2-02e8-483c-850d-ad43e3c56efe" />
       <b>정하경</b><br />
       <sub>PM & FE & BE & Design</sub>
     </td>
   </tr>
   <tr>
     <td valign="top">대시보드, 빌링 관리(주문/명세/청구), 품종 유사도</td>
-    <td valign="top">상품 관리, CI/CD 구축</td>
+    <td valign="top">품종(카탈로그/비교함/즐겨찾기/CUD), CI/CD 구축</td>
     <td valign="top">병해풍 매칭지도, AI 영업브리핑</td>
     <td valign="top">딜 파이프라인, 알림/승인, 통계/일정</td>
-    <td valign="top">영업 문서(견적 요청/ 견적 /계약), 계정(거래처/사원), QA</td>
+    <td valign="top">영업 문서(견적 요청/견적/계약), 계정(거래처/사원), QA</td>
   </tr>
 </table>
 
