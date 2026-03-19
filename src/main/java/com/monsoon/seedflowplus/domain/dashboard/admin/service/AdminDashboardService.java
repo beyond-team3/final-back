@@ -140,9 +140,7 @@ public class AdminDashboardService {
         Map<Integer, Long> map = new HashMap<>();
         for (Map<String, Object> row : rows) {
             int  month = ((Number) row.get("month")).intValue();
-            // DB 결과는 원 단위 → 만원 단위로 변환 (차트 단위 맞춤)
-            long total = ((BigDecimal) row.get("total")).divide(BigDecimal.valueOf(10000),
-                    0, RoundingMode.HALF_UP).longValue();
+            long total = ((BigDecimal) row.get("total")).longValue(); // 만원 변환 제거
             map.put(month, total);
         }
         return map;
@@ -218,11 +216,13 @@ public class AdminDashboardService {
         return String.format("%s %.1f%%", symbol, Math.abs(rate));
     }
 
-    /** 억 단위 포맷 — 예: "₩2.4억" */
+    /** 원 단위 포맷 — 억 이상이면 억, 만 이상이면 만, 그 외 원 */
     private String formatEok(BigDecimal value) {
         if (value == null) return "₩0";
-        double eok = value.doubleValue() / 100_000_000.0;
-        return String.format("₩%.1f억", eok);
+        long v = value.longValue();
+        if (v >= 100_000_000) return String.format("₩%.1f억", v / 100_000_000.0);
+        if (v >= 10_000)      return String.format("₩%.0f만", v / 10_000.0);
+        return "₩" + NumberFormat.getInstance(Locale.KOREA).format(v);
     }
 
     // ──────────────────────────────────────────────
