@@ -55,13 +55,13 @@ public class GeminiAiClient implements AiClient {
                     .build();
 
         } catch (Exception e) {
-            log.error("RAGseed 표준 분석 중 오류 발생: {}", e.getMessage());
-            throw new RuntimeException("AI 전략 분석에 실패했습니다.", e);
+            log.error("영업 전략 분석 중 오류 발생: {}", e.getMessage());
+            throw new RuntimeException("영업 전략 분석에 실패했습니다.", e);
         }
     }
 
     /**
-     * RAGseed 타겟팅 전략 생성
+     * 영업 전략 생성
      */
     @Override
     public String generateTargetedResponse(String userPrompt, List<TextSegment> contexts, String scopeDescription) {
@@ -71,7 +71,7 @@ public class GeminiAiClient implements AiClient {
                     .collect(Collectors.joining("\n"));
 
             String fullPrompt = String.format("""
-                당신은 전략 인출 엔진 'RAGseed'입니다. 
+                당신은 30년 이상 종자회사에 재직한 영업사원입니다. 
                 현재 분석 범위는 [%s]입니다.
                 제공된 영업 데이터 자산(Seed)에서 사용자의 요청에 대한 가장 정확한 전략을 인출(Retrieval)하세요.
                 
@@ -91,21 +91,24 @@ public class GeminiAiClient implements AiClient {
             Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2);
             String rawResponse = callGemini(requestBody);
 
-            // JSON 모드 대응: 응답이 JSON 형식이면 "content" 필드만 추출
+            // JSON 모드 대응: 다양한 필드명을 유연하게 추출
             try {
                 com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(rawResponse);
-                if (root.has("content")) {
-                    return root.get("content").asText();
+                String[] potentialKeys = {"content", "retrieval_strategy_markdown", "response", "summary", "text"};
+                for (String key : potentialKeys) {
+                    if (root.has(key)) {
+                        return root.get(key).asText();
+                    }
                 }
             } catch (Exception e) {
-                log.debug("AI 응답이 표준 JSON 형식이 아니므로 원본을 반환합니다: {}", rawResponse);
+                log.debug("AI 응답이 표준 JSON 형식이 아니거나 예상 필드가 없어 원본을 반환합니다: {}", rawResponse);
             }
 
             return rawResponse;
 
         } catch (Exception e) {
-            log.error("RAGseed 타겟 전략 생성 중 오류: {}", e.getMessage());
-            throw new RuntimeException("RAGseed 타겟 전략 인출에 실패했습니다.", e);
+            log.error("영업 전략 분석 중 오류: {}", e.getMessage());
+            throw new RuntimeException("영업 전략 분석에 실패했습니다.", e);
         }
     }
 
@@ -148,7 +151,7 @@ public class GeminiAiClient implements AiClient {
 
     private String buildAugmentedPrompt(String notes, String products, String scope) {
         return String.format("""
-        당신은 전략 영업 인출 엔진 'RAGseed'입니다.
+        당신은 영업 전략 분석 엔진입니다.
         현재 분석 범위는 [%s]입니다.
         과거 데이터(Seed)에서 최적의 전략을 인출하여 표준 영업 브리핑을 작성하세요.
 

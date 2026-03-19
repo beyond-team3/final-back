@@ -224,11 +224,11 @@ public class NoteService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    log.info("트랜잭션 커밋 완료 확인 - RAGseed 분석 트리거: clientId={}", clientId);
+                    log.info("트랜잭션 커밋 완료 확인 - 분석 트리거: clientId={}", clientId);
                     try {
                         ragSeedService.refreshStandardBriefingAsync(clientId);
                     } catch (RejectedExecutionException e) {
-                        log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+                        log.error("비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
                     }
                 }
             });
@@ -236,7 +236,7 @@ public class NoteService {
             try {
                 ragSeedService.refreshStandardBriefingAsync(clientId);
             } catch (RejectedExecutionException e) {
-                log.error("[RAGseed] 비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
+                log.error("비동기 분석 작업 제출 거부됨 (Executor 포화): clientId={}", clientId);
             }
         }
     }
