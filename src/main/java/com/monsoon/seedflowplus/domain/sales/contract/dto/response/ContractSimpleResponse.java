@@ -6,6 +6,7 @@ import java.time.LocalDate;
 public record ContractSimpleResponse(
         Long id,
         String contractCode,
+        String status,
         LocalDate startDate,
         LocalDate endDate) {
     
@@ -13,6 +14,7 @@ public record ContractSimpleResponse(
         return new ContractSimpleResponse(
                 entity.getId(),
                 entity.getContractCode(),
+                entity.getStatus().name(),
                 entity.getStartDate(),
                 entity.getEndDate()
         );

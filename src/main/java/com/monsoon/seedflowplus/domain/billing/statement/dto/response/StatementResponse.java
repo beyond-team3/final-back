@@ -44,6 +44,7 @@ public class StatementResponse {
     private List<StatementItem> items;
     private List<DealLogSummaryDto> recentLogs;
 
+
     @Getter
     @Builder
     public static class StatementItem {
@@ -51,8 +52,11 @@ public class StatementResponse {
         private Long contractDetailId;
         private String productName;
         private String productCategory;
+        private String variety;          // 추가 (productCategory와 동일값, 프론트가 variety로 읽음)
         private Long quantity;
         private String unit;
+        private BigDecimal unitPrice;    // 추가
+        private BigDecimal amount;       // 추가 (quantity * unitPrice)
     }
 
     public static StatementResponse from(Statement statement) {
@@ -76,14 +80,27 @@ public class StatementResponse {
         List<DealLogSummaryDto> safeRecentLogs = recentLogs != null ? recentLogs : Collections.emptyList();
         List<OrderDetail> safeOrderDetails = orderDetails != null ? orderDetails : Collections.emptyList();
         List<StatementItem> statementItems = safeOrderDetails.stream()
-                .map(detail -> StatementItem.builder()
-                        .orderDetailId(detail.getId())
-                        .contractDetailId(detail.getContractDetail() != null ? detail.getContractDetail().getId() : null)
-                        .productName(detail.getContractDetail() != null ? detail.getContractDetail().getProductName() : null)
-                        .productCategory(detail.getContractDetail() != null ? detail.getContractDetail().getProductCategory() : null)
-                        .quantity(detail.getQuantity())
-                        .unit(detail.getContractDetail() != null ? detail.getContractDetail().getUnit() : null)
-                        .build())
+                .map(detail -> {
+                    BigDecimal unitPrice = (detail.getContractDetail() != null && detail.getContractDetail().getUnitPrice() != null)
+                            ? detail.getContractDetail().getUnitPrice()
+                            : BigDecimal.ZERO;
+                    BigDecimal quantity = detail.getQuantity() != null
+                            ? BigDecimal.valueOf(detail.getQuantity())
+                            : BigDecimal.ZERO;
+                    BigDecimal amount = unitPrice.multiply(quantity);
+
+                    return StatementItem.builder()
+                            .orderDetailId(detail.getId())
+                            .contractDetailId(detail.getContractDetail() != null ? detail.getContractDetail().getId() : null)
+                            .productName(detail.getContractDetail() != null ? detail.getContractDetail().getProductName() : null)
+                            .productCategory(detail.getContractDetail() != null ? detail.getContractDetail().getProductCategory() : null)
+                            .variety(detail.getContractDetail() != null ? detail.getContractDetail().getProductCategory() : null) // 추가
+                            .quantity(detail.getQuantity())
+                            .unit(detail.getContractDetail() != null ? detail.getContractDetail().getUnit() : null)
+                            .unitPrice(unitPrice)   // 추가
+                            .amount(amount)         // 추가
+                            .build();
+                })
                 .toList();
         OrderDetail firstDetail = safeOrderDetails.stream().findFirst().orElse(null);
         return StatementResponse.builder()
