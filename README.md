@@ -29,28 +29,33 @@
 
 <table width="100%">
   <tr>
-    <td align="center" width="20%">
-      <img width="1000" height="980" alt="김수진" src="https://github.com/user-attachments/assets/676f4f84-94b1-4002-8630-462368b595c9" />
+    <td align="center" width="20%" style="vertical-align: top;">
+      <img src="https://github.com/user-attachments/assets/676f4f84-94b1-4002-8630-462368b595c9" alt="김수진" style="width: 100%; height: 180px; object-fit: contain;" />
+      <hr style="border: 0; height: 1px; background: #ccc; margin: 10px 0;" />
       <b>김수진</b><br />
       <sub>FE & BE</sub>
     </td>
-    <td align="center" width="20%">
-      <img width="1000" height="980" alt="이건우" src="https://github.com/user-attachments/assets/5d2dbdce-9614-463f-a497-9fccd87a2784" />
+    <td align="center" width="20%" style="vertical-align: top;">
+      <img src="https://github.com/user-attachments/assets/c570e63a-5c59-48c2-9328-9c598cf0efde" alt="이건우" style="width: 100%; height: 180px; object-fit: contain;" />
+      <hr style="border: 0; height: 1px; background: #ccc; margin: 10px 0;" />
       <b>이건우</b><br />
       <sub>FE & BE & Infra</sub>
     </td>
-    <td align="center" width="20%">
-      <img width="1000" height="980" alt="이경민" src="https://github.com/user-attachments/assets/f7b01630-eb3e-468c-a148-9bc26f1f19d1" />
+    <td align="center" width="20%" style="vertical-align: top;">
+      <img src="https://github.com/user-attachments/assets/f7b01630-eb3e-468c-a148-9bc26f1f19d1" alt="이경민" style="width: 100%; height: 180px; object-fit: contain;" />
+      <hr style="border: 0; height: 1px; background: #ccc; margin: 10px 0;" />
       <b>이경민</b><br />
       <sub>FE & BE & RAG</sub>
     </td>
-    <td align="center" width="20%">
-      <img width="1000" height="980" alt="이하경" src="https://github.com/user-attachments/assets/23d9414d-04c3-4381-a441-3e55809afdf5" />
+    <td align="center" width="20%" style="vertical-align: top;">
+      <img src="https://github.com/user-attachments/assets/23d9414d-04c3-4381-a441-3e55809afdf5" alt="이하경" style="width: 100%; height: 180px; object-fit: contain;" />
+      <hr style="border: 0; height: 1px; background: #ccc; margin: 10px 0;" />
       <b>이하경</b><br />
       <sub>팀장 & FE & BE & Core</sub>
     </td>
-    <td align="center" width="20%">
-      <img width="1000" height="980" alt="정하경" src="https://github.com/user-attachments/assets/b95e4ad2-02e8-483c-850d-ad43e3c56efe" />
+    <td align="center" width="20%" style="vertical-align: top;">
+      <img src="https://github.com/user-attachments/assets/b95e4ad2-02e8-483c-850d-ad43e3c56efe" alt="정하경" style="width: 100%; height: 180px; object-fit: contain;" />
+      <hr style="border: 0; height: 1px; background: #ccc; margin: 10px 0;" />
       <b>정하경</b><br />
       <sub>PM & FE & BE & Design</sub>
     </td>
