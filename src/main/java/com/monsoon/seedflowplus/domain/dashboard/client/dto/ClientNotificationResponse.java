@@ -20,4 +20,6 @@ public class ClientNotificationResponse {
     private String title;
     private String detail;
     private boolean isNew;
+    private String targetType;
+    private String targetCode;
 }
