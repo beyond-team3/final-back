@@ -27,13 +27,42 @@
 
 ## 2. 팀원 소개
 
-| 이름      | 역할 | 담당 업무                                                             |
-|:--------| :--- |:------------------------------------------------------------------|
-| **김수진** | Frontend & Backend | Dashboard(대시보드), Billing(청구 관리-주문서, 명세서, 청구서), Similarity(품종 유사도) |
-| **이건우** | Frontend & Backend & Infra | Product(상품), CI/CD                                                |
-| **이경민** | Frontend & Backend & RAG | Map(병해풍 품종 매칭지도), AI Note(영업브리핑)                                  |
-| **이하경** | Frontend & Backend & Core | Deal Pipeline, Notification(알림), Approval(승인), Stat(통계), Sked(일정) |
-| **정하경** | Frontend & Backend & Design | Sales(견적요청서/견적서/계약서), User(계정/거래처/사원), QA                         |
+<table width="100%">
+  <tr>
+    <td align="center" width="20%">
+      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <b>김수진</b><br />
+      <sub>FE & BE</sub>
+    </td>
+    <td align="center" width="20%">
+      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <b>이건우</b><br />
+      <sub>FE & BE & Infra</sub>
+    </td>
+    <td align="center" width="20%">
+      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <b>이경민</b><br />
+      <sub>FE & BE & RAG</sub>
+    </td>
+    <td align="center" width="20%">
+      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <b>이하경</b><br />
+      <sub>팀장 & FE & BE & Core</sub>
+    </td>
+    <td align="center" width="20%">
+      <img src="https://via.placeholder.com/100" width="100px;" alt=""/><br />
+      <b>정하경</b><br />
+      <sub>PM & FE & BE & Design</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">대시보드, 빌링 관리(주문/명세/청구), 품종 유사도</td>
+    <td valign="top">상품 관리, CI/CD 구축</td>
+    <td valign="top">병해풍 매칭지도, AI 영업브리핑</td>
+    <td valign="top">딜 파이프라인, 알림/승인, 통계/일정</td>
+    <td valign="top">영업 문서(견적 요청/ 견적 /계약), 계정(거래처/사원), QA</td>
+  </tr>
+</table>
 
 > [!TIP]
 > **디자인 통일**: 모든 팀원이 프론트엔드와 백엔드를 전담하여 개발하였으며, 디자인 시스템의 통일성을 위해 공통 UI 가이드를 준수하여 협업했습니다.
