@@ -19,7 +19,6 @@ public enum ProductCategory {
     RADISH("무", "RD"),
     ONION("양파", "ON"),
     GREEN_ONION("파", "GO"),
-    GARLIC("마늘", "GL"),
 
     // 향신채/구근류
     GARLIC("마늘", "GA"),
