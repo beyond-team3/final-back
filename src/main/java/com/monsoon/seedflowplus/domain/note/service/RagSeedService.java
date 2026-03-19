@@ -22,7 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
- * RAGseed(랙씨드): 과거의 데이터(Seed)에서 최적의 전략을 인출(Retrieval)하는 통합 전략 엔진입니다.
+ * 과거의 데이터에서 최적의 전략을 인출(Retrieval)하는 통합 전략 엔진입니다.
  */
 @Slf4j
 @Service
@@ -48,10 +48,10 @@ public class RagSeedService {
         lock.lock();
 
         try {
-            log.info("[RAGseed] 표준 브리핑 갱신 시작: clientId={}", clientId);
+            log.info("표준 브리핑 갱신 시작: clientId={}", clientId);
 
             if (noteRepository.countByClientId(clientId) < 1) {
-                log.info("[RAGseed] 데이터 부족으로 브리핑을 생성할 수 없습니다.");
+                log.info("데이터 부족으로 브리핑을 생성할 수 없습니다.");
                 return;
             }
 
@@ -96,7 +96,7 @@ public class RagSeedService {
                             .build());
 
             briefingRepository.save(briefing);
-            log.info("[RAGseed] 표준 브리핑 갱신 완료 (검증된 근거 개수: {})", verifiedEvidenceIds.size());
+            log.info("표준 브리핑 갱신 완료 (검증된 근거 개수: {})", verifiedEvidenceIds.size());
 
         } finally {
             lock.unlock();
@@ -104,10 +104,10 @@ public class RagSeedService {
     }
 
     /**
-     * [이원화 로직 2] RAGseed 전용 맞춤형 전략 인출
+     * [이원화 로직 2]  맞춤형 전략 인출
      */
     public RagSeedResponseDto getTargetedStrategy(Long clientId, String contractId, String queryType) {
-        log.info("[RAGseed] 타겟 전략 인출 요청: clientId={}, contractId={}, type={}", clientId, contractId, queryType);
+        log.info("타겟 전략 인출 요청: clientId={}, contractId={}, type={}", clientId, contractId, queryType);
 
         String scopeDesc = (contractId != null && !contractId.isBlank() && !"NONE".equals(contractId))
                 ? String.format("특정 계약(코드: %s) 관련 데이터", contractId)
@@ -120,24 +120,24 @@ public class RagSeedService {
 
         switch (normalizedQueryType.toUpperCase()) {
             case "RECAP":
-                hiddenPrompt = "[RAGseed: 지난 맥락 인출] 선택된 범위 내의 최근 노트를 분석하여 핵심 결정 사항을 요약하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 요약 내용\" }";
+                hiddenPrompt = "[지난 맥락 인출] 선택된 범위 내의 최근 노트를 분석하여 핵심 결정 사항을 요약하라.\n마크다운 형식으로 가독성 좋게 작성하라.";
                 searchQuery = "최근 미팅 결정 사항 및 업무 진행 현황";
                 break;
             case "RISK":
-                hiddenPrompt = "[RAGseed: 리스크 탐지] 선택된 범위 내 데이터 중 클레임, 병해충 피해, 불만 사항 등 리스크를 추출하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 탐지된 리스크 상세 내용\" }";
+                hiddenPrompt = "[리스크 탐지] 선택된 범위 내 데이터 중 클레임, 병해충 피해, 불만 사항 등 리스크를 추출하라.\n마크다운 형식으로 가독성 좋게 작성하라.";
                 searchQuery = "클레임 병해충 불만 경쟁사 리스크 문제";
                 break;
             case "MATCHING":
-                hiddenPrompt = "[RAGseed: 최적 종자 매칭] 분석 범위 내의 고객 선호도와 농가 환경을 바탕으로 최적 품종을 매칭하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 종자 추천 내용\" }";
+                hiddenPrompt = "[최적 종자 매칭] 분석 범위 내의 고객 선호도와 농가 환경을 바탕으로 최적 품종을 매칭하라.\n마크다운 형식으로 가독성 좋게 작성하라.";
                 searchQuery = "고객 선호 품종 및 재배 환경 특이사항";
                 maxResults = 8;
                 break;
             case "CHECKLIST":
-                hiddenPrompt = "[RAGseed: 미팅 체크리스트] 선택된 범위 내에서 언급된 약속 사항 및 다음 방문 To-Do를 추출하라.\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 체크리스트 내용\" }";
+                hiddenPrompt = "[미팅 체크리스트] 선택된 범위 내에서 언급된 약속 사항 및 다음 방문 To-Do를 추출하라.\n마크다운 형식으로 가독성 좋게 작성하라.";
                 searchQuery = "약속 사항 향후 일정 확인 필요 사항";
                 break;
             default:
-                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 인출하라: " + normalizedQueryType + "\n반드시 다음 JSON 구조로만 답변하세요: { \"content\": \"마크다운 형식의 사용자 질의에 대한 답변\" }";
+                hiddenPrompt = "사용자 질의에 대해 최적의 답변을 인출하라: " + normalizedQueryType + "\n마크다운 형식으로 가독성 좋게 작성하라.";
                 searchQuery = normalizedQueryType;
         }
 
@@ -162,7 +162,7 @@ public class RagSeedService {
         return RagSeedResponseDto.builder()
                 .content(aiResponse)
                 .evidenceIds(evidenceIds)
-                .attribution(String.format("Powered by RAGseed - %s 기반 분석", scopeDesc))
+                .attribution(String.format("%s 기반 분석", scopeDesc))
                 .build();
     }
 
@@ -179,7 +179,7 @@ public class RagSeedService {
                     try {
                         return Long.valueOf(idStr);
                     } catch (NumberFormatException e) {
-                        log.warn("[RAGseed] 유효하지 않은 ID 형식 무시됨: {}", idStr);
+                        log.warn("유효하지 않은 ID 형식 무시됨: {}", idStr);
                         return null;
                     }
                 })
