@@ -188,7 +188,7 @@ public class ClientDashboardService {
     private ClientNotificationResponse toNotificationResponse(Map<String, Object> row) {
         LocalDateTime createdAt = toLocalDateTime(row.get("created_at"));
         String content = (String) row.get("content");
-        String detail  = content != null && content.length() > 50
+        String detail = content != null && content.length() > 50
                 ? content.substring(0, 50) + "…"
                 : content;
 
@@ -197,7 +197,21 @@ public class ClientDashboardService {
                 .title((String) row.get("title"))
                 .detail(detail)
                 .isNew(row.get("read_at") == null)
+                .targetType(resolveDocType((String) row.get("target_type")))  // 추가
+                .targetCode((String) row.get("target_code"))                  // 추가
                 .build();
+    }
+
+    private String resolveDocType(String targetType) {
+        if (targetType == null) return null;
+        return switch (targetType) {
+            case "INVOICE"           -> "INV";
+            case "CONTRACT"          -> "CNT";
+            case "STATEMENT"         -> "STMT";
+            case "QUOTATION_REQUEST" -> "RFQ";
+            case "QUOTATION"         -> "QUO";
+            default                  -> null;
+        };
     }
 
     // ──────────────────────────────────────────────

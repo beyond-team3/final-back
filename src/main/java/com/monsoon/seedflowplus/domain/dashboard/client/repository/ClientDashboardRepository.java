@@ -114,15 +114,24 @@ public class ClientDashboardRepository {
 
     public List<Map<String, Object>> recentNotifications(Long userId) {
         String sql = """
-                SELECT n.title,
-                       n.content,
-                       n.created_at,
-                       n.read_at
-                FROM tbl_notification n
-                WHERE n.user_id = :userId
-                ORDER BY n.created_at DESC
-                LIMIT 10
-                """;
+            SELECT n.title,
+                   n.content,
+                   n.created_at,
+                   n.read_at,
+                   n.target_type,
+                   CASE n.target_type
+                       WHEN 'INVOICE'           THEN (SELECT i.invoice_code   FROM tbl_invoice i                    WHERE i.invoice_id   = n.target_id)
+                       WHEN 'CONTRACT'          THEN (SELECT c.contract_code  FROM tbl_contract_header c            WHERE c.cnt_id       = n.target_id)
+                       WHEN 'STATEMENT'         THEN (SELECT s.statement_code FROM tbl_statement s                  WHERE s.statement_id = n.target_id)
+                       WHEN 'QUOTATION'         THEN (SELECT q.quotation_code FROM tbl_quotation_header q           WHERE q.quo_id       = n.target_id)
+                       WHEN 'QUOTATION_REQUEST' THEN (SELECT r.request_code   FROM tbl_request_quotation_header r   WHERE r.rfq_id       = n.target_id)
+                       ELSE NULL
+                   END AS target_code
+            FROM tbl_notification n
+            WHERE n.user_id = :userId
+            ORDER BY n.created_at DESC
+            LIMIT 10
+            """;
         return jdbc.queryForList(sql,
                 new MapSqlParameterSource().addValue("userId", userId));
     }
