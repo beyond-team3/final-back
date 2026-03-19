@@ -76,7 +76,8 @@ public class ProductReadService {
                 return bookmarks.stream()
                                 .map(bookmark -> convertToDto(bookmark.getProduct(), canViewPrice,
                                                 ctMap.get(bookmark.getProduct().getId()),
-                                                tagMap.getOrDefault(bookmark.getProduct().getId(), Collections.emptyList())))
+                                                tagMap.getOrDefault(bookmark.getProduct().getId(),
+                                                                Collections.emptyList())))
                                 .toList();
         }
 
@@ -167,7 +168,9 @@ public class ProductReadService {
                                                                 .map(item -> convertToDto(item.getProduct(),
                                                                                 canViewPrice,
                                                                                 ctMap.get(item.getProduct().getId()),
-                                                                                tagMap.getOrDefault(item.getProduct().getId(), Collections.emptyList())))
+                                                                                tagMap.getOrDefault(item.getProduct()
+                                                                                                .getId(),
+                                                                                                Collections.emptyList())))
                                                                 .toList())
                                                 .build())
                                 .toList();
@@ -234,12 +237,11 @@ public class ProductReadService {
         // 프론트엔드 비교 페이지가 영문 단축키로 tags를 조회하므로 한글 categoryCode를 영문 키로 변환하여 응답
         // ※ TagService.VALID_CATEGORY_CODES와 반드시 동기화 유지
         private static final Map<String, String> CATEGORY_CODE_TO_KEY = Map.of(
-                "재배환경",   "env",
-                "내병성",     "res",
-                "생육및숙기", "growth",
-                "과실품질",   "quality",
-                "재배편의성", "conv"
-        );
+                        "재배환경", "env",
+                        "내병성", "res",
+                        "생육및숙기", "growth",
+                        "과실품질", "quality",
+                        "재배편의성", "conv");
 
         // 단건 조회용 (상품 상세페이지): 태그를 직접 조회
         private ProductResponse convertToDto(Product product, boolean canViewPrice, List<CultivationTime> ctList) {
@@ -256,28 +258,45 @@ public class ProductReadService {
         private ProductResponse convertToDto(Product product, boolean canViewPrice,
                         List<CultivationTime> ctList, List<ProductTag> productTags) {
 
-                Map<String, List<String>> tagMap = productTags.stream()
-                        .collect(Collectors.groupingBy(
-                                pt -> {
-                                        String code = pt.getTag().getCategoryCode();
-                                        if (code == null) return "unknown";
-                                        return CATEGORY_CODE_TO_KEY.getOrDefault(code, code.toLowerCase());
-                                },
-                                Collectors.mapping(pt -> pt.getTag().getTagName(), Collectors.toList())
-                        ));
+                Map<String, List<String>> tagMap = new java.util.HashMap<>();
+                for (ProductTag pt : productTags) {
+                        String code = pt.getTag().getCategoryCode();
+                        if (code == null)
+                                continue;
+                        String tagName = pt.getTag().getTagName();
+
+                        // 1. 원본 한글 키 유지 (상세페이지 하위호환성)
+                        tagMap.computeIfAbsent(code, k -> new java.util.ArrayList<>()).add(tagName);
+
+                        // 2. 영문 단축 키 추가 (비교페이지 대응)
+                        String mappedKey = CATEGORY_CODE_TO_KEY.get(code);
+                        if (mappedKey != null && !mappedKey.equals(code)) {
+                                tagMap.computeIfAbsent(mappedKey, k -> new java.util.ArrayList<>()).add(tagName);
+                        }
+                }
 
                 // 연관 테이블에 태그가 비어있다면, 기존 JSON 컬럼 참조(하위호환성 유지)
                 if (tagMap.isEmpty() && product.getTags() != null) {
-                    Map<String, List<String>> mappedTags = new java.util.HashMap<>();
-                    for (Map.Entry<String, List<String>> entry : product.getTags().entrySet()) {
-                        String key = entry.getKey();
-                        if (key == null) continue;
-                        String mappedKey = CATEGORY_CODE_TO_KEY.getOrDefault(
-                                key,
-                                key.toLowerCase());
-                        mappedTags.put(mappedKey, entry.getValue());
-                    }
-                    tagMap = mappedTags;
+                        for (Map.Entry<String, List<String>> entry : product.getTags().entrySet()) {
+                                String key = entry.getKey();
+                                if (key == null)
+                                        continue;
+                                List<String> values = entry.getValue();
+
+                                // 1. 원본 키 유지
+                                tagMap.computeIfAbsent(key, k -> new java.util.ArrayList<>()).addAll(values);
+
+                                // 2. 영문 단축 키 추가
+                                String mappedKey = CATEGORY_CODE_TO_KEY.get(key);
+                                if (mappedKey != null && !mappedKey.equals(key)) {
+                                        tagMap.computeIfAbsent(mappedKey, k -> new java.util.ArrayList<>())
+                                                        .addAll(values);
+                                } else if (mappedKey == null) {
+                                        // 명시적 매핑이 없는 경우만 소문자 키 추가 (기존 로직 유지)
+                                        tagMap.computeIfAbsent(key.toLowerCase(), k -> new java.util.ArrayList<>())
+                                                        .addAll(values);
+                                }
+                        }
                 }
 
                 ProductResponse.ProductResponseBuilder builder = ProductResponse.builder()
@@ -297,8 +316,7 @@ public class ProductReadService {
                                         ct.getPlantingStart(),
                                         ct.getPlantingEnd(),
                                         ct.getHarvestingStart(),
-                                        ct.getHarvestingEnd())
-                        ).collect(Collectors.toList()));
+                                        ct.getHarvestingEnd())).collect(Collectors.toList()));
                 }
 
                 if (canViewPrice) {
