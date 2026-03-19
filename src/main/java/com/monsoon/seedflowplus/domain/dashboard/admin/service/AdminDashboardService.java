@@ -221,7 +221,7 @@ public class AdminDashboardService {
         if (value == null) return "₩0";
         long v = value.longValue();
         if (v >= 100_000_000) return String.format("₩%.1f억", v / 100_000_000.0);
-        if (v >= 10_000)      return String.format("₩%.0f만", v / 10_000.0);
+        if (v >= 10_000) return String.format("₩%.1f만", v / 10_000.0);
         return "₩" + NumberFormat.getInstance(Locale.KOREA).format(v);
     }
 
