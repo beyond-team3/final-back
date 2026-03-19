@@ -204,13 +204,13 @@ public class NcpmsDataSyncService {
         if (name.contains("탄저병")) return "P03";
         if (name.contains("뿌리혹병")) return "P04";
         if (name.contains("역병")) return "P05";
-        if (name.contains("덩굴마름병")) return "P06";
+//        if (name.contains("덩굴마름병")) return "P06";
         if (name.contains("잎마름병")) return "P07";
         if (name.contains("균핵병")) return "P11";
-        if (name.contains("잿빛곰팡이병")) return "P12";
+//        if (name.contains("잿빛곰팡이병")) return "P12";
         if (name.contains("잎집썩음병")) return "P13";
         if (name.contains("바이러스")) return "P21";
-        if (name.contains("흰가루병")) return "P22";
+//        if (name.contains("흰가루병")) return "P22";
 //        if (name.contains("청고병") || name.contains("풋마름병")) return "P23";
         
         // 주요 해충
