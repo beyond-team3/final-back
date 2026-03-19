@@ -22,6 +22,8 @@ spec:
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
+    - name: trivy-cache
+      mountPath: /root/.cache/trivy
   - name: argocd-cli
     image: quay.io/argoproj/argocd:v2.10.1
     command: ['cat']
@@ -30,6 +32,10 @@ spec:
   - name: docker-sock
     hostPath:
       path: /var/run/docker.sock
+  - name: trivy-cache
+    hostPath:
+      path: /tmp/trivy-cache
+      type: DirectoryOrCreate
 """
         }
     }
@@ -248,6 +254,14 @@ ArgoCD 대시보드에서 `monsoon-backend` Rollout의 **[Promote]** 버튼을 �
                 reportName: 'HTML Test Report',
                 reportTitles: 'Gradle Test Result'
             ])
+
+            container('docker-cli') {
+                script {
+                    echo "Cleaning up Docker resources to free up disk space..."
+                    // 사용하지 않는 이미지, 멈춘 컨테이너, 빌드 캐시를 모두 삭제
+                    sh 'docker system prune -a -f --volumes || true'
+                }
+            }
         }
 
         failure {
