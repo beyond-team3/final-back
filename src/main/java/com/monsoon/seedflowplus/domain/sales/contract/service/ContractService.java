@@ -240,7 +240,13 @@ public class ContractService {
                     }
                     return true;
                 })
-                .map(ContractSimpleResponse::from)
+                .map(c -> new ContractSimpleResponse(
+                        c.getId(),
+                        c.getContractCode(),
+                        c.getStatus().name(),
+                        c.getStartDate(),
+                        c.getEndDate()
+                ))
                 .toList();
     }
 
@@ -258,7 +264,13 @@ public class ContractService {
 
         return contractRepository.findActiveContractsByClient(client, ContractStatus.ACTIVE_CONTRACT)
                 .stream()
-                .map(ContractSimpleResponse::from)
+                .map(c -> new ContractSimpleResponse(
+                        c.getId(),
+                        c.getContractCode(),
+                        c.getStatus().name(),
+                        c.getStartDate(),
+                        c.getEndDate()
+                ))
                 .toList();
     }
 
