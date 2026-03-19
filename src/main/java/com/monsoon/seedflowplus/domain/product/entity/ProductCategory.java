@@ -21,6 +21,9 @@ public enum ProductCategory {
     GREEN_ONION("파", "GO"),
     GARLIC("마늘", "GL"),
 
+    // 향신채/구근류
+    GARLIC("마늘", "GA"),
+
     // 식량작물 기타
     CORN("옥수수", "CN"),
     BEAN("콩", "BN");
