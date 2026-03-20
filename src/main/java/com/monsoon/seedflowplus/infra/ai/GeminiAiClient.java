@@ -17,6 +17,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,6 +28,8 @@ public class GeminiAiClient implements AiClient {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    private static final Pattern CODE_FENCE_PATTERN = Pattern.compile("^```[\\w-]*\\R?(.*?)\\R?```$", Pattern.DOTALL);
 
     @Value("${google.gemini.api.key}")
     private String apiKey;
@@ -171,10 +175,20 @@ public class GeminiAiClient implements AiClient {
         ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(uri, HttpMethod.POST, entity, GeminiApiResponse.class);
         String text = extractTextFromResponse(response.getBody()).orElseThrow();
         
-        if (text.startsWith("```")) {
-            text = text.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+        return stripCodeFences(text);
+    }
+
+    /**
+     * 코드 펜스(```markdown 등)를 제거하고 내부 텍스트만 추출합니다.
+     */
+    private String stripCodeFences(String text) {
+        if (text == null) return null;
+        String trimmed = text.trim();
+        Matcher matcher = CODE_FENCE_PATTERN.matcher(trimmed);
+        if (matcher.matches()) {
+            return matcher.group(1).trim();
         }
-        return text;
+        return trimmed;
     }
 
     private String buildAugmentedPrompt(String notes, String products, String scope) {
@@ -239,9 +253,7 @@ public class GeminiAiClient implements AiClient {
                     .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 요약 응답을 받지 못했습니다."));
             
             // [추가] 마크다운 기호(```json 등) 제거 로직
-            if (jsonText.startsWith("```")) {
-                jsonText = jsonText.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
-            }
+            jsonText = stripCodeFences(jsonText);
 
             if (log.isDebugEnabled()) {
                 log.debug("Gemini 요약 결과 정제 전: {}", jsonText);
