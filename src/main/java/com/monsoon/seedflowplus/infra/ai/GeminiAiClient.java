@@ -17,6 +17,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,6 +28,8 @@ public class GeminiAiClient implements AiClient {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    private static final Pattern CODE_FENCE_PATTERN = Pattern.compile("^```[\\w-]*\\R?(.*?)\\R?```$", Pattern.DOTALL);
 
     @Value("${google.gemini.api.key}")
     private String apiKey;
@@ -41,7 +45,8 @@ public class GeminiAiClient implements AiClient {
 
             String augmentedPrompt = buildAugmentedPrompt(notesText, productsText, scopeDescription);
 
-            Map<String, Object> requestBody = createRequestBody(augmentedPrompt, 0.1);
+            // 구조화된 분석을 위해 JSON 모드 유지
+            Map<String, Object> requestBody = createRequestBody(augmentedPrompt, 0.1, "application/json");
             String jsonText = callGemini(requestBody);
 
             GeminiResponse aiResult = objectMapper.readValue(jsonText, GeminiResponse.class);
@@ -86,22 +91,42 @@ public class GeminiAiClient implements AiClient {
                 - 신뢰감 있고 전문적인 B2B 영업 어조를 유지하세요.
                 - 인출된 데이터에 기반하여 구체적인 수치나 사례가 있다면 반드시 언급하세요.
                 - 데이터에 없는 내용은 추측하지 마세요.
+                - **중요: JSON 형식이 아닌, 마크다운(Markdown) 문서 형식으로 직접 답변하세요.**
                 """, scopeDescription, contextText, userPrompt, scopeDescription);
 
-            Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2);
+            // 자유 형식의 마크다운 응답을 위해 text/plain 모드 사용 (이중 파싱 방어의 핵심)
+            Map<String, Object> requestBody = createRequestBody(fullPrompt, 0.2, "text/plain");
             String rawResponse = callGemini(requestBody);
 
-            // JSON 모드 대응: 다양한 필드명을 유연하게 추출
-            try {
-                com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(rawResponse);
-                String[] potentialKeys = {"content", "retrieval_strategy_markdown", "response", "summary", "text"};
-                for (String key : potentialKeys) {
-                    if (root.has(key)) {
-                        return root.get(key).asText();
+            // 만약 AI가 설정을 무시하고 JSON을 반환했을 경우를 대비한 방어적 파싱 로직
+            if (rawResponse.trim().startsWith("{")) {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(rawResponse);
+                    StringBuilder combinedText = new StringBuilder();
+                    
+                    // 예상 가능한 다양한 키들을 순회하며 텍스트 추출
+                    String[] potentialKeys = {
+                        "content", "retrieval_strategy_markdown", "response", "summary", "text", 
+                        "analysis_statement", "strategy_retrieval", "result"
+                    };
+                    
+                    for (String key : potentialKeys) {
+                        if (root.has(key)) {
+                            com.fasterxml.jackson.databind.JsonNode node = root.get(key);
+                            if (node.isObject() || node.isArray()) {
+                                combinedText.append(node.toPrettyString()).append("\n\n");
+                            } else {
+                                combinedText.append(node.asText()).append("\n\n");
+                            }
+                        }
                     }
+                    
+                    if (combinedText.length() > 0) {
+                        return combinedText.toString().trim();
+                    }
+                } catch (Exception e) {
+                    log.debug("AI 응답이 JSON 형식이지만 파싱에 실패하여 원본을 반환합니다.");
                 }
-            } catch (Exception e) {
-                log.debug("AI 응답이 표준 JSON 형식이 아니거나 예상 필드가 없어 원본을 반환합니다: {}", rawResponse);
             }
 
             return rawResponse;
@@ -125,11 +150,18 @@ public class GeminiAiClient implements AiClient {
                 .collect(Collectors.joining("\n"));
     }
 
-    private Map<String, Object> createRequestBody(String prompt, double temp) {
+    private Map<String, Object> createRequestBody(String prompt, double temp, String responseMimeType) {
         return Map.of(
                 "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-                "generationConfig", Map.of("temperature", temp, "response_mime_type", "application/json")
+                "generationConfig", Map.of(
+                        "temperature", temp, 
+                        "response_mime_type", responseMimeType
+                )
         );
+    }
+
+    private Map<String, Object> createRequestBody(String prompt, double temp) {
+        return createRequestBody(prompt, temp, "application/json");
     }
 
     private String callGemini(Map<String, Object> requestBody) throws Exception {
@@ -143,10 +175,20 @@ public class GeminiAiClient implements AiClient {
         ResponseEntity<GeminiApiResponse> response = restTemplate.exchange(uri, HttpMethod.POST, entity, GeminiApiResponse.class);
         String text = extractTextFromResponse(response.getBody()).orElseThrow();
         
-        if (text.startsWith("```")) {
-            text = text.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
+        return stripCodeFences(text);
+    }
+
+    /**
+     * 코드 펜스(```markdown 등)를 제거하고 내부 텍스트만 추출합니다.
+     */
+    private String stripCodeFences(String text) {
+        if (text == null) return null;
+        String trimmed = text.trim();
+        Matcher matcher = CODE_FENCE_PATTERN.matcher(trimmed);
+        if (matcher.matches()) {
+            return matcher.group(1).trim();
         }
-        return text;
+        return trimmed;
     }
 
     private String buildAugmentedPrompt(String notes, String products, String scope) {
@@ -211,9 +253,7 @@ public class GeminiAiClient implements AiClient {
                     .orElseThrow(() -> new RuntimeException("Gemini API로부터 유효한 요약 응답을 받지 못했습니다."));
             
             // [추가] 마크다운 기호(```json 등) 제거 로직
-            if (jsonText.startsWith("```")) {
-                jsonText = jsonText.replaceAll("(?s)```(?:json)?\\n?(.*?)\\n?```", "$1").trim();
-            }
+            jsonText = stripCodeFences(jsonText);
 
             if (log.isDebugEnabled()) {
                 log.debug("Gemini 요약 결과 정제 전: {}", jsonText);
